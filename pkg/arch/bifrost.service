@@ -1,0 +1,22 @@
+[Unit]
+Description=Bifrost rune management server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bifrost
+Group=bifrost
+EnvironmentFile=/etc/bifrost/bifrost.env
+ExecStart=/usr/bin/bifrost-server
+Restart=on-failure
+RestartSec=5
+
+ProtectSystem=strict
+ProtectHome=yes
+NoNewPrivileges=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/bifrost
+
+[Install]
+WantedBy=multi-user.target
