@@ -1,0 +1,349 @@
+package domain
+
+import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+
+	"github.com/devzeebo/bifrost/core"
+)
+
+const runeStreamPrefix = "rune-"
+
+type RuneState struct {
+	ID          string
+	Title       string
+	Description string
+	Status      string
+	Claimant    string
+	ParentID    string
+	Priority    int
+	Exists      bool
+}
+
+func RebuildRuneState(events []core.Event) RuneState {
+	var state RuneState
+	for _, evt := range events {
+		switch evt.EventType {
+		case EventRuneCreated:
+			var data RuneCreated
+			_ = json.Unmarshal(evt.Data, &data)
+			state.Exists = true
+			state.ID = data.ID
+			state.Title = data.Title
+			state.Description = data.Description
+			state.Priority = data.Priority
+			state.ParentID = data.ParentID
+			state.Status = "open"
+		case EventRuneUpdated:
+			var data RuneUpdated
+			_ = json.Unmarshal(evt.Data, &data)
+			if data.Title != nil {
+				state.Title = *data.Title
+			}
+			if data.Description != nil {
+				state.Description = *data.Description
+			}
+			if data.Priority != nil {
+				state.Priority = *data.Priority
+			}
+		case EventRuneClaimed:
+			var data RuneClaimed
+			_ = json.Unmarshal(evt.Data, &data)
+			state.Status = "claimed"
+			state.Claimant = data.Claimant
+		case EventRuneFulfilled:
+			state.Status = "fulfilled"
+		case EventRuneSealed:
+			state.Status = "sealed"
+		}
+	}
+	return state
+}
+
+func runeStreamID(runeID string) string {
+	return runeStreamPrefix + runeID
+}
+
+func generateRuneID() (string, error) {
+	b := make([]byte, 2)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("generate rune ID: %w", err)
+	}
+	return "bf-" + hex.EncodeToString(b), nil
+}
+
+func readAndRebuild(ctx context.Context, realmID string, runeID string, store core.EventStore) (RuneState, []core.Event, error) {
+	streamID := runeStreamID(runeID)
+	events, err := store.ReadStream(ctx, realmID, streamID, 0)
+	if err != nil {
+		return RuneState{}, nil, err
+	}
+	state := RebuildRuneState(events)
+	return state, events, nil
+}
+
+func HandleCreateRune(ctx context.Context, realmID string, cmd CreateRune, store core.EventStore, projStore core.ProjectionStore) (RuneCreated, error) {
+	var runeID string
+
+	if cmd.ParentID != "" {
+		parentState, _, err := readAndRebuild(ctx, realmID, cmd.ParentID, store)
+		if err != nil {
+			return RuneCreated{}, err
+		}
+		if !parentState.Exists {
+			return RuneCreated{}, &core.NotFoundError{Entity: "rune", ID: cmd.ParentID}
+		}
+		if parentState.Status == "sealed" {
+			return RuneCreated{}, fmt.Errorf("cannot create child of sealed rune %q", cmd.ParentID)
+		}
+
+		var childCount int
+		err = projStore.Get(ctx, realmID, "RuneChildCount", cmd.ParentID, &childCount)
+		if err != nil {
+			if !isNotFoundError(err) {
+				return RuneCreated{}, err
+			}
+			childCount = 0
+		}
+		runeID = fmt.Sprintf("%s.%d", cmd.ParentID, childCount+1)
+	} else {
+		var err error
+		runeID, err = generateRuneID()
+		if err != nil {
+			return RuneCreated{}, err
+		}
+	}
+
+	created := RuneCreated{
+		ID:          runeID,
+		Title:       cmd.Title,
+		Description: cmd.Description,
+		Priority:    cmd.Priority,
+		ParentID:    cmd.ParentID,
+	}
+
+	streamID := runeStreamID(runeID)
+	_, err := store.Append(ctx, realmID, streamID, 0, []core.EventData{
+		{EventType: EventRuneCreated, Data: created},
+	})
+	if err != nil {
+		return RuneCreated{}, err
+	}
+
+	return created, nil
+}
+
+func HandleUpdateRune(ctx context.Context, realmID string, cmd UpdateRune, store core.EventStore) error {
+	state, events, err := readAndRebuild(ctx, realmID, cmd.ID, store)
+	if err != nil {
+		return err
+	}
+	if !state.Exists {
+		return &core.NotFoundError{Entity: "rune", ID: cmd.ID}
+	}
+	if state.Status == "sealed" {
+		return fmt.Errorf("cannot update sealed rune %q", cmd.ID)
+	}
+
+	updated := RuneUpdated(cmd)
+
+	streamID := runeStreamID(cmd.ID)
+	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
+		{EventType: EventRuneUpdated, Data: updated},
+	})
+	return err
+}
+
+func HandleClaimRune(ctx context.Context, realmID string, cmd ClaimRune, store core.EventStore) error {
+	state, events, err := readAndRebuild(ctx, realmID, cmd.ID, store)
+	if err != nil {
+		return err
+	}
+	if !state.Exists {
+		return &core.NotFoundError{Entity: "rune", ID: cmd.ID}
+	}
+	if state.Status == "sealed" {
+		return fmt.Errorf("cannot claim sealed rune %q", cmd.ID)
+	}
+	if state.Status == "claimed" {
+		return fmt.Errorf("rune %q is already claimed by %q", cmd.ID, state.Claimant)
+	}
+	if state.Status == "fulfilled" {
+		return fmt.Errorf("cannot claim fulfilled rune %q", cmd.ID)
+	}
+
+	claimed := RuneClaimed(cmd)
+
+	streamID := runeStreamID(cmd.ID)
+	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
+		{EventType: EventRuneClaimed, Data: claimed},
+	})
+	return err
+}
+
+func HandleFulfillRune(ctx context.Context, realmID string, cmd FulfillRune, store core.EventStore) error {
+	state, events, err := readAndRebuild(ctx, realmID, cmd.ID, store)
+	if err != nil {
+		return err
+	}
+	if !state.Exists {
+		return &core.NotFoundError{Entity: "rune", ID: cmd.ID}
+	}
+	if state.Status == "sealed" {
+		return fmt.Errorf("cannot fulfill sealed rune %q", cmd.ID)
+	}
+	if state.Status == "fulfilled" {
+		return fmt.Errorf("rune %q is already fulfilled", cmd.ID)
+	}
+	if state.Status != "claimed" {
+		return fmt.Errorf("cannot fulfill rune %q: not claimed", cmd.ID)
+	}
+
+	fulfilled := RuneFulfilled(cmd)
+
+	streamID := runeStreamID(cmd.ID)
+	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
+		{EventType: EventRuneFulfilled, Data: fulfilled},
+	})
+	return err
+}
+
+func HandleSealRune(ctx context.Context, realmID string, cmd SealRune, store core.EventStore) error {
+	state, events, err := readAndRebuild(ctx, realmID, cmd.ID, store)
+	if err != nil {
+		return err
+	}
+	if !state.Exists {
+		return &core.NotFoundError{Entity: "rune", ID: cmd.ID}
+	}
+	if state.Status == "sealed" {
+		return fmt.Errorf("rune %q is already sealed", cmd.ID)
+	}
+
+	sealed := RuneSealed(cmd)
+
+	streamID := runeStreamID(cmd.ID)
+	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
+		{EventType: EventRuneSealed, Data: sealed},
+	})
+	return err
+}
+
+func HandleAddDependency(ctx context.Context, realmID string, cmd AddDependency, store core.EventStore, projStore core.ProjectionStore) error {
+	if !isKnownRelationship(cmd.Relationship) {
+		return fmt.Errorf("unknown relationship type %q", cmd.Relationship)
+	}
+
+	sourceState, sourceEvents, err := readAndRebuild(ctx, realmID, cmd.RuneID, store)
+	if err != nil {
+		return err
+	}
+	if !sourceState.Exists {
+		return &core.NotFoundError{Entity: "rune", ID: cmd.RuneID}
+	}
+
+	targetState, targetEvents, err := readAndRebuild(ctx, realmID, cmd.TargetID, store)
+	if err != nil {
+		return err
+	}
+	if !targetState.Exists {
+		return &core.NotFoundError{Entity: "rune", ID: cmd.TargetID}
+	}
+
+	if cmd.Relationship == RelBlocks {
+		var hasCycle bool
+		cycleKey := "cycle:" + cmd.RuneID + ":" + cmd.TargetID
+		err := projStore.Get(ctx, realmID, "dependency_graph", cycleKey, &hasCycle)
+		if err == nil && hasCycle {
+			return fmt.Errorf("adding blocks dependency from %q to %q would create a cycle", cmd.RuneID, cmd.TargetID)
+		}
+	}
+
+	if cmd.Relationship == RelSupersedes {
+		sealed := RuneSealed{
+			ID:     cmd.TargetID,
+			Reason: fmt.Sprintf("superseded by %s", cmd.RuneID),
+		}
+		targetStreamID := runeStreamID(cmd.TargetID)
+		_, err := store.Append(ctx, realmID, targetStreamID, len(targetEvents), []core.EventData{
+			{EventType: EventRuneSealed, Data: sealed},
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	depAdded := DependencyAdded(cmd)
+
+	sourceStreamID := runeStreamID(cmd.RuneID)
+	_, err = store.Append(ctx, realmID, sourceStreamID, len(sourceEvents), []core.EventData{
+		{EventType: EventDependencyAdded, Data: depAdded},
+	})
+	return err
+}
+
+func HandleRemoveDependency(ctx context.Context, realmID string, cmd RemoveDependency, store core.EventStore, projStore core.ProjectionStore) error {
+	state, events, err := readAndRebuild(ctx, realmID, cmd.RuneID, store)
+	if err != nil {
+		return err
+	}
+	if !state.Exists {
+		return &core.NotFoundError{Entity: "rune", ID: cmd.RuneID}
+	}
+
+	depKey := "dep:" + cmd.RuneID + ":" + cmd.TargetID + ":" + cmd.Relationship
+	var exists bool
+	err = projStore.Get(ctx, realmID, "dependency_graph", depKey, &exists)
+	if err != nil {
+		if isNotFoundError(err) {
+			return &core.NotFoundError{Entity: "dependency", ID: cmd.RuneID}
+		}
+		return err
+	}
+	if !exists {
+		return &core.NotFoundError{Entity: "dependency", ID: cmd.RuneID}
+	}
+
+	depRemoved := DependencyRemoved(cmd)
+
+	streamID := runeStreamID(cmd.RuneID)
+	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
+		{EventType: EventDependencyRemoved, Data: depRemoved},
+	})
+	return err
+}
+
+func HandleAddNote(ctx context.Context, realmID string, cmd AddNote, store core.EventStore) error {
+	state, events, err := readAndRebuild(ctx, realmID, cmd.RuneID, store)
+	if err != nil {
+		return err
+	}
+	if !state.Exists {
+		return &core.NotFoundError{Entity: "rune", ID: cmd.RuneID}
+	}
+
+	noted := RuneNoted(cmd)
+
+	streamID := runeStreamID(cmd.RuneID)
+	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
+		{EventType: EventRuneNoted, Data: noted},
+	})
+	return err
+}
+
+func isKnownRelationship(rel string) bool {
+	switch rel {
+	case RelBlocks, RelRelatesTo, RelDuplicates, RelSupersedes, RelRepliesTo:
+		return true
+	}
+	return false
+}
+
+func isNotFoundError(err error) bool {
+	var nfe *core.NotFoundError
+	return errors.As(err, &nfe)
+}

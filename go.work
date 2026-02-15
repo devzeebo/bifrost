@@ -1,0 +1,10 @@
+go 1.25.7
+
+use (
+	./cli
+	./core
+	./domain
+	./domain/integration
+	./providers/sqlite
+	./server
+)

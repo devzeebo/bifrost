@@ -1,0 +1,24 @@
+version: "2"
+
+linters:
+  settings:
+    errcheck:
+      exclude-functions:
+        # Idiomatic defer close/rollback patterns
+        - (*database/sql.DB).Close
+        - (*database/sql.Rows).Close
+        - (*database/sql.Tx).Rollback
+        - (*net/http.Response).Body.Close
+        - (io.Closer).Close
+        - (*os.File).Close
+        - (net.Listener).Close
+        - (net.Conn).Close
+        - os.RemoveAll
+        # CLI output — errors writing to stdout are not actionable
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - (*text/tabwriter.Writer).Flush
+        # Cobra/Viper configuration helpers
+        - (*github.com/spf13/pflag.FlagSet).MarkHidden
+        - (*github.com/spf13/viper.Viper).BindEnv

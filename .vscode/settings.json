@@ -1,0 +1,8 @@
+{
+  "go.goflags": ["-work"],
+  "gopls": {
+    "build.env": {
+      "GOWORK": "${workspaceFolder}/go.work"
+    }
+  }
+}
