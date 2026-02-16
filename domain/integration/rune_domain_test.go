@@ -225,7 +225,7 @@ func TestSealRune_AlreadySealed(t *testing.T) {
 }
 
 func TestAddDependency_Blocks(t *testing.T) {
-	t.Run("adds blocks dependency, emits DependencyAdded event", func(t *testing.T) {
+	t.Run("adds blocks dependency, emits DependencyAdded event and reflects in rune_detail", func(t *testing.T) {
 		tc := newIntegrationTestContext(t)
 
 		// Given
@@ -238,6 +238,14 @@ func TestAddDependency_Blocks(t *testing.T) {
 		// Then
 		tc.no_error()
 		tc.rune_stream_has_event_type(tc.runeIDs[0], domain.EventDependencyAdded)
+
+		// When: project all events
+		tc.project_all_events()
+
+		// Then: source rune_detail has forward dependency
+		tc.rune_detail_has_dependency(tc.runeIDs[0], tc.runeIDs[1], domain.RelBlocks)
+		// Then: target rune_detail has inverse dependency
+		tc.rune_detail_has_dependency(tc.runeIDs[1], tc.runeIDs[0], domain.RelBlockedBy)
 	})
 }
 
@@ -313,6 +321,63 @@ func TestRemoveDependency(t *testing.T) {
 		// Then
 		tc.no_error()
 		tc.rune_stream_has_event_type(tc.runeIDs[0], domain.EventDependencyRemoved)
+	})
+}
+
+func TestAddDependency_InverseInput(t *testing.T) {
+	t.Run("normalizes inverse input and reflects correctly in rune_detail", func(t *testing.T) {
+		tc := newIntegrationTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.two_existing_runes("Task A", "Task B")
+		tc.project_all_events()
+
+		// When: add dependency with inverse relationship (A blocked_by B)
+		// This normalizes to: B blocks A
+		tc.add_dependency(tc.runeIDs[0], tc.runeIDs[1], domain.RelBlockedBy)
+
+		// Then
+		tc.no_error()
+
+		// When: project all events
+		tc.project_all_events()
+
+		// Then: rune B's detail has forward entry {target_id: A, relationship: blocks}
+		tc.rune_detail_has_dependency(tc.runeIDs[1], tc.runeIDs[0], domain.RelBlocks)
+		// Then: rune A's detail has inverse entry {target_id: B, relationship: blocked_by}
+		tc.rune_detail_has_dependency(tc.runeIDs[0], tc.runeIDs[1], domain.RelBlockedBy)
+	})
+}
+
+func TestRemoveDependency_InverseCleanup(t *testing.T) {
+	t.Run("removes blocks dependency and cleans up both rune_detail projections", func(t *testing.T) {
+		tc := newIntegrationTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.two_existing_runes("Task A", "Task B")
+		tc.add_dependency(tc.runeIDs[0], tc.runeIDs[1], domain.RelBlocks)
+		tc.no_error()
+		tc.project_all_events()
+		tc.seed_handler_dep_lookup(tc.runeIDs[0], tc.runeIDs[1], domain.RelBlocks)
+
+		// Verify deps exist before removal
+		tc.rune_detail_has_dependency(tc.runeIDs[0], tc.runeIDs[1], domain.RelBlocks)
+		tc.rune_detail_has_dependency(tc.runeIDs[1], tc.runeIDs[0], domain.RelBlockedBy)
+
+		// When: remove the dependency
+		tc.remove_dependency(tc.runeIDs[0], tc.runeIDs[1], domain.RelBlocks)
+
+		// Then
+		tc.no_error()
+
+		// When: project all events
+		tc.project_all_events()
+
+		// Then: both runes' rune_detail projections have empty dependencies
+		tc.rune_detail_has_no_dependencies(tc.runeIDs[0])
+		tc.rune_detail_has_no_dependencies(tc.runeIDs[1])
 	})
 }
 
@@ -448,10 +513,14 @@ func TestDependencyGraphProjector_FullLifecycle(t *testing.T) {
 		tc.no_error()
 		tc.project_all_events()
 
-		// Then: source has dependency, target has dependent
+		// Then: source has dependency, target has dependent (forward only)
 		tc.graph_source_has_dependency(tc.runeIDs[0], tc.runeIDs[1], domain.RelBlocks)
 		tc.graph_target_has_dependent(tc.runeIDs[1], tc.runeIDs[0], domain.RelBlocks)
 		tc.graph_dep_lookup_exists(tc.runeIDs[0], tc.runeIDs[1], domain.RelBlocks)
+
+		// Then: graph does NOT contain blocked_by entries
+		tc.graph_has_no_inverse_relationships(tc.runeIDs[0])
+		tc.graph_has_no_inverse_relationships(tc.runeIDs[1])
 
 		tc.seed_handler_dep_lookup(tc.runeIDs[0], tc.runeIDs[1], domain.RelBlocks)
 
@@ -1013,6 +1082,46 @@ func (tc *integrationTestContext) rune_has_no_blockers(runeID string) {
 			tc.t.Errorf("expected rune %s to have no blockers, but found blocker from %s", runeID, dep.SourceID)
 			return
 		}
+	}
+}
+
+func (tc *integrationTestContext) rune_detail_has_dependency(runeID, targetID, relationship string) {
+	tc.t.Helper()
+	var detail projectors.RuneDetail
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_detail", runeID, &detail)
+	require.NoError(tc.t, err, "expected rune_detail entry for %s", runeID)
+	found := false
+	for _, dep := range detail.Dependencies {
+		if dep.TargetID == targetID && dep.Relationship == relationship {
+			found = true
+			break
+		}
+	}
+	assert.True(tc.t, found, "expected rune_detail for %s to have dependency {target_id: %s, relationship: %s}", runeID, targetID, relationship)
+}
+
+func (tc *integrationTestContext) rune_detail_has_no_dependencies(runeID string) {
+	tc.t.Helper()
+	var detail projectors.RuneDetail
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_detail", runeID, &detail)
+	require.NoError(tc.t, err, "expected rune_detail entry for %s", runeID)
+	assert.Empty(tc.t, detail.Dependencies, "expected rune_detail for %s to have no dependencies", runeID)
+}
+
+func (tc *integrationTestContext) graph_has_no_inverse_relationships(runeID string) {
+	tc.t.Helper()
+	var entry projectors.GraphEntry
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "dependency_graph", runeID, &entry)
+	if err != nil {
+		return
+	}
+	for _, dep := range entry.Dependencies {
+		assert.False(tc.t, domain.IsInverseRelationship(dep.Relationship),
+			"expected graph entry for %s to have no inverse dependency relationships, but found %s", runeID, dep.Relationship)
+	}
+	for _, dep := range entry.Dependents {
+		assert.False(tc.t, domain.IsInverseRelationship(dep.Relationship),
+			"expected graph entry for %s to have no inverse dependent relationships, but found %s", runeID, dep.Relationship)
 	}
 }
 
