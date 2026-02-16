@@ -34,12 +34,12 @@ The server listens on port **8080** by default.
 # If using Docker:
 docker exec -it <container> bf admin create-realm my-project
 docker exec -it <container> bf admin create-account myuser
-docker exec -it <container> bf admin grant myuser --realm <realm-id>
+docker exec -it <container> bf admin grant myuser <realm-id>
 
 # If running locally:
 ./bin/bf admin create-realm my-project
 ./bin/bf admin create-account myuser
-./bin/bf admin grant myuser --realm <realm-id>
+./bin/bf admin grant myuser <realm-id>
 ```
 
 ### 3. Authenticate
@@ -65,6 +65,19 @@ bf claim <rune-id>
 bf fulfill <rune-id>
 bf seal <rune-id>
 ```
+
+## Roles
+
+Bifrost uses per-realm role-based access control (RBAC). Each account is assigned one role per realm:
+
+| Role       | Level | Can do                                           |
+|------------|-------|--------------------------------------------------|
+| `owner`    | 4     | Everything, including managing owners             |
+| `admin`    | 3     | Assign/revoke roles, plus all member actions      |
+| `member`   | 2     | Create and manage runes                           |
+| `viewer`   | 1     | Read-only access                                  |
+
+`bf admin grant` assigns the `member` role by default. Use `bf admin assign-role` for a specific role. See **[Developing Bifrost](docs/DEVELOPMENT.md#roles--rbac)** for full details.
 
 ## Glossary
 

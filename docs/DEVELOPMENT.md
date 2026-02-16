@@ -141,15 +141,36 @@ bf admin list-realms
 # Create an account
 bf admin create-account myuser
 
-# Grant realm access to an account
-bf admin grant myuser --realm <realm-id>
+# Grant realm access to an account (assigns "member" role)
+bf admin grant <username> <realm-id>
+
+# Revoke realm access from an account
+bf admin revoke <username> <realm-id>
 
 # Create an additional PAT for an account
 bf admin create-pat myuser
 
+# Assign a specific role
+bf admin assign-role myuser <realm-id> admin
+
+# Revoke a role
+bf admin revoke-role myuser <realm-id>
+
 # Suspend an account
 bf admin suspend-account myuser
 ```
+
+### Role Management Commands (Direct DB)
+
+```bash
+# Assign a specific role to an account for a realm
+bf admin assign-role <username> <realm-id> <role>
+
+# Revoke a role from an account for a realm
+bf admin revoke-role <username> <realm-id>
+```
+
+Valid roles: `owner`, `admin`, `member`, `viewer` (see [Roles & RBAC](#roles--rbac)).
 
 ### Authentication Commands
 
@@ -160,6 +181,42 @@ bf login --url http://localhost:8080 --token <pat>
 # Log out
 bf logout
 ```
+
+## Roles & RBAC
+
+Bifrost uses role-based access control (RBAC) to govern what authenticated users can do within a realm. Each account is assigned a role per realm.
+
+### Role Hierarchy
+
+| Role       | Level | Description                                      |
+|------------|-------|--------------------------------------------------|
+| `owner`    | 4     | Full control, including assigning/revoking owner  |
+| `admin`    | 3     | Manage roles, all member permissions              |
+| `member`   | 2     | Create and manage runes                           |
+| `viewer`   | 1     | Read-only access to runes                         |
+
+Higher levels inherit all permissions of lower levels.
+
+### Route-Level Enforcement
+
+The server enforces minimum role requirements per route:
+
+| Minimum Role | Endpoints                                                                                                  |
+|--------------|------------------------------------------------------------------------------------------------------------|
+| **viewer**   | `GET /runes`, `GET /rune`                                                                                  |
+| **member**   | `POST /create-rune`, `/update-rune`, `/claim-rune`, `/fulfill-rune`, `/seal-rune`, `/add-dependency`, `/remove-dependency`, `/add-note` |
+| **admin**    | `POST /assign-role`, `POST /revoke-role`                                                                   |
+
+Admin endpoints (`POST /create-realm`, `GET /realms`) require a grant for the `_admin` realm rather than a role level.
+
+### Owner-Only Restrictions
+
+- Only an `owner` can assign the `owner` role to another account.
+- Only an `owner` can revoke the `owner` role from another account.
+
+### Legacy Compatibility
+
+Accounts granted access via the legacy `RealmGranted` event (before RBAC) are treated as having the `member` role for that realm.
 
 ## API Reference
 
@@ -177,6 +234,13 @@ All endpoints return JSON. Errors use `{"error": "message"}`.
 | `/add-dependency`     | `rune_id`, `target_id`, `relationship`                   | `204`             |
 | `/remove-dependency`  | `rune_id`, `target_id`, `relationship`                   | `204`             |
 | `/add-note`           | `rune_id`, `text`                                        | `204`             |
+
+### Role Management (POST) — Realm Auth (admin minimum)
+
+| Endpoint              | Body Fields                                              | Response          |
+|-----------------------|----------------------------------------------------------|-------------------|
+| `/assign-role`        | `account_id`, `realm_id`, `role`                         | `204`             |
+| `/revoke-role`        | `account_id`, `realm_id`                                 | `204`             |
 
 ### Queries (GET) — Realm Auth
 
