@@ -181,6 +181,78 @@ func TestDependencyGraphProjector(t *testing.T) {
 		// Then
 		tc.no_error()
 	})
+
+	t.Run("skips inverse event in handleAdded", func(t *testing.T) {
+		tc := newDepGraphTestContext(t)
+
+		// Given
+		tc.a_dependency_graph_projector()
+		tc.a_projection_store()
+		tc.an_inverse_dependency_added_event("bf-a1b2", "bf-c3d4", "blocked_by")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.no_entry_exists("bf-a1b2")
+		tc.no_entry_exists("bf-c3d4")
+	})
+
+	t.Run("skips inverse relates_to event in handleAdded", func(t *testing.T) {
+		tc := newDepGraphTestContext(t)
+
+		// Given
+		tc.a_dependency_graph_projector()
+		tc.a_projection_store()
+		tc.an_inverse_dependency_added_event("bf-a1b2", "bf-c3d4", "relates_to")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.no_entry_exists("bf-a1b2")
+		tc.no_entry_exists("bf-c3d4")
+	})
+
+	t.Run("skips inverse event in handleRemoved", func(t *testing.T) {
+		tc := newDepGraphTestContext(t)
+
+		// Given
+		tc.a_dependency_graph_projector()
+		tc.a_projection_store()
+		tc.existing_graph_entry_with_dependency("bf-a1b2", "bf-c3d4", "blocks")
+		tc.existing_graph_entry_with_dependent("bf-c3d4", "bf-a1b2", "blocks")
+		tc.an_inverse_dependency_removed_event("bf-a1b2", "bf-c3d4", "blocked_by")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.source_has_dependency_count("bf-a1b2", 1)
+		tc.target_has_dependent_count("bf-c3d4", 1)
+	})
+
+	t.Run("processes forward relates_to event normally", func(t *testing.T) {
+		tc := newDepGraphTestContext(t)
+
+		// Given
+		tc.a_dependency_graph_projector()
+		tc.a_projection_store()
+		tc.a_dependency_added_event("bf-a1b2", "bf-c3d4", "relates_to")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.source_entry_exists("bf-a1b2")
+		tc.source_has_dependency("bf-a1b2", "bf-c3d4", "relates_to")
+		tc.target_entry_exists("bf-c3d4")
+		tc.target_has_dependent("bf-c3d4", "bf-a1b2", "relates_to")
+	})
 }
 
 // --- Test Context ---
@@ -237,6 +309,20 @@ func (tc *depGraphTestContext) a_dependency_removed_event(runeID, targetID, rela
 func (tc *depGraphTestContext) an_unknown_event() {
 	tc.t.Helper()
 	tc.event = core.Event{EventType: "UnknownEvent", Data: []byte(`{}`)}
+}
+
+func (tc *depGraphTestContext) an_inverse_dependency_added_event(runeID, targetID, relationship string) {
+	tc.t.Helper()
+	tc.event = makeEvent(domain.EventDependencyAdded, domain.DependencyAdded{
+		RuneID: runeID, TargetID: targetID, Relationship: relationship, IsInverse: true,
+	})
+}
+
+func (tc *depGraphTestContext) an_inverse_dependency_removed_event(runeID, targetID, relationship string) {
+	tc.t.Helper()
+	tc.event = makeEvent(domain.EventDependencyRemoved, domain.DependencyRemoved{
+		RuneID: runeID, TargetID: targetID, Relationship: relationship, IsInverse: true,
+	})
 }
 
 func (tc *depGraphTestContext) existing_graph_entry_with_dependency(runeID, targetID, relationship string) {
@@ -365,6 +451,13 @@ func (tc *depGraphTestContext) dep_lookup_exists(runeID, targetID, relationship 
 	err := tc.store.Get(tc.ctx, tc.realmID, "dependency_graph", key, &exists)
 	assert.NoError(tc.t, err, "expected dep lookup key to exist")
 	assert.True(tc.t, exists)
+}
+
+func (tc *depGraphTestContext) no_entry_exists(runeID string) {
+	tc.t.Helper()
+	var entry GraphEntry
+	err := tc.store.Get(tc.ctx, tc.realmID, "dependency_graph", runeID, &entry)
+	assert.Error(tc.t, err, "expected no graph entry for %s", runeID)
 }
 
 func (tc *depGraphTestContext) dep_lookup_does_not_exist(runeID, targetID, relationship string) {

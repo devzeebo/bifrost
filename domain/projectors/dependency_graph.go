@@ -66,6 +66,10 @@ func (p *DependencyGraphProjector) handleAdded(ctx context.Context, event core.E
 		return err
 	}
 
+	if data.IsInverse {
+		return nil
+	}
+
 	// Update source entry: append dependency
 	sourceEntry, err := p.getOrCreateEntry(ctx, event.RealmID, data.RuneID, store)
 	if err != nil {
@@ -101,6 +105,10 @@ func (p *DependencyGraphProjector) handleRemoved(ctx context.Context, event core
 	var data domain.DependencyRemoved
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
+	}
+
+	if data.IsInverse {
+		return nil
 	}
 
 	// Update source entry: remove dependency
