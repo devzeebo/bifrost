@@ -79,6 +79,21 @@ func TestReadyCommand(t *testing.T) {
 		tc.output_json_items_only_have_fields("id", "title", "status", "priority")
 	})
 
+	t.Run("JSON output is sorted by priority ascending", func(t *testing.T) {
+		tc := newReadyTestContext(t)
+
+		// Given
+		tc.server_that_returns_json(`[{"id":"bf-3","title":"Low","status":"open","priority":2},{"id":"bf-1","title":"High","status":"open","priority":0},{"id":"bf-2","title":"Med","status":"open","priority":1}]`)
+		tc.client_configured()
+
+		// When
+		tc.execute_ready()
+
+		// Then
+		tc.command_has_no_error()
+		tc.output_json_priorities_are_ascending()
+	})
+
 	t.Run("returns error when server responds with error", func(t *testing.T) {
 		tc := newReadyTestContext(t)
 
@@ -209,6 +224,18 @@ func (tc *readyTestContext) request_query_param_was(key, expected string) {
 func (tc *readyTestContext) output_contains(substr string) {
 	tc.t.Helper()
 	assert.Contains(tc.t, tc.buf.String(), substr)
+}
+
+func (tc *readyTestContext) output_json_priorities_are_ascending() {
+	tc.t.Helper()
+	var items []map[string]any
+	require.NoError(tc.t, json.Unmarshal(tc.buf.Bytes(), &items))
+	require.GreaterOrEqual(tc.t, len(items), 2, "need at least 2 items to verify sort order")
+	for i := 1; i < len(items); i++ {
+		prev, _ := items[i-1]["priority"].(float64)
+		curr, _ := items[i]["priority"].(float64)
+		assert.LessOrEqual(tc.t, prev, curr, "item[%d] priority %v should be <= item[%d] priority %v", i-1, prev, i, curr)
+	}
 }
 
 func (tc *readyTestContext) output_json_items_only_have_fields(fields ...string) {
