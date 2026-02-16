@@ -59,12 +59,21 @@ This creates a `.bifrost.yaml` and `AGENTS.md` in your repo.
 ### 5. Start using runes
 
 ```bash
-bf create "Fix login bug" -p 2 -d "Users can't log in"
+bf create "Fix login bug" -p 2 -d "Users can't log in" -b feature/fix-login
 bf list
 bf claim <rune-id>
 bf fulfill <rune-id>
 bf seal <rune-id>
 ```
+
+### Branch tracking
+
+Runes can be associated with a Git branch:
+
+- **`-b, --branch <name>`** — associate a branch with the rune
+- **`--no-branch`** — explicitly create a rune without a branch
+
+Top-level runes require either `--branch` or `--no-branch`. Child runes (created with `--parent`) inherit the parent's branch by default.
 
 ## Roles
 

@@ -10,6 +10,8 @@ This project uses **Bifrost** for rune (issue) management in realm **{{.RealmNam
 
 ` + "```" + `bash
 bf create <title>     # Create a new rune
+  -b, --branch <name> # Associate a branch with the rune
+  --no-branch          # Create rune without a branch
 bf list               # List runes
 bf show <id>          # View rune details
 bf claim <id>         # Claim a rune

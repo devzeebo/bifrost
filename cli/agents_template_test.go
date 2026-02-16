@@ -117,6 +117,21 @@ func TestAgentsTemplate(t *testing.T) {
 		tc.output_contains("bf login --token")
 	})
 
+	t.Run("contains branch flags in create command documentation", func(t *testing.T) {
+		tc := newAgentsTemplateTestContext(t)
+
+		// Given
+		tc.template_data("testrealm", "https://example.com")
+
+		// When
+		tc.template_is_rendered()
+
+		// Then
+		tc.output_contains("--branch")
+		tc.output_contains("-b")
+		tc.output_contains("--no-branch")
+	})
+
 	t.Run("contains glossary", func(t *testing.T) {
 		tc := newAgentsTemplateTestContext(t)
 
