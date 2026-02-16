@@ -290,6 +290,42 @@ func TestSealRuneHandler(t *testing.T) {
 	})
 }
 
+// --- Tests: ForgeRune ---
+
+func TestForgeRuneHandler(t *testing.T) {
+	t.Run("forges rune and returns 204", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.rune_exists_as_draft_in_event_store("realm-1", "bf-0001")
+
+		// When
+		tc.post("/forge-rune", domain.ForgeRune{
+			ID: "bf-0001",
+		})
+
+		// Then
+		tc.status_is(http.StatusNoContent)
+	})
+
+	t.Run("returns 400 for invalid JSON body", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+
+		// When
+		tc.post_raw("/forge-rune", []byte(`{invalid`))
+
+		// Then
+		tc.status_is(http.StatusBadRequest)
+		tc.response_body_has_error_field()
+	})
+}
+
 // --- Tests: AddDependency ---
 
 func TestAddDependencyHandler(t *testing.T) {
@@ -988,6 +1024,7 @@ func TestRegisterRoutes(t *testing.T) {
 		tc.route_exists("POST", "/update-rune")
 		tc.route_exists("POST", "/claim-rune")
 		tc.route_exists("POST", "/fulfill-rune")
+		tc.route_exists("POST", "/forge-rune")
 		tc.route_exists("POST", "/seal-rune")
 		tc.route_exists("POST", "/add-dependency")
 		tc.route_exists("POST", "/remove-dependency")
@@ -1081,6 +1118,43 @@ func TestRoleBasedRouting(t *testing.T) {
 		tc.status_is(http.StatusForbidden)
 	})
 
+	t.Run("viewer cannot POST /forge-rune", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.request_has_role("viewer")
+		tc.routes_are_registered()
+
+		// When
+		tc.post_to_mux("/forge-rune", domain.ForgeRune{
+			ID: "bf-0001",
+		})
+
+		// Then
+		tc.status_is(http.StatusForbidden)
+	})
+
+	t.Run("member can POST /forge-rune", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.request_has_role("member")
+		tc.rune_exists_as_draft_in_event_store("realm-1", "bf-0001")
+		tc.routes_are_registered()
+
+		// When
+		tc.post_to_mux("/forge-rune", domain.ForgeRune{
+			ID: "bf-0001",
+		})
+
+		// Then
+		tc.status_is(http.StatusNoContent)
+	})
+
 	t.Run("admin can POST /assign-role", func(t *testing.T) {
 		tc := newHandlerTestContext(t)
 
@@ -1165,6 +1239,18 @@ func (tc *handlerTestContext) event_store_appends_successfully() {
 }
 
 func (tc *handlerTestContext) rune_exists_in_event_store(realmID, runeID string) {
+	tc.t.Helper()
+	created := domain.RuneCreated{
+		ID:       runeID,
+		Title:    "Test Rune",
+		Priority: 1,
+	}
+	tc.eventStore.appendToStream(realmID, "rune-"+runeID, domain.EventRuneCreated, created)
+	forged := domain.RuneForged{ID: runeID}
+	tc.eventStore.appendToStream(realmID, "rune-"+runeID, domain.EventRuneForged, forged)
+}
+
+func (tc *handlerTestContext) rune_exists_as_draft_in_event_store(realmID, runeID string) {
 	tc.t.Helper()
 	created := domain.RuneCreated{
 		ID:       runeID,

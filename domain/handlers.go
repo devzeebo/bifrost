@@ -204,6 +204,45 @@ func HandleClaimRune(ctx context.Context, realmID string, cmd ClaimRune, store c
 	return err
 }
 
+func HandleForgeRune(ctx context.Context, realmID string, cmd ForgeRune, store core.EventStore, projStore core.ProjectionStore) error {
+	state, events, err := readAndRebuild(ctx, realmID, cmd.ID, store)
+	if err != nil {
+		return err
+	}
+	if !state.Exists {
+		return &core.NotFoundError{Entity: "rune", ID: cmd.ID}
+	}
+	if state.Status != "draft" {
+		return nil
+	}
+
+	forged := RuneForged{ID: cmd.ID}
+	streamID := runeStreamID(cmd.ID)
+	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
+		{EventType: EventRuneForged, Data: forged},
+	})
+	if err != nil {
+		return err
+	}
+
+	var childCount int
+	err = projStore.Get(ctx, realmID, "RuneChildCount", cmd.ID, &childCount)
+	if err != nil {
+		if !isNotFoundError(err) {
+			return err
+		}
+		childCount = 0
+	}
+	for i := 1; i <= childCount; i++ {
+		childID := fmt.Sprintf("%s.%d", cmd.ID, i)
+		if err := HandleForgeRune(ctx, realmID, ForgeRune{ID: childID}, store, projStore); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func HandleFulfillRune(ctx context.Context, realmID string, cmd FulfillRune, store core.EventStore) error {
 	state, events, err := readAndRebuild(ctx, realmID, cmd.ID, store)
 	if err != nil {
