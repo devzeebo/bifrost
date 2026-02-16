@@ -69,7 +69,7 @@ func TestShowCommand(t *testing.T) {
 		tc := newShowTestContext(t)
 
 		// Given
-		tc.server_that_returns_json(`{"id":"bf-abc","title":"My Rune","status":"open","priority":1,"branch":"feature/foo"}`)
+		tc.server_that_returns_json(`{"id":"bf-abc","title":"My Rune","status":"open","priority":1,"branch":"feature-x"}`)
 		tc.client_configured()
 
 		// When
@@ -78,7 +78,7 @@ func TestShowCommand(t *testing.T) {
 		// Then
 		tc.command_has_no_error()
 		tc.output_contains("Branch:")
-		tc.output_contains("feature/foo")
+		tc.output_contains("feature-x")
 	})
 
 	t.Run("omits branch in human output when empty", func(t *testing.T) {
@@ -93,7 +93,7 @@ func TestShowCommand(t *testing.T) {
 
 		// Then
 		tc.command_has_no_error()
-		tc.output_does_not_contain("Branch:")
+		tc.output_not_contains("Branch:")
 	})
 
 	t.Run("returns error when server responds with not found", func(t *testing.T) {
@@ -228,7 +228,7 @@ func (tc *showTestContext) output_contains(substr string) {
 	assert.Contains(tc.t, tc.buf.String(), substr)
 }
 
-func (tc *showTestContext) output_does_not_contain(substr string) {
+func (tc *showTestContext) output_not_contains(substr string) {
 	tc.t.Helper()
 	assert.NotContains(tc.t, tc.buf.String(), substr)
 }
