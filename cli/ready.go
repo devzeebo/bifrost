@@ -23,8 +23,14 @@ func NewReadyCmd(clientFn func() *Client, out *bytes.Buffer) *ReadyCmd {
 		Short: "List ready runes (unblocked and unclaimed)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			humanMode, _ := cmd.Flags().GetBool("human")
+			showSagas, _ := cmd.Flags().GetBool("sagas")
 
-			resp, err := clientFn().DoGet("/runes", map[string]string{"status": "open", "blocked": "false"})
+			params := map[string]string{"status": "open", "blocked": "false"}
+			if !showSagas {
+				params["is_saga"] = "false"
+			}
+
+			resp, err := clientFn().DoGet("/runes", params)
 			if err != nil {
 				return err
 			}
@@ -98,6 +104,7 @@ func NewReadyCmd(clientFn func() *Client, out *bytes.Buffer) *ReadyCmd {
 	}
 
 	cmd.Flags().Bool("human", false, "human-readable table output")
+	cmd.Flags().Bool("sagas", false, "include sagas in output")
 
 	c.Command = cmd
 	return c

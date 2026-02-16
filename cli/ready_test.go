@@ -30,6 +30,24 @@ func TestReadyCommand(t *testing.T) {
 		tc.request_path_was("/runes")
 		tc.request_query_param_was("status", "open")
 		tc.request_query_param_was("blocked", "false")
+		tc.request_query_param_was("is_saga", "false")
+	})
+
+	t.Run("does not send is_saga param when --sagas flag is set", func(t *testing.T) {
+		tc := newReadyTestContext(t)
+
+		// Given
+		tc.server_that_captures_request_and_returns_runes()
+		tc.client_configured()
+
+		// When
+		tc.execute_ready_with_sagas()
+
+		// Then
+		tc.command_has_no_error()
+		tc.request_query_param_absent("is_saga")
+		tc.request_query_param_was("status", "open")
+		tc.request_query_param_was("blocked", "false")
 	})
 
 	t.Run("outputs JSON response by default", func(t *testing.T) {
@@ -188,6 +206,13 @@ func (tc *readyTestContext) execute_ready() {
 	tc.err = cmd.Command.Execute()
 }
 
+func (tc *readyTestContext) execute_ready_with_sagas() {
+	tc.t.Helper()
+	cmd := NewReadyCmd(func() *Client { return tc.client }, tc.buf)
+	cmd.Command.SetArgs([]string{"--sagas"})
+	tc.err = cmd.Command.Execute()
+}
+
 func (tc *readyTestContext) execute_ready_with_human() {
 	tc.t.Helper()
 	cmd := NewReadyCmd(func() *Client { return tc.client }, tc.buf)
@@ -220,6 +245,12 @@ func (tc *readyTestContext) request_path_was(expected string) {
 func (tc *readyTestContext) request_query_param_was(key, expected string) {
 	tc.t.Helper()
 	assert.Equal(tc.t, expected, tc.receivedQuery[key])
+}
+
+func (tc *readyTestContext) request_query_param_absent(key string) {
+	tc.t.Helper()
+	_, exists := tc.receivedQuery[key]
+	assert.False(tc.t, exists, "expected query param %q to be absent, but it was present", key)
 }
 
 func (tc *readyTestContext) output_contains(substr string) {
