@@ -39,7 +39,7 @@ func RebuildRuneState(events []core.Event) RuneState {
 			state.Priority = data.Priority
 			state.ParentID = data.ParentID
 			state.Branch = data.Branch
-			state.Status = "open"
+			state.Status = "draft"
 		case EventRuneUpdated:
 			var data RuneUpdated
 			_ = json.Unmarshal(evt.Data, &data)
@@ -62,6 +62,8 @@ func RebuildRuneState(events []core.Event) RuneState {
 			state.Claimant = data.Claimant
 		case EventRuneFulfilled:
 			state.Status = "fulfilled"
+		case EventRuneForged:
+			state.Status = "open"
 		case EventRuneSealed:
 			state.Status = "sealed"
 		}
@@ -184,6 +186,9 @@ func HandleClaimRune(ctx context.Context, realmID string, cmd ClaimRune, store c
 	}
 	if !state.Exists {
 		return &core.NotFoundError{Entity: "rune", ID: cmd.ID}
+	}
+	if state.Status == "draft" {
+		return fmt.Errorf("cannot claim draft rune %q", cmd.ID)
 	}
 	if state.Status == "sealed" {
 		return fmt.Errorf("cannot claim sealed rune %q", cmd.ID)

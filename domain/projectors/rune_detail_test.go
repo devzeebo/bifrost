@@ -44,7 +44,7 @@ func TestRuneDetailProjector(t *testing.T) {
 		tc.detail_was_stored("bf-a1b2")
 		tc.stored_detail_has_title("Fix the bridge")
 		tc.stored_detail_has_description("Needs repair")
-		tc.stored_detail_has_status("open")
+		tc.stored_detail_has_status("draft")
 		tc.stored_detail_has_priority(1)
 		tc.stored_detail_has_empty_dependencies()
 		tc.stored_detail_has_empty_notes()

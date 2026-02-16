@@ -54,6 +54,8 @@ func (p *RuneDetailProjector) Handle(ctx context.Context, event core.Event, stor
 		return p.handleClaimed(ctx, event, store)
 	case domain.EventRuneFulfilled:
 		return p.handleFulfilled(ctx, event, store)
+	case domain.EventRuneForged:
+		return p.handleForged(ctx, event, store)
 	case domain.EventRuneSealed:
 		return p.handleSealed(ctx, event, store)
 	case domain.EventDependencyAdded:
@@ -75,7 +77,7 @@ func (p *RuneDetailProjector) handleCreated(ctx context.Context, event core.Even
 		ID:           data.ID,
 		Title:        data.Title,
 		Description:  data.Description,
-		Status:       "open",
+		Status:       "draft",
 		Priority:     data.Priority,
 		ParentID:     data.ParentID,
 		Branch:       data.Branch,
@@ -84,6 +86,20 @@ func (p *RuneDetailProjector) handleCreated(ctx context.Context, event core.Even
 		CreatedAt:    event.Timestamp,
 		UpdatedAt:    event.Timestamp,
 	}
+	return store.Put(ctx, event.RealmID, "rune_detail", data.ID, detail)
+}
+
+func (p *RuneDetailProjector) handleForged(ctx context.Context, event core.Event, store core.ProjectionStore) error {
+	var data domain.RuneForged
+	if err := json.Unmarshal(event.Data, &data); err != nil {
+		return err
+	}
+	var detail RuneDetail
+	if err := store.Get(ctx, event.RealmID, "rune_detail", data.ID, &detail); err != nil {
+		return err
+	}
+	detail.Status = "open"
+	detail.UpdatedAt = event.Timestamp
 	return store.Put(ctx, event.RealmID, "rune_detail", data.ID, detail)
 }
 

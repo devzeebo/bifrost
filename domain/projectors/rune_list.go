@@ -42,6 +42,8 @@ func (p *RuneListProjector) Handle(ctx context.Context, event core.Event, store 
 		return p.handleClaimed(ctx, event, store)
 	case domain.EventRuneFulfilled:
 		return p.handleFulfilled(ctx, event, store)
+	case domain.EventRuneForged:
+		return p.handleForged(ctx, event, store)
 	case domain.EventRuneSealed:
 		return p.handleSealed(ctx, event, store)
 	}
@@ -56,13 +58,27 @@ func (p *RuneListProjector) handleCreated(ctx context.Context, event core.Event,
 	summary := RuneSummary{
 		ID:        data.ID,
 		Title:     data.Title,
-		Status:    "open",
+		Status:    "draft",
 		Priority:  data.Priority,
 		ParentID:  data.ParentID,
 		Branch:    data.Branch,
 		CreatedAt: event.Timestamp,
 		UpdatedAt: event.Timestamp,
 	}
+	return store.Put(ctx, event.RealmID, "rune_list", data.ID, summary)
+}
+
+func (p *RuneListProjector) handleForged(ctx context.Context, event core.Event, store core.ProjectionStore) error {
+	var data domain.RuneForged
+	if err := json.Unmarshal(event.Data, &data); err != nil {
+		return err
+	}
+	var summary RuneSummary
+	if err := store.Get(ctx, event.RealmID, "rune_list", data.ID, &summary); err != nil {
+		return err
+	}
+	summary.Status = "open"
+	summary.UpdatedAt = event.Timestamp
 	return store.Put(ctx, event.RealmID, "rune_list", data.ID, summary)
 }
 
