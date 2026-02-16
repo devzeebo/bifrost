@@ -17,6 +17,11 @@ const (
 	RelDuplicates = "duplicates"
 	RelSupersedes = "supersedes"
 	RelRepliesTo  = "replies_to"
+
+	RelBlockedBy    = "blocked_by"
+	RelDuplicatedBy = "duplicated_by"
+	RelSupersededBy = "superseded_by"
+	RelRepliedToBy  = "replied_to_by"
 )
 
 type RuneCreated struct {
@@ -52,12 +57,48 @@ type DependencyAdded struct {
 	RuneID       string `json:"rune_id"`
 	TargetID     string `json:"target_id"`
 	Relationship string `json:"relationship"`
+	IsInverse    bool   `json:"is_inverse,omitempty"`
 }
 
 type DependencyRemoved struct {
 	RuneID       string `json:"rune_id"`
 	TargetID     string `json:"target_id"`
 	Relationship string `json:"relationship"`
+	IsInverse    bool   `json:"is_inverse,omitempty"`
+}
+
+func ReflectRelationship(rel string) string {
+	switch rel {
+	case RelBlocks:
+		return RelBlockedBy
+	case RelBlockedBy:
+		return RelBlocks
+	case RelDuplicates:
+		return RelDuplicatedBy
+	case RelDuplicatedBy:
+		return RelDuplicates
+	case RelSupersedes:
+		return RelSupersededBy
+	case RelSupersededBy:
+		return RelSupersedes
+	case RelRepliesTo:
+		return RelRepliedToBy
+	case RelRepliedToBy:
+		return RelRepliesTo
+	case RelRelatesTo:
+		return RelRelatesTo
+	default:
+		return ""
+	}
+}
+
+func IsInverseRelationship(rel string) bool {
+	switch rel {
+	case RelBlockedBy, RelDuplicatedBy, RelSupersededBy, RelRepliedToBy:
+		return true
+	default:
+		return false
+	}
 }
 
 type RuneNoted struct {

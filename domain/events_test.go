@@ -159,6 +159,32 @@ func TestDependencyAdded(t *testing.T) {
 		// Then
 		tc.dependency_added_fields_match()
 	})
+
+	t.Run("serializes and deserializes with IsInverse true", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.dependency_added_event_with_is_inverse()
+
+		// When
+		tc.marshal_and_unmarshal_dependency_added()
+
+		// Then
+		tc.dependency_added_fields_match()
+	})
+
+	t.Run("omits is_inverse when false", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.dependency_added_event()
+
+		// When
+		tc.marshal_dependency_added()
+
+		// Then
+		tc.json_omits_key("is_inverse")
+	})
 }
 
 func TestDependencyRemoved(t *testing.T) {
@@ -173,6 +199,85 @@ func TestDependencyRemoved(t *testing.T) {
 
 		// Then
 		tc.dependency_removed_fields_match()
+	})
+
+	t.Run("serializes and deserializes with IsInverse true", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.dependency_removed_event_with_is_inverse()
+
+		// When
+		tc.marshal_and_unmarshal_dependency_removed()
+
+		// Then
+		tc.dependency_removed_fields_match()
+	})
+
+	t.Run("omits is_inverse when false", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.dependency_removed_event()
+
+		// When
+		tc.marshal_dependency_removed()
+
+		// Then
+		tc.json_omits_key("is_inverse")
+	})
+}
+
+func TestReflectRelationship(t *testing.T) {
+	t.Run("maps all forward relationships to their inverse", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Then
+		tc.reflect_maps_forward_to_inverse()
+	})
+
+	t.Run("maps all inverse relationships back to forward", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Then
+		tc.reflect_maps_inverse_to_forward()
+	})
+
+	t.Run("maps relates_to to itself", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Then
+		tc.reflect_maps_relates_to_to_itself()
+	})
+
+	t.Run("returns empty string for unknown relationship", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Then
+		tc.reflect_returns_empty_for_unknown()
+	})
+}
+
+func TestIsInverseRelationship(t *testing.T) {
+	t.Run("returns true for all inverse relationship types", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Then
+		tc.is_inverse_true_for_inverse_types()
+	})
+
+	t.Run("returns false for all forward relationship types", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Then
+		tc.is_inverse_false_for_forward_types()
+	})
+
+	t.Run("returns false for unknown relationship", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Then
+		tc.is_inverse_false_for_unknown()
 	})
 }
 
@@ -304,12 +409,32 @@ func (tc *testContext) dependency_added_event() {
 	}
 }
 
+func (tc *testContext) dependency_added_event_with_is_inverse() {
+	tc.t.Helper()
+	tc.dependencyAdded = DependencyAdded{
+		RuneID:       "rune-2",
+		TargetID:     "rune-1",
+		Relationship: RelBlockedBy,
+		IsInverse:    true,
+	}
+}
+
 func (tc *testContext) dependency_removed_event() {
 	tc.t.Helper()
 	tc.dependencyRemoved = DependencyRemoved{
 		RuneID:       "rune-1",
 		TargetID:     "rune-2",
 		Relationship: RelBlocks,
+	}
+}
+
+func (tc *testContext) dependency_removed_event_with_is_inverse() {
+	tc.t.Helper()
+	tc.dependencyRemoved = DependencyRemoved{
+		RuneID:       "rune-2",
+		TargetID:     "rune-1",
+		Relationship: RelBlockedBy,
+		IsInverse:    true,
 	}
 }
 
@@ -384,12 +509,30 @@ func (tc *testContext) marshal_and_unmarshal_rune_sealed() {
 	require.NoError(tc.t, json.Unmarshal(tc.jsonBytes, &tc.roundTrippedSealed))
 }
 
+func (tc *testContext) marshal_dependency_added() {
+	tc.t.Helper()
+	var err error
+	tc.jsonBytes, err = json.Marshal(tc.dependencyAdded)
+	require.NoError(tc.t, err)
+	tc.jsonMap = make(map[string]any)
+	require.NoError(tc.t, json.Unmarshal(tc.jsonBytes, &tc.jsonMap))
+}
+
 func (tc *testContext) marshal_and_unmarshal_dependency_added() {
 	tc.t.Helper()
 	var err error
 	tc.jsonBytes, err = json.Marshal(tc.dependencyAdded)
 	require.NoError(tc.t, err)
 	require.NoError(tc.t, json.Unmarshal(tc.jsonBytes, &tc.roundTrippedDepAdded))
+}
+
+func (tc *testContext) marshal_dependency_removed() {
+	tc.t.Helper()
+	var err error
+	tc.jsonBytes, err = json.Marshal(tc.dependencyRemoved)
+	require.NoError(tc.t, err)
+	tc.jsonMap = make(map[string]any)
+	require.NoError(tc.t, json.Unmarshal(tc.jsonBytes, &tc.jsonMap))
 }
 
 func (tc *testContext) marshal_and_unmarshal_dependency_removed() {
@@ -429,6 +572,10 @@ func (tc *testContext) relationship_constants_are_correct() {
 	assert.Equal(tc.t, "duplicates", RelDuplicates)
 	assert.Equal(tc.t, "supersedes", RelSupersedes)
 	assert.Equal(tc.t, "replies_to", RelRepliesTo)
+	assert.Equal(tc.t, "blocked_by", RelBlockedBy)
+	assert.Equal(tc.t, "duplicated_by", RelDuplicatedBy)
+	assert.Equal(tc.t, "superseded_by", RelSupersededBy)
+	assert.Equal(tc.t, "replied_to_by", RelRepliedToBy)
 }
 
 func (tc *testContext) rune_created_fields_match() {
@@ -488,4 +635,52 @@ func (tc *testContext) json_omits_key(key string) {
 	tc.t.Helper()
 	_, exists := tc.jsonMap[key]
 	assert.False(tc.t, exists, "expected JSON to omit key %q", key)
+}
+
+func (tc *testContext) reflect_maps_forward_to_inverse() {
+	tc.t.Helper()
+	assert.Equal(tc.t, RelBlockedBy, ReflectRelationship(RelBlocks))
+	assert.Equal(tc.t, RelDuplicatedBy, ReflectRelationship(RelDuplicates))
+	assert.Equal(tc.t, RelSupersededBy, ReflectRelationship(RelSupersedes))
+	assert.Equal(tc.t, RelRepliedToBy, ReflectRelationship(RelRepliesTo))
+}
+
+func (tc *testContext) reflect_maps_inverse_to_forward() {
+	tc.t.Helper()
+	assert.Equal(tc.t, RelBlocks, ReflectRelationship(RelBlockedBy))
+	assert.Equal(tc.t, RelDuplicates, ReflectRelationship(RelDuplicatedBy))
+	assert.Equal(tc.t, RelSupersedes, ReflectRelationship(RelSupersededBy))
+	assert.Equal(tc.t, RelRepliesTo, ReflectRelationship(RelRepliedToBy))
+}
+
+func (tc *testContext) reflect_maps_relates_to_to_itself() {
+	tc.t.Helper()
+	assert.Equal(tc.t, RelRelatesTo, ReflectRelationship(RelRelatesTo))
+}
+
+func (tc *testContext) reflect_returns_empty_for_unknown() {
+	tc.t.Helper()
+	assert.Equal(tc.t, "", ReflectRelationship("unknown"))
+}
+
+func (tc *testContext) is_inverse_true_for_inverse_types() {
+	tc.t.Helper()
+	assert.True(tc.t, IsInverseRelationship(RelBlockedBy))
+	assert.True(tc.t, IsInverseRelationship(RelDuplicatedBy))
+	assert.True(tc.t, IsInverseRelationship(RelSupersededBy))
+	assert.True(tc.t, IsInverseRelationship(RelRepliedToBy))
+}
+
+func (tc *testContext) is_inverse_false_for_forward_types() {
+	tc.t.Helper()
+	assert.False(tc.t, IsInverseRelationship(RelBlocks))
+	assert.False(tc.t, IsInverseRelationship(RelRelatesTo))
+	assert.False(tc.t, IsInverseRelationship(RelDuplicates))
+	assert.False(tc.t, IsInverseRelationship(RelSupersedes))
+	assert.False(tc.t, IsInverseRelationship(RelRepliesTo))
+}
+
+func (tc *testContext) is_inverse_false_for_unknown() {
+	tc.t.Helper()
+	assert.False(tc.t, IsInverseRelationship("unknown"))
 }

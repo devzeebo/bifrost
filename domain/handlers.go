@@ -277,7 +277,11 @@ func HandleAddDependency(ctx context.Context, realmID string, cmd AddDependency,
 		}
 	}
 
-	depAdded := DependencyAdded(cmd)
+	depAdded := DependencyAdded{
+		RuneID:       cmd.RuneID,
+		TargetID:     cmd.TargetID,
+		Relationship: cmd.Relationship,
+	}
 
 	sourceStreamID := runeStreamID(cmd.RuneID)
 	_, err = store.Append(ctx, realmID, sourceStreamID, len(sourceEvents), []core.EventData{
@@ -308,7 +312,11 @@ func HandleRemoveDependency(ctx context.Context, realmID string, cmd RemoveDepen
 		return &core.NotFoundError{Entity: "dependency", ID: cmd.RuneID}
 	}
 
-	depRemoved := DependencyRemoved(cmd)
+	depRemoved := DependencyRemoved{
+		RuneID:       cmd.RuneID,
+		TargetID:     cmd.TargetID,
+		Relationship: cmd.Relationship,
+	}
 
 	streamID := runeStreamID(cmd.RuneID)
 	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
