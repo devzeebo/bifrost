@@ -112,6 +112,37 @@ func TestPATRevokedEvent(t *testing.T) {
 	})
 }
 
+func TestRoleAssignedEvent(t *testing.T) {
+	t.Run("serializes and deserializes with all fields", func(t *testing.T) {
+		tc := newAcctEvtTestContext(t)
+
+		// Given
+		tc.role_assigned_event()
+
+		// When
+		tc.marshal_and_unmarshal_role_assigned()
+
+		// Then
+		tc.role_assigned_fields_match()
+		tc.role_assigned_json_has_expected_keys()
+	})
+}
+
+func TestRoleRevokedEvent(t *testing.T) {
+	t.Run("serializes and deserializes with all fields", func(t *testing.T) {
+		tc := newAcctEvtTestContext(t)
+
+		// Given
+		tc.role_revoked_event()
+
+		// When
+		tc.marshal_and_unmarshal_role_revoked()
+
+		// Then
+		tc.role_revoked_fields_match()
+	})
+}
+
 // --- Test Context ---
 
 type acctEvtTestContext struct {
@@ -123,6 +154,8 @@ type acctEvtTestContext struct {
 	realmRevoked     RealmRevoked
 	patCreated       PATCreated
 	patRevoked       PATRevoked
+	roleAssigned     RoleAssigned
+	roleRevoked      RoleRevoked
 
 	jsonBytes []byte
 	jsonMap   map[string]any
@@ -133,6 +166,8 @@ type acctEvtTestContext struct {
 	roundTrippedRealmRevoked     RealmRevoked
 	roundTrippedPATCreated       PATCreated
 	roundTrippedPATRevoked       PATRevoked
+	roundTrippedRoleAssigned     RoleAssigned
+	roundTrippedRoleRevoked      RoleRevoked
 }
 
 func newAcctEvtTestContext(t *testing.T) *acctEvtTestContext {
@@ -258,6 +293,8 @@ func (tc *acctEvtTestContext) account_event_type_constants_are_correct() {
 	assert.Equal(tc.t, "RealmRevoked", EventRealmRevoked)
 	assert.Equal(tc.t, "PATCreated", EventPATCreated)
 	assert.Equal(tc.t, "PATRevoked", EventPATRevoked)
+	assert.Equal(tc.t, "RoleAssigned", EventRoleAssigned)
+	assert.Equal(tc.t, "RoleRevoked", EventRoleRevoked)
 }
 
 func (tc *acctEvtTestContext) account_created_fields_match() {
@@ -310,4 +347,60 @@ func (tc *acctEvtTestContext) pat_created_json_has_expected_keys() {
 func (tc *acctEvtTestContext) pat_revoked_fields_match() {
 	tc.t.Helper()
 	assert.Equal(tc.t, tc.patRevoked, tc.roundTrippedPATRevoked)
+}
+
+// --- RoleAssigned Given/When/Then ---
+
+func (tc *acctEvtTestContext) role_assigned_event() {
+	tc.t.Helper()
+	tc.roleAssigned = RoleAssigned{
+		AccountID: "acct-a1b2",
+		RealmID:   "bf-r1",
+		Role:      "admin",
+	}
+}
+
+func (tc *acctEvtTestContext) marshal_and_unmarshal_role_assigned() {
+	tc.t.Helper()
+	var err error
+	tc.jsonBytes, err = json.Marshal(tc.roleAssigned)
+	require.NoError(tc.t, err)
+	tc.jsonMap = make(map[string]any)
+	require.NoError(tc.t, json.Unmarshal(tc.jsonBytes, &tc.jsonMap))
+	require.NoError(tc.t, json.Unmarshal(tc.jsonBytes, &tc.roundTrippedRoleAssigned))
+}
+
+func (tc *acctEvtTestContext) role_assigned_fields_match() {
+	tc.t.Helper()
+	assert.Equal(tc.t, tc.roleAssigned, tc.roundTrippedRoleAssigned)
+}
+
+func (tc *acctEvtTestContext) role_assigned_json_has_expected_keys() {
+	tc.t.Helper()
+	assert.Contains(tc.t, tc.jsonMap, "account_id")
+	assert.Contains(tc.t, tc.jsonMap, "realm_id")
+	assert.Contains(tc.t, tc.jsonMap, "role")
+}
+
+// --- RoleRevoked Given/When/Then ---
+
+func (tc *acctEvtTestContext) role_revoked_event() {
+	tc.t.Helper()
+	tc.roleRevoked = RoleRevoked{
+		AccountID: "acct-a1b2",
+		RealmID:   "bf-r1",
+	}
+}
+
+func (tc *acctEvtTestContext) marshal_and_unmarshal_role_revoked() {
+	tc.t.Helper()
+	var err error
+	tc.jsonBytes, err = json.Marshal(tc.roleRevoked)
+	require.NoError(tc.t, err)
+	require.NoError(tc.t, json.Unmarshal(tc.jsonBytes, &tc.roundTrippedRoleRevoked))
+}
+
+func (tc *acctEvtTestContext) role_revoked_fields_match() {
+	tc.t.Helper()
+	assert.Equal(tc.t, tc.roleRevoked, tc.roundTrippedRoleRevoked)
 }

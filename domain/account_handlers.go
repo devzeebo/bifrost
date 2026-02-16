@@ -23,7 +23,7 @@ type AccountState struct {
 	Username  string
 	Status    string
 	Exists    bool
-	Realms    map[string]bool
+	Realms    map[string]string
 	PATs      map[string]PATState
 }
 
@@ -36,7 +36,7 @@ type PATState struct {
 
 func RebuildAccountState(events []core.Event) AccountState {
 	var state AccountState
-	state.Realms = make(map[string]bool)
+	state.Realms = make(map[string]string)
 	state.PATs = make(map[string]PATState)
 
 	for _, evt := range events {
@@ -53,9 +53,17 @@ func RebuildAccountState(events []core.Event) AccountState {
 		case EventRealmGranted:
 			var data RealmGranted
 			_ = json.Unmarshal(evt.Data, &data)
-			state.Realms[data.RealmID] = true
+			state.Realms[data.RealmID] = RoleMember
 		case EventRealmRevoked:
 			var data RealmRevoked
+			_ = json.Unmarshal(evt.Data, &data)
+			delete(state.Realms, data.RealmID)
+		case EventRoleAssigned:
+			var data RoleAssigned
+			_ = json.Unmarshal(evt.Data, &data)
+			state.Realms[data.RealmID] = data.Role
+		case EventRoleRevoked:
+			var data RoleRevoked
 			_ = json.Unmarshal(evt.Data, &data)
 			delete(state.Realms, data.RealmID)
 		case EventPATCreated:
@@ -214,7 +222,7 @@ func HandleGrantRealm(ctx context.Context, cmd GrantRealm, store core.EventStore
 	}
 
 	// Idempotent: if already granted, return nil
-	if state.Realms[cmd.RealmID] {
+	if _, ok := state.Realms[cmd.RealmID]; ok {
 		return nil
 	}
 
@@ -236,7 +244,7 @@ func HandleRevokeRealm(ctx context.Context, cmd RevokeRealm, store core.EventSto
 		return err
 	}
 
-	if !state.Realms[cmd.RealmID] {
+	if _, ok := state.Realms[cmd.RealmID]; !ok {
 		return fmt.Errorf("realm %q is not granted to account %q", cmd.RealmID, cmd.AccountID)
 	}
 

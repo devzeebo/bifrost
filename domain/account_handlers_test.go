@@ -58,7 +58,7 @@ func TestRebuildAccountState(t *testing.T) {
 		tc.account_state_has_status("suspended")
 	})
 
-	t.Run("applies RealmGranted", func(t *testing.T) {
+	t.Run("applies RealmGranted as member role", func(t *testing.T) {
 		tc := newAccountHandlerTestContext(t)
 
 		// Given
@@ -69,6 +69,7 @@ func TestRebuildAccountState(t *testing.T) {
 
 		// Then
 		tc.account_state_has_realm("bf-a1b2")
+		tc.account_state_has_realm_with_role("bf-a1b2", RoleMember)
 	})
 
 	t.Run("applies RealmRevoked", func(t *testing.T) {
@@ -109,6 +110,47 @@ func TestRebuildAccountState(t *testing.T) {
 
 		// Then
 		tc.account_state_pat_is_revoked("pat-c3d4")
+	})
+
+	t.Run("applies RoleAssigned", func(t *testing.T) {
+		tc := newAccountHandlerTestContext(t)
+
+		// Given
+		tc.events_from_created_account_with_role_assigned()
+
+		// When
+		tc.account_state_is_rebuilt()
+
+		// Then
+		tc.account_state_has_realm("bf-a1b2")
+		tc.account_state_has_realm_with_role("bf-a1b2", RoleAdmin)
+	})
+
+	t.Run("applies RoleRevoked", func(t *testing.T) {
+		tc := newAccountHandlerTestContext(t)
+
+		// Given
+		tc.events_from_created_account_with_role_assigned_and_revoked()
+
+		// When
+		tc.account_state_is_rebuilt()
+
+		// Then
+		tc.account_state_does_not_have_realm("bf-a1b2")
+	})
+
+	t.Run("replays mixed legacy and new role events correctly", func(t *testing.T) {
+		tc := newAccountHandlerTestContext(t)
+
+		// Given
+		tc.events_from_mixed_legacy_and_new_role_events()
+
+		// When
+		tc.account_state_is_rebuilt()
+
+		// Then
+		tc.account_state_has_realm_with_role("bf-a1b2", RoleAdmin)
+		tc.account_state_does_not_have_realm("bf-c3d4")
 	})
 }
 
@@ -588,6 +630,58 @@ func (tc *accountHandlerTestContext) events_from_created_account_with_pat_revoke
 	}
 }
 
+func (tc *accountHandlerTestContext) events_from_created_account_with_role_assigned() {
+	tc.t.Helper()
+	tc.accountEvents = []core.Event{
+		makeEvent(EventAccountCreated, AccountCreated{
+			AccountID: "acct-a1b2", Username: "alice",
+		}),
+		makeEvent(EventRoleAssigned, RoleAssigned{
+			AccountID: "acct-a1b2", RealmID: "bf-a1b2", Role: RoleAdmin,
+		}),
+	}
+}
+
+func (tc *accountHandlerTestContext) events_from_created_account_with_role_assigned_and_revoked() {
+	tc.t.Helper()
+	tc.accountEvents = []core.Event{
+		makeEvent(EventAccountCreated, AccountCreated{
+			AccountID: "acct-a1b2", Username: "alice",
+		}),
+		makeEvent(EventRoleAssigned, RoleAssigned{
+			AccountID: "acct-a1b2", RealmID: "bf-a1b2", Role: RoleAdmin,
+		}),
+		makeEvent(EventRoleRevoked, RoleRevoked{
+			AccountID: "acct-a1b2", RealmID: "bf-a1b2",
+		}),
+	}
+}
+
+func (tc *accountHandlerTestContext) events_from_mixed_legacy_and_new_role_events() {
+	tc.t.Helper()
+	tc.accountEvents = []core.Event{
+		makeEvent(EventAccountCreated, AccountCreated{
+			AccountID: "acct-a1b2", Username: "alice",
+		}),
+		// Legacy grant -> member
+		makeEvent(EventRealmGranted, RealmGranted{
+			AccountID: "acct-a1b2", RealmID: "bf-a1b2",
+		}),
+		// Upgrade to admin via new event
+		makeEvent(EventRoleAssigned, RoleAssigned{
+			AccountID: "acct-a1b2", RealmID: "bf-a1b2", Role: RoleAdmin,
+		}),
+		// Second realm via legacy grant
+		makeEvent(EventRealmGranted, RealmGranted{
+			AccountID: "acct-a1b2", RealmID: "bf-c3d4",
+		}),
+		// Revoke second realm via legacy revoke
+		makeEvent(EventRealmRevoked, RealmRevoked{
+			AccountID: "acct-a1b2", RealmID: "bf-c3d4",
+		}),
+	}
+}
+
 func (tc *accountHandlerTestContext) existing_account_in_stream(accountID string, status string) {
 	tc.t.Helper()
 	tc.an_event_store()
@@ -780,12 +874,21 @@ func (tc *accountHandlerTestContext) account_state_has_status(expected string) {
 
 func (tc *accountHandlerTestContext) account_state_has_realm(realmID string) {
 	tc.t.Helper()
-	assert.True(tc.t, tc.accountState.Realms[realmID], "expected realm %q to be granted", realmID)
+	_, ok := tc.accountState.Realms[realmID]
+	assert.True(tc.t, ok, "expected realm %q to be granted", realmID)
 }
 
 func (tc *accountHandlerTestContext) account_state_does_not_have_realm(realmID string) {
 	tc.t.Helper()
-	assert.False(tc.t, tc.accountState.Realms[realmID], "expected realm %q to not be granted", realmID)
+	_, ok := tc.accountState.Realms[realmID]
+	assert.False(tc.t, ok, "expected realm %q to not be granted", realmID)
+}
+
+func (tc *accountHandlerTestContext) account_state_has_realm_with_role(realmID string, expectedRole string) {
+	tc.t.Helper()
+	role, ok := tc.accountState.Realms[realmID]
+	require.True(tc.t, ok, "expected realm %q to be granted", realmID)
+	assert.Equal(tc.t, expectedRole, role)
 }
 
 func (tc *accountHandlerTestContext) account_state_has_pat(patID string) {

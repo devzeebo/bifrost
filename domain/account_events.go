@@ -9,6 +9,8 @@ const (
 	EventRealmRevoked     = "RealmRevoked"
 	EventPATCreated       = "PATCreated"
 	EventPATRevoked       = "PATRevoked"
+	EventRoleAssigned     = "RoleAssigned"
+	EventRoleRevoked      = "RoleRevoked"
 )
 
 type AccountCreated struct {
@@ -43,4 +45,15 @@ type PATCreated struct {
 type PATRevoked struct {
 	AccountID string `json:"account_id"`
 	PATID     string `json:"pat_id"`
+}
+
+type RoleAssigned struct {
+	AccountID string `json:"account_id"`
+	RealmID   string `json:"realm_id"`
+	Role      string `json:"role"`
+}
+
+type RoleRevoked struct {
+	AccountID string `json:"account_id"`
+	RealmID   string `json:"realm_id"`
 }
