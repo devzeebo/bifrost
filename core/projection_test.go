@@ -218,6 +218,8 @@ func (m *mockProjectionEngine) RunSync(_ context.Context, _ []Event) error {
 	return nil
 }
 
+func (m *mockProjectionEngine) RunCatchUpOnce(_ context.Context) {}
+
 func (m *mockProjectionEngine) StartCatchUp(_ context.Context) error {
 	return nil
 }

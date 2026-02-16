@@ -442,6 +442,65 @@ func TestProjectionEngine_StartCatchUp(t *testing.T) {
 	})
 }
 
+func TestProjectionEngine_RunCatchUpOnce(t *testing.T) {
+	t.Run("processes events from last checkpoint synchronously", func(t *testing.T) {
+		tc := newCatchUpTestContext(t)
+
+		// Given
+		tc.realms("realm-1")
+		tc.checkpoint("realm-1", "recorder", 2)
+		tc.realm_events("realm-1", 2,
+			Event{EventType: "evt-3", GlobalPosition: 3, RealmID: "realm-1"},
+			Event{EventType: "evt-4", GlobalPosition: 4, RealmID: "realm-1"},
+		)
+		tc.a_catch_up_recording_projector("recorder")
+		tc.catch_up_engine_is_created()
+		tc.register_catch_up_projector()
+
+		// When
+		tc.run_catch_up_once_is_called()
+
+		// Then
+		tc.catch_up_projector_handled_events("recorder", []string{"evt-3", "evt-4"})
+		tc.checkpoint_was_set("realm-1", "recorder", 4)
+	})
+
+	t.Run("processes events for new projector from position 0", func(t *testing.T) {
+		tc := newCatchUpTestContext(t)
+
+		// Given
+		tc.realms("realm-1")
+		tc.realm_events("realm-1", 0,
+			Event{EventType: "evt-1", GlobalPosition: 1, RealmID: "realm-1"},
+		)
+		tc.a_catch_up_recording_projector("new-proj")
+		tc.catch_up_engine_is_created()
+		tc.register_catch_up_projector()
+
+		// When
+		tc.run_catch_up_once_is_called()
+
+		// Then
+		tc.catch_up_projector_handled_events("new-proj", []string{"evt-1"})
+		tc.checkpoint_was_set("realm-1", "new-proj", 1)
+	})
+
+	t.Run("no-op when no realms exist", func(t *testing.T) {
+		tc := newCatchUpTestContext(t)
+
+		// Given
+		tc.a_catch_up_recording_projector("recorder")
+		tc.catch_up_engine_is_created()
+		tc.register_catch_up_projector()
+
+		// When
+		tc.run_catch_up_once_is_called()
+
+		// Then
+		tc.catch_up_projector_handled_events("recorder", []string{})
+	})
+}
+
 func TestProjectionEngine_Stop(t *testing.T) {
 	t.Run("graceful shutdown waits for in-flight processing", func(t *testing.T) {
 		tc := newCatchUpTestContext(t)
@@ -578,6 +637,11 @@ func (tc *catchUpTestContext) start_catch_up_is_called() {
 func (tc *catchUpTestContext) stop_is_called() {
 	tc.t.Helper()
 	tc.stopErr = tc.engine.Stop()
+}
+
+func (tc *catchUpTestContext) run_catch_up_once_is_called() {
+	tc.t.Helper()
+	tc.engine.RunCatchUpOnce(context.Background())
 }
 
 func (tc *catchUpTestContext) wait_for_poll_cycle() {

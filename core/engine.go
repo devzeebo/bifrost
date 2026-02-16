@@ -54,6 +54,10 @@ func (e *projectionEngine) RunSync(ctx context.Context, events []Event) error {
 	return nil
 }
 
+func (e *projectionEngine) RunCatchUpOnce(ctx context.Context) {
+	e.runCatchUpCycle(ctx)
+}
+
 func (e *projectionEngine) StartCatchUp(ctx context.Context) error {
 	ctx, e.cancel = context.WithCancel(ctx)
 	e.wg.Add(1)

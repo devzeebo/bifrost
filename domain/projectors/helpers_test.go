@@ -15,6 +15,7 @@ var _ core.Projector = (*DependencyGraphProjector)(nil)
 var _ core.Projector = (*RealmListProjector)(nil)
 var _ core.Projector = (*AccountListProjector)(nil)
 var _ core.Projector = (*AccountLookupProjector)(nil)
+var _ core.Projector = (*RuneChildCountProjector)(nil)
 
 // --- Helpers ---
 

@@ -389,6 +389,7 @@ type mockEngine struct{}
 
 func (m *mockEngine) Register(projector core.Projector)                     {}
 func (m *mockEngine) RunSync(ctx context.Context, events []core.Event) error { return nil }
+func (m *mockEngine) RunCatchUpOnce(ctx context.Context)                     {}
 func (m *mockEngine) StartCatchUp(ctx context.Context) error                 { return nil }
 func (m *mockEngine) Stop() error                                            { return nil }
 

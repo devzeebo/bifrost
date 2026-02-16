@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 
@@ -16,6 +15,7 @@ import (
 // ProjectionEngine is the interface for running sync projections.
 type ProjectionEngine interface {
 	RunSync(ctx context.Context, events []core.Event) error
+	RunCatchUpOnce(ctx context.Context)
 }
 
 // Handlers holds dependencies for HTTP route handlers.
@@ -393,7 +393,5 @@ func isNotFound(err error) bool {
 }
 
 func (h *Handlers) runSyncQuietly(r *http.Request) {
-	if err := h.engine.RunSync(r.Context(), nil); err != nil {
-		log.Printf("sync projection error: %v", err)
-	}
+	h.engine.RunCatchUpOnce(r.Context())
 }

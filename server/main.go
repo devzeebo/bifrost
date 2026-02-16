@@ -62,6 +62,7 @@ func Run(ctx context.Context, cfg *Config) error {
 	engine.Register(projectors.NewRuneDetailProjector())
 	engine.Register(projectors.NewDependencyGraphProjector())
 	engine.Register(projectors.NewAccountLookupProjector())
+	engine.Register(projectors.NewRuneChildCountProjector())
 
 	// 4. Start catch-up in background
 	if err := engine.StartCatchUp(ctx); err != nil {

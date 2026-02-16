@@ -974,3 +974,5 @@ func (m *mockProjectionEngine) RunSync(ctx context.Context, events []core.Event)
 	m.runSyncCalled = true
 	return nil
 }
+
+func (m *mockProjectionEngine) RunCatchUpOnce(ctx context.Context) {}

@@ -10,6 +10,7 @@ type Projector interface {
 type ProjectionEngine interface {
 	Register(projector Projector)
 	RunSync(ctx context.Context, events []Event) error
+	RunCatchUpOnce(ctx context.Context)
 	StartCatchUp(ctx context.Context) error
 	Stop() error
 }
