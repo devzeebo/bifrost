@@ -403,11 +403,6 @@ func (tc *adminAccountTestContext) account_exists(username, accountID string) {
 	}
 }
 
-func (tc *adminAccountTestContext) account_with_realm_access(username, accountID, realmID string) {
-	tc.t.Helper()
-	tc.account_with_role(username, accountID, realmID, "member")
-}
-
 func (tc *adminAccountTestContext) account_with_role(username, accountID, realmID, role string) {
 	tc.t.Helper()
 	tc.account_exists(username, accountID)
