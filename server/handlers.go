@@ -399,8 +399,8 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			runeID := fmt.Sprintf("%v", item["id"])
-			var entry projectors.GraphEntry
-			err := h.projectionStore.Get(r.Context(), realmID, "dependency_graph", runeID, &entry)
+			var detail projectors.RuneDetail
+			err := h.projectionStore.Get(r.Context(), realmID, "rune_detail", runeID, &detail)
 			if err != nil {
 				if isNotFound(err) {
 					unblocked = append(unblocked, raw)
@@ -409,10 +409,10 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			isBlocked := false
-			for _, dep := range entry.Dependents {
-				if dep.Relationship == domain.RelBlocks {
+			for _, dep := range detail.Dependencies {
+				if dep.Relationship == domain.RelBlockedBy {
 					var summary projectors.RuneSummary
-					err := h.projectionStore.Get(r.Context(), realmID, "rune_list", dep.SourceID, &summary)
+					err := h.projectionStore.Get(r.Context(), realmID, "rune_list", dep.TargetID, &summary)
 					if err != nil {
 						isBlocked = true
 						break

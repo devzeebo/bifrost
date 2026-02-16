@@ -566,8 +566,8 @@ func TestListRunesHandler(t *testing.T) {
 		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
 		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
 		tc.projection_has_rune_summary("realm-1", "bf-0003", "open")
-		tc.projection_has_dependency_graph_entry("realm-1", "bf-0001", []projectors.GraphDependent{
-			{SourceID: "bf-0003", Relationship: "blocks"},
+		tc.projection_has_rune_detail_with_dependencies("realm-1", "bf-0001", []projectors.DependencyRef{
+			{TargetID: "bf-0003", Relationship: "blocked_by"},
 		})
 
 		// When
@@ -590,8 +590,8 @@ func TestListRunesHandler(t *testing.T) {
 		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
 		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
 		tc.projection_has_rune_summary("realm-1", "bf-0003", "sealed")
-		tc.projection_has_dependency_graph_entry("realm-1", "bf-0001", []projectors.GraphDependent{
-			{SourceID: "bf-0003", Relationship: "blocks"},
+		tc.projection_has_rune_detail_with_dependencies("realm-1", "bf-0001", []projectors.DependencyRef{
+			{TargetID: "bf-0003", Relationship: "blocked_by"},
 		})
 
 		// When
@@ -612,8 +612,8 @@ func TestListRunesHandler(t *testing.T) {
 		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
 		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
 		tc.projection_has_rune_summary("realm-1", "bf-0003", "fulfilled")
-		tc.projection_has_dependency_graph_entry("realm-1", "bf-0001", []projectors.GraphDependent{
-			{SourceID: "bf-0003", Relationship: "blocks"},
+		tc.projection_has_rune_detail_with_dependencies("realm-1", "bf-0001", []projectors.DependencyRef{
+			{TargetID: "bf-0003", Relationship: "blocked_by"},
 		})
 
 		// When
@@ -652,8 +652,8 @@ func TestListRunesHandler(t *testing.T) {
 		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
 		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
 		tc.projection_has_rune_summary("realm-1", "bf-0003", "open")
-		tc.projection_has_dependency_graph_entry("realm-1", "bf-0001", []projectors.GraphDependent{
-			{SourceID: "bf-0003", Relationship: "blocks"},
+		tc.projection_has_rune_detail_with_dependencies("realm-1", "bf-0001", []projectors.DependencyRef{
+			{TargetID: "bf-0003", Relationship: "blocked_by"},
 		})
 
 		// When
@@ -1125,10 +1125,11 @@ func (tc *handlerTestContext) projection_has_rune_summary(realmID, runeID, statu
 	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", runeID, summary)
 }
 
-func (tc *handlerTestContext) projection_has_dependency_graph_entry(realmID, runeID string, dependents []projectors.GraphDependent) {
+
+func (tc *handlerTestContext) projection_has_rune_detail_with_dependencies(realmID, runeID string, deps []projectors.DependencyRef) {
 	tc.t.Helper()
-	entry := projectors.GraphEntry{RuneID: runeID, Dependents: dependents}
-	_ = tc.projectionStore.Put(context.Background(), realmID, "dependency_graph", runeID, entry)
+	detail := projectors.RuneDetail{ID: runeID, Dependencies: deps}
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_detail", runeID, detail)
 }
 
 func (tc *handlerTestContext) projection_has_realm_list() {
