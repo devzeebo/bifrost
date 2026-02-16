@@ -61,6 +61,9 @@ func NewShowCmd(clientFn func() *Client, out *bytes.Buffer) *ShowCmd {
 					if priority, ok := result["priority"].(float64); ok {
 						fmt.Fprintf(w, "Priority:    %d\n", int(priority))
 					}
+					if branch, ok := result["branch"].(string); ok && branch != "" {
+						fmt.Fprintf(w, "Branch:      %s\n", branch)
+					}
 					if desc != "" {
 						fmt.Fprintf(w, "Description: %s\n", desc)
 					}
