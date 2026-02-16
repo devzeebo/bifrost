@@ -10,6 +10,7 @@ import (
 
 	"github.com/devzeebo/bifrost/core"
 	"github.com/devzeebo/bifrost/domain"
+	"github.com/devzeebo/bifrost/domain/projectors"
 )
 
 // ProjectionEngine is the interface for running sync projections.
@@ -298,6 +299,46 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 			filtered = append(filtered, raw)
 		}
 		runes = filtered
+	}
+
+	blockedFilter := r.URL.Query().Get("blocked")
+	if blockedFilter == "false" {
+		var unblocked []json.RawMessage
+		for _, raw := range runes {
+			var item map[string]any
+			if json.Unmarshal(raw, &item) != nil {
+				continue
+			}
+			runeID := fmt.Sprintf("%v", item["id"])
+			var entry projectors.GraphEntry
+			err := h.projectionStore.Get(r.Context(), realmID, "dependency_graph", runeID, &entry)
+			if err != nil {
+				if isNotFound(err) {
+					unblocked = append(unblocked, raw)
+					continue
+				}
+				continue
+			}
+			isBlocked := false
+			for _, dep := range entry.Dependents {
+				if dep.Relationship == domain.RelBlocks {
+					var summary projectors.RuneSummary
+					err := h.projectionStore.Get(r.Context(), realmID, "rune_list", dep.SourceID, &summary)
+					if err != nil {
+						isBlocked = true
+						break
+					}
+					if summary.Status != "fulfilled" {
+						isBlocked = true
+						break
+					}
+				}
+			}
+			if !isBlocked {
+				unblocked = append(unblocked, raw)
+			}
+		}
+		runes = unblocked
 	}
 
 	writeJSON(w, http.StatusOK, runes)

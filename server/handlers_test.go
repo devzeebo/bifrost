@@ -11,6 +11,7 @@ import (
 
 	"github.com/devzeebo/bifrost/core"
 	"github.com/devzeebo/bifrost/domain"
+	"github.com/devzeebo/bifrost/domain/projectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -555,6 +556,113 @@ func TestListRunesHandler(t *testing.T) {
 		tc.content_type_is_json()
 		tc.response_array_has_length(3)
 	})
+
+	t.Run("excludes runes with open blockers when blocked=false", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
+		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
+		tc.projection_has_rune_summary("realm-1", "bf-0003", "open")
+		tc.projection_has_dependency_graph_entry("realm-1", "bf-0001", []projectors.GraphDependent{
+			{SourceID: "bf-0003", Relationship: "blocks"},
+		})
+
+		// When
+		tc.get("/runes?status=open&blocked=false")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.response_array_has_length(2)
+		tc.response_array_contains_rune_id("bf-0002")
+		tc.response_array_contains_rune_id("bf-0003")
+		tc.response_array_does_not_contain_rune_id("bf-0001")
+	})
+
+	t.Run("excludes runes with sealed blockers when blocked=false", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
+		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
+		tc.projection_has_rune_summary("realm-1", "bf-0003", "sealed")
+		tc.projection_has_dependency_graph_entry("realm-1", "bf-0001", []projectors.GraphDependent{
+			{SourceID: "bf-0003", Relationship: "blocks"},
+		})
+
+		// When
+		tc.get("/runes?status=open&blocked=false")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.response_array_has_length(1)
+		tc.response_array_contains_rune_id("bf-0002")
+	})
+
+	t.Run("includes runes whose blockers are all fulfilled when blocked=false", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
+		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
+		tc.projection_has_rune_summary("realm-1", "bf-0003", "fulfilled")
+		tc.projection_has_dependency_graph_entry("realm-1", "bf-0001", []projectors.GraphDependent{
+			{SourceID: "bf-0003", Relationship: "blocks"},
+		})
+
+		// When
+		tc.get("/runes?status=open&blocked=false")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.response_array_has_length(2)
+		tc.response_array_contains_rune_id("bf-0001")
+		tc.response_array_contains_rune_id("bf-0002")
+	})
+
+	t.Run("returns all matching runes when blocked=false and no runes are blocked", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
+		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
+
+		// When
+		tc.get("/runes?status=open&blocked=false")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.response_array_has_length(2)
+	})
+
+	t.Run("blocked filter is ignored when not provided", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
+		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
+		tc.projection_has_rune_summary("realm-1", "bf-0003", "open")
+		tc.projection_has_dependency_graph_entry("realm-1", "bf-0001", []projectors.GraphDependent{
+			{SourceID: "bf-0003", Relationship: "blocks"},
+		})
+
+		// When
+		tc.get("/runes?status=open")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.response_array_has_length(3)
+	})
 }
 
 // --- Tests: GetRune ---
@@ -722,6 +830,18 @@ func (tc *handlerTestContext) rune_with_dependency(realmID, runeID, targetID, re
 }
 
 
+func (tc *handlerTestContext) projection_has_rune_summary(realmID, runeID, status string) {
+	tc.t.Helper()
+	summary := projectors.RuneSummary{ID: runeID, Status: status}
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", runeID, summary)
+}
+
+func (tc *handlerTestContext) projection_has_dependency_graph_entry(realmID, runeID string, dependents []projectors.GraphDependent) {
+	tc.t.Helper()
+	entry := projectors.GraphEntry{RuneID: runeID, Dependents: dependents}
+	_ = tc.projectionStore.Put(context.Background(), realmID, "dependency_graph", runeID, entry)
+}
+
 func (tc *handlerTestContext) projection_has_realm_list() {
 	tc.t.Helper()
 	_ = tc.projectionStore.Put(context.Background(), "_admin", "realm_list", "realm-1", map[string]string{
@@ -870,6 +990,32 @@ func (tc *handlerTestContext) response_array_has_length(expected int) {
 	err := json.Unmarshal(tc.recorder.Body.Bytes(), &resp)
 	require.NoError(tc.t, err, "response body should be a JSON array")
 	assert.Len(tc.t, resp, expected)
+}
+
+func (tc *handlerTestContext) response_array_contains_rune_id(runeID string) {
+	tc.t.Helper()
+	var resp []map[string]any
+	err := json.Unmarshal(tc.recorder.Body.Bytes(), &resp)
+	require.NoError(tc.t, err, "response body should be a JSON array of objects")
+	for _, item := range resp {
+		if fmt.Sprintf("%v", item["id"]) == runeID {
+			return
+		}
+	}
+	tc.t.Errorf("expected response array to contain rune %q, but it did not", runeID)
+}
+
+func (tc *handlerTestContext) response_array_does_not_contain_rune_id(runeID string) {
+	tc.t.Helper()
+	var resp []map[string]any
+	err := json.Unmarshal(tc.recorder.Body.Bytes(), &resp)
+	require.NoError(tc.t, err, "response body should be a JSON array of objects")
+	for _, item := range resp {
+		if fmt.Sprintf("%v", item["id"]) == runeID {
+			tc.t.Errorf("expected response array NOT to contain rune %q, but it did", runeID)
+			return
+		}
+	}
 }
 
 func (tc *handlerTestContext) response_array_all_have_field_value(field, expected string) {
