@@ -615,9 +615,11 @@ func (tc *integrationTestContext) a_realm(realmID string) {
 
 func (tc *integrationTestContext) an_existing_top_level_rune(title string, priority int) {
 	tc.t.Helper()
+	branch := "test-branch"
 	tc.createdEvent, tc.err = domain.HandleCreateRune(tc.ctx, tc.realmID, domain.CreateRune{
 		Title:    title,
 		Priority: priority,
+		Branch:   &branch,
 	}, tc.stack.EventStore, tc.stack.ProjectionStore)
 	require.NoError(tc.t, tc.err)
 	tc.parentID = tc.createdEvent.ID
@@ -645,14 +647,15 @@ func (tc *integrationTestContext) two_existing_runes(titleA, titleB string) {
 	tc.t.Helper()
 	tc.runeIDs = nil
 
+	branch := "test-branch"
 	evtA, err := domain.HandleCreateRune(tc.ctx, tc.realmID, domain.CreateRune{
-		Title: titleA, Priority: 1,
+		Title: titleA, Priority: 1, Branch: &branch,
 	}, tc.stack.EventStore, tc.stack.ProjectionStore)
 	require.NoError(tc.t, err)
 	tc.runeIDs = append(tc.runeIDs, evtA.ID)
 
 	evtB, err := domain.HandleCreateRune(tc.ctx, tc.realmID, domain.CreateRune{
-		Title: titleB, Priority: 1,
+		Title: titleB, Priority: 1, Branch: &branch,
 	}, tc.stack.EventStore, tc.stack.ProjectionStore)
 	require.NoError(tc.t, err)
 	tc.runeIDs = append(tc.runeIDs, evtB.ID)
@@ -678,8 +681,9 @@ func (tc *integrationTestContext) seed_handler_dep_lookup(sourceID, targetID, re
 
 func (tc *integrationTestContext) create_top_level_rune(title, description string, priority int) {
 	tc.t.Helper()
+	branch := "test-branch"
 	tc.createdEvent, tc.err = domain.HandleCreateRune(tc.ctx, tc.realmID, domain.CreateRune{
-		Title: title, Description: description, Priority: priority,
+		Title: title, Description: description, Priority: priority, Branch: &branch,
 	}, tc.stack.EventStore, tc.stack.ProjectionStore)
 	if tc.err == nil {
 		tc.parentID = tc.createdEvent.ID
