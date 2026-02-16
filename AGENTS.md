@@ -21,9 +21,12 @@ bf ready              # List runes ready for work
 
 ```bash
 bf dep add <id> <relationship> <dep>     # Add a dependency to a rune
-bf dep remove <id> <relationshiop> <dep>                 # Remove a dependency from a rune
-bf dep list <id>                        # List dependencies of a rune
+bf dep remove <id> <relationship> <dep>  # Remove a dependency from a rune
+bf dep list <id>                         # List dependencies of a rune
 ```
+
+Valid relationships: blocks, relates_to, duplicates, supersedes, replies_to.
+Inverse forms are also accepted: blocked_by, duplicated_by, superseded_by, replied_to_by.
 
 ## Completing a Rune
 
