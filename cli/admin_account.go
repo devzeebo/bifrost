@@ -16,6 +16,8 @@ func addAdminAccountCommands(admin *AdminCmd) {
 	admin.Command.AddCommand(newAdminSuspendAccountCmd(admin))
 	admin.Command.AddCommand(newAdminGrantCmd(admin))
 	admin.Command.AddCommand(newAdminRevokeCmd(admin))
+	admin.Command.AddCommand(newAdminAssignRoleCmd(admin))
+	admin.Command.AddCommand(newAdminRevokeRoleCmd(admin))
 }
 
 func newAdminCreateAccountCmd(admin *AdminCmd) *cobra.Command {
@@ -159,9 +161,10 @@ func newAdminGrantCmd(admin *AdminCmd) *cobra.Command {
 				return err
 			}
 
-			err = domain.HandleGrantRealm(ctx, domain.GrantRealm{
+			err = domain.HandleAssignRole(ctx, domain.AssignRole{
 				AccountID: accountID,
 				RealmID:   args[1],
+				Role:      domain.RoleMember,
 			}, admin.Ctx.EventStore)
 			if err != nil {
 				return err
@@ -203,7 +206,7 @@ func newAdminRevokeCmd(admin *AdminCmd) *cobra.Command {
 				return err
 			}
 
-			err = domain.HandleRevokeRealm(ctx, domain.RevokeRealm{
+			err = domain.HandleRevokeRole(ctx, domain.RevokeRole{
 				AccountID: accountID,
 				RealmID:   args[1],
 			}, admin.Ctx.EventStore)
@@ -228,6 +231,96 @@ func newAdminRevokeCmd(admin *AdminCmd) *cobra.Command {
 			}
 
 			fmt.Fprintf(cmd.OutOrStdout(), "Revoked %s access to realm %s\n", args[0], args[1])
+			return nil
+		},
+	}
+}
+
+func newAdminAssignRoleCmd(admin *AdminCmd) *cobra.Command {
+	return &cobra.Command{
+		Use:   "assign-role <username> <realm-id> <role>",
+		Short: "Assign a role to an account for a realm",
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			jsonMode, _ := cmd.Flags().GetBool("json")
+			ctx := cmd.Context()
+
+			accountID, err := resolveUsername(ctx, admin.Ctx.ProjectionStore, args[0])
+			if err != nil {
+				return err
+			}
+
+			err = domain.HandleAssignRole(ctx, domain.AssignRole{
+				AccountID: accountID,
+				RealmID:   args[1],
+				Role:      args[2],
+			}, admin.Ctx.EventStore)
+			if err != nil {
+				return err
+			}
+
+			events, err := admin.Ctx.EventStore.ReadStream(ctx, "_admin", "account-"+accountID, 0)
+			if err != nil {
+				return err
+			}
+			if err := syncProjections(ctx, admin.Ctx, events); err != nil {
+				return err
+			}
+
+			if jsonMode {
+				out, _ := json.Marshal(map[string]string{
+					"status": "assigned",
+					"role":   args[2],
+				})
+				fmt.Fprintln(cmd.OutOrStdout(), string(out))
+				return nil
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "Assigned role %s to %s for realm %s\n", args[2], args[0], args[1])
+			return nil
+		},
+	}
+}
+
+func newAdminRevokeRoleCmd(admin *AdminCmd) *cobra.Command {
+	return &cobra.Command{
+		Use:   "revoke-role <username> <realm-id>",
+		Short: "Revoke a role from an account for a realm",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			jsonMode, _ := cmd.Flags().GetBool("json")
+			ctx := cmd.Context()
+
+			accountID, err := resolveUsername(ctx, admin.Ctx.ProjectionStore, args[0])
+			if err != nil {
+				return err
+			}
+
+			err = domain.HandleRevokeRole(ctx, domain.RevokeRole{
+				AccountID: accountID,
+				RealmID:   args[1],
+			}, admin.Ctx.EventStore)
+			if err != nil {
+				return err
+			}
+
+			events, err := admin.Ctx.EventStore.ReadStream(ctx, "_admin", "account-"+accountID, 0)
+			if err != nil {
+				return err
+			}
+			if err := syncProjections(ctx, admin.Ctx, events); err != nil {
+				return err
+			}
+
+			if jsonMode {
+				out, _ := json.Marshal(map[string]string{
+					"status": "revoked",
+				})
+				fmt.Fprintln(cmd.OutOrStdout(), string(out))
+				return nil
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "Revoked role from %s for realm %s\n", args[0], args[1])
 			return nil
 		},
 	}

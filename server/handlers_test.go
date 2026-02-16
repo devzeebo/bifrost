@@ -716,6 +716,167 @@ func TestGetRuneHandler(t *testing.T) {
 	})
 }
 
+// --- Tests: AssignRole ---
+
+func TestAssignRoleHandler(t *testing.T) {
+	t.Run("assigns role and returns 204 with admin caller", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.request_has_role("admin")
+		tc.account_exists_in_event_store("acct-target")
+
+		// When
+		tc.post("/assign-role", domain.AssignRole{
+			AccountID: "acct-target",
+			RealmID:   "realm-1",
+			Role:      "member",
+		})
+
+		// Then
+		tc.status_is(http.StatusNoContent)
+	})
+
+	t.Run("returns 403 when caller is member", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.request_has_role("member")
+		tc.routes_are_registered()
+
+		// When
+		tc.post_to_mux("/assign-role", domain.AssignRole{
+			AccountID: "acct-target",
+			RealmID:   "realm-1",
+			Role:      "member",
+		})
+
+		// Then
+		tc.status_is(http.StatusForbidden)
+	})
+
+	t.Run("returns 403 when non-owner assigns owner role", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.request_has_role("admin")
+		tc.account_exists_in_event_store("acct-target")
+
+		// When
+		tc.post("/assign-role", domain.AssignRole{
+			AccountID: "acct-target",
+			RealmID:   "realm-1",
+			Role:      "owner",
+		})
+
+		// Then
+		tc.status_is(http.StatusForbidden)
+	})
+
+	t.Run("owner can assign owner role", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.request_has_role("owner")
+		tc.account_exists_in_event_store("acct-target")
+
+		// When
+		tc.post("/assign-role", domain.AssignRole{
+			AccountID: "acct-target",
+			RealmID:   "realm-1",
+			Role:      "owner",
+		})
+
+		// Then
+		tc.status_is(http.StatusNoContent)
+	})
+
+	t.Run("returns 400 for invalid JSON body", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.request_has_role("admin")
+
+		// When
+		tc.post_raw("/assign-role", []byte(`{invalid`))
+
+		// Then
+		tc.status_is(http.StatusBadRequest)
+		tc.response_body_has_error_field()
+	})
+}
+
+// --- Tests: RevokeRole ---
+
+func TestRevokeRoleHandler(t *testing.T) {
+	t.Run("revokes role and returns 204 with admin caller", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.request_has_role("admin")
+		tc.account_has_role_in_event_store("acct-target", "realm-1", "member")
+
+		// When
+		tc.post("/revoke-role", domain.RevokeRole{
+			AccountID: "acct-target",
+			RealmID:   "realm-1",
+		})
+
+		// Then
+		tc.status_is(http.StatusNoContent)
+	})
+
+	t.Run("returns 403 when non-owner revokes owner role", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.request_has_role("admin")
+		tc.account_has_role_in_event_store("acct-target", "realm-1", "owner")
+
+		// When
+		tc.post("/revoke-role", domain.RevokeRole{
+			AccountID: "acct-target",
+			RealmID:   "realm-1",
+		})
+
+		// Then
+		tc.status_is(http.StatusForbidden)
+	})
+
+	t.Run("owner can revoke owner role", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.request_has_role("owner")
+		tc.account_has_role_in_event_store("acct-target", "realm-1", "owner")
+
+		// When
+		tc.post("/revoke-role", domain.RevokeRole{
+			AccountID: "acct-target",
+			RealmID:   "realm-1",
+		})
+
+		// Then
+		tc.status_is(http.StatusNoContent)
+	})
+}
+
 // --- Tests: RegisterRoutes ---
 
 func TestRegisterRoutes(t *testing.T) {
@@ -742,6 +903,108 @@ func TestRegisterRoutes(t *testing.T) {
 		tc.route_exists("GET", "/rune")
 		tc.route_exists("POST", "/create-realm")
 		tc.route_exists("GET", "/realms")
+		tc.route_exists("POST", "/assign-role")
+		tc.route_exists("POST", "/revoke-role")
+	})
+}
+
+// --- Tests: Role-based routing ---
+
+func TestRoleBasedRouting(t *testing.T) {
+	t.Run("viewer can GET /runes", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.request_has_role("viewer")
+		tc.routes_are_registered()
+
+		// When
+		tc.get_from_mux("/runes")
+
+		// Then
+		tc.status_is(http.StatusOK)
+	})
+
+	t.Run("viewer cannot POST /create-rune", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.request_has_role("viewer")
+		tc.routes_are_registered()
+
+		// When
+		tc.post_to_mux("/create-rune", domain.CreateRune{
+			Title:    "Test",
+			Priority: 1,
+		})
+
+		// Then
+		tc.status_is(http.StatusForbidden)
+	})
+
+	t.Run("member can POST /create-rune", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.request_has_role("member")
+		tc.event_store_appends_successfully()
+		tc.routes_are_registered()
+
+		// When
+		tc.post_to_mux("/create-rune", domain.CreateRune{
+			Title:    "Test",
+			Priority: 1,
+		})
+
+		// Then
+		tc.status_is(http.StatusCreated)
+	})
+
+	t.Run("member cannot POST /assign-role", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.request_has_role("member")
+		tc.routes_are_registered()
+
+		// When
+		tc.post_to_mux("/assign-role", domain.AssignRole{
+			AccountID: "acct-target",
+			RealmID:   "realm-1",
+			Role:      "member",
+		})
+
+		// Then
+		tc.status_is(http.StatusForbidden)
+	})
+
+	t.Run("admin can POST /assign-role", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.request_has_role("admin")
+		tc.account_exists_in_event_store("acct-target")
+		tc.routes_are_registered()
+
+		// When
+		tc.post_to_mux("/assign-role", domain.AssignRole{
+			AccountID: "acct-target",
+			RealmID:   "realm-1",
+			Role:      "member",
+		})
+
+		// Then
+		tc.status_is(http.StatusNoContent)
 	})
 }
 
@@ -759,6 +1022,7 @@ type handlerTestContext struct {
 	// HTTP
 	recorder *httptest.ResponseRecorder
 	realmID  string
+	role     string
 
 	// Error for handleDomainError tests
 	domainErr error
@@ -788,6 +1052,11 @@ func (tc *handlerTestContext) handlers_configured() {
 func (tc *handlerTestContext) request_has_realm_id(realmID string) {
 	tc.t.Helper()
 	tc.realmID = realmID
+}
+
+func (tc *handlerTestContext) request_has_role(role string) {
+	tc.t.Helper()
+	tc.role = role
 }
 
 func (tc *handlerTestContext) domain_error_is(err error) {
@@ -827,6 +1096,26 @@ func (tc *handlerTestContext) rune_with_dependency(realmID, runeID, targetID, re
 	// Put dependency in projection store for RemoveDependency lookup
 	depKey := "dep:" + runeID + ":" + targetID + ":" + relationship
 	_ = tc.projectionStore.Put(context.Background(), realmID, "dependency_graph", depKey, true)
+}
+
+func (tc *handlerTestContext) account_exists_in_event_store(accountID string) {
+	tc.t.Helper()
+	created := domain.AccountCreated{
+		AccountID: accountID,
+		Username:  "testuser",
+	}
+	tc.eventStore.appendToStream("_admin", "account-"+accountID, domain.EventAccountCreated, created)
+}
+
+func (tc *handlerTestContext) account_has_role_in_event_store(accountID, realmID, role string) {
+	tc.t.Helper()
+	tc.account_exists_in_event_store(accountID)
+	assigned := domain.RoleAssigned{
+		AccountID: accountID,
+		RealmID:   realmID,
+		Role:      role,
+	}
+	tc.eventStore.appendToStream("_admin", "account-"+accountID, domain.EventRoleAssigned, assigned)
 }
 
 
@@ -895,13 +1184,21 @@ func (tc *handlerTestContext) handle_domain_error() {
 	handleDomainError(tc.recorder, tc.domainErr)
 }
 
+func (tc *handlerTestContext) build_context(ctx context.Context) context.Context {
+	tc.t.Helper()
+	if tc.realmID != "" {
+		ctx = context.WithValue(ctx, realmIDKey, tc.realmID)
+	}
+	if tc.role != "" {
+		ctx = context.WithValue(ctx, roleKey, tc.role)
+	}
+	return ctx
+}
+
 func (tc *handlerTestContext) get(path string) {
 	tc.t.Helper()
 	req := httptest.NewRequest(http.MethodGet, path, nil)
-	if tc.realmID != "" {
-		ctx := context.WithValue(req.Context(), realmIDKey, tc.realmID)
-		req = req.WithContext(ctx)
-	}
+	req = req.WithContext(tc.build_context(req.Context()))
 	tc.handlers.ServeHTTP(tc.recorder, req)
 }
 
@@ -916,17 +1213,35 @@ func (tc *handlerTestContext) post_raw(path string, body []byte) {
 	tc.t.Helper()
 	req := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	if tc.realmID != "" {
-		ctx := context.WithValue(req.Context(), realmIDKey, tc.realmID)
-		req = req.WithContext(ctx)
-	}
+	req = req.WithContext(tc.build_context(req.Context()))
 	tc.handlers.ServeHTTP(tc.recorder, req)
+}
+
+func (tc *handlerTestContext) get_from_mux(path string) {
+	tc.t.Helper()
+	require.NotNil(tc.t, tc.mux, "routes must be registered before calling get_from_mux")
+	req := httptest.NewRequest(http.MethodGet, path, nil)
+	req = req.WithContext(tc.build_context(req.Context()))
+	tc.mux.ServeHTTP(tc.recorder, req)
+}
+
+func (tc *handlerTestContext) post_to_mux(path string, body any) {
+	tc.t.Helper()
+	require.NotNil(tc.t, tc.mux, "routes must be registered before calling post_to_mux")
+	data, err := json.Marshal(body)
+	require.NoError(tc.t, err)
+	req := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(data))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(tc.build_context(req.Context()))
+	tc.mux.ServeHTTP(tc.recorder, req)
 }
 
 func (tc *handlerTestContext) routes_are_registered() {
 	tc.t.Helper()
 	tc.mux = http.NewServeMux()
-	tc.handlers.RegisterRoutes(tc.mux, func(h http.Handler) http.Handler { return h }, func(h http.Handler) http.Handler { return h })
+	realmMW := func(h http.Handler) http.Handler { return h }
+	adminMW := func(h http.Handler) http.Handler { return h }
+	tc.handlers.RegisterRoutes(tc.mux, realmMW, adminMW)
 }
 
 // --- Then ---

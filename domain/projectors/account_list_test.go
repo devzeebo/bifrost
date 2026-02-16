@@ -148,6 +148,110 @@ func TestAccountListProjector(t *testing.T) {
 		// Then
 		tc.no_error()
 	})
+
+	t.Run("handles AccountCreated by initializing roles to empty map", func(t *testing.T) {
+		tc := newAccountListTestContext(t)
+
+		// Given
+		tc.an_account_list_projector()
+		tc.a_projection_store()
+		tc.an_account_created_event("acct-1", "alice")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.account_entry_has_roles("acct-1", map[string]string{})
+	})
+
+	t.Run("handles RoleAssigned by adding realm and setting role", func(t *testing.T) {
+		tc := newAccountListTestContext(t)
+
+		// Given
+		tc.an_account_list_projector()
+		tc.a_projection_store()
+		tc.existing_account_entry("acct-1", "alice", "active")
+		tc.a_role_assigned_event("acct-1", "realm-1", "admin")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.account_entry_has_realms("acct-1", []string{"realm-1"})
+		tc.account_entry_has_roles("acct-1", map[string]string{"realm-1": "admin"})
+	})
+
+	t.Run("handles RoleAssigned with existing realm updates role value", func(t *testing.T) {
+		tc := newAccountListTestContext(t)
+
+		// Given
+		tc.an_account_list_projector()
+		tc.a_projection_store()
+		tc.existing_account_entry_with_roles("acct-1", "alice", "active", []string{"realm-1"}, map[string]string{"realm-1": "member"})
+		tc.a_role_assigned_event("acct-1", "realm-1", "admin")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.account_entry_has_realms("acct-1", []string{"realm-1"})
+		tc.account_entry_has_roles("acct-1", map[string]string{"realm-1": "admin"})
+	})
+
+	t.Run("handles RoleRevoked by removing realm and role", func(t *testing.T) {
+		tc := newAccountListTestContext(t)
+
+		// Given
+		tc.an_account_list_projector()
+		tc.a_projection_store()
+		tc.existing_account_entry_with_roles("acct-1", "alice", "active", []string{"realm-1", "realm-2"}, map[string]string{"realm-1": "admin", "realm-2": "member"})
+		tc.a_role_revoked_event("acct-1", "realm-1")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.account_entry_has_realms("acct-1", []string{"realm-2"})
+		tc.account_entry_has_roles("acct-1", map[string]string{"realm-2": "member"})
+	})
+
+	t.Run("handles RealmGranted by also setting roles map with member", func(t *testing.T) {
+		tc := newAccountListTestContext(t)
+
+		// Given
+		tc.an_account_list_projector()
+		tc.a_projection_store()
+		tc.existing_account_entry("acct-1", "alice", "active")
+		tc.a_realm_granted_event("acct-1", "realm-1")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.account_entry_has_roles("acct-1", map[string]string{"realm-1": "member"})
+	})
+
+	t.Run("handles RealmRevoked by also removing from roles map", func(t *testing.T) {
+		tc := newAccountListTestContext(t)
+
+		// Given
+		tc.an_account_list_projector()
+		tc.a_projection_store()
+		tc.existing_account_entry_with_roles("acct-1", "alice", "active", []string{"realm-1"}, map[string]string{"realm-1": "member"})
+		tc.a_realm_revoked_event("acct-1", "realm-1")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.account_entry_has_roles("acct-1", map[string]string{})
+	})
 }
 
 // --- Test Context ---
@@ -211,6 +315,23 @@ func (tc *accountListTestContext) a_realm_granted_event(accountID, realmID strin
 func (tc *accountListTestContext) a_realm_revoked_event(accountID, realmID string) {
 	tc.t.Helper()
 	tc.event = makeEvent(domain.EventRealmRevoked, domain.RealmRevoked{
+		AccountID: accountID,
+		RealmID:   realmID,
+	})
+}
+
+func (tc *accountListTestContext) a_role_assigned_event(accountID, realmID, role string) {
+	tc.t.Helper()
+	tc.event = makeEvent(domain.EventRoleAssigned, domain.RoleAssigned{
+		AccountID: accountID,
+		RealmID:   realmID,
+		Role:      role,
+	})
+}
+
+func (tc *accountListTestContext) a_role_revoked_event(accountID, realmID string) {
+	tc.t.Helper()
+	tc.event = makeEvent(domain.EventRoleRevoked, domain.RoleRevoked{
 		AccountID: accountID,
 		RealmID:   realmID,
 	})
@@ -288,6 +409,23 @@ func (tc *accountListTestContext) existing_account_entry_with_pat_count(accountI
 	tc.store.put("_admin", "account_list", accountID, entry)
 }
 
+func (tc *accountListTestContext) existing_account_entry_with_roles(accountID, username, status string, realms []string, roles map[string]string) {
+	tc.t.Helper()
+	if tc.store == nil {
+		tc.store = newMockProjectionStore()
+	}
+	entry := AccountListEntry{
+		AccountID: accountID,
+		Username:  username,
+		Status:    status,
+		Realms:    realms,
+		Roles:     roles,
+		PATCount:  0,
+		CreatedAt: time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC),
+	}
+	tc.store.put("_admin", "account_list", accountID, entry)
+}
+
 // --- When ---
 
 func (tc *accountListTestContext) name_is_called() {
@@ -357,4 +495,12 @@ func (tc *accountListTestContext) account_entry_has_created_at(accountID string)
 	err := tc.store.Get(tc.ctx, "_admin", "account_list", accountID, &entry)
 	require.NoError(tc.t, err)
 	assert.False(tc.t, entry.CreatedAt.IsZero(), "expected CreatedAt to be set")
+}
+
+func (tc *accountListTestContext) account_entry_has_roles(accountID string, expected map[string]string) {
+	tc.t.Helper()
+	var entry AccountListEntry
+	err := tc.store.Get(tc.ctx, "_admin", "account_list", accountID, &entry)
+	require.NoError(tc.t, err)
+	assert.Equal(tc.t, expected, entry.Roles)
 }

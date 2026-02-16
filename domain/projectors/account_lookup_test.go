@@ -237,6 +237,196 @@ func TestAccountLookupProjector(t *testing.T) {
 		// Then
 		tc.no_error()
 	})
+
+	t.Run("handles RoleAssigned by updating account info roles and realms", func(t *testing.T) {
+		tc := newAccountLookupTestContext(t)
+
+		// Given
+		tc.an_account_lookup_projector()
+		tc.a_projection_store()
+		tc.existing_account_info("acct-1", "alice", "active", []string{})
+		tc.existing_account_pat_list("acct-1", []string{})
+		tc.a_role_assigned_event("acct-1", "realm-1", "admin")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.account_info_has_realms("acct-1", []string{"realm-1"})
+		tc.account_info_has_roles("acct-1", map[string]string{"realm-1": "admin"})
+	})
+
+	t.Run("handles RoleAssigned by propagating to all PAT entries", func(t *testing.T) {
+		tc := newAccountLookupTestContext(t)
+
+		// Given
+		tc.an_account_lookup_projector()
+		tc.a_projection_store()
+		tc.existing_account_info("acct-1", "alice", "active", []string{})
+		tc.existing_pat_entry("hash-abc", "acct-1", "alice", "active", []string{})
+		tc.existing_pat_entry("hash-def", "acct-1", "alice", "active", []string{})
+		tc.existing_account_pat_list("acct-1", []string{"hash-abc", "hash-def"})
+		tc.a_role_assigned_event("acct-1", "realm-1", "admin")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.pat_entry_has_realms("hash-abc", []string{"realm-1"})
+		tc.pat_entry_has_realms("hash-def", []string{"realm-1"})
+		tc.pat_entry_has_roles("hash-abc", map[string]string{"realm-1": "admin"})
+		tc.pat_entry_has_roles("hash-def", map[string]string{"realm-1": "admin"})
+	})
+
+	t.Run("handles RoleAssigned with existing realm updates role value", func(t *testing.T) {
+		tc := newAccountLookupTestContext(t)
+
+		// Given
+		tc.an_account_lookup_projector()
+		tc.a_projection_store()
+		tc.existing_account_info_with_roles("acct-1", "alice", "active", []string{"realm-1"}, map[string]string{"realm-1": "member"})
+		tc.existing_account_pat_list("acct-1", []string{})
+		tc.a_role_assigned_event("acct-1", "realm-1", "admin")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.account_info_has_realms("acct-1", []string{"realm-1"})
+		tc.account_info_has_roles("acct-1", map[string]string{"realm-1": "admin"})
+	})
+
+	t.Run("handles RoleRevoked by updating account info roles and realms", func(t *testing.T) {
+		tc := newAccountLookupTestContext(t)
+
+		// Given
+		tc.an_account_lookup_projector()
+		tc.a_projection_store()
+		tc.existing_account_info_with_roles("acct-1", "alice", "active", []string{"realm-1", "realm-2"}, map[string]string{"realm-1": "admin", "realm-2": "member"})
+		tc.existing_account_pat_list("acct-1", []string{})
+		tc.a_role_revoked_event("acct-1", "realm-1")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.account_info_has_realms("acct-1", []string{"realm-2"})
+		tc.account_info_has_roles("acct-1", map[string]string{"realm-2": "member"})
+	})
+
+	t.Run("handles RoleRevoked by propagating to all PAT entries", func(t *testing.T) {
+		tc := newAccountLookupTestContext(t)
+
+		// Given
+		tc.an_account_lookup_projector()
+		tc.a_projection_store()
+		tc.existing_account_info_with_roles("acct-1", "alice", "active", []string{"realm-1", "realm-2"}, map[string]string{"realm-1": "admin", "realm-2": "member"})
+		tc.existing_pat_entry_with_roles("hash-abc", "acct-1", "alice", "active", []string{"realm-1", "realm-2"}, map[string]string{"realm-1": "admin", "realm-2": "member"})
+		tc.existing_account_pat_list("acct-1", []string{"hash-abc"})
+		tc.a_role_revoked_event("acct-1", "realm-1")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.pat_entry_has_realms("hash-abc", []string{"realm-2"})
+		tc.pat_entry_has_roles("hash-abc", map[string]string{"realm-2": "member"})
+	})
+
+	t.Run("handles RealmGranted by also setting roles map with member", func(t *testing.T) {
+		tc := newAccountLookupTestContext(t)
+
+		// Given
+		tc.an_account_lookup_projector()
+		tc.a_projection_store()
+		tc.existing_account_info("acct-1", "alice", "active", []string{})
+		tc.existing_account_pat_list("acct-1", []string{})
+		tc.a_realm_granted_event("acct-1", "realm-1")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.account_info_has_roles("acct-1", map[string]string{"realm-1": "member"})
+	})
+
+	t.Run("handles RealmRevoked by also removing from roles map", func(t *testing.T) {
+		tc := newAccountLookupTestContext(t)
+
+		// Given
+		tc.an_account_lookup_projector()
+		tc.a_projection_store()
+		tc.existing_account_info_with_roles("acct-1", "alice", "active", []string{"realm-1"}, map[string]string{"realm-1": "member"})
+		tc.existing_account_pat_list("acct-1", []string{})
+		tc.a_realm_revoked_event("acct-1", "realm-1")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.account_info_has_roles("acct-1", map[string]string{})
+	})
+
+	t.Run("handles PATCreated by copying roles map from account info", func(t *testing.T) {
+		tc := newAccountLookupTestContext(t)
+
+		// Given
+		tc.an_account_lookup_projector()
+		tc.a_projection_store()
+		tc.existing_account_info_with_roles("acct-1", "alice", "active", []string{"realm-1"}, map[string]string{"realm-1": "admin"})
+		tc.existing_account_pat_list("acct-1", []string{})
+		tc.a_pat_created_event("acct-1", "pat-1", "hash-abc")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.pat_entry_has_roles("hash-abc", map[string]string{"realm-1": "admin"})
+	})
+
+	t.Run("handles RealmGranted with nil roles map initializes map", func(t *testing.T) {
+		tc := newAccountLookupTestContext(t)
+
+		// Given
+		tc.an_account_lookup_projector()
+		tc.a_projection_store()
+		tc.existing_account_info_with_nil_roles("acct-1", "alice", "active", []string{})
+		tc.existing_account_pat_list("acct-1", []string{})
+		tc.a_realm_granted_event("acct-1", "realm-1")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.account_info_has_roles("acct-1", map[string]string{"realm-1": "member"})
+	})
+
+	t.Run("handles RoleAssigned with nil roles map initializes map", func(t *testing.T) {
+		tc := newAccountLookupTestContext(t)
+
+		// Given
+		tc.an_account_lookup_projector()
+		tc.a_projection_store()
+		tc.existing_account_info_with_nil_roles("acct-1", "alice", "active", []string{})
+		tc.existing_account_pat_list("acct-1", []string{})
+		tc.a_role_assigned_event("acct-1", "realm-1", "admin")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.account_info_has_roles("acct-1", map[string]string{"realm-1": "admin"})
+	})
 }
 
 // --- Test Context ---
@@ -313,6 +503,23 @@ func (tc *accountLookupTestContext) a_realm_revoked_event(accountID, realmID str
 	})
 }
 
+func (tc *accountLookupTestContext) a_role_assigned_event(accountID, realmID, role string) {
+	tc.t.Helper()
+	tc.event = makeEvent(domain.EventRoleAssigned, domain.RoleAssigned{
+		AccountID: accountID,
+		RealmID:   realmID,
+		Role:      role,
+	})
+}
+
+func (tc *accountLookupTestContext) a_role_revoked_event(accountID, realmID string) {
+	tc.t.Helper()
+	tc.event = makeEvent(domain.EventRoleRevoked, domain.RoleRevoked{
+		AccountID: accountID,
+		RealmID:   realmID,
+	})
+}
+
 func (tc *accountLookupTestContext) a_pat_revoked_event(accountID, patID, keyHash string) {
 	tc.t.Helper()
 	tc.event = makeEvent(domain.EventPATRevoked, domain.PATRevoked{
@@ -364,6 +571,49 @@ func (tc *accountLookupTestContext) existing_account_pat_list(accountID string, 
 		tc.store = newMockProjectionStore()
 	}
 	tc.store.put("_admin", "account_lookup", "account:"+accountID, hashes)
+}
+
+func (tc *accountLookupTestContext) existing_account_info_with_roles(accountID, username, status string, realms []string, roles map[string]string) {
+	tc.t.Helper()
+	if tc.store == nil {
+		tc.store = newMockProjectionStore()
+	}
+	info := accountInfo{
+		Username: username,
+		Status:   status,
+		Realms:   realms,
+		Roles:    roles,
+	}
+	tc.store.put("_admin", "account_lookup", "accountinfo:"+accountID, info)
+}
+
+func (tc *accountLookupTestContext) existing_account_info_with_nil_roles(accountID, username, status string, realms []string) {
+	tc.t.Helper()
+	if tc.store == nil {
+		tc.store = newMockProjectionStore()
+	}
+	info := accountInfo{
+		Username: username,
+		Status:   status,
+		Realms:   realms,
+		Roles:    nil,
+	}
+	tc.store.put("_admin", "account_lookup", "accountinfo:"+accountID, info)
+}
+
+func (tc *accountLookupTestContext) existing_pat_entry_with_roles(keyHash, accountID, username, status string, realms []string, roles map[string]string) {
+	tc.t.Helper()
+	if tc.store == nil {
+		tc.store = newMockProjectionStore()
+	}
+	entry := AccountLookupEntry{
+		AccountID: accountID,
+		Username:  username,
+		Status:    status,
+		Realms:    realms,
+		Roles:     roles,
+	}
+	tc.store.put("_admin", "account_lookup", keyHash, entry)
 }
 
 // --- When ---
@@ -474,4 +724,20 @@ func (tc *accountLookupTestContext) account_info_has_realms(accountID string, ex
 	err := tc.store.Get(tc.ctx, "_admin", "account_lookup", "accountinfo:"+accountID, &info)
 	require.NoError(tc.t, err, "expected account info for %s", accountID)
 	assert.Equal(tc.t, expected, info.Realms)
+}
+
+func (tc *accountLookupTestContext) account_info_has_roles(accountID string, expected map[string]string) {
+	tc.t.Helper()
+	var info accountInfo
+	err := tc.store.Get(tc.ctx, "_admin", "account_lookup", "accountinfo:"+accountID, &info)
+	require.NoError(tc.t, err, "expected account info for %s", accountID)
+	assert.Equal(tc.t, expected, info.Roles)
+}
+
+func (tc *accountLookupTestContext) pat_entry_has_roles(keyHash string, expected map[string]string) {
+	tc.t.Helper()
+	var entry AccountLookupEntry
+	err := tc.store.Get(tc.ctx, "_admin", "account_lookup", keyHash, &entry)
+	require.NoError(tc.t, err)
+	assert.Equal(tc.t, expected, entry.Roles)
 }

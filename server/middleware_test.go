@@ -114,7 +114,7 @@ func TestAuthMiddleware(t *testing.T) {
 		// Given
 		tc.request_with_bearer_token(tc.rawKey)
 		tc.request_has_realm_header("realm-1")
-		tc.projection_store_has_account("acct-1", "alice", "suspended", []string{"realm-1"})
+		tc.projection_store_has_account_with_roles("acct-1", "alice", "suspended", map[string]string{"realm-1": "member"})
 
 		// When
 		tc.middleware_is_invoked()
@@ -124,13 +124,13 @@ func TestAuthMiddleware(t *testing.T) {
 		tc.next_handler_was_not_called()
 	})
 
-	t.Run("returns 403 when account does not have grant for requested realm", func(t *testing.T) {
+	t.Run("returns 403 when account has no role for requested realm", func(t *testing.T) {
 		tc := newTestContext(t)
 
 		// Given
 		tc.request_with_bearer_token(tc.rawKey)
 		tc.request_has_realm_header("realm-2")
-		tc.projection_store_has_account("acct-1", "alice", "active", []string{"realm-1"})
+		tc.projection_store_has_account_with_roles("acct-1", "alice", "active", map[string]string{"realm-1": "member"})
 
 		// When
 		tc.middleware_is_invoked()
@@ -140,7 +140,26 @@ func TestAuthMiddleware(t *testing.T) {
 		tc.next_handler_was_not_called()
 	})
 
-	t.Run("calls next handler with accountID and realmID in context for valid PAT with realm grant", func(t *testing.T) {
+	t.Run("extracts role from Roles map and stores in context", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.request_with_bearer_token(tc.rawKey)
+		tc.request_has_realm_header("realm-1")
+		tc.projection_store_has_account_with_roles("acct-1", "alice", "active", map[string]string{"realm-1": "admin"})
+
+		// When
+		tc.middleware_is_invoked()
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.next_handler_was_called()
+		tc.context_has_realm_id("realm-1")
+		tc.context_has_account_id("acct-1")
+		tc.context_has_role("admin")
+	})
+
+	t.Run("falls back to Realms slice with member role for legacy data", func(t *testing.T) {
 		tc := newTestContext(t)
 
 		// Given
@@ -156,6 +175,23 @@ func TestAuthMiddleware(t *testing.T) {
 		tc.next_handler_was_called()
 		tc.context_has_realm_id("realm-1")
 		tc.context_has_account_id("acct-1")
+		tc.context_has_role("member")
+	})
+
+	t.Run("returns 403 when account has neither Roles nor Realms for requested realm", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.request_with_bearer_token(tc.rawKey)
+		tc.request_has_realm_header("realm-2")
+		tc.projection_store_has_account("acct-1", "alice", "active", []string{"realm-1"})
+
+		// When
+		tc.middleware_is_invoked()
+
+		// Then
+		tc.status_is(http.StatusForbidden)
+		tc.next_handler_was_not_called()
 	})
 
 	t.Run("returns 500 when projection store returns unexpected error", func(t *testing.T) {
@@ -202,6 +238,261 @@ func TestRequireRealm(t *testing.T) {
 		// Then
 		tc.status_is(http.StatusOK)
 		tc.next_handler_was_called()
+	})
+}
+
+func TestRoleFromContext(t *testing.T) {
+	t.Run("returns role when present in context", func(t *testing.T) {
+		ctx := context.WithValue(context.Background(), roleKey, "admin")
+		role, ok := RoleFromContext(ctx)
+		assert.True(t, ok)
+		assert.Equal(t, "admin", role)
+	})
+
+	t.Run("returns false when not present in context", func(t *testing.T) {
+		role, ok := RoleFromContext(context.Background())
+		assert.False(t, ok)
+		assert.Equal(t, "", role)
+	})
+}
+
+func TestRequireRole(t *testing.T) {
+	t.Run("passes for viewer when minimum role is viewer", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.context_with_role("viewer")
+
+		// When
+		tc.require_role_is_invoked("viewer")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.next_handler_was_called()
+	})
+
+	t.Run("passes for member when minimum role is viewer", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.context_with_role("member")
+
+		// When
+		tc.require_role_is_invoked("viewer")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.next_handler_was_called()
+	})
+
+	t.Run("passes for admin when minimum role is viewer", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.context_with_role("admin")
+
+		// When
+		tc.require_role_is_invoked("viewer")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.next_handler_was_called()
+	})
+
+	t.Run("passes for owner when minimum role is viewer", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.context_with_role("owner")
+
+		// When
+		tc.require_role_is_invoked("viewer")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.next_handler_was_called()
+	})
+
+	t.Run("rejects viewer when minimum role is member", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.context_with_role("viewer")
+
+		// When
+		tc.require_role_is_invoked("member")
+
+		// Then
+		tc.status_is(http.StatusForbidden)
+		tc.next_handler_was_not_called()
+	})
+
+	t.Run("passes for member when minimum role is member", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.context_with_role("member")
+
+		// When
+		tc.require_role_is_invoked("member")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.next_handler_was_called()
+	})
+
+	t.Run("passes for admin when minimum role is member", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.context_with_role("admin")
+
+		// When
+		tc.require_role_is_invoked("member")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.next_handler_was_called()
+	})
+
+	t.Run("passes for owner when minimum role is member", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.context_with_role("owner")
+
+		// When
+		tc.require_role_is_invoked("member")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.next_handler_was_called()
+	})
+
+	t.Run("rejects viewer when minimum role is admin", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.context_with_role("viewer")
+
+		// When
+		tc.require_role_is_invoked("admin")
+
+		// Then
+		tc.status_is(http.StatusForbidden)
+		tc.next_handler_was_not_called()
+	})
+
+	t.Run("rejects member when minimum role is admin", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.context_with_role("member")
+
+		// When
+		tc.require_role_is_invoked("admin")
+
+		// Then
+		tc.status_is(http.StatusForbidden)
+		tc.next_handler_was_not_called()
+	})
+
+	t.Run("passes for admin when minimum role is admin", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.context_with_role("admin")
+
+		// When
+		tc.require_role_is_invoked("admin")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.next_handler_was_called()
+	})
+
+	t.Run("passes for owner when minimum role is admin", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.context_with_role("owner")
+
+		// When
+		tc.require_role_is_invoked("admin")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.next_handler_was_called()
+	})
+
+	t.Run("rejects viewer when minimum role is owner", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.context_with_role("viewer")
+
+		// When
+		tc.require_role_is_invoked("owner")
+
+		// Then
+		tc.status_is(http.StatusForbidden)
+		tc.next_handler_was_not_called()
+	})
+
+	t.Run("rejects member when minimum role is owner", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.context_with_role("member")
+
+		// When
+		tc.require_role_is_invoked("owner")
+
+		// Then
+		tc.status_is(http.StatusForbidden)
+		tc.next_handler_was_not_called()
+	})
+
+	t.Run("rejects admin when minimum role is owner", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.context_with_role("admin")
+
+		// When
+		tc.require_role_is_invoked("owner")
+
+		// Then
+		tc.status_is(http.StatusForbidden)
+		tc.next_handler_was_not_called()
+	})
+
+	t.Run("passes for owner when minimum role is owner", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.context_with_role("owner")
+
+		// When
+		tc.require_role_is_invoked("owner")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.next_handler_was_called()
+	})
+
+	t.Run("returns 403 when no role in context", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.context_with_no_auth()
+
+		// When
+		tc.require_role_is_invoked("viewer")
+
+		// Then
+		tc.status_is(http.StatusForbidden)
+		tc.next_handler_was_not_called()
 	})
 }
 
@@ -326,6 +617,22 @@ func (tc *testContext) projection_store_has_account(accountID, username, status 
 	tc.store.put("_admin", "account_lookup", tc.keyHash, entry)
 }
 
+func (tc *testContext) projection_store_has_account_with_roles(accountID, username, status string, roles map[string]string) {
+	tc.t.Helper()
+	realms := make([]string, 0, len(roles))
+	for r := range roles {
+		realms = append(realms, r)
+	}
+	entry := accountLookupEntry{
+		AccountID: accountID,
+		Username:  username,
+		Status:    status,
+		Realms:    realms,
+		Roles:     roles,
+	}
+	tc.store.put("_admin", "account_lookup", tc.keyHash, entry)
+}
+
 func (tc *testContext) projection_store_returns_error() {
 	tc.t.Helper()
 	tc.store.forceError = true
@@ -341,6 +648,13 @@ func (tc *testContext) context_with_realm_id(realmID string) {
 func (tc *testContext) context_with_no_auth() {
 	tc.t.Helper()
 	tc.request = httptest.NewRequest(http.MethodGet, "/test", nil)
+}
+
+func (tc *testContext) context_with_role(role string) {
+	tc.t.Helper()
+	tc.request = httptest.NewRequest(http.MethodGet, "/test", nil)
+	ctx := context.WithValue(tc.request.Context(), roleKey, role)
+	tc.request = tc.request.WithContext(ctx)
 }
 
 // --- When ---
@@ -371,6 +685,20 @@ func (tc *testContext) require_realm_is_invoked() {
 	})
 
 	middleware := RequireRealm(next)
+	middleware.ServeHTTP(tc.recorder, tc.request)
+}
+
+func (tc *testContext) require_role_is_invoked(minRole string) {
+	tc.t.Helper()
+	require.NotNil(tc.t, tc.request, "request must be set before invoking middleware")
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tc.nextCalled = true
+		tc.capturedCtx = r.Context()
+		w.WriteHeader(http.StatusOK)
+	})
+
+	middleware := RequireRole(minRole)(next)
 	middleware.ServeHTTP(tc.recorder, tc.request)
 }
 
@@ -405,6 +733,14 @@ func (tc *testContext) context_has_account_id(expected string) {
 	id, ok := AccountIDFromContext(tc.capturedCtx)
 	assert.True(tc.t, ok, "expected account ID in context")
 	assert.Equal(tc.t, expected, id)
+}
+
+func (tc *testContext) context_has_role(expected string) {
+	tc.t.Helper()
+	require.NotNil(tc.t, tc.capturedCtx, "next handler was not called, no context captured")
+	role, ok := RoleFromContext(tc.capturedCtx)
+	assert.True(tc.t, ok, "expected role in context")
+	assert.Equal(tc.t, expected, role)
 }
 
 // --- Mock Projection Store ---

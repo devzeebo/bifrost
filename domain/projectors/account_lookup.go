@@ -9,16 +9,18 @@ import (
 )
 
 type AccountLookupEntry struct {
-	AccountID string   `json:"account_id"`
-	Username  string   `json:"username"`
-	Status    string   `json:"status"`
-	Realms    []string `json:"realms"`
+	AccountID string            `json:"account_id"`
+	Username  string            `json:"username"`
+	Status    string            `json:"status"`
+	Realms    []string          `json:"realms"`
+	Roles     map[string]string `json:"roles"`
 }
 
 type accountInfo struct {
-	Username string   `json:"username"`
-	Status   string   `json:"status"`
-	Realms   []string `json:"realms"`
+	Username string            `json:"username"`
+	Status   string            `json:"status"`
+	Realms   []string          `json:"realms"`
+	Roles    map[string]string `json:"roles"`
 }
 
 type AccountLookupProjector struct{}
@@ -41,6 +43,10 @@ func (p *AccountLookupProjector) Handle(ctx context.Context, event core.Event, s
 		return p.handleRealmGranted(ctx, event, store)
 	case domain.EventRealmRevoked:
 		return p.handleRealmRevoked(ctx, event, store)
+	case domain.EventRoleAssigned:
+		return p.handleRoleAssigned(ctx, event, store)
+	case domain.EventRoleRevoked:
+		return p.handleRoleRevoked(ctx, event, store)
 	case domain.EventPATCreated:
 		return p.handlePATCreated(ctx, event, store)
 	case domain.EventPATRevoked:
@@ -65,6 +71,7 @@ func (p *AccountLookupProjector) handleAccountCreated(ctx context.Context, event
 		Username: data.Username,
 		Status:   "active",
 		Realms:   []string{},
+		Roles:    map[string]string{},
 	}
 	if err := store.Put(ctx, "_admin", "account_lookup", "accountinfo:"+data.AccountID, info); err != nil {
 		return err
@@ -120,6 +127,10 @@ func (p *AccountLookupProjector) handleRealmGranted(ctx context.Context, event c
 		return err
 	}
 	info.Realms = append(info.Realms, data.RealmID)
+	if info.Roles == nil {
+		info.Roles = make(map[string]string)
+	}
+	info.Roles[data.RealmID] = "member"
 	if err := store.Put(ctx, "_admin", "account_lookup", "accountinfo:"+data.AccountID, info); err != nil {
 		return err
 	}
@@ -135,6 +146,10 @@ func (p *AccountLookupProjector) handleRealmGranted(ctx context.Context, event c
 			return err
 		}
 		entry.Realms = append(entry.Realms, data.RealmID)
+		if entry.Roles == nil {
+			entry.Roles = make(map[string]string)
+		}
+		entry.Roles[data.RealmID] = "member"
 		if err := store.Put(ctx, "_admin", "account_lookup", hash, entry); err != nil {
 			return err
 		}
@@ -154,6 +169,7 @@ func (p *AccountLookupProjector) handleRealmRevoked(ctx context.Context, event c
 		return err
 	}
 	info.Realms = removeString(info.Realms, data.RealmID)
+	delete(info.Roles, data.RealmID)
 	if err := store.Put(ctx, "_admin", "account_lookup", "accountinfo:"+data.AccountID, info); err != nil {
 		return err
 	}
@@ -169,6 +185,91 @@ func (p *AccountLookupProjector) handleRealmRevoked(ctx context.Context, event c
 			return err
 		}
 		entry.Realms = removeString(entry.Realms, data.RealmID)
+		delete(entry.Roles, data.RealmID)
+		if err := store.Put(ctx, "_admin", "account_lookup", hash, entry); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (p *AccountLookupProjector) handleRoleAssigned(ctx context.Context, event core.Event, store core.ProjectionStore) error {
+	var data domain.RoleAssigned
+	if err := json.Unmarshal(event.Data, &data); err != nil {
+		return err
+	}
+
+	// Update account info
+	var info accountInfo
+	if err := store.Get(ctx, "_admin", "account_lookup", "accountinfo:"+data.AccountID, &info); err != nil {
+		return err
+	}
+	if info.Roles == nil {
+		info.Roles = make(map[string]string)
+	}
+	_, alreadyInRealms := info.Roles[data.RealmID]
+	info.Roles[data.RealmID] = data.Role
+	if !alreadyInRealms {
+		info.Realms = append(info.Realms, data.RealmID)
+	}
+	if err := store.Put(ctx, "_admin", "account_lookup", "accountinfo:"+data.AccountID, info); err != nil {
+		return err
+	}
+
+	// Update all PAT entries
+	var hashes []string
+	if err := store.Get(ctx, "_admin", "account_lookup", "account:"+data.AccountID, &hashes); err != nil {
+		return err
+	}
+	for _, hash := range hashes {
+		var entry AccountLookupEntry
+		if err := store.Get(ctx, "_admin", "account_lookup", hash, &entry); err != nil {
+			return err
+		}
+		if entry.Roles == nil {
+			entry.Roles = make(map[string]string)
+		}
+		_, alreadyInEntry := entry.Roles[data.RealmID]
+		entry.Roles[data.RealmID] = data.Role
+		if !alreadyInEntry {
+			entry.Realms = append(entry.Realms, data.RealmID)
+		}
+		if err := store.Put(ctx, "_admin", "account_lookup", hash, entry); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (p *AccountLookupProjector) handleRoleRevoked(ctx context.Context, event core.Event, store core.ProjectionStore) error {
+	var data domain.RoleRevoked
+	if err := json.Unmarshal(event.Data, &data); err != nil {
+		return err
+	}
+
+	// Update account info
+	var info accountInfo
+	if err := store.Get(ctx, "_admin", "account_lookup", "accountinfo:"+data.AccountID, &info); err != nil {
+		return err
+	}
+	info.Realms = removeString(info.Realms, data.RealmID)
+	delete(info.Roles, data.RealmID)
+	if err := store.Put(ctx, "_admin", "account_lookup", "accountinfo:"+data.AccountID, info); err != nil {
+		return err
+	}
+
+	// Update all PAT entries
+	var hashes []string
+	if err := store.Get(ctx, "_admin", "account_lookup", "account:"+data.AccountID, &hashes); err != nil {
+		return err
+	}
+	for _, hash := range hashes {
+		var entry AccountLookupEntry
+		if err := store.Get(ctx, "_admin", "account_lookup", hash, &entry); err != nil {
+			return err
+		}
+		entry.Realms = removeString(entry.Realms, data.RealmID)
+		delete(entry.Roles, data.RealmID)
 		if err := store.Put(ctx, "_admin", "account_lookup", hash, entry); err != nil {
 			return err
 		}
@@ -193,11 +294,16 @@ func (p *AccountLookupProjector) handlePATCreated(ctx context.Context, event cor
 	if realms == nil {
 		realms = []string{}
 	}
+	roles := info.Roles
+	if roles == nil {
+		roles = map[string]string{}
+	}
 	entry := AccountLookupEntry{
 		AccountID: data.AccountID,
 		Username:  info.Username,
 		Status:    info.Status,
 		Realms:    realms,
+		Roles:     roles,
 	}
 	if err := store.Put(ctx, "_admin", "account_lookup", data.KeyHash, entry); err != nil {
 		return err

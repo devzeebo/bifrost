@@ -10,12 +10,13 @@ import (
 )
 
 type AccountListEntry struct {
-	AccountID string    `json:"account_id"`
-	Username  string    `json:"username"`
-	Status    string    `json:"status"`
-	Realms    []string  `json:"realms"`
-	PATCount  int       `json:"pat_count"`
-	CreatedAt time.Time `json:"created_at"`
+	AccountID string            `json:"account_id"`
+	Username  string            `json:"username"`
+	Status    string            `json:"status"`
+	Realms    []string          `json:"realms"`
+	Roles     map[string]string `json:"roles"`
+	PATCount  int               `json:"pat_count"`
+	CreatedAt time.Time         `json:"created_at"`
 }
 
 type AccountListProjector struct{}
@@ -38,6 +39,10 @@ func (p *AccountListProjector) Handle(ctx context.Context, event core.Event, sto
 		return p.handleRealmGranted(ctx, event, store)
 	case domain.EventRealmRevoked:
 		return p.handleRealmRevoked(ctx, event, store)
+	case domain.EventRoleAssigned:
+		return p.handleRoleAssigned(ctx, event, store)
+	case domain.EventRoleRevoked:
+		return p.handleRoleRevoked(ctx, event, store)
 	case domain.EventPATCreated:
 		return p.handlePATCreated(ctx, event, store)
 	case domain.EventPATRevoked:
@@ -56,6 +61,7 @@ func (p *AccountListProjector) handleAccountCreated(ctx context.Context, event c
 		Username:  data.Username,
 		Status:    "active",
 		Realms:    []string{},
+		Roles:     map[string]string{},
 		PATCount:  0,
 		CreatedAt: data.CreatedAt,
 	}
@@ -85,6 +91,10 @@ func (p *AccountListProjector) handleRealmGranted(ctx context.Context, event cor
 		return err
 	}
 	entry.Realms = append(entry.Realms, data.RealmID)
+	if entry.Roles == nil {
+		entry.Roles = make(map[string]string)
+	}
+	entry.Roles[data.RealmID] = "member"
 	return store.Put(ctx, "_admin", "account_list", data.AccountID, entry)
 }
 
@@ -104,6 +114,41 @@ func (p *AccountListProjector) handleRealmRevoked(ctx context.Context, event cor
 		}
 	}
 	entry.Realms = filtered
+	delete(entry.Roles, data.RealmID)
+	return store.Put(ctx, "_admin", "account_list", data.AccountID, entry)
+}
+
+func (p *AccountListProjector) handleRoleAssigned(ctx context.Context, event core.Event, store core.ProjectionStore) error {
+	var data domain.RoleAssigned
+	if err := json.Unmarshal(event.Data, &data); err != nil {
+		return err
+	}
+	var entry AccountListEntry
+	if err := store.Get(ctx, "_admin", "account_list", data.AccountID, &entry); err != nil {
+		return err
+	}
+	if entry.Roles == nil {
+		entry.Roles = make(map[string]string)
+	}
+	_, alreadyInRealms := entry.Roles[data.RealmID]
+	entry.Roles[data.RealmID] = data.Role
+	if !alreadyInRealms {
+		entry.Realms = append(entry.Realms, data.RealmID)
+	}
+	return store.Put(ctx, "_admin", "account_list", data.AccountID, entry)
+}
+
+func (p *AccountListProjector) handleRoleRevoked(ctx context.Context, event core.Event, store core.ProjectionStore) error {
+	var data domain.RoleRevoked
+	if err := json.Unmarshal(event.Data, &data); err != nil {
+		return err
+	}
+	var entry AccountListEntry
+	if err := store.Get(ctx, "_admin", "account_list", data.AccountID, &entry); err != nil {
+		return err
+	}
+	entry.Realms = removeString(entry.Realms, data.RealmID)
+	delete(entry.Roles, data.RealmID)
 	return store.Put(ctx, "_admin", "account_list", data.AccountID, entry)
 }
 

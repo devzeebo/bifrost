@@ -60,6 +60,8 @@ func TestNewAdminCmd(t *testing.T) {
 		tc.has_subcommand("suspend-account")
 		tc.has_subcommand("grant")
 		tc.has_subcommand("revoke")
+		tc.has_subcommand("assign-role")
+		tc.has_subcommand("revoke-role")
 	})
 
 	t.Run("registers PAT subcommands", func(t *testing.T) {

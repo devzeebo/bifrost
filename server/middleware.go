@@ -9,18 +9,21 @@ import (
 	"strings"
 
 	"github.com/devzeebo/bifrost/core"
+	"github.com/devzeebo/bifrost/domain"
 )
 
 type contextKey string
 
 const realmIDKey contextKey = "realm_id"
 const accountIDKey contextKey = "account_id"
+const roleKey contextKey = "role"
 
 type accountLookupEntry struct {
-	AccountID string   `json:"account_id"`
-	Username  string   `json:"username"`
-	Status    string   `json:"status"`
-	Realms    []string `json:"realms"`
+	AccountID string            `json:"account_id"`
+	Username  string            `json:"username"`
+	Status    string            `json:"status"`
+	Realms    []string          `json:"realms"`
+	Roles     map[string]string `json:"roles"`
 }
 
 // RealmIDFromContext extracts the realm ID from the request context.
@@ -33,6 +36,26 @@ func RealmIDFromContext(ctx context.Context) (string, bool) {
 func AccountIDFromContext(ctx context.Context) (string, bool) {
 	id, ok := ctx.Value(accountIDKey).(string)
 	return id, ok
+}
+
+// RoleFromContext extracts the role from the request context.
+func RoleFromContext(ctx context.Context) (string, bool) {
+	role, ok := ctx.Value(roleKey).(string)
+	return role, ok
+}
+
+// RequireRole returns HTTP middleware that enforces a minimum role level per route.
+func RequireRole(minRole string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			role, ok := RoleFromContext(r.Context())
+			if !ok || domain.RoleLevel(role) < domain.RoleLevel(minRole) {
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // RequireRealm returns HTTP middleware that requires the request to have a non-admin realm ID in context.
@@ -115,21 +138,28 @@ func AuthMiddleware(projectionStore core.ProjectionStore) func(http.Handler) htt
 				return
 			}
 
-			// Check that the account has a grant for the requested realm
-			hasGrant := false
-			for _, realm := range entry.Realms {
-				if realm == realmID {
-					hasGrant = true
-					break
+			// Extract role for the requested realm
+			var role string
+			if entry.Roles != nil {
+				role = entry.Roles[realmID]
+			}
+			if role == "" {
+				// Fallback to Realms slice for legacy data
+				for _, realm := range entry.Realms {
+					if realm == realmID {
+						role = "member"
+						break
+					}
 				}
 			}
-			if !hasGrant {
+			if role == "" {
 				http.Error(w, "Forbidden", http.StatusForbidden)
 				return
 			}
 
 			ctx := context.WithValue(r.Context(), accountIDKey, entry.AccountID)
 			ctx = context.WithValue(ctx, realmIDKey, realmID)
+			ctx = context.WithValue(ctx, roleKey, role)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

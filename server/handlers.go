@@ -48,6 +48,8 @@ func NewHandlers(eventStore core.EventStore, projectionStore core.ProjectionStor
 	h.mux.HandleFunc("GET /rune", h.GetRune)
 	h.mux.HandleFunc("POST /create-realm", h.CreateRealm)
 	h.mux.HandleFunc("GET /realms", h.ListRealms)
+	h.mux.HandleFunc("POST /assign-role", h.AssignRole)
+	h.mux.HandleFunc("POST /revoke-role", h.RevokeRole)
 	return h
 }
 
@@ -58,24 +60,39 @@ func (h *Handlers) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // RegisterRoutes registers all handler routes on the given mux with middleware.
 func (h *Handlers) RegisterRoutes(mux *http.ServeMux, realmMiddleware, adminMiddleware func(http.Handler) http.Handler) {
+	// Compose role-based middleware chains
+	viewerAuth := func(next http.Handler) http.Handler {
+		return realmMiddleware(RequireRole("viewer")(next))
+	}
+	memberAuth := func(next http.Handler) http.Handler {
+		return realmMiddleware(RequireRole("member")(next))
+	}
+	adminRoleAuth := func(next http.Handler) http.Handler {
+		return realmMiddleware(RequireRole("admin")(next))
+	}
+
 	// Health check — no auth
 	mux.HandleFunc("GET /health", h.Health)
 
-	// Rune commands (realm auth)
-	mux.Handle("POST /create-rune", realmMiddleware(http.HandlerFunc(h.CreateRune)))
-	mux.Handle("POST /update-rune", realmMiddleware(http.HandlerFunc(h.UpdateRune)))
-	mux.Handle("POST /claim-rune", realmMiddleware(http.HandlerFunc(h.ClaimRune)))
-	mux.Handle("POST /fulfill-rune", realmMiddleware(http.HandlerFunc(h.FulfillRune)))
-	mux.Handle("POST /seal-rune", realmMiddleware(http.HandlerFunc(h.SealRune)))
-	mux.Handle("POST /add-dependency", realmMiddleware(http.HandlerFunc(h.AddDependency)))
-	mux.Handle("POST /remove-dependency", realmMiddleware(http.HandlerFunc(h.RemoveDependency)))
-	mux.Handle("POST /add-note", realmMiddleware(http.HandlerFunc(h.AddNote)))
+	// Rune commands (member role minimum)
+	mux.Handle("POST /create-rune", memberAuth(http.HandlerFunc(h.CreateRune)))
+	mux.Handle("POST /update-rune", memberAuth(http.HandlerFunc(h.UpdateRune)))
+	mux.Handle("POST /claim-rune", memberAuth(http.HandlerFunc(h.ClaimRune)))
+	mux.Handle("POST /fulfill-rune", memberAuth(http.HandlerFunc(h.FulfillRune)))
+	mux.Handle("POST /seal-rune", memberAuth(http.HandlerFunc(h.SealRune)))
+	mux.Handle("POST /add-dependency", memberAuth(http.HandlerFunc(h.AddDependency)))
+	mux.Handle("POST /remove-dependency", memberAuth(http.HandlerFunc(h.RemoveDependency)))
+	mux.Handle("POST /add-note", memberAuth(http.HandlerFunc(h.AddNote)))
 
-	// Rune queries (realm auth)
-	mux.Handle("GET /runes", realmMiddleware(http.HandlerFunc(h.ListRunes)))
-	mux.Handle("GET /rune", realmMiddleware(http.HandlerFunc(h.GetRune)))
+	// Rune queries (viewer role minimum)
+	mux.Handle("GET /runes", viewerAuth(http.HandlerFunc(h.ListRunes)))
+	mux.Handle("GET /rune", viewerAuth(http.HandlerFunc(h.GetRune)))
 
-	// Admin commands (admin auth)
+	// Role management (admin role minimum, realm auth)
+	mux.Handle("POST /assign-role", adminRoleAuth(http.HandlerFunc(h.AssignRole)))
+	mux.Handle("POST /revoke-role", adminRoleAuth(http.HandlerFunc(h.RevokeRole)))
+
+	// Admin commands (admin auth — _admin realm check)
 	mux.Handle("POST /create-realm", adminMiddleware(http.HandlerFunc(h.CreateRealm)))
 	mux.Handle("GET /realms", adminMiddleware(http.HandlerFunc(h.ListRealms)))
 }
@@ -218,6 +235,78 @@ func (h *Handlers) RemoveDependency(w http.ResponseWriter, r *http.Request) {
 	}
 	h.runSyncQuietly(r)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) AssignRole(w http.ResponseWriter, r *http.Request) {
+	_, ok := RealmIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusForbidden, "realm ID required")
+		return
+	}
+	var cmd domain.AssignRole
+	if err := json.NewDecoder(r.Body).Decode(&cmd); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// Only owner can assign owner role
+	callerRole, _ := RoleFromContext(r.Context())
+	if cmd.Role == domain.RoleOwner && callerRole != domain.RoleOwner {
+		writeError(w, http.StatusForbidden, "only owner can assign owner role")
+		return
+	}
+
+	if err := domain.HandleAssignRole(r.Context(), cmd, h.eventStore); err != nil {
+		handleDomainError(w, err)
+		return
+	}
+	h.runSyncQuietly(r)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) RevokeRole(w http.ResponseWriter, r *http.Request) {
+	_, ok := RealmIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusForbidden, "realm ID required")
+		return
+	}
+	var cmd domain.RevokeRole
+	if err := json.NewDecoder(r.Body).Decode(&cmd); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// Only owner can revoke owner role — need to look up target's current role
+	callerRole, _ := RoleFromContext(r.Context())
+	targetRole, err := h.lookupAccountRole(r.Context(), cmd.AccountID, cmd.RealmID)
+	if err != nil {
+		handleDomainError(w, err)
+		return
+	}
+	if targetRole == domain.RoleOwner && callerRole != domain.RoleOwner {
+		writeError(w, http.StatusForbidden, "only owner can revoke owner role")
+		return
+	}
+
+	if err := domain.HandleRevokeRole(r.Context(), cmd, h.eventStore); err != nil {
+		handleDomainError(w, err)
+		return
+	}
+	h.runSyncQuietly(r)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) lookupAccountRole(ctx context.Context, accountID, realmID string) (string, error) {
+	streamID := "account-" + accountID
+	events, err := h.eventStore.ReadStream(ctx, "_admin", streamID, 0)
+	if err != nil {
+		return "", err
+	}
+	state := domain.RebuildAccountState(events)
+	if !state.Exists {
+		return "", &core.NotFoundError{Entity: "account", ID: accountID}
+	}
+	return state.Realms[realmID], nil
 }
 
 func (h *Handlers) AddNote(w http.ResponseWriter, r *http.Request) {

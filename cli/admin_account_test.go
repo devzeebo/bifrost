@@ -130,7 +130,7 @@ func TestAdminSuspendAccount(t *testing.T) {
 }
 
 func TestAdminGrant(t *testing.T) {
-	t.Run("grants realm access and prints confirmation", func(t *testing.T) {
+	t.Run("grants realm access as member and prints confirmation", func(t *testing.T) {
 		tc := newAdminAccountTestContext(t)
 
 		// Given
@@ -183,7 +183,7 @@ func TestAdminRevoke(t *testing.T) {
 
 		// Given
 		tc.admin_cmd_with_mock_stores()
-		tc.account_with_realm_access("alice", "acct-1234", "bf-realm1")
+		tc.account_with_role("alice", "acct-1234", "bf-realm1", "member")
 
 		// When
 		tc.run_revoke("alice", "bf-realm1")
@@ -200,7 +200,7 @@ func TestAdminRevoke(t *testing.T) {
 
 		// Given
 		tc.admin_cmd_with_mock_stores()
-		tc.account_with_realm_access("alice", "acct-1234", "bf-realm1")
+		tc.account_with_role("alice", "acct-1234", "bf-realm1", "member")
 
 		// When
 		tc.run_revoke_json("alice", "bf-realm1")
@@ -219,6 +219,119 @@ func TestAdminRevoke(t *testing.T) {
 
 		// When
 		tc.run_revoke("unknown", "bf-realm1")
+
+		// Then
+		tc.error_occurred()
+	})
+}
+
+func TestAdminAssignRole(t *testing.T) {
+	t.Run("assigns role and prints confirmation", func(t *testing.T) {
+		tc := newAdminAccountTestContext(t)
+
+		// Given
+		tc.admin_cmd_with_mock_stores()
+		tc.account_exists("alice", "acct-1234")
+
+		// When
+		tc.run_assign_role("alice", "bf-realm1", "admin")
+
+		// Then
+		tc.command_has_no_error()
+		tc.output_contains("Assigned")
+		tc.output_contains("admin")
+		tc.output_contains("alice")
+		tc.output_contains("bf-realm1")
+	})
+
+	t.Run("assigns role with json output", func(t *testing.T) {
+		tc := newAdminAccountTestContext(t)
+
+		// Given
+		tc.admin_cmd_with_mock_stores()
+		tc.account_exists("alice", "acct-1234")
+
+		// When
+		tc.run_assign_role_json("alice", "bf-realm1", "admin")
+
+		// Then
+		tc.command_has_no_error()
+		tc.output_is_valid_json()
+		tc.json_output_has_value("status", "assigned")
+		tc.json_output_has_value("role", "admin")
+	})
+
+	t.Run("returns error for invalid role", func(t *testing.T) {
+		tc := newAdminAccountTestContext(t)
+
+		// Given
+		tc.admin_cmd_with_mock_stores()
+		tc.account_exists("alice", "acct-1234")
+
+		// When
+		tc.run_assign_role("alice", "bf-realm1", "superuser")
+
+		// Then
+		tc.error_occurred()
+		tc.error_message_contains("invalid role")
+	})
+
+	t.Run("returns error for unknown username", func(t *testing.T) {
+		tc := newAdminAccountTestContext(t)
+
+		// Given
+		tc.admin_cmd_with_mock_stores()
+
+		// When
+		tc.run_assign_role("unknown", "bf-realm1", "admin")
+
+		// Then
+		tc.error_occurred()
+	})
+}
+
+func TestAdminRevokeRole(t *testing.T) {
+	t.Run("revokes role and prints confirmation", func(t *testing.T) {
+		tc := newAdminAccountTestContext(t)
+
+		// Given
+		tc.admin_cmd_with_mock_stores()
+		tc.account_with_role("alice", "acct-1234", "bf-realm1", "admin")
+
+		// When
+		tc.run_revoke_role("alice", "bf-realm1")
+
+		// Then
+		tc.command_has_no_error()
+		tc.output_contains("Revoked")
+		tc.output_contains("alice")
+		tc.output_contains("bf-realm1")
+	})
+
+	t.Run("revokes role with json output", func(t *testing.T) {
+		tc := newAdminAccountTestContext(t)
+
+		// Given
+		tc.admin_cmd_with_mock_stores()
+		tc.account_with_role("alice", "acct-1234", "bf-realm1", "admin")
+
+		// When
+		tc.run_revoke_role_json("alice", "bf-realm1")
+
+		// Then
+		tc.command_has_no_error()
+		tc.output_is_valid_json()
+		tc.json_output_has_value("status", "revoked")
+	})
+
+	t.Run("returns error for unknown username", func(t *testing.T) {
+		tc := newAdminAccountTestContext(t)
+
+		// Given
+		tc.admin_cmd_with_mock_stores()
+
+		// When
+		tc.run_revoke_role("unknown", "bf-realm1")
 
 		// Then
 		tc.error_occurred()
@@ -292,20 +405,26 @@ func (tc *adminAccountTestContext) account_exists(username, accountID string) {
 
 func (tc *adminAccountTestContext) account_with_realm_access(username, accountID, realmID string) {
 	tc.t.Helper()
+	tc.account_with_role(username, accountID, realmID, "member")
+}
+
+func (tc *adminAccountTestContext) account_with_role(username, accountID, realmID, role string) {
+	tc.t.Helper()
 	tc.account_exists(username, accountID)
 
-	realmGranted := map[string]interface{}{
+	roleAssigned := map[string]interface{}{
 		"account_id": accountID,
 		"realm_id":   realmID,
+		"role":       role,
 	}
-	data, _ := json.Marshal(realmGranted)
+	data, _ := json.Marshal(roleAssigned)
 	tc.eventStore.streams["_admin|account-"+accountID] = append(
 		tc.eventStore.streams["_admin|account-"+accountID],
 		core.Event{
 			RealmID:        "_admin",
 			StreamID:       "account-" + accountID,
 			Version:        1,
-			EventType:      "RealmGranted",
+			EventType:      "RoleAssigned",
 			Data:           data,
 			GlobalPosition: 2,
 		},
@@ -364,6 +483,26 @@ func (tc *adminAccountTestContext) run_revoke_json(username, realmID string) {
 	tc.output, tc.err = executeAdminCmd(tc.cmd, "revoke", username, realmID, "--json")
 }
 
+func (tc *adminAccountTestContext) run_assign_role(username, realmID, role string) {
+	tc.t.Helper()
+	tc.output, tc.err = executeAdminCmd(tc.cmd, "assign-role", username, realmID, role)
+}
+
+func (tc *adminAccountTestContext) run_assign_role_json(username, realmID, role string) {
+	tc.t.Helper()
+	tc.output, tc.err = executeAdminCmd(tc.cmd, "assign-role", username, realmID, role, "--json")
+}
+
+func (tc *adminAccountTestContext) run_revoke_role(username, realmID string) {
+	tc.t.Helper()
+	tc.output, tc.err = executeAdminCmd(tc.cmd, "revoke-role", username, realmID)
+}
+
+func (tc *adminAccountTestContext) run_revoke_role_json(username, realmID string) {
+	tc.t.Helper()
+	tc.output, tc.err = executeAdminCmd(tc.cmd, "revoke-role", username, realmID, "--json")
+}
+
 // --- Then ---
 
 func (tc *adminAccountTestContext) command_has_no_error() {
@@ -408,4 +547,10 @@ func (tc *adminAccountTestContext) json_output_has_value(key, expected string) {
 	val, ok := tc.jsonOutput[key]
 	require.True(tc.t, ok, "expected key %q in JSON output", key)
 	assert.Equal(tc.t, expected, val)
+}
+
+func (tc *adminAccountTestContext) error_message_contains(substr string) {
+	tc.t.Helper()
+	require.Error(tc.t, tc.err)
+	assert.Contains(tc.t, tc.err.Error(), substr)
 }
