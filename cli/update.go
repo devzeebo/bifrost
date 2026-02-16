@@ -43,6 +43,10 @@ func NewUpdateCmd(clientFn func() *Client, out *bytes.Buffer) *UpdateCmd {
 				desc, _ := cmd.Flags().GetString("description")
 				body["description"] = desc
 			}
+			if cmd.Flags().Changed("branch") {
+				branch, _ := cmd.Flags().GetString("branch")
+				body["branch"] = branch
+			}
 
 			jsonBody, err := json.Marshal(body)
 			if err != nil {
@@ -82,6 +86,7 @@ func NewUpdateCmd(clientFn func() *Client, out *bytes.Buffer) *UpdateCmd {
 	cmd.Flags().String("title", "", "new title")
 	cmd.Flags().String("priority", "", "new priority (0-4)")
 	cmd.Flags().StringP("description", "d", "", "new description")
+	cmd.Flags().String("branch", "", "branch name")
 	cmd.Flags().Bool("human", false, "human-readable output")
 
 	c.Command = cmd

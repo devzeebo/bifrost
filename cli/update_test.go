@@ -78,6 +78,36 @@ func TestUpdateCommand(t *testing.T) {
 		tc.output_contains("Rune bf-abc updated")
 	})
 
+	t.Run("includes branch when --branch flag is set", func(t *testing.T) {
+		tc := newUpdateTestContext(t)
+
+		// Given
+		tc.server_that_captures_request_and_returns_no_content()
+		tc.client_configured()
+
+		// When
+		tc.execute_update("bf-abc", "--branch", "feature/my-branch")
+
+		// Then
+		tc.command_has_no_error()
+		tc.request_body_has_field("branch", "feature/my-branch")
+	})
+
+	t.Run("omits branch when --branch flag is not set", func(t *testing.T) {
+		tc := newUpdateTestContext(t)
+
+		// Given
+		tc.server_that_captures_request_and_returns_no_content()
+		tc.client_configured()
+
+		// When
+		tc.execute_update("bf-abc", "--title", "New Title")
+
+		// Then
+		tc.command_has_no_error()
+		tc.request_body_does_not_have_field("branch")
+	})
+
 	t.Run("returns error when server responds with error", func(t *testing.T) {
 		tc := newUpdateTestContext(t)
 
@@ -194,4 +224,11 @@ func (tc *updateTestContext) request_body_has_float_field(key string, expected f
 func (tc *updateTestContext) output_contains(substr string) {
 	tc.t.Helper()
 	assert.Contains(tc.t, tc.buf.String(), substr)
+}
+
+func (tc *updateTestContext) request_body_does_not_have_field(key string) {
+	tc.t.Helper()
+	require.NotNil(tc.t, tc.receivedBody)
+	_, exists := tc.receivedBody[key]
+	assert.False(tc.t, exists, "expected field %q to be absent from request body", key)
 }
