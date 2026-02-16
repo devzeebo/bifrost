@@ -17,6 +17,7 @@ type RuneSummary struct {
 	Priority  int       `json:"priority"`
 	Claimant  string    `json:"claimant,omitempty"`
 	ParentID  string    `json:"parent_id,omitempty"`
+	Branch    string    `json:"branch,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -58,6 +59,7 @@ func (p *RuneListProjector) handleCreated(ctx context.Context, event core.Event,
 		Status:    "open",
 		Priority:  data.Priority,
 		ParentID:  data.ParentID,
+		Branch:    data.Branch,
 		CreatedAt: event.Timestamp,
 		UpdatedAt: event.Timestamp,
 	}
@@ -78,6 +80,9 @@ func (p *RuneListProjector) handleUpdated(ctx context.Context, event core.Event,
 	}
 	if data.Priority != nil {
 		summary.Priority = *data.Priority
+	}
+	if data.Branch != nil {
+		summary.Branch = *data.Branch
 	}
 	summary.UpdatedAt = event.Timestamp
 	return store.Put(ctx, event.RealmID, "rune_list", data.ID, summary)

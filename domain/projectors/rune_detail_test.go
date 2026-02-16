@@ -247,6 +247,58 @@ func TestRuneDetailProjector(t *testing.T) {
 		tc.stored_detail_has_note_text(1, "Second note")
 	})
 
+	t.Run("handles RuneCreated with branch", func(t *testing.T) {
+		tc := newRuneDetailTestContext(t)
+
+		// Given
+		tc.a_rune_detail_projector()
+		tc.a_projection_store()
+		tc.a_rune_created_event_with_branch("bf-a1b2", "Fix the bridge", "Needs repair", 1, "", "feature/bridge")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.detail_was_stored("bf-a1b2")
+		tc.stored_detail_has_branch("feature/bridge")
+	})
+
+	t.Run("handles RuneUpdated with branch", func(t *testing.T) {
+		tc := newRuneDetailTestContext(t)
+
+		// Given
+		tc.a_rune_detail_projector()
+		tc.a_projection_store()
+		tc.existing_detail("bf-a1b2", "Old title", "Old desc", "open", 1, "", "")
+		tc.a_rune_updated_event_with_branch("bf-a1b2", nil, nil, nil, strPtr("feature/new-branch"))
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.stored_detail_has_branch("feature/new-branch")
+	})
+
+	t.Run("handles RuneUpdated without branch leaves branch unchanged", func(t *testing.T) {
+		tc := newRuneDetailTestContext(t)
+
+		// Given
+		tc.a_rune_detail_projector()
+		tc.a_projection_store()
+		tc.existing_detail_with_branch("bf-a1b2", "Old title", "Old desc", "open", 1, "", "", "feature/old")
+		tc.a_rune_updated_event_with_branch("bf-a1b2", strPtr("New title"), nil, nil, nil)
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.stored_detail_has_title("New title")
+		tc.stored_detail_has_branch("feature/old")
+	})
+
 	t.Run("ignores unknown event types", func(t *testing.T) {
 		tc := newRuneDetailTestContext(t)
 
@@ -308,10 +360,24 @@ func (tc *runeDetailTestContext) a_rune_created_event(id, title, description str
 	}, time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC))
 }
 
+func (tc *runeDetailTestContext) a_rune_created_event_with_branch(id, title, description string, priority int, parentID, branch string) {
+	tc.t.Helper()
+	tc.event = makeEventWithTimestamp(domain.EventRuneCreated, domain.RuneCreated{
+		ID: id, Title: title, Description: description, Priority: priority, ParentID: parentID, Branch: branch,
+	}, time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC))
+}
+
 func (tc *runeDetailTestContext) a_rune_updated_event(id string, title, description *string, priority *int) {
 	tc.t.Helper()
 	tc.event = makeEvent(domain.EventRuneUpdated, domain.RuneUpdated{
 		ID: id, Title: title, Description: description, Priority: priority,
+	})
+}
+
+func (tc *runeDetailTestContext) a_rune_updated_event_with_branch(id string, title, description *string, priority *int, branch *string) {
+	tc.t.Helper()
+	tc.event = makeEvent(domain.EventRuneUpdated, domain.RuneUpdated{
+		ID: id, Title: title, Description: description, Priority: priority, Branch: branch,
 	})
 }
 
@@ -369,6 +435,24 @@ func (tc *runeDetailTestContext) existing_detail(id, title, description, status 
 		Priority:     priority,
 		Claimant:     claimant,
 		ParentID:     parentID,
+		Dependencies: []DependencyRef{},
+		Notes:        []NoteEntry{},
+	}
+	tc.store.put(tc.realmID, "rune_detail", id, detail)
+}
+
+func (tc *runeDetailTestContext) existing_detail_with_branch(id, title, description, status string, priority int, claimant, parentID, branch string) {
+	tc.t.Helper()
+	tc.a_projection_store()
+	detail := RuneDetail{
+		ID:           id,
+		Title:        title,
+		Description:  description,
+		Status:       status,
+		Priority:     priority,
+		Claimant:     claimant,
+		ParentID:     parentID,
+		Branch:       branch,
 		Dependencies: []DependencyRef{},
 		Notes:        []NoteEntry{},
 	}
@@ -509,6 +593,12 @@ func (tc *runeDetailTestContext) stored_detail_has_note_count(expected int) {
 	tc.t.Helper()
 	require.NotNil(tc.t, tc.storedDetail)
 	assert.Len(tc.t, tc.storedDetail.Notes, expected)
+}
+
+func (tc *runeDetailTestContext) stored_detail_has_branch(expected string) {
+	tc.t.Helper()
+	require.NotNil(tc.t, tc.storedDetail)
+	assert.Equal(tc.t, expected, tc.storedDetail.Branch)
 }
 
 func (tc *runeDetailTestContext) stored_detail_has_note_text(index int, expected string) {

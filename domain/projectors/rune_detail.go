@@ -27,6 +27,7 @@ type RuneDetail struct {
 	Priority     int             `json:"priority"`
 	Claimant     string          `json:"claimant,omitempty"`
 	ParentID     string          `json:"parent_id,omitempty"`
+	Branch       string          `json:"branch,omitempty"`
 	Dependencies []DependencyRef `json:"dependencies"`
 	Notes        []NoteEntry     `json:"notes"`
 	CreatedAt    time.Time       `json:"created_at"`
@@ -77,6 +78,7 @@ func (p *RuneDetailProjector) handleCreated(ctx context.Context, event core.Even
 		Status:       "open",
 		Priority:     data.Priority,
 		ParentID:     data.ParentID,
+		Branch:       data.Branch,
 		Dependencies: []DependencyRef{},
 		Notes:        []NoteEntry{},
 		CreatedAt:    event.Timestamp,
@@ -102,6 +104,9 @@ func (p *RuneDetailProjector) handleUpdated(ctx context.Context, event core.Even
 	}
 	if data.Priority != nil {
 		detail.Priority = *data.Priority
+	}
+	if data.Branch != nil {
+		detail.Branch = *data.Branch
 	}
 	detail.UpdatedAt = event.Timestamp
 	return store.Put(ctx, event.RealmID, "rune_detail", data.ID, detail)

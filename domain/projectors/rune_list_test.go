@@ -154,6 +154,58 @@ func TestRuneListProjector(t *testing.T) {
 		tc.stored_summary_has_status("sealed")
 	})
 
+	t.Run("handles RuneCreated with branch", func(t *testing.T) {
+		tc := newRuneListTestContext(t)
+
+		// Given
+		tc.a_rune_list_projector()
+		tc.a_projection_store()
+		tc.a_rune_created_event_with_branch("bf-a1b2", "Fix the bridge", 1, "", "feature/bridge")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.summary_was_stored("bf-a1b2")
+		tc.stored_summary_has_branch("feature/bridge")
+	})
+
+	t.Run("handles RuneUpdated with branch", func(t *testing.T) {
+		tc := newRuneListTestContext(t)
+
+		// Given
+		tc.a_rune_list_projector()
+		tc.a_projection_store()
+		tc.existing_summary("bf-a1b2", "Old title", "open", 1, "", "")
+		tc.a_rune_updated_event_with_branch("bf-a1b2", nil, nil, strPtr("feature/new-branch"))
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.stored_summary_has_branch("feature/new-branch")
+	})
+
+	t.Run("handles RuneUpdated without branch leaves branch unchanged", func(t *testing.T) {
+		tc := newRuneListTestContext(t)
+
+		// Given
+		tc.a_rune_list_projector()
+		tc.a_projection_store()
+		tc.existing_summary_with_branch("bf-a1b2", "Old title", "open", 1, "", "", "feature/old")
+		tc.a_rune_updated_event_with_branch("bf-a1b2", strPtr("New title"), nil, nil)
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.stored_summary_has_title("New title")
+		tc.stored_summary_has_branch("feature/old")
+	})
+
 	t.Run("ignores unknown event types", func(t *testing.T) {
 		tc := newRuneListTestContext(t)
 
@@ -255,10 +307,24 @@ func (tc *runeListTestContext) a_rune_created_event_with_timestamp(id, title str
 	}, time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC))
 }
 
+func (tc *runeListTestContext) a_rune_created_event_with_branch(id, title string, priority int, parentID, branch string) {
+	tc.t.Helper()
+	tc.event = makeEvent(domain.EventRuneCreated, domain.RuneCreated{
+		ID: id, Title: title, Priority: priority, ParentID: parentID, Branch: branch,
+	})
+}
+
 func (tc *runeListTestContext) a_rune_updated_event(id string, title *string, priority *int) {
 	tc.t.Helper()
 	tc.event = makeEvent(domain.EventRuneUpdated, domain.RuneUpdated{
 		ID: id, Title: title, Priority: priority,
+	})
+}
+
+func (tc *runeListTestContext) a_rune_updated_event_with_branch(id string, title *string, priority *int, branch *string) {
+	tc.t.Helper()
+	tc.event = makeEvent(domain.EventRuneUpdated, domain.RuneUpdated{
+		ID: id, Title: title, Priority: priority, Branch: branch,
 	})
 }
 
@@ -308,6 +374,21 @@ func (tc *runeListTestContext) existing_summary(id, title, status string, priori
 		Priority: priority,
 		Claimant: claimant,
 		ParentID: parentID,
+	}
+	tc.store.put(tc.realmID, "rune_list", id, summary)
+}
+
+func (tc *runeListTestContext) existing_summary_with_branch(id, title, status string, priority int, claimant, parentID, branch string) {
+	tc.t.Helper()
+	tc.a_projection_store()
+	summary := RuneSummary{
+		ID:       id,
+		Title:    title,
+		Status:   status,
+		Priority: priority,
+		Claimant: claimant,
+		ParentID: parentID,
+		Branch:   branch,
 	}
 	tc.store.put(tc.realmID, "rune_list", id, summary)
 }
@@ -399,6 +480,12 @@ func (tc *runeListTestContext) stored_summary_has_updated_at() {
 	tc.t.Helper()
 	require.NotNil(tc.t, tc.storedSummary)
 	assert.False(tc.t, tc.storedSummary.UpdatedAt.IsZero(), "expected UpdatedAt to be set")
+}
+
+func (tc *runeListTestContext) stored_summary_has_branch(expected string) {
+	tc.t.Helper()
+	require.NotNil(tc.t, tc.storedSummary)
+	assert.Equal(tc.t, expected, tc.storedSummary.Branch)
 }
 
 func (tc *runeListTestContext) stored_summary_updated_at_changed() {
