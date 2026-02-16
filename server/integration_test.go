@@ -167,7 +167,7 @@ func TestCreateRune_E2E(t *testing.T) {
 		tc.a_realm_exists("Rune Realm")
 
 		// When
-		tc.post("/create-rune", `{"title":"Fix the bridge","description":"Needs repair","priority":1}`, tc.realmPATToken)
+		tc.post("/create-rune", `{"title":"Fix the bridge","description":"Needs repair","priority":1,"branch":"main"}`, tc.realmPATToken)
 
 		// Then
 		tc.status_is(http.StatusCreated)
@@ -374,6 +374,7 @@ func (tc *e2eTestContext) a_rune_exists(title string, priority int) {
 	body, _ := json.Marshal(map[string]any{
 		"title":    title,
 		"priority": priority,
+		"branch":   "main",
 	})
 	tc.post("/create-rune", string(body), tc.realmPATToken)
 	require.Equal(tc.t, http.StatusCreated, tc.resp.StatusCode, "failed to create rune: %s", string(tc.respBody))

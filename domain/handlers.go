@@ -20,6 +20,7 @@ type RuneState struct {
 	Status      string
 	Claimant    string
 	ParentID    string
+	Branch      string
 	Priority    int
 	Exists      bool
 }
@@ -37,6 +38,7 @@ func RebuildRuneState(events []core.Event) RuneState {
 			state.Description = data.Description
 			state.Priority = data.Priority
 			state.ParentID = data.ParentID
+			state.Branch = data.Branch
 			state.Status = "open"
 		case EventRuneUpdated:
 			var data RuneUpdated
@@ -49,6 +51,9 @@ func RebuildRuneState(events []core.Event) RuneState {
 			}
 			if data.Priority != nil {
 				state.Priority = *data.Priority
+			}
+			if data.Branch != nil {
+				state.Branch = *data.Branch
 			}
 		case EventRuneClaimed:
 			var data RuneClaimed
@@ -89,6 +94,8 @@ func readAndRebuild(ctx context.Context, realmID string, runeID string, store co
 func HandleCreateRune(ctx context.Context, realmID string, cmd CreateRune, store core.EventStore, projStore core.ProjectionStore) (RuneCreated, error) {
 	var runeID string
 
+	var branch string
+
 	if cmd.ParentID != "" {
 		parentState, _, err := readAndRebuild(ctx, realmID, cmd.ParentID, store)
 		if err != nil {
@@ -101,6 +108,12 @@ func HandleCreateRune(ctx context.Context, realmID string, cmd CreateRune, store
 			return RuneCreated{}, fmt.Errorf("cannot create child of sealed rune %q", cmd.ParentID)
 		}
 
+		if cmd.Branch != nil {
+			branch = *cmd.Branch
+		} else {
+			branch = parentState.Branch
+		}
+
 		var childCount int
 		err = projStore.Get(ctx, realmID, "RuneChildCount", cmd.ParentID, &childCount)
 		if err != nil {
@@ -111,6 +124,11 @@ func HandleCreateRune(ctx context.Context, realmID string, cmd CreateRune, store
 		}
 		runeID = fmt.Sprintf("%s.%d", cmd.ParentID, childCount+1)
 	} else {
+		if cmd.Branch == nil {
+			return RuneCreated{}, fmt.Errorf("branch is required for top-level runes")
+		}
+		branch = *cmd.Branch
+
 		var err error
 		runeID, err = generateRuneID()
 		if err != nil {
@@ -124,6 +142,7 @@ func HandleCreateRune(ctx context.Context, realmID string, cmd CreateRune, store
 		Description: cmd.Description,
 		Priority:    cmd.Priority,
 		ParentID:    cmd.ParentID,
+		Branch:      branch,
 	}
 
 	streamID := runeStreamID(runeID)

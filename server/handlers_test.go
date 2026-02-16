@@ -158,6 +158,7 @@ func TestCreateRuneHandler(t *testing.T) {
 		tc.post("/create-rune", domain.CreateRune{
 			Title:    "Fix bug",
 			Priority: 1,
+			Branch:   strPtr("main"),
 		})
 
 		// Then
@@ -940,6 +941,7 @@ func TestRoleBasedRouting(t *testing.T) {
 		tc.post_to_mux("/create-rune", domain.CreateRune{
 			Title:    "Test",
 			Priority: 1,
+			Branch:   strPtr("main"),
 		})
 
 		// Then
@@ -960,6 +962,7 @@ func TestRoleBasedRouting(t *testing.T) {
 		tc.post_to_mux("/create-rune", domain.CreateRune{
 			Title:    "Test",
 			Priority: 1,
+			Branch:   strPtr("main"),
 		})
 
 		// Then
@@ -1437,3 +1440,5 @@ func (m *mockProjectionEngine) RunSync(ctx context.Context, events []core.Event)
 }
 
 func (m *mockProjectionEngine) RunCatchUpOnce(ctx context.Context) {}
+
+func strPtr(s string) *string { return &s }
