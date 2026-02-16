@@ -30,6 +30,7 @@ func TestCreateRune_TopLevel(t *testing.T) {
 		tc.created_event_has_priority(1)
 		tc.stream_has_event_count(1)
 		tc.stream_has_event_type(0, domain.EventRuneCreated)
+		tc.rebuilt_state_has_status("draft")
 	})
 }
 
@@ -80,8 +81,8 @@ func TestUpdateRune(t *testing.T) {
 
 		// Then
 		tc.no_error()
-		tc.stream_has_event_count(2)
-		tc.stream_has_event_type(1, domain.EventRuneUpdated)
+		tc.stream_has_event_count(3)
+		tc.stream_has_event_type(2, domain.EventRuneUpdated)
 		tc.rebuilt_state_has_title("New title")
 		tc.rebuilt_state_has_priority(5)
 	})
@@ -116,8 +117,8 @@ func TestClaimRune(t *testing.T) {
 
 		// Then
 		tc.no_error()
-		tc.stream_has_event_count(2)
-		tc.stream_has_event_type(1, domain.EventRuneClaimed)
+		tc.stream_has_event_count(3)
+		tc.stream_has_event_type(2, domain.EventRuneClaimed)
 		tc.rebuilt_state_has_status("claimed")
 		tc.rebuilt_state_has_claimant("odin")
 	})
@@ -168,7 +169,7 @@ func TestFulfillRune(t *testing.T) {
 
 		// Then
 		tc.no_error()
-		tc.stream_has_event_type(2, domain.EventRuneFulfilled)
+		tc.stream_has_event_type(3, domain.EventRuneFulfilled)
 		tc.rebuilt_state_has_status("fulfilled")
 	})
 }
@@ -185,7 +186,7 @@ func TestFulfillRune_Unclaimed(t *testing.T) {
 		tc.fulfill_rune()
 
 		// Then
-		tc.error_contains("claimed")
+		tc.error_contains("not claimed")
 	})
 }
 
@@ -202,8 +203,8 @@ func TestSealRune(t *testing.T) {
 
 		// Then
 		tc.no_error()
-		tc.stream_has_event_count(2)
-		tc.stream_has_event_type(1, domain.EventRuneSealed)
+		tc.stream_has_event_count(3)
+		tc.stream_has_event_type(2, domain.EventRuneSealed)
 		tc.rebuilt_state_has_status("sealed")
 	})
 }
@@ -394,7 +395,7 @@ func TestAddNote(t *testing.T) {
 
 		// Then
 		tc.no_error()
-		tc.stream_has_event_type(1, domain.EventRuneNoted)
+		tc.stream_has_event_type(2, domain.EventRuneNoted)
 	})
 }
 
@@ -412,11 +413,19 @@ func TestRuneListProjector_FullLifecycle(t *testing.T) {
 		tc.no_error()
 		tc.project_all_events()
 
-		// Then: rune_list has open summary
+		// Then: rune_list has draft summary
 		tc.rune_list_has_entry(tc.createdEvent.ID)
 		tc.rune_list_entry_has_title(tc.createdEvent.ID, "Fix the bridge")
-		tc.rune_list_entry_has_status(tc.createdEvent.ID, "open")
+		tc.rune_list_entry_has_status(tc.createdEvent.ID, "draft")
 		tc.rune_list_entry_has_priority(tc.createdEvent.ID, 1)
+
+		// When: forge rune
+		tc.forge_rune()
+		tc.no_error()
+		tc.project_all_events()
+
+		// Then: rune_list has open summary
+		tc.rune_list_entry_has_status(tc.createdEvent.ID, "open")
 
 		// When: update rune
 		tc.update_rune(strPtr("Repaired bridge"), nil, intPtr(3))
@@ -452,14 +461,22 @@ func TestRuneDetailProjector_FullLifecycle(t *testing.T) {
 		tc.project_all_events()
 		runeID := tc.createdEvent.ID
 
-		// Then: detail has initial fields
+		// Then: detail has initial fields with draft status
 		tc.rune_detail_has_entry(runeID)
 		tc.rune_detail_entry_has_title(runeID, "Fix the bridge")
 		tc.rune_detail_entry_has_description(runeID, "Needs repair")
-		tc.rune_detail_entry_has_status(runeID, "open")
+		tc.rune_detail_entry_has_status(runeID, "draft")
 		tc.rune_detail_entry_has_priority(runeID, 1)
 		tc.rune_detail_entry_has_empty_dependencies(runeID)
 		tc.rune_detail_entry_has_empty_notes(runeID)
+
+		// When: forge
+		tc.forge_rune()
+		tc.no_error()
+		tc.project_all_events()
+
+		// Then: detail reflects forge
+		tc.rune_detail_entry_has_status(runeID, "open")
 
 		// When: update
 		tc.update_rune(strPtr("Repaired bridge"), strPtr("All fixed"), intPtr(3))
@@ -556,6 +573,14 @@ func TestReadyRunesQuery(t *testing.T) {
 
 		tc.project_all_events()
 
+		tc.forge_specific_rune(runeA)
+		tc.no_error()
+		tc.forge_specific_rune(runeB)
+		tc.no_error()
+		tc.forge_specific_rune(runeC)
+		tc.no_error()
+		tc.project_all_events()
+
 		// When: C blocks A
 		tc.add_dependency(runeC, runeA, domain.RelBlocks)
 		tc.no_error()
@@ -577,6 +602,118 @@ func TestReadyRunesQuery(t *testing.T) {
 		tc.rune_list_entry_has_status(runeC, "fulfilled")
 		tc.rune_list_entry_has_status(runeA, "open")
 		tc.rune_list_entry_has_status(runeB, "open")
+	})
+}
+
+// --- Forge Integration Tests ---
+
+func TestForgeRune(t *testing.T) {
+	t.Run("forges draft rune, emits RuneForged event, rebuilt state is open", func(t *testing.T) {
+		tc := newIntegrationTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.create_top_level_rune("Draft task", "", 1)
+		tc.no_error()
+		tc.project_all_events()
+
+		// When
+		tc.forge_rune()
+
+		// Then
+		tc.no_error()
+		tc.stream_has_event_count(2)
+		tc.stream_has_event_type(1, domain.EventRuneForged)
+		tc.rebuilt_state_has_status("open")
+	})
+}
+
+func TestForgeRune_AlreadyOpen(t *testing.T) {
+	t.Run("forging already-open rune is idempotent, no extra event", func(t *testing.T) {
+		tc := newIntegrationTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.create_top_level_rune("Draft task", "", 1)
+		tc.no_error()
+		tc.project_all_events()
+		tc.forge_rune()
+		tc.no_error()
+
+		// When: forge again
+		tc.forge_rune()
+
+		// Then: no error, stream still has same event count
+		tc.no_error()
+		tc.stream_has_event_count(2)
+	})
+}
+
+func TestForgeRune_Saga(t *testing.T) {
+	t.Run("forging parent forges all draft children", func(t *testing.T) {
+		tc := newIntegrationTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.create_top_level_rune("Parent task", "", 1)
+		tc.no_error()
+		parentID := tc.createdEvent.ID
+		tc.project_all_events()
+
+		tc.create_child_rune("Child 1", "", 1)
+		tc.no_error()
+		child1ID := tc.createdEvent.ID
+		tc.project_all_events()
+
+		tc.create_child_rune("Child 2", "", 1)
+		tc.no_error()
+		child2ID := tc.createdEvent.ID
+		tc.project_all_events()
+
+		// When: forge parent
+		tc.forge_specific_rune(parentID)
+
+		// Then: no error, all three have RuneForged events
+		tc.no_error()
+		tc.rune_stream_has_event_type(parentID, domain.EventRuneForged)
+		tc.rune_stream_has_event_type(child1ID, domain.EventRuneForged)
+		tc.rune_stream_has_event_type(child2ID, domain.EventRuneForged)
+	})
+}
+
+func TestForgeRune_SagaSkipsNonDraft(t *testing.T) {
+	t.Run("forging parent skips already-open children", func(t *testing.T) {
+		tc := newIntegrationTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.create_top_level_rune("Parent task", "", 1)
+		tc.no_error()
+		parentID := tc.createdEvent.ID
+		tc.project_all_events()
+
+		tc.create_child_rune("Child 1", "", 1)
+		tc.no_error()
+		child1ID := tc.createdEvent.ID
+		tc.project_all_events()
+
+		tc.create_child_rune("Child 2", "", 1)
+		tc.no_error()
+		child2ID := tc.createdEvent.ID
+		tc.project_all_events()
+
+		// Forge child 1 independently
+		tc.forge_specific_rune(child1ID)
+		tc.no_error()
+
+		// When: forge parent
+		tc.forge_specific_rune(parentID)
+
+		// Then: no error, parent and child 2 get RuneForged, child 1 does not get a second RuneForged
+		tc.no_error()
+		tc.rune_stream_has_event_type(parentID, domain.EventRuneForged)
+		tc.rune_stream_has_event_type(child2ID, domain.EventRuneForged)
+		tc.rune_stream_has_event_count(child1ID, 2)
 	})
 }
 
@@ -623,6 +760,9 @@ func (tc *integrationTestContext) an_existing_top_level_rune(title string, prior
 	}, tc.stack.EventStore, tc.stack.ProjectionStore)
 	require.NoError(tc.t, tc.err)
 	tc.parentID = tc.createdEvent.ID
+	tc.project_all_events()
+	tc.err = domain.HandleForgeRune(tc.ctx, tc.realmID, domain.ForgeRune{ID: tc.createdEvent.ID}, tc.stack.EventStore, tc.stack.ProjectionStore)
+	require.NoError(tc.t, tc.err)
 }
 
 func (tc *integrationTestContext) an_existing_sealed_rune(title string, priority int) {
@@ -632,6 +772,7 @@ func (tc *integrationTestContext) an_existing_sealed_rune(title string, priority
 		ID: tc.createdEvent.ID, Reason: "sealed for test",
 	}, tc.stack.EventStore)
 	require.NoError(tc.t, tc.err)
+	tc.project_all_events()
 }
 
 func (tc *integrationTestContext) an_existing_claimed_rune(title string, priority int, claimant string) {
@@ -659,6 +800,12 @@ func (tc *integrationTestContext) two_existing_runes(titleA, titleB string) {
 	}, tc.stack.EventStore, tc.stack.ProjectionStore)
 	require.NoError(tc.t, err)
 	tc.runeIDs = append(tc.runeIDs, evtB.ID)
+
+	tc.project_all_events()
+	err = domain.HandleForgeRune(tc.ctx, tc.realmID, domain.ForgeRune{ID: evtA.ID}, tc.stack.EventStore, tc.stack.ProjectionStore)
+	require.NoError(tc.t, err)
+	err = domain.HandleForgeRune(tc.ctx, tc.realmID, domain.ForgeRune{ID: evtB.ID}, tc.stack.EventStore, tc.stack.ProjectionStore)
+	require.NoError(tc.t, err)
 }
 
 func (tc *integrationTestContext) store_cycle_detection_entry(sourceID, targetID string) {
@@ -702,6 +849,20 @@ func (tc *integrationTestContext) update_rune(title, description *string, priori
 	tc.err = domain.HandleUpdateRune(tc.ctx, tc.realmID, domain.UpdateRune{
 		ID: tc.createdEvent.ID, Title: title, Description: description, Priority: priority,
 	}, tc.stack.EventStore)
+}
+
+func (tc *integrationTestContext) forge_rune() {
+	tc.t.Helper()
+	tc.err = domain.HandleForgeRune(tc.ctx, tc.realmID, domain.ForgeRune{
+		ID: tc.createdEvent.ID,
+	}, tc.stack.EventStore, tc.stack.ProjectionStore)
+}
+
+func (tc *integrationTestContext) forge_specific_rune(runeID string) {
+	tc.t.Helper()
+	tc.err = domain.HandleForgeRune(tc.ctx, tc.realmID, domain.ForgeRune{
+		ID: runeID,
+	}, tc.stack.EventStore, tc.stack.ProjectionStore)
 }
 
 func (tc *integrationTestContext) claim_rune(claimant string) {
@@ -826,6 +987,13 @@ func (tc *integrationTestContext) stream_has_event_type(index int, eventType str
 	require.NoError(tc.t, err)
 	require.Greater(tc.t, len(events), index, "stream has fewer events than expected index %d", index)
 	assert.Equal(tc.t, eventType, events[index].EventType)
+}
+
+func (tc *integrationTestContext) rune_stream_has_event_count(runeID string, expected int) {
+	tc.t.Helper()
+	events, err := tc.stack.EventStore.ReadStream(tc.ctx, tc.realmID, "rune-"+runeID, 0)
+	require.NoError(tc.t, err)
+	assert.Len(tc.t, events, expected, "expected %d events in stream rune-%s, got %d", expected, runeID, len(events))
 }
 
 func (tc *integrationTestContext) rune_stream_has_event_type(runeID, eventType string) {

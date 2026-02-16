@@ -42,7 +42,7 @@ func TestRebuildRuneState(t *testing.T) {
 		tc.state_has_title("Fix the bridge")
 		tc.state_has_description("Needs repair")
 		tc.state_has_priority(1)
-		tc.state_has_status("open")
+		tc.state_has_status("draft")
 	})
 
 	t.Run("applies RuneUpdated on top of RuneCreated", func(t *testing.T) {
@@ -997,6 +997,9 @@ func (tc *handlerTestContext) events_from_created_and_claimed_rune() {
 		makeEvent(EventRuneCreated, RuneCreated{
 			ID: "bf-a1b2", Title: "Fix the bridge", Priority: 1,
 		}),
+		makeEvent(EventRuneForged, RuneForged{
+			ID: "bf-a1b2",
+		}),
 		makeEvent(EventRuneClaimed, RuneClaimed{
 			ID: "bf-a1b2", Claimant: "odin",
 		}),
@@ -1008,6 +1011,9 @@ func (tc *handlerTestContext) events_from_created_claimed_and_fulfilled_rune() {
 	tc.events = []core.Event{
 		makeEvent(EventRuneCreated, RuneCreated{
 			ID: "bf-a1b2", Title: "Fix the bridge", Priority: 1,
+		}),
+		makeEvent(EventRuneForged, RuneForged{
+			ID: "bf-a1b2",
 		}),
 		makeEvent(EventRuneClaimed, RuneClaimed{
 			ID: "bf-a1b2", Claimant: "odin",
@@ -1039,11 +1045,21 @@ func (tc *handlerTestContext) existing_rune_with_branch_in_stream(runeID string,
 		}),
 	}
 	switch status {
+	case "open":
+		events = append(events, makeEvent(EventRuneForged, RuneForged{
+			ID: runeID,
+		}))
 	case "claimed":
+		events = append(events, makeEvent(EventRuneForged, RuneForged{
+			ID: runeID,
+		}))
 		events = append(events, makeEvent(EventRuneClaimed, RuneClaimed{
 			ID: runeID, Claimant: "someone",
 		}))
 	case "fulfilled":
+		events = append(events, makeEvent(EventRuneForged, RuneForged{
+			ID: runeID,
+		}))
 		events = append(events, makeEvent(EventRuneClaimed, RuneClaimed{
 			ID: runeID, Claimant: "someone",
 		}))
@@ -1067,11 +1083,21 @@ func (tc *handlerTestContext) existing_rune_in_stream(runeID string, status stri
 		}),
 	}
 	switch status {
+	case "open":
+		events = append(events, makeEvent(EventRuneForged, RuneForged{
+			ID: runeID,
+		}))
 	case "claimed":
+		events = append(events, makeEvent(EventRuneForged, RuneForged{
+			ID: runeID,
+		}))
 		events = append(events, makeEvent(EventRuneClaimed, RuneClaimed{
 			ID: runeID, Claimant: "someone",
 		}))
 	case "fulfilled":
+		events = append(events, makeEvent(EventRuneForged, RuneForged{
+			ID: runeID,
+		}))
 		events = append(events, makeEvent(EventRuneClaimed, RuneClaimed{
 			ID: runeID, Claimant: "someone",
 		}))

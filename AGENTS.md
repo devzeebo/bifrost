@@ -6,6 +6,7 @@ This project uses **Bifrost** for rune (issue) management in realm **bifrost**.
 
 ```bash
 bf create <title>     # Create a new rune
+bf forge <id>         # Forge a rune (move from draft to open)
 bf list               # List runes
 bf show <id>          # View rune details
 bf claim <id>         # Claim a rune

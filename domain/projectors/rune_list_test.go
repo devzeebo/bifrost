@@ -28,7 +28,7 @@ func TestRuneListProjector(t *testing.T) {
 		tc.name_is("rune_list")
 	})
 
-	t.Run("handles RuneCreated by putting summary with status open", func(t *testing.T) {
+	t.Run("handles RuneCreated by putting summary with status draft", func(t *testing.T) {
 		tc := newRuneListTestContext(t)
 
 		// Given
@@ -43,7 +43,7 @@ func TestRuneListProjector(t *testing.T) {
 		tc.no_error()
 		tc.summary_was_stored("bf-a1b2")
 		tc.stored_summary_has_title("Fix the bridge")
-		tc.stored_summary_has_status("open")
+		tc.stored_summary_has_status("draft")
 		tc.stored_summary_has_priority(1)
 		tc.stored_summary_has_parent_id("")
 	})
