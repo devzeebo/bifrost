@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sort"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -45,19 +46,28 @@ func NewReadyCmd(clientFn func() *Client, out *bytes.Buffer) *ReadyCmd {
 				return fmt.Errorf("server error: %s", string(respBody))
 			}
 
-			if !humanMode {
+			{
 				var runes []map[string]any
 				if json.Unmarshal(respBody, &runes) == nil {
-					allowed := map[string]bool{"id": true, "title": true, "status": true, "priority": true}
-					for i, r := range runes {
-						filtered := make(map[string]any, len(allowed))
-						for k, v := range r {
-							if allowed[k] {
-								filtered[k] = v
+					sort.SliceStable(runes, func(i, j int) bool {
+						pi, _ := runes[i]["priority"].(float64)
+						pj, _ := runes[j]["priority"].(float64)
+						return pi < pj
+					})
+
+					if !humanMode {
+						allowed := map[string]bool{"id": true, "title": true, "status": true, "priority": true}
+						for i, r := range runes {
+							filtered := make(map[string]any, len(allowed))
+							for k, v := range r {
+								if allowed[k] {
+									filtered[k] = v
+								}
 							}
+							runes[i] = filtered
 						}
-						runes[i] = filtered
 					}
+
 					if b, err := json.Marshal(runes); err == nil {
 						respBody = b
 					}
