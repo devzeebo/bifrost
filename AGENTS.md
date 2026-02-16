@@ -20,9 +20,9 @@ bf ready              # List runes ready for work
 ## Dependency Commands
 
 ```bash
-bf dep add <id> <dep>     # Add a dependency to a rune
-bf dep remove <id> <dep>  # Remove a dependency from a rune
-bf dep list <id>          # List dependencies of a rune
+bf dep add <id> <relationship> <dep>     # Add a dependency to a rune
+bf dep remove <id> <relationshiop> <dep>                 # Remove a dependency from a rune
+bf dep list <id>                        # List dependencies of a rune
 ```
 
 ## Completing a Rune
