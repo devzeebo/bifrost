@@ -258,7 +258,8 @@ func TestHandleGrantRealm(t *testing.T) {
 		// Then
 		tc.no_account_error()
 		tc.account_event_was_appended_to_stream("account-acct-a1b2")
-		tc.appended_account_event_has_type(EventRealmGranted)
+		tc.appended_account_event_has_type(EventRoleAssigned)
+		tc.appended_role_assigned_event_has_role(RoleMember)
 	})
 
 	t.Run("is idempotent when realm already granted", func(t *testing.T) {
@@ -323,7 +324,7 @@ func TestHandleRevokeRealm(t *testing.T) {
 		// Then
 		tc.no_account_error()
 		tc.account_event_was_appended_to_stream("account-acct-a1b2")
-		tc.appended_account_event_has_type(EventRealmRevoked)
+		tc.appended_account_event_has_type(EventRoleRevoked)
 	})
 
 	t.Run("returns error when account does not exist", func(t *testing.T) {
@@ -369,6 +370,169 @@ func TestHandleRevokeRealm(t *testing.T) {
 
 		// Then
 		tc.account_error_contains("not granted")
+	})
+}
+
+func TestHandleAssignRole(t *testing.T) {
+	t.Run("assigns valid role to active account", func(t *testing.T) {
+		tc := newAccountHandlerTestContext(t)
+
+		// Given
+		tc.an_event_store()
+		tc.existing_account_in_stream("acct-a1b2", "active")
+		tc.an_assign_role_command("acct-a1b2", "bf-c3d4", RoleAdmin)
+
+		// When
+		tc.handle_assign_role()
+
+		// Then
+		tc.no_account_error()
+		tc.account_event_was_appended_to_stream("account-acct-a1b2")
+		tc.appended_account_event_has_type(EventRoleAssigned)
+		tc.appended_role_assigned_event_has_role(RoleAdmin)
+	})
+
+	t.Run("rejects invalid role with descriptive error", func(t *testing.T) {
+		tc := newAccountHandlerTestContext(t)
+
+		// Given
+		tc.an_event_store()
+		tc.existing_account_in_stream("acct-a1b2", "active")
+		tc.an_assign_role_command("acct-a1b2", "bf-c3d4", "superuser")
+
+		// When
+		tc.handle_assign_role()
+
+		// Then
+		tc.account_error_contains("invalid role")
+	})
+
+	t.Run("is idempotent when same role already assigned", func(t *testing.T) {
+		tc := newAccountHandlerTestContext(t)
+
+		// Given
+		tc.an_event_store()
+		tc.existing_account_with_role("acct-a1b2", "bf-c3d4", RoleAdmin)
+		tc.an_assign_role_command("acct-a1b2", "bf-c3d4", RoleAdmin)
+
+		// When
+		tc.handle_assign_role()
+
+		// Then
+		tc.no_account_error()
+		tc.no_events_were_appended()
+	})
+
+	t.Run("assigns different role replacing previous", func(t *testing.T) {
+		tc := newAccountHandlerTestContext(t)
+
+		// Given
+		tc.an_event_store()
+		tc.existing_account_with_role("acct-a1b2", "bf-c3d4", RoleMember)
+		tc.an_assign_role_command("acct-a1b2", "bf-c3d4", RoleAdmin)
+
+		// When
+		tc.handle_assign_role()
+
+		// Then
+		tc.no_account_error()
+		tc.account_event_was_appended_to_stream("account-acct-a1b2")
+		tc.appended_account_event_has_type(EventRoleAssigned)
+		tc.appended_role_assigned_event_has_role(RoleAdmin)
+	})
+
+	t.Run("returns error when account does not exist", func(t *testing.T) {
+		tc := newAccountHandlerTestContext(t)
+
+		// Given
+		tc.an_event_store()
+		tc.empty_account_stream("acct-missing")
+		tc.an_assign_role_command("acct-missing", "bf-c3d4", RoleAdmin)
+
+		// When
+		tc.handle_assign_role()
+
+		// Then
+		tc.account_error_is_not_found("account", "acct-missing")
+	})
+
+	t.Run("returns error when account is suspended", func(t *testing.T) {
+		tc := newAccountHandlerTestContext(t)
+
+		// Given
+		tc.an_event_store()
+		tc.existing_account_in_stream("acct-a1b2", "suspended")
+		tc.an_assign_role_command("acct-a1b2", "bf-c3d4", RoleAdmin)
+
+		// When
+		tc.handle_assign_role()
+
+		// Then
+		tc.account_error_contains("suspended")
+	})
+}
+
+func TestHandleRevokeRole(t *testing.T) {
+	t.Run("revokes existing role from active account", func(t *testing.T) {
+		tc := newAccountHandlerTestContext(t)
+
+		// Given
+		tc.an_event_store()
+		tc.existing_account_with_role("acct-a1b2", "bf-c3d4", RoleAdmin)
+		tc.a_revoke_role_command("acct-a1b2", "bf-c3d4")
+
+		// When
+		tc.handle_revoke_role()
+
+		// Then
+		tc.no_account_error()
+		tc.account_event_was_appended_to_stream("account-acct-a1b2")
+		tc.appended_account_event_has_type(EventRoleRevoked)
+	})
+
+	t.Run("returns error when account has no role for realm", func(t *testing.T) {
+		tc := newAccountHandlerTestContext(t)
+
+		// Given
+		tc.an_event_store()
+		tc.existing_account_in_stream("acct-a1b2", "active")
+		tc.a_revoke_role_command("acct-a1b2", "bf-c3d4")
+
+		// When
+		tc.handle_revoke_role()
+
+		// Then
+		tc.account_error_contains("not granted")
+	})
+
+	t.Run("returns error when account does not exist", func(t *testing.T) {
+		tc := newAccountHandlerTestContext(t)
+
+		// Given
+		tc.an_event_store()
+		tc.empty_account_stream("acct-missing")
+		tc.a_revoke_role_command("acct-missing", "bf-c3d4")
+
+		// When
+		tc.handle_revoke_role()
+
+		// Then
+		tc.account_error_is_not_found("account", "acct-missing")
+	})
+
+	t.Run("returns error when account is suspended", func(t *testing.T) {
+		tc := newAccountHandlerTestContext(t)
+
+		// Given
+		tc.an_event_store()
+		tc.existing_account_in_stream("acct-a1b2", "suspended")
+		tc.a_revoke_role_command("acct-a1b2", "bf-c3d4")
+
+		// When
+		tc.handle_revoke_role()
+
+		// Then
+		tc.account_error_contains("suspended")
 	})
 }
 
@@ -518,6 +682,8 @@ type accountHandlerTestContext struct {
 	revokeRealmCmd    RevokeRealm
 	createPATCmd      CreatePAT
 	revokePATCmd      RevokePAT
+	assignRoleCmd     AssignRole
+	revokeRoleCmd     RevokeRole
 
 	createAccountResult CreateAccountResult
 	createPATResult     CreatePATResult
@@ -788,6 +954,29 @@ func (tc *accountHandlerTestContext) a_revoke_pat_command(accountID, patID strin
 	tc.revokePATCmd = RevokePAT{AccountID: accountID, PATID: patID}
 }
 
+func (tc *accountHandlerTestContext) an_assign_role_command(accountID, realmID, role string) {
+	tc.t.Helper()
+	tc.assignRoleCmd = AssignRole{AccountID: accountID, RealmID: realmID, Role: role}
+}
+
+func (tc *accountHandlerTestContext) a_revoke_role_command(accountID, realmID string) {
+	tc.t.Helper()
+	tc.revokeRoleCmd = RevokeRole{AccountID: accountID, RealmID: realmID}
+}
+
+func (tc *accountHandlerTestContext) existing_account_with_role(accountID, realmID, role string) {
+	tc.t.Helper()
+	tc.an_event_store()
+	tc.eventStore.streams["account-"+accountID] = []core.Event{
+		makeEvent(EventAccountCreated, AccountCreated{
+			AccountID: accountID, Username: "alice",
+		}),
+		makeEvent(EventRoleAssigned, RoleAssigned{
+			AccountID: accountID, RealmID: realmID, Role: role,
+		}),
+	}
+}
+
 // --- When ---
 
 func (tc *accountHandlerTestContext) account_state_is_rebuilt() {
@@ -823,6 +1012,16 @@ func (tc *accountHandlerTestContext) handle_create_pat() {
 func (tc *accountHandlerTestContext) handle_revoke_pat() {
 	tc.t.Helper()
 	tc.err = HandleRevokePAT(tc.ctx, tc.revokePATCmd, tc.eventStore)
+}
+
+func (tc *accountHandlerTestContext) handle_assign_role() {
+	tc.t.Helper()
+	tc.err = HandleAssignRole(tc.ctx, tc.assignRoleCmd, tc.eventStore)
+}
+
+func (tc *accountHandlerTestContext) handle_revoke_role() {
+	tc.t.Helper()
+	tc.err = HandleRevokeRole(tc.ctx, tc.revokeRoleCmd, tc.eventStore)
 }
 
 // --- Then ---
@@ -1023,6 +1222,26 @@ func (tc *accountHandlerTestContext) appended_pat_created_event_has_hashed_key()
 	expectedHash := sha256.Sum256(rawTokenBytes)
 	expectedHashStr := base64.RawURLEncoding.EncodeToString(expectedHash[:])
 	assert.Equal(tc.t, expectedHashStr, patEvt.KeyHash)
+}
+
+func (tc *accountHandlerTestContext) appended_role_assigned_event_has_role(expectedRole string) {
+	tc.t.Helper()
+	require.NotEmpty(tc.t, tc.eventStore.appendedCalls, "expected at least one Append call")
+	lastCall := tc.eventStore.appendedCalls[len(tc.eventStore.appendedCalls)-1]
+	require.NotEmpty(tc.t, lastCall.events)
+	var found bool
+	for _, evt := range lastCall.events {
+		if evt.EventType == EventRoleAssigned {
+			dataBytes, err := json.Marshal(evt.Data)
+			require.NoError(tc.t, err)
+			var ra RoleAssigned
+			require.NoError(tc.t, json.Unmarshal(dataBytes, &ra))
+			assert.Equal(tc.t, expectedRole, ra.Role)
+			found = true
+			break
+		}
+	}
+	assert.True(tc.t, found, "expected RoleAssigned event in appended events")
 }
 
 func (tc *accountHandlerTestContext) no_events_were_appended() {

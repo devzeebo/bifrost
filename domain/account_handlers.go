@@ -226,11 +226,11 @@ func HandleGrantRealm(ctx context.Context, cmd GrantRealm, store core.EventStore
 		return nil
 	}
 
-	granted := RealmGranted(cmd)
+	assigned := RoleAssigned{AccountID: cmd.AccountID, RealmID: cmd.RealmID, Role: RoleMember}
 
 	streamID := accountStreamID(cmd.AccountID)
 	_, err = store.Append(ctx, AdminRealmID, streamID, len(events), []core.EventData{
-		{EventType: EventRealmGranted, Data: granted},
+		{EventType: EventRoleAssigned, Data: assigned},
 	})
 	return err
 }
@@ -248,11 +248,60 @@ func HandleRevokeRealm(ctx context.Context, cmd RevokeRealm, store core.EventSto
 		return fmt.Errorf("realm %q is not granted to account %q", cmd.RealmID, cmd.AccountID)
 	}
 
-	revoked := RealmRevoked(cmd)
+	revoked := RoleRevoked(cmd)
 
 	streamID := accountStreamID(cmd.AccountID)
 	_, err = store.Append(ctx, AdminRealmID, streamID, len(events), []core.EventData{
-		{EventType: EventRealmRevoked, Data: revoked},
+		{EventType: EventRoleRevoked, Data: revoked},
+	})
+	return err
+}
+
+func HandleAssignRole(ctx context.Context, cmd AssignRole, store core.EventStore) error {
+	if !IsValidRole(cmd.Role) {
+		return fmt.Errorf("invalid role %q", cmd.Role)
+	}
+
+	state, events, err := readAndRebuildAccountState(ctx, cmd.AccountID, store)
+	if err != nil {
+		return err
+	}
+	if err := requireActiveAccount(state, cmd.AccountID); err != nil {
+		return err
+	}
+
+	// Idempotent: if same role already assigned, return nil
+	if state.Realms[cmd.RealmID] == cmd.Role {
+		return nil
+	}
+
+	assigned := RoleAssigned(cmd)
+
+	streamID := accountStreamID(cmd.AccountID)
+	_, err = store.Append(ctx, AdminRealmID, streamID, len(events), []core.EventData{
+		{EventType: EventRoleAssigned, Data: assigned},
+	})
+	return err
+}
+
+func HandleRevokeRole(ctx context.Context, cmd RevokeRole, store core.EventStore) error {
+	state, events, err := readAndRebuildAccountState(ctx, cmd.AccountID, store)
+	if err != nil {
+		return err
+	}
+	if err := requireActiveAccount(state, cmd.AccountID); err != nil {
+		return err
+	}
+
+	if _, ok := state.Realms[cmd.RealmID]; !ok {
+		return fmt.Errorf("realm %q is not granted to account %q", cmd.RealmID, cmd.AccountID)
+	}
+
+	revoked := RoleRevoked(cmd)
+
+	streamID := accountStreamID(cmd.AccountID)
+	_, err = store.Append(ctx, AdminRealmID, streamID, len(events), []core.EventData{
+		{EventType: EventRoleRevoked, Data: revoked},
 	})
 	return err
 }

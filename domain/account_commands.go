@@ -19,6 +19,17 @@ type RevokeRealm struct {
 	RealmID   string `json:"realm_id"`
 }
 
+type AssignRole struct {
+	AccountID string `json:"account_id"`
+	RealmID   string `json:"realm_id"`
+	Role      string `json:"role"`
+}
+
+type RevokeRole struct {
+	AccountID string `json:"account_id"`
+	RealmID   string `json:"realm_id"`
+}
+
 type CreatePAT struct {
 	AccountID string `json:"account_id"`
 	Label     string `json:"label"`
