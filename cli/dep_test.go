@@ -30,8 +30,8 @@ func TestDepAddCommand(t *testing.T) {
 		tc.command_has_no_error()
 		tc.request_method_was("POST")
 		tc.request_path_was("/add-dependency")
-		tc.request_body_has("runeId", "rune-1")
-		tc.request_body_has("targetId", "rune-2")
+		tc.request_body_has("rune_id", "rune-1")
+		tc.request_body_has("target_id", "rune-2")
 		tc.request_body_has("relationship", "blocks")
 	})
 
@@ -66,8 +66,8 @@ func TestDepRemoveCommand(t *testing.T) {
 		tc.command_has_no_error()
 		tc.request_method_was("POST")
 		tc.request_path_was("/remove-dependency")
-		tc.request_body_has("runeId", "rune-1")
-		tc.request_body_has("targetId", "rune-2")
+		tc.request_body_has("rune_id", "rune-1")
+		tc.request_body_has("target_id", "rune-2")
 		tc.request_body_has("relationship", "blocks")
 	})
 

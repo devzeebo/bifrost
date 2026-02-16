@@ -31,8 +31,8 @@ func newDepAddCmd(root *RootCmd) *cobra.Command {
 			relType, _ := cmd.Flags().GetString("type")
 
 			body, err := json.Marshal(map[string]string{
-				"runeId":       args[0],
-				"targetId":     args[1],
+				"rune_id":      args[0],
+				"target_id":    args[1],
 				"relationship": relType,
 			})
 			if err != nil {
@@ -69,8 +69,8 @@ func newDepRemoveCmd(root *RootCmd) *cobra.Command {
 			relType, _ := cmd.Flags().GetString("type")
 
 			body, err := json.Marshal(map[string]string{
-				"runeId":       args[0],
-				"targetId":     args[1],
+				"rune_id":      args[0],
+				"target_id":    args[1],
 				"relationship": relType,
 			})
 			if err != nil {
