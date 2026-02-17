@@ -12,7 +12,7 @@
       <form hx-post="/admin/accounts/create" hx-target="#account-created-result">
         <input type="text" name="username" id="username" placeholder="Username" required class="form-control">
         <button type="submit" class="btn btn-primary btn-sm">Create</button>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('create-account-form').style.display='none'">Cancel</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('create-account-form').style.display='none'; document.getElementById('add-account-btn').style.display='inline-block'">Cancel</button>
       </form>
     </div>
     <button class="btn btn-primary btn-sm" id="add-account-btn" onclick="document.getElementById('create-account-form').style.display='flex'; document.getElementById('add-account-btn').style.display='none'">+ Add</button>
@@ -25,8 +25,8 @@
           <th>Username</th>
           <th>ID</th>
           <th>Status</th>
+          <th>Role</th>
           <th>Realms</th>
-          <th>PATs</th>
           <th>Created</th>
           <th>Actions</th>
         </tr>
@@ -37,8 +37,8 @@
           <td><a href="/admin/accounts/{{.AccountID}}">{{.Username}}</a></td>
           <td><code>{{.AccountID}}</code></td>
           <td><span class="badge badge-{{.Status}}">{{.Status}}</span></td>
+          <td>{{index .Roles "_admin" | default "member"}}</td>
           <td>{{len .Realms}}</td>
-          <td>{{.PATCount}}</td>
           <td>{{.CreatedAt.Format "2006-01-02"}}</td>
           <td>
             {{if eq .Status "active"}}

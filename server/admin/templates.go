@@ -67,7 +67,16 @@ func priorityLabel(priority int) string {
 func templateFuncs() template.FuncMap {
 	return template.FuncMap{
 		"priorityLabel": priorityLabel,
+		"default":       templateDefault,
 	}
+}
+
+// templateDefault returns the first non-empty value.
+func templateDefault(val, def interface{}) interface{} {
+	if val == nil || val == "" {
+		return def
+	}
+	return val
 }
 
 // Templates manages HTML template loading and rendering.
