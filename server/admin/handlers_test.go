@@ -744,3 +744,141 @@ func TestIsAdmin(t *testing.T) {
 		})
 	}
 }
+
+// Helper to create context with username, roles, and account ID
+func contextWithUserAndID(ctx context.Context, username string, roles map[string]string, accountID string) context.Context {
+	ctx = context.WithValue(ctx, usernameKey, username)
+	ctx = context.WithValue(ctx, rolesKey, roles)
+	ctx = context.WithValue(ctx, accountIDKey, accountID)
+	return ctx
+}
+
+func TestAccountsListHandler(t *testing.T) {
+	templates, err := NewTemplates()
+	require.NoError(t, err)
+
+	cfg := DefaultAuthConfig()
+	cfg.SigningKey = make([]byte, 32)
+	rand.Read(cfg.SigningKey)
+
+	t.Run("admin can see accounts list", func(t *testing.T) {
+		store := newMockProjectionStore()
+		store.listData["account_list"] = []json.RawMessage{
+			json.RawMessage(`{"account_id":"acct-1","username":"testuser","status":"active","realms":["realm-1"],"roles":{"realm-1":"member"},"pat_count":1,"created_at":"2024-01-01T00:00:00Z"}`),
+		}
+
+		handlers := NewHandlers(templates, cfg, store, nil)
+
+		req := httptest.NewRequest("GET", "/admin/accounts", nil)
+		ctx := contextWithUser(req.Context(), "admin", map[string]string{"_admin": "admin"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.AccountsListHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "testuser")
+	})
+
+	t.Run("non-admin gets 403", func(t *testing.T) {
+		store := newMockProjectionStore()
+		handlers := NewHandlers(templates, cfg, store, nil)
+
+		req := httptest.NewRequest("GET", "/admin/accounts", nil)
+		ctx := contextWithUser(req.Context(), "member", map[string]string{"realm-1": "member"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.AccountsListHandler(rec, req)
+
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+}
+
+func TestAccountDetailHandler(t *testing.T) {
+	templates, err := NewTemplates()
+	require.NoError(t, err)
+
+	cfg := DefaultAuthConfig()
+	cfg.SigningKey = make([]byte, 32)
+	rand.Read(cfg.SigningKey)
+
+	t.Run("shows account details", func(t *testing.T) {
+		store := newMockProjectionStore()
+		store.data["acct-1"] = projectors.AccountListEntry{
+			AccountID: "acct-1",
+			Username:  "testuser",
+			Status:    "active",
+			Realms:    []string{"realm-1"},
+			Roles:     map[string]string{"realm-1": "member"},
+			PATCount:  1,
+			CreatedAt: time.Now(),
+		}
+
+		handlers := NewHandlers(templates, cfg, store, nil)
+
+		req := httptest.NewRequest("GET", "/admin/accounts/acct-1", nil)
+		ctx := contextWithUserAndID(req.Context(), "admin", map[string]string{"_admin": "admin"}, "admin-1")
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.AccountDetailHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "testuser")
+	})
+
+	t.Run("shows 404 for non-existent account", func(t *testing.T) {
+		store := newMockProjectionStore()
+		handlers := NewHandlers(templates, cfg, store, nil)
+
+		req := httptest.NewRequest("GET", "/admin/accounts/nonexistent", nil)
+		ctx := contextWithUser(req.Context(), "admin", map[string]string{"_admin": "admin"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.AccountDetailHandler(rec, req)
+
+		assert.Equal(t, http.StatusNotFound, rec.Code)
+	})
+
+	t.Run("non-admin gets 403", func(t *testing.T) {
+		store := newMockProjectionStore()
+		handlers := NewHandlers(templates, cfg, store, nil)
+
+		req := httptest.NewRequest("GET", "/admin/accounts/acct-1", nil)
+		ctx := contextWithUser(req.Context(), "member", map[string]string{"realm-1": "member"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.AccountDetailHandler(rec, req)
+
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+
+	t.Run("hides suspend button for self", func(t *testing.T) {
+		store := newMockProjectionStore()
+		store.data["acct-1"] = projectors.AccountListEntry{
+			AccountID: "acct-1",
+			Username:  "adminuser",
+			Status:    "active",
+			Realms:    []string{},
+			Roles:     map[string]string{"_admin": "admin"},
+			PATCount:  1,
+			CreatedAt: time.Now(),
+		}
+
+		handlers := NewHandlers(templates, cfg, store, nil)
+
+		req := httptest.NewRequest("GET", "/admin/accounts/acct-1", nil)
+		ctx := contextWithUserAndID(req.Context(), "adminuser", map[string]string{"_admin": "admin"}, "acct-1")
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.AccountDetailHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		// Self-modification prevention - shouldn't see suspend form
+		assert.NotContains(t, rec.Body.String(), "Suspend Account")
+	})
+}

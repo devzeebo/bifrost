@@ -32,7 +32,6 @@ func TestTemplateLoading(t *testing.T) {
 		"realms/detail.html",
 		"accounts/list.html",
 		"accounts/detail.html",
-		"accounts/pats.html",
 	}
 
 	for _, name := range expectedTemplates {
@@ -553,4 +552,73 @@ func TestTemplate_OutputEscaping(t *testing.T) {
 	// Should contain escaped version
 	assert.True(t, strings.Contains(body, "&lt;script&gt;") || strings.Contains(body, "&#34;"),
 		"username should be HTML-escaped")
+}
+
+func TestTemplateInheritance_Accounts(t *testing.T) {
+	templates, err := NewTemplates()
+	require.NoError(t, err)
+
+	t.Run("accounts/list.html", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		data := TemplateData{
+			Title:   "Accounts",
+			Account: &AccountInfo{Username: "admin", Roles: map[string]string{"_admin": "admin"}},
+			Data: map[string]interface{}{
+				"Accounts": []interface{}{},
+			},
+		}
+		err := templates.Render(rec, "accounts/list.html", data)
+		require.NoError(t, err)
+
+		body := rec.Body.String()
+		assert.Contains(t, body, "<nav>")
+		assert.Contains(t, body, `<main>`)
+		assert.Contains(t, body, `<div id="toasts">`)
+		assert.Contains(t, body, "Create Account")
+	})
+
+	t.Run("accounts/detail.html with account", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		data := TemplateData{
+			Title:   "Test Account",
+			Account: &AccountInfo{Username: "admin", Roles: map[string]string{"_admin": "admin"}},
+			Data: map[string]interface{}{
+				"Account": map[string]interface{}{
+					"AccountID": "acct-1234",
+					"Username":  "testuser",
+					"Status":    "active",
+					"Realms":    []string{},
+					"Roles":     map[string]string{},
+					"PATCount":  1,
+					"CreatedAt": "2024-01-01T00:00:00Z",
+				},
+				"Realms":     []interface{}{},
+				"IsSelf":     false,
+				"ValidRoles": []string{"admin", "member", "viewer"},
+			},
+		}
+		err := templates.Render(rec, "accounts/detail.html", data)
+		require.NoError(t, err)
+
+		body := rec.Body.String()
+		assert.Contains(t, body, "<nav>")
+		assert.Contains(t, body, `<main>`)
+		assert.Contains(t, body, "testuser")
+	})
+
+	t.Run("accounts/detail.html with error", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		data := TemplateData{
+			Title:   "Account Not Found",
+			Error:   "Account not found",
+			Account: &AccountInfo{Username: "admin", Roles: map[string]string{"_admin": "admin"}},
+		}
+		err := templates.Render(rec, "accounts/detail.html", data)
+		require.NoError(t, err)
+
+		body := rec.Body.String()
+		assert.Contains(t, body, "<nav>")
+		assert.Contains(t, body, `<main>`)
+		assert.Contains(t, body, "Account not found")
+	})
 }

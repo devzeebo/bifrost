@@ -138,6 +138,13 @@ func (h *Handlers) RegisterRoutes(publicMux, authMux *http.ServeMux) {
 	authMux.HandleFunc("GET /admin/realms/", h.RealmDetailHandler)
 	authMux.HandleFunc("POST /admin/realms/create", h.CreateRealmHandler)
 	authMux.HandleFunc("POST /admin/realms/{id}/suspend", h.SuspendRealmHandler)
+
+	// Accounts management (admin-only)
+	authMux.HandleFunc("GET /admin/accounts", h.AccountsListHandler)
+	authMux.HandleFunc("GET /admin/accounts/", h.AccountDetailHandler)
+	authMux.HandleFunc("POST /admin/accounts/create", h.CreateAccountHandler)
+	authMux.HandleFunc("POST /admin/accounts/{id}/suspend", h.SuspendAccountHandler)
+	authMux.HandleFunc("POST /admin/accounts/{id}/roles", h.UpdateRolesHandler)
 }
 
 // DashboardHandler handles GET requests for the dashboard.
@@ -680,4 +687,275 @@ func isAdmin(roles map[string]string) bool {
 	}
 	role, ok := roles["_admin"]
 	return ok && role == "admin"
+}
+
+// AccountsListHandler handles GET /admin/accounts - list all accounts (admin-only).
+func (h *Handlers) AccountsListHandler(w http.ResponseWriter, r *http.Request) {
+	username, _ := UsernameFromContext(r.Context())
+	roles, _ := RolesFromContext(r.Context())
+
+	// Check admin authorization
+	if !isAdmin(roles) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	// Get all accounts from projection
+	var accounts []projectors.AccountListEntry
+	if h.projectionStore != nil {
+		rawAccounts, err := h.projectionStore.List(r.Context(), domain.AdminRealmID, "account_list")
+		if err == nil {
+			for _, raw := range rawAccounts {
+				var account projectors.AccountListEntry
+				if err := json.Unmarshal(raw, &account); err != nil {
+					continue
+				}
+				accounts = append(accounts, account)
+			}
+		}
+	}
+
+	h.templates.Render(w, "accounts/list.html", TemplateData{
+		Title: "Accounts",
+		Account: &AccountInfo{
+			Username: username,
+			Roles:    roles,
+		},
+		Data: map[string]interface{}{
+			"Accounts": accounts,
+		},
+	})
+}
+
+// AccountDetailHandler handles GET /admin/accounts/{id} - show account details (admin-only).
+func (h *Handlers) AccountDetailHandler(w http.ResponseWriter, r *http.Request) {
+	username, _ := UsernameFromContext(r.Context())
+	roles, _ := RolesFromContext(r.Context())
+	currentAccountID, _ := AccountIDFromContext(r.Context())
+
+	// Check admin authorization
+	if !isAdmin(roles) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	// Extract account ID from path
+	accountID := strings.TrimPrefix(r.URL.Path, "/admin/accounts/")
+	if accountID == "" || strings.Contains(accountID, "/") {
+		http.Error(w, "Invalid account ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get account detail
+	var account projectors.AccountListEntry
+	err := h.projectionStore.Get(r.Context(), domain.AdminRealmID, "account_list", accountID, &account)
+	if err != nil {
+		data := TemplateData{
+			Title:   "Account Not Found",
+			Error:   "Account not found",
+			Account: &AccountInfo{Username: username, Roles: roles},
+		}
+		w.WriteHeader(http.StatusNotFound)
+		h.templates.Render(w, "accounts/detail.html", data)
+		return
+	}
+
+	// Get all realms for role assignment dropdown
+	var realms []projectors.RealmListEntry
+	if h.projectionStore != nil {
+		rawRealms, err := h.projectionStore.List(r.Context(), domain.AdminRealmID, "realm_list")
+		if err == nil {
+			for _, raw := range rawRealms {
+				var realm projectors.RealmListEntry
+				if err := json.Unmarshal(raw, &realm); err != nil {
+					continue
+				}
+				realms = append(realms, realm)
+			}
+		}
+	}
+
+	h.templates.Render(w, "accounts/detail.html", TemplateData{
+		Title:   account.Username,
+		Account: &AccountInfo{Username: username, Roles: roles},
+		Data: map[string]interface{}{
+			"Account":         account,
+			"Realms":          realms,
+			"IsSelf":          account.AccountID == currentAccountID,
+			"ValidRoles":      []string{"admin", "member", "viewer"},
+		},
+	})
+}
+
+// CreateAccountHandler handles POST /admin/accounts/create (admin-only).
+func (h *Handlers) CreateAccountHandler(w http.ResponseWriter, r *http.Request) {
+	roles, _ := RolesFromContext(r.Context())
+
+	// Check admin authorization
+	if !isAdmin(roles) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	username := strings.TrimSpace(r.FormValue("username"))
+	if username == "" {
+		renderToastPartial(w, "error", "Username is required")
+		return
+	}
+
+	// Create account via domain command
+	result, err := domain.HandleCreateAccount(r.Context(), domain.CreateAccount{
+		Username: username,
+	}, h.eventStore, h.projectionStore)
+	if err != nil {
+		if strings.Contains(err.Error(), "already exists") {
+			renderToastPartial(w, "error", "Username already exists")
+			return
+		}
+		renderToastPartial(w, "error", "Failed to create account")
+		return
+	}
+
+	// Show success message with the generated PAT
+	renderAccountCreatedPartial(w, result.AccountID, result.RawToken)
+}
+
+// renderAccountCreatedPartial renders a success message with the new PAT.
+func renderAccountCreatedPartial(w http.ResponseWriter, accountID, rawToken string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+
+	// Render success partial with the token (shown once)
+	w.Write([]byte(`<div class="alert alert-success">
+		<strong>Account created!</strong><br>
+		Account ID: ` + accountID + `<br>
+		<strong>Initial PAT (save this - it won't be shown again):</strong><br>
+		<code style="user-select: all;">` + rawToken + `</code>
+	</div>
+	<a href="/admin/accounts" class="btn btn-secondary">Back to Accounts</a>`))
+}
+
+// SuspendAccountHandler handles POST /admin/accounts/{id}/suspend (admin-only).
+func (h *Handlers) SuspendAccountHandler(w http.ResponseWriter, r *http.Request) {
+	roles, _ := RolesFromContext(r.Context())
+	currentAccountID, _ := AccountIDFromContext(r.Context())
+
+	// Check admin authorization
+	if !isAdmin(roles) {
+		renderToastPartial(w, "error", "Forbidden")
+		return
+	}
+
+	accountID := r.PathValue("id")
+	if accountID == "" {
+		renderToastPartial(w, "error", "Account ID is required")
+		return
+	}
+
+	// Prevent self-suspension
+	if accountID == currentAccountID {
+		renderToastPartial(w, "error", "Cannot suspend your own account")
+		return
+	}
+
+	// Get reason from form
+	reason := r.FormValue("reason")
+
+	// Suspend account via domain command
+	err := domain.HandleSuspendAccount(r.Context(), domain.SuspendAccount{
+		AccountID: accountID,
+		Reason:    reason,
+	}, h.eventStore)
+
+	if err != nil {
+		if strings.Contains(err.Error(), "suspended") {
+			renderToastPartial(w, "error", "Account already suspended")
+			return
+		}
+		if strings.Contains(err.Error(), "not found") {
+			renderToastPartial(w, "error", "Account not found")
+			return
+		}
+		renderToastPartial(w, "error", "Failed to suspend account")
+		return
+	}
+
+	// Redirect to accounts list
+	http.Redirect(w, r, "/admin/accounts", http.StatusSeeOther)
+}
+
+// UpdateRolesHandler handles POST /admin/accounts/{id}/roles (admin-only).
+func (h *Handlers) UpdateRolesHandler(w http.ResponseWriter, r *http.Request) {
+	roles, _ := RolesFromContext(r.Context())
+	currentAccountID, _ := AccountIDFromContext(r.Context())
+
+	// Check admin authorization
+	if !isAdmin(roles) {
+		renderToastPartial(w, "error", "Forbidden")
+		return
+	}
+
+	accountID := r.PathValue("id")
+	if accountID == "" {
+		renderToastPartial(w, "error", "Account ID is required")
+		return
+	}
+
+	// Prevent self-modification
+	if accountID == currentAccountID {
+		renderToastPartial(w, "error", "Cannot modify your own account")
+		return
+	}
+
+	// Get form values
+	realmID := r.FormValue("realm_id")
+	action := r.FormValue("action") // "assign" or "revoke"
+	role := r.FormValue("role")
+
+	var err error
+
+	switch action {
+	case "assign":
+		if realmID == "" || role == "" {
+			renderToastPartial(w, "error", "Realm and role are required")
+			return
+		}
+		if !domain.IsValidRole(role) {
+			renderToastPartial(w, "error", "Invalid role")
+			return
+		}
+		err = domain.HandleAssignRole(r.Context(), domain.AssignRole{
+			AccountID: accountID,
+			RealmID:   realmID,
+			Role:      role,
+		}, h.eventStore)
+	case "revoke":
+		if realmID == "" {
+			renderToastPartial(w, "error", "Realm is required")
+			return
+		}
+		err = domain.HandleRevokeRole(r.Context(), domain.RevokeRole{
+			AccountID: accountID,
+			RealmID:   realmID,
+		}, h.eventStore)
+	default:
+		renderToastPartial(w, "error", "Invalid action")
+		return
+	}
+
+	if err != nil {
+		if strings.Contains(err.Error(), "not granted") {
+			renderToastPartial(w, "error", "Realm not granted to this account")
+			return
+		}
+		if strings.Contains(err.Error(), "not found") {
+			renderToastPartial(w, "error", "Account not found")
+			return
+		}
+		renderToastPartial(w, "error", "Failed to update role")
+		return
+	}
+
+	// Redirect back to account detail
+	http.Redirect(w, r, "/admin/accounts/"+accountID, http.StatusSeeOther)
 }
