@@ -123,17 +123,15 @@ func (h *Handlers) RegisterRoutes(publicMux, authMux *http.ServeMux) {
 // DashboardHandler handles GET requests for the dashboard.
 func (h *Handlers) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 	username, _ := UsernameFromContext(r.Context())
+	roles, _ := RolesFromContext(r.Context())
 
 	data := TemplateData{
 		Title: "Dashboard",
 		Account: &AccountInfo{
 			Username: username,
+			Roles:    roles,
 		},
 	}
 
-	// For now, just render a simple dashboard
-	// This will be enhanced in future runes
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("<h1>Dashboard</h1><p>Welcome, " + username + "!</p><form action=\"/admin/logout\" method=\"post\"><button>Logout</button></form>"))
-	_ = data // Will be used when dashboard template is implemented
+	h.templates.Render(w, "dashboard.html", data)
 }

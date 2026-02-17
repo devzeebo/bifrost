@@ -17,6 +17,7 @@ type TemplateData struct {
 	Error   string
 	Success string
 	Account *AccountInfo
+	Data    interface{}
 }
 
 // AccountInfo contains information about the authenticated user.
@@ -24,6 +25,15 @@ type AccountInfo struct {
 	ID       string
 	Username string
 	Roles    map[string]string
+}
+
+// IsAdmin returns true if the user has admin role in the _admin realm.
+func (a *AccountInfo) IsAdmin() bool {
+	if a == nil || a.Roles == nil {
+		return false
+	}
+	role, ok := a.Roles["_admin"]
+	return ok && role == "admin"
 }
 
 // Templates manages HTML template loading and rendering.

@@ -1,20 +1,26 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{.Title}} | Bifrost Admin</title>
   <link rel="stylesheet" href="/admin/static/style.css">
   <script src="https://unpkg.com/htmx.org@1.9.10"></script>
 </head>
 <body>
   <nav>
-    <a href="/admin/">Bifrost</a>
-    <a href="/admin/runes">Runes</a>
-    {{if eq .Account.Role "admin"}}
-    <a href="/admin/realms">Realms</a>
-    <a href="/admin/accounts">Accounts</a>
-    {{end}}
-    <span>{{.Account.Username}}</span>
-    <form action="/admin/logout" method="post"><button>Logout</button></form>
+    <a href="/admin/" class="nav-brand">Bifrost</a>
+    <ul class="nav-links">
+      <li><a href="/admin/runes">Runes</a></li>
+      {{if .Account.IsAdmin}}
+      <li><a href="/admin/realms">Realms</a></li>
+      <li><a href="/admin/accounts">Accounts</a></li>
+      {{end}}
+    </ul>
+    <div class="nav-user">
+      {{if .Account}}<span>{{.Account.Username}}</span>{{end}}
+      <form action="/admin/logout" method="post"><button type="submit">Logout</button></form>
+    </div>
   </nav>
   <main>
     {{template "content" .}}
