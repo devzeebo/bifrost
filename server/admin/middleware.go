@@ -164,27 +164,27 @@ func AuthMiddleware(cfg *AuthConfig, projectionStore core.ProjectionStore) func(
 			cookie, err := r.Cookie(cfg.CookieName)
 			if err != nil {
 				if errors.Is(err, http.ErrNoCookie) {
-					redirectToLogin(w, r)
+					redirectToLogin(w, r, cfg)
 					return
 				}
-				redirectToLogin(w, r)
+				redirectToLogin(w, r, cfg)
 				return
 			}
 
 			claims, err := ValidateJWT(cfg, cookie.Value)
 			if err != nil {
 				if errors.Is(err, jwt.ErrTokenExpired) {
-					redirectToLogin(w, r)
+					redirectToLogin(w, r, cfg)
 					return
 				}
-				redirectToLogin(w, r)
+				redirectToLogin(w, r, cfg)
 				return
 			}
 
 			// Check that the PAT is still active
 			entry, err := CheckPATStatus(r.Context(), projectionStore, claims.PATID)
 			if err != nil {
-				redirectToLogin(w, r)
+				redirectToLogin(w, r, cfg)
 				return
 			}
 
@@ -201,16 +201,16 @@ func AuthMiddleware(cfg *AuthConfig, projectionStore core.ProjectionStore) func(
 }
 
 // redirectToLogin clears the auth cookie and redirects to the login page.
-func redirectToLogin(w http.ResponseWriter, r *http.Request) {
-	// Clear the cookie by setting it to expire in the past
+func redirectToLogin(w http.ResponseWriter, r *http.Request, cfg *AuthConfig) {
+	// Clear the cookie using the same attributes as ClearAuthCookie
 	http.SetCookie(w, &http.Cookie{
-		Name:     "admin_token",
+		Name:     cfg.CookieName,
 		Value:    "",
 		Path:     "/admin",
 		MaxAge:   -1,
 		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
+		Secure:   cfg.CookieSecure,
+		SameSite: cfg.CookieSameSite,
 	})
 
 	// Redirect to login page
@@ -219,10 +219,13 @@ func redirectToLogin(w http.ResponseWriter, r *http.Request) {
 
 // SetAuthCookie sets the authentication cookie with the JWT token.
 func SetAuthCookie(w http.ResponseWriter, cfg *AuthConfig, token string) {
+	expiry := time.Now().Add(cfg.TokenExpiry)
 	http.SetCookie(w, &http.Cookie{
 		Name:     cfg.CookieName,
 		Value:    token,
 		Path:     "/admin",
+		MaxAge:   int(cfg.TokenExpiry.Seconds()),
+		Expires:  expiry,
 		HttpOnly: true,
 		Secure:   cfg.CookieSecure,
 		SameSite: cfg.CookieSameSite,

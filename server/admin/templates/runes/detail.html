@@ -105,7 +105,7 @@
         {{end}}
         {{if .Data.CanAddNote}}
         <form hx-post="/admin/runes/{{.Data.Rune.ID}}/note" hx-target="closest .rune-detail" hx-swap="outerHTML" class="form-inline">
-          <input type="text" name="note" placeholder="Add a note..." class="form-control">
+          <input type="text" name="note" placeholder="Add a note..." class="form-control" required>
           <button type="submit" class="btn btn-primary">Add Note</button>
         </form>
         {{end}}

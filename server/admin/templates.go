@@ -4,8 +4,9 @@ import (
 	"embed"
 	"html/template"
 	"io/fs"
+	"log"
 	"net/http"
-	"path/filepath"
+	"path"
 )
 
 //go:embed templates/*.html templates/*/*.html
@@ -85,19 +86,20 @@ func NewTemplates() (*Templates, error) {
 	for _, entry := range entries {
 		if entry.IsDir() {
 			// Handle subdirectories like templates/runes/, templates/realms/, etc.
-			subEntries, err := fs.ReadDir(templateFS, filepath.Join("templates", entry.Name()))
+			subEntries, err := fs.ReadDir(templateFS, path.Join("templates", entry.Name()))
 			if err != nil {
+				log.Printf("warning: failed to read template subdirectory %s: %v", entry.Name(), err)
 				continue
 			}
 			for _, subEntry := range subEntries {
-				if !subEntry.IsDir() && filepath.Ext(subEntry.Name()) == ".html" && subEntry.Name() != "base.html" {
+				if !subEntry.IsDir() && path.Ext(subEntry.Name()) == ".html" && subEntry.Name() != "base.html" {
 					tmplName := entry.Name() + "/" + subEntry.Name()
 					if err := parseTemplate(templates, string(baseContent), tmplName); err != nil {
 						return nil, err
 					}
 				}
 			}
-		} else if filepath.Ext(entry.Name()) == ".html" && entry.Name() != "base.html" {
+		} else if path.Ext(entry.Name()) == ".html" && entry.Name() != "base.html" {
 			tmplName := entry.Name()
 			// login.html is standalone, not wrapped with base
 			if tmplName == "login.html" {
@@ -116,7 +118,7 @@ func NewTemplates() (*Templates, error) {
 }
 
 func parseTemplate(templates map[string]*template.Template, baseContent, name string) error {
-	pageContent, err := templateFS.ReadFile(filepath.Join("templates", name))
+	pageContent, err := templateFS.ReadFile(path.Join("templates", name))
 	if err != nil {
 		return err
 	}
@@ -139,12 +141,12 @@ func parseTemplate(templates map[string]*template.Template, baseContent, name st
 }
 
 func parseStandaloneTemplate(templates map[string]*template.Template, name string) error {
-	pageContent, err := templateFS.ReadFile(filepath.Join("templates", name))
+	pageContent, err := templateFS.ReadFile(path.Join("templates", name))
 	if err != nil {
 		return err
 	}
 
-	tmpl, err := template.New(name).Parse(string(pageContent))
+	tmpl, err := template.New(name).Funcs(templateFuncs()).Parse(string(pageContent))
 	if err != nil {
 		return err
 	}

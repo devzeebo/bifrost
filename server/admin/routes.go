@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/devzeebo/bifrost/core"
@@ -23,11 +24,11 @@ type RouteConfig struct {
 // - Authenticated (any): /admin/, /admin/logout, /admin/runes (list/detail)
 // - Member+: /admin/runes/{id}/claim|fulfill|seal|note
 // - Admin-only: /admin/realms/*, /admin/accounts/*
-func RegisterRoutes(mux *http.ServeMux, cfg *RouteConfig) {
+func RegisterRoutes(mux *http.ServeMux, cfg *RouteConfig) error {
 	// Create handlers
 	templates, err := NewTemplates()
 	if err != nil {
-		panic("failed to load templates: " + err.Error())
+		return fmt.Errorf("failed to load templates: %w", err)
 	}
 
 	handlers := NewHandlers(templates, cfg.AuthConfig, cfg.ProjectionStore, cfg.EventStore)
@@ -70,6 +71,8 @@ func RegisterRoutes(mux *http.ServeMux, cfg *RouteConfig) {
 	mux.Handle("POST /admin/accounts/{id}/roles", authMiddleware(requireAdmin(http.HandlerFunc(handlers.UpdateRolesHandler))))
 	mux.Handle("GET /admin/accounts/{id}/pats", authMiddleware(requireAdmin(http.HandlerFunc(handlers.PATsListHandler))))
 	mux.Handle("POST /admin/accounts/{id}/pats", authMiddleware(requireAdmin(http.HandlerFunc(handlers.PATActionHandler))))
+
+	return nil
 }
 
 // RequireAdminMiddleware returns middleware that checks if the user has admin role.

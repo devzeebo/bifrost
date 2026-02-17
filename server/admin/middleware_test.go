@@ -541,11 +541,7 @@ func (m *mockProjectionStore) Get(ctx context.Context, realm, projection, key st
 	if m.getError != nil {
 		return m.getError
 	}
-	fullKey := key
-	if projection != "" {
-		fullKey = key
-	}
-	val, ok := m.data[fullKey]
+	val, ok := m.data[key]
 	if !ok {
 		return &core.NotFoundError{Entity: projection, ID: key}
 	}

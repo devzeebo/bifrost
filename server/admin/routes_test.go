@@ -21,10 +21,12 @@ func TestRegisterRoutesConfig(t *testing.T) {
 
 	// Generate signing key
 	cfg.AuthConfig.SigningKey = make([]byte, 32)
-	rand.Read(cfg.AuthConfig.SigningKey)
+	_, err := rand.Read(cfg.AuthConfig.SigningKey)
+	require.NoError(t, err, "failed to generate signing key")
 
 	mux := http.NewServeMux()
-	RegisterRoutes(mux, cfg)
+	err = RegisterRoutes(mux, cfg)
+	require.NoError(t, err)
 
 	tests := []struct {
 		name       string
@@ -137,7 +139,8 @@ func TestRegisterRoutes_WithAdminAuth(t *testing.T) {
 
 	// Generate signing key
 	cfg.AuthConfig.SigningKey = make([]byte, 32)
-	rand.Read(cfg.AuthConfig.SigningKey)
+	_, err := rand.Read(cfg.AuthConfig.SigningKey)
+	require.NoError(t, err, "failed to generate signing key")
 
 	// Set up admin user in store
 	store.data["pat:pat-admin"] = "keyhash-admin"
@@ -149,7 +152,8 @@ func TestRegisterRoutes_WithAdminAuth(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	RegisterRoutes(mux, cfg)
+	err = RegisterRoutes(mux, cfg)
+	require.NoError(t, err)
 
 	// Generate token for admin user
 	token, err := GenerateJWT(cfg.AuthConfig, "account-admin", "pat-admin")

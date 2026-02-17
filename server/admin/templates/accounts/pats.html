@@ -19,7 +19,7 @@
     <h2>Create New PAT</h2>
   </div>
   <div class="card-body">
-    <form method="post" action="/admin/accounts/{{.Data.AccountID}}/pats" hx-post="/admin/accounts/{{.Data.AccountID}}/pats" hx-target="closest .card-body" class="form-inline">
+    <form method="post" action="/admin/accounts/{{.Data.Account.AccountID}}/pats" hx-post="/admin/accounts/{{.Data.Account.AccountID}}/pats" hx-target="closest .card-body" class="form-inline">
       <input type="hidden" name="action" value="create">
       <div class="form-group">
         <label for="label">Label:</label>
@@ -59,7 +59,7 @@
           </td>
           <td>
             {{if not .Revoked}}
-            <form method="post" action="/admin/accounts/{{$.Data.AccountID}}/pats" class="form-inline" style="display:inline">
+            <form method="post" action="/admin/accounts/{{$.Data.Account.AccountID}}/pats" class="form-inline" style="display:inline">
               <input type="hidden" name="action" value="revoke">
               <input type="hidden" name="pat_id" value="{{.PATID}}">
               <button type="submit" class="btn btn-danger btn-sm">Revoke</button>
@@ -77,7 +77,7 @@
 </div>
 
 <div class="page-actions">
-  <a href="/admin/accounts/{{.Data.AccountID}}" class="btn btn-secondary">Back to Account</a>
+  <a href="/admin/accounts/{{.Data.Account.AccountID}}" class="btn btn-secondary">Back to Account</a>
   <a href="/admin/accounts" class="btn btn-secondary">All Accounts</a>
 </div>
 {{end}}

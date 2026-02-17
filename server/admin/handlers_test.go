@@ -263,7 +263,8 @@ func TestRegisterRoutes(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err, "failed to generate signing key")
 
 	store := newMockProjectionStore()
 	handlers := NewHandlers(templates, cfg, store, nil)
@@ -402,10 +403,16 @@ func (m *mockEventStore) ReadStream(ctx context.Context, realmID string, streamI
 }
 
 func (m *mockEventStore) ReadAll(ctx context.Context, realmID string, fromGlobalPosition int64) ([]interface{}, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
 	return m.events, nil
 }
 
 func (m *mockEventStore) ListRealmIDs(ctx context.Context) ([]string, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
 	return []string{"test-realm"}, nil
 }
 
@@ -470,6 +477,13 @@ func TestRunesListHandler(t *testing.T) {
 		handlers.RunesListHandler(rec, req)
 
 		assert.Equal(t, http.StatusOK, rec.Code)
+		// Verify that action buttons are not present for viewer role
+		body := rec.Body.String()
+		// Check for specific htmx action button patterns (not generic words like "Claim" which appear in status dropdowns)
+		assert.NotContains(t, body, "hx-post=\"/admin/runes/bf-1234/claim\"", "viewer should not see Claim action button")
+		assert.NotContains(t, body, "hx-post=\"/admin/runes/bf-1234/fulfill\"", "viewer should not see Fulfill action button")
+		assert.NotContains(t, body, ">Claim</button>", "viewer should not see Claim button text")
+		assert.NotContains(t, body, ">Fulfill</button>", "viewer should not see Fulfill button text")
 	})
 }
 

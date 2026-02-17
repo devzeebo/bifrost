@@ -65,7 +65,7 @@
       font-size: 0.875rem;
       color: var(--text-primary);
     }
-    input[type="text"] {
+    input[type="password"] {
       width: 100%;
       padding: 0.75rem;
       background-color: var(--bg-tertiary);
@@ -74,8 +74,8 @@
       color: var(--text-primary);
       font-size: 1rem;
     }
-    input[type="text"]:focus {
-      outline: none;
+    input[type="password"]:focus {
+      outline: 2px solid transparent;
       border-color: var(--accent);
       box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.2);
     }
@@ -108,7 +108,7 @@
     <form method="post" action="/admin/login">
       <div class="form-group">
         <label for="pat">Personal Access Token</label>
-        <input type="text" id="pat" name="pat" placeholder="Enter your PAT" required autofocus>
+        <input type="password" id="pat" name="pat" placeholder="Enter your PAT" autocomplete="off" required autofocus>
       </div>
       <button type="submit">Sign In</button>
     </form>

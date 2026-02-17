@@ -3,7 +3,9 @@ package admin
 
 import (
 	"encoding/json"
+	"html"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -397,10 +399,21 @@ func (h *Handlers) handleRuneAction(w http.ResponseWriter, r *http.Request, acti
 		return
 	}
 
-	// Get updated rune for partial response
+	// Get updated rune for partial response with retry for eventual consistency
 	var rune projectors.RuneDetail
-	if err := h.projectionStore.Get(r.Context(), realmID, "rune_detail", runeID, &rune); err != nil {
-		renderToastPartial(w, "success", "Action completed")
+	const maxRetries = 3
+	var lastErr error
+	for i := 0; i < maxRetries; i++ {
+		if err := h.projectionStore.Get(r.Context(), realmID, "rune_detail", runeID, &rune); err != nil {
+			lastErr = err
+			time.Sleep(time.Duration(i+1) * 50 * time.Millisecond) // Brief backoff: 50ms, 100ms, 150ms
+			continue
+		}
+		lastErr = nil
+		break
+	}
+	if lastErr != nil {
+		renderToastPartial(w, "success", "Action completed - refresh to see changes")
 		return
 	}
 
@@ -409,12 +422,18 @@ func (h *Handlers) handleRuneAction(w http.ResponseWriter, r *http.Request, acti
 }
 
 // getRealmIDFromRoles extracts the realm ID from the roles map.
-// Returns the first non-_admin realm found, or "_admin" if only admin role.
+// Returns the first non-_admin realm found (sorted alphabetically for determinism), or "_admin" if only admin role.
 func getRealmIDFromRoles(roles map[string]string) string {
+	// Collect non-admin realms and sort for deterministic behavior
+	var realmIDs []string
 	for realmID := range roles {
 		if realmID != "_admin" {
-			return realmID
+			realmIDs = append(realmIDs, realmID)
 		}
+	}
+	if len(realmIDs) > 0 {
+		sort.Strings(realmIDs)
+		return realmIDs[0]
 	}
 	return "_admin"
 }
@@ -468,9 +487,13 @@ func renderToastPartial(w http.ResponseWriter, toastType, message string) {
 		class = "toast-info"
 	}
 
+	// Escape dynamic values to prevent XSS
+	escapedClass := html.EscapeString(class)
+	escapedMessage := html.EscapeString(message)
+
 	// Create a toast element that htmx will swap into the toasts container
 	// Using oob-swap to update the toasts area
-	w.Write([]byte(`<div class="toast ` + class + `" hx-swap-oob="beforeend:#toasts">` + message + `</div>`))
+	w.Write([]byte(`<div class="toast ` + escapedClass + `" hx-swap-oob="beforeend:#toasts">` + escapedMessage + `</div>`))
 }
 
 // renderRuneActionsPartial renders the actions partial for htmx swap.
@@ -478,8 +501,12 @@ func renderRuneActionsPartial(w http.ResponseWriter, rune projectors.RuneDetail,
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 
+	// Escape dynamic values to prevent XSS
+	escapedStatus := html.EscapeString(rune.Status)
+	escapedID := html.EscapeString(rune.ID)
+
 	// Render the status badge and actions as a partial
-	w.Write([]byte(`<span class="badge badge-` + rune.Status + `">` + rune.Status + `</span>`))
+	w.Write([]byte(`<span class="badge badge-` + escapedStatus + `">` + escapedStatus + `</span>`))
 
 	if !canTakeAction {
 		return
@@ -490,13 +517,13 @@ func renderRuneActionsPartial(w http.ResponseWriter, rune projectors.RuneDetail,
 
 	switch rune.Status {
 	case "open":
-		w.Write([]byte(`<button class="btn btn-primary" hx-post="/admin/runes/` + rune.ID + `/claim" hx-target="closest .rune-detail" hx-swap="outerHTML">Claim</button>`))
+		w.Write([]byte(`<button class="btn btn-primary" hx-post="/admin/runes/` + escapedID + `/claim" hx-target="closest .rune-detail" hx-swap="outerHTML">Claim</button>`))
 	case "claimed":
-		w.Write([]byte(`<button class="btn btn-success" hx-post="/admin/runes/` + rune.ID + `/fulfill" hx-target="closest .rune-detail" hx-swap="outerHTML">Fulfill</button>`))
+		w.Write([]byte(`<button class="btn btn-success" hx-post="/admin/runes/` + escapedID + `/fulfill" hx-target="closest .rune-detail" hx-swap="outerHTML">Fulfill</button>`))
 	}
 
 	if rune.Status != "sealed" && rune.Status != "shattered" {
-		w.Write([]byte(`<button class="btn btn-secondary" hx-post="/admin/runes/` + rune.ID + `/seal" hx-target="closest .rune-detail" hx-swap="outerHTML">Seal</button>`))
+		w.Write([]byte(`<button class="btn btn-secondary" hx-post="/admin/runes/` + escapedID + `/seal" hx-target="closest .rune-detail" hx-swap="outerHTML">Seal</button>`))
 	}
 
 	w.Write([]byte(`</div>`))
@@ -828,12 +855,16 @@ func renderAccountCreatedPartial(w http.ResponseWriter, accountID, rawToken stri
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 
+	// Escape dynamic values to prevent XSS
+	escapedAccountID := html.EscapeString(accountID)
+	escapedRawToken := html.EscapeString(rawToken)
+
 	// Render success partial with the token (shown once)
 	w.Write([]byte(`<div class="alert alert-success">
 		<strong>Account created!</strong><br>
-		Account ID: ` + accountID + `<br>
+		Account ID: ` + escapedAccountID + `<br>
 		<strong>Initial PAT (save this - it won't be shown again):</strong><br>
-		<code style="user-select: all;">` + rawToken + `</code>
+		<code style="user-select: all;">` + escapedRawToken + `</code>
 	</div>
 	<a href="/admin/accounts" class="btn btn-secondary">Back to Accounts</a>`))
 }
@@ -1037,8 +1068,9 @@ func rebuildPATsFromEvents(events []core.Event) []PATInfo {
 				continue
 			}
 			pats[data.PATID] = PATInfo{
-				PATID: data.PATID,
-				Label: data.Label,
+				PATID:     data.PATID,
+				Label:     data.Label,
+				CreatedAt: data.CreatedAt,
 			}
 		case domain.EventPATRevoked:
 			var data domain.PATRevoked
@@ -1142,12 +1174,16 @@ func renderPATCreatedPartial(w http.ResponseWriter, patID, rawToken string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 
+	// Escape dynamic values to prevent XSS
+	escapedPatID := html.EscapeString(patID)
+	escapedRawToken := html.EscapeString(rawToken)
+
 	// Render success partial with the token (shown once)
 	w.Write([]byte(`<div class="alert alert-success">
 		<strong>PAT Created!</strong><br>
-		PAT ID: ` + patID + `<br>
+		PAT ID: ` + escapedPatID + `<br>
 		<strong>Token (save this - it won't be shown again):</strong><br>
-		<code style="user-select: all; word-break: break-all;">` + rawToken + `</code>
+		<code style="user-select: all; word-break: break-all;">` + escapedRawToken + `</code>
 	</div>
 	<a href="" class="btn btn-secondary" onclick="location.reload(); return false;">Back to PATs</a>`))
 }
