@@ -314,6 +314,11 @@ func (p *AccountLookupProjector) handlePATCreated(ctx context.Context, event cor
 		return err
 	}
 
+	// Store keyHash → PATID reverse lookup for admin UI login
+	if err := store.Put(ctx, "_admin", "account_lookup", "keyhash_pat:"+data.KeyHash, data.PATID); err != nil {
+		return err
+	}
+
 	// Add to account's PAT hash list
 	var hashes []string
 	if err := store.Get(ctx, "_admin", "account_lookup", "account:"+data.AccountID, &hashes); err != nil {
@@ -353,7 +358,12 @@ func (p *AccountLookupProjector) handlePATRevoked(ctx context.Context, event cor
 	}
 
 	// Clean up pat reverse lookup
-	return store.Delete(ctx, "_admin", "account_lookup", "pat:"+data.PATID)
+	if err := store.Delete(ctx, "_admin", "account_lookup", "pat:"+data.PATID); err != nil {
+		return err
+	}
+
+	// Clean up keyHash → PATID reverse lookup
+	return store.Delete(ctx, "_admin", "account_lookup", "keyhash_pat:"+keyHash)
 }
 
 func removeString(slice []string, s string) []string {
