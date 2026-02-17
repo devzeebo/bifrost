@@ -3,10 +3,12 @@ package server
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -16,6 +18,7 @@ import (
 	"github.com/devzeebo/bifrost/core"
 	"github.com/devzeebo/bifrost/domain/projectors"
 	"github.com/devzeebo/bifrost/providers/sqlite"
+	"github.com/devzeebo/bifrost/server/admin"
 )
 
 func Run(ctx context.Context, cfg *Config) error {
@@ -77,6 +80,35 @@ func Run(ctx context.Context, cfg *Config) error {
 
 	handlers := NewHandlers(eventStore, projectionStore, engine)
 	handlers.RegisterRoutes(mux, realmAuth, adminAuth)
+
+	// Register admin UI routes
+	adminAuthConfig := admin.DefaultAuthConfig()
+	if keyStr := os.Getenv("ADMIN_JWT_SIGNING_KEY"); keyStr != "" {
+		key, err := base64.RawURLEncoding.DecodeString(keyStr)
+		if err != nil {
+			return fmt.Errorf("decode ADMIN_JWT_SIGNING_KEY: %w", err)
+		}
+		adminAuthConfig.SigningKey = key
+	} else {
+		// Generate a temporary key for development (will change on restart)
+		log.Println("Warning: ADMIN_JWT_SIGNING_KEY not set, generating temporary key (sessions will invalidate on restart)")
+		key, err := admin.GenerateSigningKey()
+		if err != nil {
+			return fmt.Errorf("generate signing key: %w", err)
+		}
+		adminAuthConfig.SigningKey = key
+	}
+
+	// Disable secure cookies for local development
+	adminAuthConfig.CookieSecure = false
+
+	if err := admin.RegisterRoutes(mux, &admin.RouteConfig{
+		AuthConfig:      adminAuthConfig,
+		ProjectionStore: projectionStore,
+		EventStore:      eventStore,
+	}); err != nil {
+		return fmt.Errorf("register admin routes: %w", err)
+	}
 
 	// 6. Create and start HTTP server
 	srv := &http.Server{
