@@ -81,6 +81,7 @@ func (h *Handlers) handleLogin(w http.ResponseWriter, r *http.Request) {
 	// Generate JWT
 	token, err := GenerateJWT(h.authConfig, entry.AccountID, patID)
 	if err != nil {
+		log.Printf("LoginHandler: failed to generate JWT for account %s: %v", entry.AccountID, err)
 		h.showLoginForm(w, "Failed to create session")
 		return
 	}
@@ -429,6 +430,10 @@ func (h *Handlers) handleRuneAction(w http.ResponseWriter, r *http.Request, acti
 	}
 
 	// Get updated rune for partial response with retry for eventual consistency
+	if h.projectionStore == nil {
+		renderToastPartial(w, "success", "Action completed - refresh to see changes")
+		return
+	}
 	var rune projectors.RuneDetail
 	const maxRetries = 3
 	var lastErr error
@@ -1407,6 +1412,10 @@ func (h *Handlers) UpdateRuneHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get updated rune for partial response with retry for eventual consistency
+	if h.projectionStore == nil {
+		renderToastPartial(w, "success", "Rune updated - refresh to see changes")
+		return
+	}
 	var rune projectors.RuneDetail
 	const maxRetries = 3
 	var lastErr error
@@ -1468,6 +1477,10 @@ func (h *Handlers) RuneForgeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get updated rune for partial response with retry for eventual consistency
+	if h.projectionStore == nil {
+		renderToastPartial(w, "success", "Rune forged - refresh to see changes")
+		return
+	}
 	var rune projectors.RuneDetail
 	const maxRetries = 3
 	var lastErr error
@@ -1550,6 +1563,10 @@ func (h *Handlers) AddDependencyHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Get updated rune for partial response
+	if h.projectionStore == nil {
+		renderToastPartial(w, "success", "Dependency added - refresh to see changes")
+		return
+	}
 	var rune projectors.RuneDetail
 	const maxRetries = 3
 	var lastErr error
@@ -1624,6 +1641,10 @@ func (h *Handlers) RemoveDependencyHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Get updated rune for partial response
+	if h.projectionStore == nil {
+		renderToastPartial(w, "success", "Dependency removed - refresh to see changes")
+		return
+	}
 	var rune projectors.RuneDetail
 	const maxRetries = 3
 	var lastErr error
@@ -1689,6 +1710,10 @@ func (h *Handlers) RuneUnclaimHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get updated rune for partial response with retry for eventual consistency
+	if h.projectionStore == nil {
+		renderToastPartial(w, "success", "Rune unclaimed - refresh to see changes")
+		return
+	}
 	var rune projectors.RuneDetail
 	const maxRetries = 3
 	var lastErr error
@@ -1786,23 +1811,27 @@ func (h *Handlers) SweepRunesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return success message with count
-	renderSweepResultPartial(w, shattered)
+	// Log the shattered rune IDs server-side for audit purposes
+	if len(shattered) > 0 {
+		log.Printf("SweepRunesHandler: shattered %d rune(s): %s", len(shattered), strings.Join(shattered, ", "))
+	}
+
+	// Return success message with count only (no internal IDs in client response)
+	renderSweepResultPartial(w, len(shattered))
 }
 
 // renderSweepResultPartial renders the sweep results.
-func renderSweepResultPartial(w http.ResponseWriter, shattered []string) {
+func renderSweepResultPartial(w http.ResponseWriter, count int) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 
-	count := len(shattered)
 	var buf strings.Builder
 
 	buf.WriteString(`<div class="toast toast-success" hx-swap-oob="beforeend:#toasts">`)
 	if count == 0 {
 		buf.WriteString("No runes to sweep")
 	} else {
-		buf.WriteString(html.EscapeString(fmt.Sprintf("Swept %d rune(s): %s", count, strings.Join(shattered, ", "))))
+		buf.WriteString(fmt.Sprintf("Swept %d rune(s) successfully", count))
 	}
 	buf.WriteString(`</div>`)
 
