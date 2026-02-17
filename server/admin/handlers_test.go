@@ -313,9 +313,9 @@ func TestDashboardHandler(t *testing.T) {
 	cfg.SigningKey = make([]byte, 32)
 	rand.Read(cfg.SigningKey)
 
-	handlers := NewHandlers(templates, cfg, nil, nil)
-
 	t.Run("shows username in dashboard", func(t *testing.T) {
+		handlers := NewHandlers(templates, cfg, nil, nil)
+
 		req := httptest.NewRequest("GET", "/admin/", nil)
 		ctx := contextWithUsername(req.Context(), "testuser")
 		req = req.WithContext(ctx)
@@ -325,6 +325,45 @@ func TestDashboardHandler(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, rec.Code)
 		assert.Contains(t, rec.Body.String(), "testuser")
+	})
+
+	t.Run("shows rune statistics", func(t *testing.T) {
+		store := newMockProjectionStore()
+		store.listData["rune_list"] = []json.RawMessage{
+			json.RawMessage(`{"id":"bf-1","title":"Rune 1","status":"open","priority":2,"updated_at":"2024-01-03T00:00:00Z"}`),
+			json.RawMessage(`{"id":"bf-2","title":"Rune 2","status":"open","priority":1,"updated_at":"2024-01-02T00:00:00Z"}`),
+			json.RawMessage(`{"id":"bf-3","title":"Rune 3","status":"claimed","priority":3,"claimant":"testuser","updated_at":"2024-01-01T00:00:00Z"}`),
+		}
+
+		handlers := NewHandlers(templates, cfg, store, nil)
+
+		req := httptest.NewRequest("GET", "/admin/", nil)
+		ctx := contextWithUser(req.Context(), "testuser", map[string]string{"test-realm": "member"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.DashboardHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Total: 3")
+		assert.Contains(t, rec.Body.String(), "Rune 1")
+	})
+
+	t.Run("shows empty state when no runes", func(t *testing.T) {
+		store := newMockProjectionStore()
+
+		handlers := NewHandlers(templates, cfg, store, nil)
+
+		req := httptest.NewRequest("GET", "/admin/", nil)
+		ctx := contextWithUser(req.Context(), "testuser", map[string]string{"test-realm": "member"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.DashboardHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Total: 0")
+		assert.Contains(t, rec.Body.String(), "No recent activity")
 	})
 }
 

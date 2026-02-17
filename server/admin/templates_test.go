@@ -310,7 +310,9 @@ func TestRender_DataField(t *testing.T) {
 			Username: "test",
 		},
 		Data: map[string]interface{}{
-			"custom": "value",
+			"TotalRunes":   5,
+			"StatusCounts": map[string]int{"open": 2, "claimed": 1, "fulfilled": 1, "draft": 1, "sealed": 0},
+			"RecentRunes":  []interface{}{},
 		},
 	}
 
@@ -318,6 +320,7 @@ func TestRender_DataField(t *testing.T) {
 	err = templates.Render(rec, "dashboard.html", data)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), "Total: 5")
 }
 
 func TestTemplateInheritance(t *testing.T) {

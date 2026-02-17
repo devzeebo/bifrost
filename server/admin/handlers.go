@@ -138,6 +138,43 @@ func (h *Handlers) RegisterRoutes(publicMux, authMux *http.ServeMux) {
 func (h *Handlers) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 	username, _ := UsernameFromContext(r.Context())
 	roles, _ := RolesFromContext(r.Context())
+	realmID := getRealmIDFromRoles(roles)
+
+	// Get rune counts by status
+	statusCounts := map[string]int{
+		"draft":     0,
+		"open":      0,
+		"claimed":   0,
+		"fulfilled": 0,
+		"sealed":    0,
+	}
+
+	var recentRunes []projectors.RuneSummary
+	totalRunes := 0
+
+	if h.projectionStore != nil {
+		rawRunes, err := h.projectionStore.List(r.Context(), realmID, "rune_list")
+		if err == nil {
+			totalRunes = len(rawRunes)
+			for _, raw := range rawRunes {
+				var rune projectors.RuneSummary
+				if err := json.Unmarshal(raw, &rune); err != nil {
+					continue
+				}
+				statusCounts[rune.Status]++
+				recentRunes = append(recentRunes, rune)
+			}
+
+			// Sort recent runes by updated_at (most recent first)
+			// Keep only top 10
+			if len(recentRunes) > 1 {
+				sortRecentRunes(recentRunes)
+			}
+			if len(recentRunes) > 10 {
+				recentRunes = recentRunes[:10]
+			}
+		}
+	}
 
 	data := TemplateData{
 		Title: "Dashboard",
@@ -145,9 +182,25 @@ func (h *Handlers) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 			Username: username,
 			Roles:    roles,
 		},
+		Data: map[string]interface{}{
+			"StatusCounts": statusCounts,
+			"RecentRunes":  recentRunes,
+			"TotalRunes":   totalRunes,
+		},
 	}
 
 	h.templates.Render(w, "dashboard.html", data)
+}
+
+// sortRecentRunes sorts runes by UpdatedAt in descending order (most recent first).
+func sortRecentRunes(runes []projectors.RuneSummary) {
+	for i := 0; i < len(runes)-1; i++ {
+		for j := i + 1; j < len(runes); j++ {
+			if runes[i].UpdatedAt.Before(runes[j].UpdatedAt) {
+				runes[i], runes[j] = runes[j], runes[i]
+			}
+		}
+	}
 }
 
 // RunesListHandler handles GET /admin/runes - list all runes with optional filters.
