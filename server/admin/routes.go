@@ -44,6 +44,7 @@ func RegisterRoutes(mux *http.ServeMux, cfg *RouteConfig) error {
 
 	// Authenticated routes - any authenticated user
 	mux.Handle("POST /admin/logout", authMiddleware(http.HandlerFunc(handlers.LogoutHandler)))
+	mux.Handle("POST /admin/switch-realm", authMiddleware(http.HandlerFunc(handlers.SwitchRealmHandler)))
 	mux.Handle("GET /admin/", authMiddleware(http.HandlerFunc(handlers.DashboardHandler)))
 	mux.Handle("GET /admin", authMiddleware(http.RedirectHandler("/admin/", http.StatusMovedPermanently)))
 

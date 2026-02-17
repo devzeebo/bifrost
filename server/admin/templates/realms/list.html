@@ -5,22 +5,15 @@
 
 <div class="card">
   <div class="card-header">
-    <h2>Create Realm</h2>
-  </div>
-  <div class="card-body">
-    <form method="post" action="/admin/realms/create" class="form-inline">
-      <div class="form-group">
-        <label for="name">Name:</label>
-        <input type="text" name="name" id="name" placeholder="Realm name" required>
-      </div>
-      <button type="submit" class="btn btn-primary">Create Realm</button>
-    </form>
-  </div>
-</div>
-
-<div class="card">
-  <div class="card-header">
     <h2>Realms ({{len .Data.Realms}})</h2>
+    <div id="create-realm-form" style="display: none;" class="inline-create-form">
+      <form hx-post="/admin/realms/create" hx-target="body">
+        <input type="text" name="name" id="name" placeholder="Realm name" required class="form-control">
+        <button type="submit" class="btn btn-primary btn-sm">Create</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('create-realm-form').style.display='none'">Cancel</button>
+      </form>
+    </div>
+    <button class="btn btn-primary btn-sm" id="add-realm-btn" onclick="document.getElementById('create-realm-form').style.display='flex'; document.getElementById('add-realm-btn').style.display='none'">+ Add</button>
   </div>
   <div class="card-body">
     {{if .Data.Realms}}

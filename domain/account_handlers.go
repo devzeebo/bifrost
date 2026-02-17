@@ -140,8 +140,8 @@ func requireActiveAccount(state AccountState, accountID string) error {
 
 func HandleCreateAccount(ctx context.Context, cmd CreateAccount, store core.EventStore, projectionStore core.ProjectionStore) (CreateAccountResult, error) {
 	// Check username uniqueness via projection
-	var existing map[string]string
-	err := projectionStore.Get(ctx, AdminRealmID, "account_lookup", "username:"+cmd.Username, &existing)
+	var existingAccountID string
+	err := projectionStore.Get(ctx, AdminRealmID, "account_lookup", "username:"+cmd.Username, &existingAccountID)
 	if err == nil {
 		return CreateAccountResult{}, fmt.Errorf("username %q already exists", cmd.Username)
 	}

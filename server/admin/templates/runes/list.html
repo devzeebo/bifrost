@@ -4,22 +4,19 @@
 </div>
 
 {{if .Data.CanTakeAction}}
-<div class="card">
+<div class="card" id="create-rune-form" style="display: none;">
   <div class="card-header">
     <h2>Create New Rune</h2>
+    <button class="btn btn-secondary btn-sm" onclick="document.getElementById('create-rune-form').style.display='none'">&times; Close</button>
   </div>
   <div class="card-body">
-    <form hx-post="/admin/runes/create" hx-target="#create-result" hx-swap="innerHTML" class="form">
-      <div class="form-group">
-        <label for="title">Title *</label>
-        <input type="text" name="title" id="title" class="form-control" required placeholder="Enter rune title">
-      </div>
-      <div class="form-group">
-        <label for="description">Description</label>
-        <textarea name="description" id="description" class="form-control" rows="3" placeholder="Optional description"></textarea>
-      </div>
-      <div class="form-row">
+    <form hx-post="/admin/runes/create" hx-target="#create-result" hx-swap="innerHTML" class="form form-compact">
+      <div class="form-row-compact">
         <div class="form-group">
+          <label for="title">Title *</label>
+          <input type="text" name="title" id="title" class="form-control" required placeholder="Enter rune title">
+        </div>
+        <div class="form-group form-group-small">
           <label for="create_priority">Priority</label>
           <select name="priority" id="create_priority" class="form-control">
             <option value="0">Unprioritized</option>
@@ -34,9 +31,13 @@
           <input type="text" name="branch" id="branch" class="form-control" placeholder="e.g., feat/my-feature">
         </div>
         <div class="form-group">
-          <label for="parent_id">Parent Rune ID</label>
-          <input type="text" name="parent_id" id="parent_id" class="form-control" placeholder="Optional: e.g., bf-1234">
+          <label for="parent_id">Parent ID</label>
+          <input type="text" name="parent_id" id="parent_id" class="form-control" placeholder="e.g., bf-1234">
         </div>
+      </div>
+      <div class="form-group">
+        <label for="description">Description</label>
+        <textarea name="description" id="description" class="form-control" rows="3" placeholder="Optional description"></textarea>
       </div>
       <button type="submit" class="btn btn-primary">Create Rune</button>
     </form>
@@ -98,6 +99,9 @@
 <div class="card">
   <div class="card-header">
     <h2>Runes ({{len .Data.Runes}})</h2>
+    {{if .Data.CanTakeAction}}
+    <button class="btn btn-primary btn-sm" onclick="document.getElementById('create-rune-form').style.display='block'">+ Add Rune</button>
+    {{end}}
   </div>
   <div class="card-body">
     {{if .Data.Runes}}

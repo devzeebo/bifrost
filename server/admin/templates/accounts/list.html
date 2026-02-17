@@ -3,24 +3,19 @@
   <p>Manage user accounts and access</p>
 </div>
 
-<div class="card">
-  <div class="card-header">
-    <h2>Create Account</h2>
-  </div>
-  <div class="card-body">
-    <form method="post" action="/admin/accounts/create" hx-post="/admin/accounts/create" hx-target="closest .card-body" class="form-inline">
-      <div class="form-group">
-        <label for="username">Username:</label>
-        <input type="text" name="username" id="username" placeholder="Username" required>
-      </div>
-      <button type="submit" class="btn btn-primary">Create Account</button>
-    </form>
-  </div>
-</div>
+<div id="account-created-result"></div>
 
 <div class="card">
   <div class="card-header">
     <h2>Accounts ({{len .Data.Accounts}})</h2>
+    <div id="create-account-form" style="display: none;" class="inline-create-form">
+      <form hx-post="/admin/accounts/create" hx-target="#account-created-result">
+        <input type="text" name="username" id="username" placeholder="Username" required class="form-control">
+        <button type="submit" class="btn btn-primary btn-sm">Create</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('create-account-form').style.display='none'">Cancel</button>
+      </form>
+    </div>
+    <button class="btn btn-primary btn-sm" id="add-account-btn" onclick="document.getElementById('create-account-form').style.display='flex'; document.getElementById('add-account-btn').style.display='none'">+ Add</button>
   </div>
   <div class="card-body">
     {{if .Data.Accounts}}

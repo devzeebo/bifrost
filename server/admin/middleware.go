@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -287,4 +288,63 @@ func ValidatePAT(ctx context.Context, projectionStore core.ProjectionStore, toke
 	}
 
 	return &entry, patID, nil
+}
+
+const realmCookieName = "admin_realm"
+
+// GetSelectedRealm returns the realm ID from cookie if valid, otherwise returns empty string.
+func GetSelectedRealm(r *http.Request, roles map[string]string) string {
+	cookie, err := r.Cookie(realmCookieName)
+	if err != nil {
+		return ""
+	}
+
+	// Validate the cookie value is a realm the user has access to
+	if _, ok := roles[cookie.Value]; ok {
+		return cookie.Value
+	}
+	return ""
+}
+
+// SetRealmCookie sets the realm selection cookie.
+func SetRealmCookie(w http.ResponseWriter, realmID string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     realmCookieName,
+		Value:    realmID,
+		Path:     "/admin",
+		MaxAge:   86400 * 30, // 30 days
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	})
+}
+
+// BuildAvailableRealms builds a list of realms the user has access to.
+func BuildAvailableRealms(ctx context.Context, projectionStore core.ProjectionStore, roles map[string]string) []RealmInfo {
+	if projectionStore == nil || roles == nil {
+		return nil
+	}
+
+	rawRealms, err := projectionStore.List(ctx, "_admin", "realm_list")
+	if err != nil {
+		return nil
+	}
+
+	realms := make([]RealmInfo, 0, len(roles))
+	for _, raw := range rawRealms {
+		var realm projectors.RealmListEntry
+		if err := json.Unmarshal(raw, &realm); err != nil {
+			continue
+		}
+		// Only include realms the user has access to (and exclude admin realm)
+		if realm.RealmID != "_admin" {
+			if _, hasAccess := roles[realm.RealmID]; hasAccess {
+				realms = append(realms, RealmInfo{
+					ID:   realm.RealmID,
+					Name: realm.Name,
+				})
+			}
+		}
+	}
+
+	return realms
 }

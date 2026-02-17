@@ -575,7 +575,7 @@ func TestTemplateInheritance_Accounts(t *testing.T) {
 		assert.Contains(t, body, "<nav>")
 		assert.Contains(t, body, `<main>`)
 		assert.Contains(t, body, `<div id="toasts">`)
-		assert.Contains(t, body, "Create Account")
+		assert.Contains(t, body, "+ Add")
 	})
 
 	t.Run("accounts/detail.html with account", func(t *testing.T) {

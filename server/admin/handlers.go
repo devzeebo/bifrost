@@ -116,6 +116,36 @@ func (h *Handlers) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 }
 
+// SwitchRealmHandler handles POST requests to switch the active realm.
+func (h *Handlers) SwitchRealmHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	roles, _ := RolesFromContext(r.Context())
+	realmID := r.FormValue("realm")
+
+	// Validate the realm is accessible
+	if _, ok := roles[realmID]; !ok {
+		renderToastPartial(w, "error", "Access denied to this realm")
+		return
+	}
+
+	SetRealmCookie(w, realmID)
+
+	// Check if HTMX request
+	if r.Header.Get("HX-Request") == "true" {
+		renderToastPartial(w, "success", "Realm switched successfully")
+		// Trigger page refresh
+		w.Write([]byte(`<div hx-get="/admin/" hx-trigger="load" hx-target="body" hx-swap="outerHTML"></div>`))
+		return
+	}
+
+	// Redirect to dashboard
+	http.Redirect(w, r, "/admin/", http.StatusSeeOther)
+}
+
 // RegisterRoutes registers all admin UI routes with the given mux.
 // The publicMux is used for routes that don't require authentication (login, static).
 // The authMux is used for routes that require authentication.
@@ -168,7 +198,7 @@ func (h *Handlers) RegisterRoutes(publicMux, authMux *http.ServeMux) {
 func (h *Handlers) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 	username, _ := UsernameFromContext(r.Context())
 	roles, _ := RolesFromContext(r.Context())
-	realmID := getRealmIDFromRoles(roles)
+	realmID := getRealmIDFromRequest(r, roles)
 
 	// Get rune counts by status
 	statusCounts := map[string]int{
@@ -211,11 +241,8 @@ func (h *Handlers) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := TemplateData{
-		Title: "Dashboard",
-		Account: &AccountInfo{
-			Username: username,
-			Roles:    roles,
-		},
+		Title:   "Dashboard",
+		Account: h.buildAccountInfo(r, username, roles),
 		Data: map[string]interface{}{
 			"StatusCounts": statusCounts,
 			"RecentRunes":  recentRunes,
@@ -237,12 +264,16 @@ func sortRecentRunes(runes []projectors.RuneSummary) {
 func (h *Handlers) RunesListHandler(w http.ResponseWriter, r *http.Request) {
 	username, _ := UsernameFromContext(r.Context())
 	roles, _ := RolesFromContext(r.Context())
-	realmID := getRealmIDFromRoles(roles)
+	realmID := getRealmIDFromRequest(r, roles)
 
 	// Get filter params
 	statusFilter := r.URL.Query().Get("status")
 	priorityFilter := r.URL.Query().Get("priority")
 	assigneeFilter := r.URL.Query().Get("assignee")
+	expandForm := r.URL.Query().Get("expand_form") == "true"
+
+	// Build filter params string for preserving filters in HTMX requests
+	filterParams := buildFilterParams(statusFilter, priorityFilter, assigneeFilter)
 
 	// Get all runes from projection
 	rawRunes, err := h.projectionStore.List(r.Context(), realmID, "rune_list")
@@ -288,11 +319,8 @@ func (h *Handlers) RunesListHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.templates.Render(w, "runes/list.html", TemplateData{
-		Title: "Runes",
-		Account: &AccountInfo{
-			Username: username,
-			Roles:    roles,
-		},
+		Title:   "Runes",
+		Account: h.buildAccountInfo(r, username, roles),
 		Data: map[string]interface{}{
 			"Runes":           runes,
 			"StatusFilter":    statusFilter,
@@ -300,6 +328,8 @@ func (h *Handlers) RunesListHandler(w http.ResponseWriter, r *http.Request) {
 			"AssigneeFilter":  assigneeFilter,
 			"CanTakeAction":   canTakeAction(roles, realmID),
 			"IsAdmin":         isAdmin(roles),
+			"ExpandForm":      expandForm,
+			"FilterParams":    filterParams,
 		},
 	})
 }
@@ -308,7 +338,7 @@ func (h *Handlers) RunesListHandler(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) RuneDetailHandler(w http.ResponseWriter, r *http.Request) {
 	username, _ := UsernameFromContext(r.Context())
 	roles, _ := RolesFromContext(r.Context())
-	realmID := getRealmIDFromRoles(roles)
+	realmID := getRealmIDFromRequest(r, roles)
 
 	// Extract rune ID from path
 	runeID, errMsg := extractPathID(r.URL.Path, "/admin/runes/")
@@ -330,7 +360,7 @@ func (h *Handlers) RuneDetailHandler(w http.ResponseWriter, r *http.Request) {
 		data := TemplateData{
 			Title:   "Rune Not Found",
 			Error:   "Rune not found",
-			Account: &AccountInfo{Username: username, Roles: roles},
+			Account: h.buildAccountInfo(r, username, roles),
 		}
 		w.WriteHeader(http.StatusNotFound)
 		h.templates.Render(w, "runes/detail.html", data)
@@ -339,7 +369,7 @@ func (h *Handlers) RuneDetailHandler(w http.ResponseWriter, r *http.Request) {
 
 	h.templates.Render(w, "runes/detail.html", TemplateData{
 		Title:   rune.Title,
-		Account: &AccountInfo{Username: username, Roles: roles},
+		Account: h.buildAccountInfo(r, username, roles),
 		Data: map[string]interface{}{
 			"Rune":           rune,
 			"CanTakeAction":  canTakeAction(roles, realmID),
@@ -382,7 +412,7 @@ func (h *Handlers) handleRuneAction(w http.ResponseWriter, r *http.Request, acti
 		return
 	}
 	roles, _ := RolesFromContext(r.Context())
-	realmID := getRealmIDFromRoles(roles)
+	realmID := getRealmIDFromRequest(r, roles)
 
 	// Check member+ authorization
 	if !canTakeAction(roles, realmID) {
@@ -471,6 +501,7 @@ func (h *Handlers) handleRuneAction(w http.ResponseWriter, r *http.Request, acti
 
 // getRealmIDFromRoles extracts the realm ID from the roles map.
 // Returns the lexicographically first non-admin realm found, or the admin realm ID if only admin role.
+// DEPRECATED: Use getRealmIDFromRequest instead which respects cookie selection.
 func getRealmIDFromRoles(roles map[string]string) string {
 	first := ""
 	for realmID := range roles {
@@ -485,6 +516,50 @@ func getRealmIDFromRoles(roles map[string]string) string {
 		return first
 	}
 	return domain.AdminRealmID
+}
+
+// getRealmIDFromRequest gets the selected realm from cookie, falling back to the first available realm.
+func getRealmIDFromRequest(r *http.Request, roles map[string]string) string {
+	// First check cookie for selected realm
+	if selectedRealm := GetSelectedRealm(r, roles); selectedRealm != "" {
+		return selectedRealm
+	}
+	// Fall back to first available realm
+	return getRealmIDFromRoles(roles)
+}
+
+// buildFilterParams builds a URL-encoded string of filter parameters.
+func buildFilterParams(status, priority, assignee string) string {
+	var params []string
+	if status != "" {
+		params = append(params, "status="+status)
+	}
+	if priority != "" {
+		params = append(params, "priority="+priority)
+	}
+	if assignee != "" {
+		params = append(params, "assignee="+assignee)
+	}
+	return strings.Join(params, "&")
+}
+
+// buildAccountInfo creates an AccountInfo with realm information.
+func (h *Handlers) buildAccountInfo(r *http.Request, username string, roles map[string]string) *AccountInfo {
+	accountID, _ := AccountIDFromContext(r.Context())
+
+	// Get selected realm from cookie
+	selectedRealm := GetSelectedRealm(r, roles)
+
+	// Build available realms
+	availableRealms := BuildAvailableRealms(r.Context(), h.projectionStore, roles)
+
+	return &AccountInfo{
+		ID:              accountID,
+		Username:        username,
+		Roles:           roles,
+		CurrentRealm:    selectedRealm,
+		AvailableRealms: availableRealms,
+	}
 }
 
 // canTakeAction returns true if the user has member+ role in the realm.
@@ -541,23 +616,35 @@ func renderToastPartial(w http.ResponseWriter, toastType, message string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 
-	var class string
+	var class, icon string
 	switch toastType {
 	case "error":
 		class = "toast-error"
+		icon = "✕"
 	case "success":
 		class = "toast-success"
+		icon = "✓"
+	case "warning":
+		class = "toast-warning"
+		icon = "⚠"
 	default:
 		class = "toast-info"
+		icon = "ℹ"
 	}
 
 	// Escape dynamic values to prevent XSS
 	escapedClass := html.EscapeString(class)
+	escapedIcon := html.EscapeString(icon)
 	escapedMessage := html.EscapeString(message)
 
-	// Create a toast element that htmx will swap into the toasts container
-	// Using oob-swap to update the toasts area
-	if _, err := w.Write([]byte(`<div class="toast ` + escapedClass + `" hx-swap-oob="beforeend:#toasts">` + escapedMessage + `</div>`)); err != nil {
+	// Create a toast element with icon and message
+	// CSS handles auto-dismiss animation after 5 seconds
+	htmlContent := `<div class="toast ` + escapedClass + `" hx-swap-oob="beforeend:#toasts">
+		<span class="toast-icon">` + escapedIcon + `</span>
+		<span class="toast-message">` + escapedMessage + `</span>
+	</div>`
+
+	if _, err := w.Write([]byte(htmlContent)); err != nil {
 		log.Printf("renderToastPartial: failed to write response: %v", err)
 	}
 }
@@ -613,6 +700,9 @@ func (h *Handlers) RealmsListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check for expand_form parameter
+	expandForm := r.URL.Query().Get("expand_form") == "true"
+
 	// Get all realms from projection
 	var realms []projectors.RealmListEntry
 	if h.projectionStore != nil {
@@ -632,13 +722,11 @@ func (h *Handlers) RealmsListHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.templates.Render(w, "realms/list.html", TemplateData{
-		Title: "Realms",
-		Account: &AccountInfo{
-			Username: username,
-			Roles:    roles,
-		},
+		Title:   "Realms",
+		Account: h.buildAccountInfo(r, username, roles),
 		Data: map[string]interface{}{
-			"Realms": realms,
+			"Realms":     realms,
+			"ExpandForm": expandForm,
 		},
 	})
 }
@@ -674,7 +762,7 @@ func (h *Handlers) RealmDetailHandler(w http.ResponseWriter, r *http.Request) {
 		data := TemplateData{
 			Title:   "Realm Not Found",
 			Error:   "Realm not found",
-			Account: &AccountInfo{Username: username, Roles: roles},
+			Account: h.buildAccountInfo(r, username, roles),
 		}
 		w.WriteHeader(http.StatusNotFound)
 		h.templates.Render(w, "realms/detail.html", data)
@@ -702,7 +790,7 @@ func (h *Handlers) RealmDetailHandler(w http.ResponseWriter, r *http.Request) {
 
 	h.templates.Render(w, "realms/detail.html", TemplateData{
 		Title:   realm.Name,
-		Account: &AccountInfo{Username: username, Roles: roles},
+		Account: h.buildAccountInfo(r, username, roles),
 		Data: map[string]interface{}{
 			"Realm":   realm,
 			"Members": members,
@@ -748,6 +836,12 @@ func (h *Handlers) CreateRealmHandler(w http.ResponseWriter, r *http.Request) {
 	_, err := domain.HandleCreateRealm(r.Context(), domain.CreateRealm{Name: name}, h.eventStore)
 	if err != nil {
 		renderToastPartial(w, "error", "Failed to create realm")
+		return
+	}
+
+	// Check if HTMX request
+	if r.Header.Get("HX-Request") == "true" {
+		renderRealmCreatedPartial(w)
 		return
 	}
 
@@ -797,13 +891,13 @@ func (h *Handlers) SuspendRealmHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/admin/realms", http.StatusSeeOther)
 }
 
-// isAdmin returns true if the user has admin role in the admin realm.
+// isAdmin returns true if the user has admin or owner role in the admin realm.
 func isAdmin(roles map[string]string) bool {
 	if roles == nil {
 		return false
 	}
 	role, ok := roles[domain.AdminRealmID]
-	return ok && role == "admin"
+	return ok && (role == "admin" || role == "owner")
 }
 
 // AccountsListHandler handles GET /admin/accounts - list all accounts (admin-only).
@@ -816,6 +910,9 @@ func (h *Handlers) AccountsListHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
+
+	// Check for expand_form parameter
+	expandForm := r.URL.Query().Get("expand_form") == "true"
 
 	// Get all accounts from projection
 	var accounts []projectors.AccountListEntry
@@ -836,13 +933,11 @@ func (h *Handlers) AccountsListHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.templates.Render(w, "accounts/list.html", TemplateData{
-		Title: "Accounts",
-		Account: &AccountInfo{
-			Username: username,
-			Roles:    roles,
-		},
+		Title:   "Accounts",
+		Account: h.buildAccountInfo(r, username, roles),
 		Data: map[string]interface{}{
-			"Accounts": accounts,
+			"Accounts":    accounts,
+			"ExpandForm":  expandForm,
 		},
 	})
 }
@@ -879,7 +974,7 @@ func (h *Handlers) AccountDetailHandler(w http.ResponseWriter, r *http.Request) 
 		data := TemplateData{
 			Title:   "Account Not Found",
 			Error:   "Account not found",
-			Account: &AccountInfo{Username: username, Roles: roles},
+			Account: h.buildAccountInfo(r, username, roles),
 		}
 		w.WriteHeader(http.StatusNotFound)
 		h.templates.Render(w, "accounts/detail.html", data)
@@ -904,7 +999,7 @@ func (h *Handlers) AccountDetailHandler(w http.ResponseWriter, r *http.Request) 
 
 	h.templates.Render(w, "accounts/detail.html", TemplateData{
 		Title:   account.Username,
-		Account: &AccountInfo{Username: username, Roles: roles},
+		Account: h.buildAccountInfo(r, username, roles),
 		Data: map[string]interface{}{
 			"Account":         account,
 			"Realms":          realms,
@@ -1126,7 +1221,7 @@ func (h *Handlers) PATsListHandler(w http.ResponseWriter, r *http.Request) {
 		data := TemplateData{
 			Title:   "Account Not Found",
 			Error:   "Account not found",
-			Account: &AccountInfo{Username: username, Roles: roles},
+			Account: h.buildAccountInfo(r, username, roles),
 		}
 		w.WriteHeader(http.StatusNotFound)
 		h.templates.Render(w, "accounts/pats.html", data)
@@ -1147,7 +1242,7 @@ func (h *Handlers) PATsListHandler(w http.ResponseWriter, r *http.Request) {
 
 	h.templates.Render(w, "accounts/pats.html", TemplateData{
 		Title:   "PATs for " + account.Username,
-		Account: &AccountInfo{Username: username, Roles: roles},
+		Account: h.buildAccountInfo(r, username, roles),
 		Data: map[string]interface{}{
 			"Account":   account,
 			"PATs":      pats,
@@ -1280,7 +1375,7 @@ func (h *Handlers) PATActionHandler(w http.ResponseWriter, r *http.Request) {
 // CreateRuneHandler handles POST /admin/runes/create.
 func (h *Handlers) CreateRuneHandler(w http.ResponseWriter, r *http.Request) {
 	roles, _ := RolesFromContext(r.Context())
-	realmID := getRealmIDFromRoles(roles)
+	realmID := getRealmIDFromRequest(r, roles)
 
 	// Check member+ authorization
 	if !canTakeAction(roles, realmID) {
@@ -1359,7 +1454,7 @@ func (h *Handlers) CreateRuneHandler(w http.ResponseWriter, r *http.Request) {
 // UpdateRuneHandler handles POST /admin/runes/{id}/update.
 func (h *Handlers) UpdateRuneHandler(w http.ResponseWriter, r *http.Request) {
 	roles, _ := RolesFromContext(r.Context())
-	realmID := getRealmIDFromRoles(roles)
+	realmID := getRealmIDFromRequest(r, roles)
 
 	// Check member+ authorization
 	if !canTakeAction(roles, realmID) {
@@ -1451,7 +1546,7 @@ func (h *Handlers) UpdateRuneHandler(w http.ResponseWriter, r *http.Request) {
 // RuneForgeHandler handles POST /admin/runes/{id}/forge.
 func (h *Handlers) RuneForgeHandler(w http.ResponseWriter, r *http.Request) {
 	roles, _ := RolesFromContext(r.Context())
-	realmID := getRealmIDFromRoles(roles)
+	realmID := getRealmIDFromRequest(r, roles)
 
 	// Check member+ authorization
 	if !canTakeAction(roles, realmID) {
@@ -1516,7 +1611,7 @@ func (h *Handlers) RuneForgeHandler(w http.ResponseWriter, r *http.Request) {
 // AddDependencyHandler handles POST /admin/runes/{id}/dependencies.
 func (h *Handlers) AddDependencyHandler(w http.ResponseWriter, r *http.Request) {
 	roles, _ := RolesFromContext(r.Context())
-	realmID := getRealmIDFromRoles(roles)
+	realmID := getRealmIDFromRequest(r, roles)
 
 	// Check member+ authorization
 	if !canTakeAction(roles, realmID) {
@@ -1602,7 +1697,7 @@ func (h *Handlers) AddDependencyHandler(w http.ResponseWriter, r *http.Request) 
 // RemoveDependencyHandler handles DELETE /admin/runes/{id}/dependencies.
 func (h *Handlers) RemoveDependencyHandler(w http.ResponseWriter, r *http.Request) {
 	roles, _ := RolesFromContext(r.Context())
-	realmID := getRealmIDFromRoles(roles)
+	realmID := getRealmIDFromRequest(r, roles)
 
 	// Check member+ authorization
 	if !canTakeAction(roles, realmID) {
@@ -1680,7 +1775,7 @@ func (h *Handlers) RemoveDependencyHandler(w http.ResponseWriter, r *http.Reques
 // RuneUnclaimHandler handles POST /admin/runes/{id}/unclaim.
 func (h *Handlers) RuneUnclaimHandler(w http.ResponseWriter, r *http.Request) {
 	roles, _ := RolesFromContext(r.Context())
-	realmID := getRealmIDFromRoles(roles)
+	realmID := getRealmIDFromRequest(r, roles)
 
 	// Check member+ authorization
 	if !canTakeAction(roles, realmID) {
@@ -1749,7 +1844,7 @@ func (h *Handlers) RuneUnclaimHandler(w http.ResponseWriter, r *http.Request) {
 // RuneShatterHandler handles POST /admin/runes/{id}/shatter.
 func (h *Handlers) RuneShatterHandler(w http.ResponseWriter, r *http.Request) {
 	roles, _ := RolesFromContext(r.Context())
-	realmID := getRealmIDFromRoles(roles)
+	realmID := getRealmIDFromRequest(r, roles)
 
 	// Check member+ authorization
 	if !canTakeAction(roles, realmID) {
@@ -1793,7 +1888,7 @@ func (h *Handlers) RuneShatterHandler(w http.ResponseWriter, r *http.Request) {
 // SweepRunesHandler handles POST /admin/runes/sweep.
 func (h *Handlers) SweepRunesHandler(w http.ResponseWriter, r *http.Request) {
 	roles, _ := RolesFromContext(r.Context())
-	realmID := getRealmIDFromRoles(roles)
+	realmID := getRealmIDFromRequest(r, roles)
 
 	// Check admin authorization (sweep is admin-only)
 	if !isAdmin(roles) {
@@ -2043,5 +2138,20 @@ func renderPATCreatedPartial(w http.ResponseWriter, patID, rawToken string) {
 
 	if _, err := w.Write([]byte(htmlContent)); err != nil {
 		log.Printf("renderPATCreatedPartial: failed to write response for PAT %s: %v", patID, err)
+	}
+}
+
+// renderRealmCreatedPartial renders a success message and triggers page refresh for htmx.
+func renderRealmCreatedPartial(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+
+	var buf strings.Builder
+	buf.WriteString(`<div class="toast toast-success" hx-swap-oob="beforeend:#toasts">Realm created successfully</div>`)
+	// Trigger page refresh to show updated list
+	buf.WriteString(`<div hx-get="/admin/realms" hx-trigger="load" hx-target="body" hx-swap="outerHTML"></div>`)
+
+	if _, err := w.Write([]byte(buf.String())); err != nil {
+		log.Printf("renderRealmCreatedPartial: failed to write response: %v", err)
 	}
 }

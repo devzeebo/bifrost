@@ -19,6 +19,15 @@
     </ul>
     {{if .Account}}
     <div class="nav-user">
+      {{if gt (len .Account.AvailableRealms) 1}}
+      <form action="/admin/switch-realm" method="post" class="realm-switcher">
+        <select name="realm" onchange="this.form.submit()" class="realm-select">
+          {{range .Account.AvailableRealms}}
+          <option value="{{.ID}}" {{if eq .ID $.Account.CurrentRealm}}selected{{end}}>{{.Name}}</option>
+          {{end}}
+        </select>
+      </form>
+      {{end}}
       <span>{{.Account.Username}}</span>
       <form action="/admin/logout" method="post"><button type="submit">Logout</button></form>
     </div>
