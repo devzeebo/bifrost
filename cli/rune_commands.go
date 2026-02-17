@@ -21,4 +21,5 @@ func RegisterRuneCommands(root *RootCmd, out *bytes.Buffer) {
 	root.Command.AddCommand(NewNoteCmd(clientFn, out).Command)
 	root.Command.AddCommand(NewEventsCmd(clientFn, out).Command)
 	root.Command.AddCommand(NewSweepCmd(clientFn, out, os.Stdin).Command)
+	root.Command.AddCommand(NewShatterCmd(clientFn, out, os.Stdin).Command)
 }
