@@ -21,7 +21,7 @@
     <div class="nav-user">
       {{if gt (len .Account.AvailableRealms) 1}}
       <form action="/admin/switch-realm" method="post" class="realm-switcher">
-        <select name="realm" onchange="this.form.submit()" class="realm-select">
+        <select name="realm" id="realm-select" onchange="this.form.submit()" class="realm-select" aria-label="Select realm">
           {{range .Account.AvailableRealms}}
           <option value="{{.ID}}" {{if eq .ID $.Account.CurrentRealm}}selected{{end}}>{{.Name}}</option>
           {{end}}

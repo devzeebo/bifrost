@@ -307,13 +307,18 @@ func GetSelectedRealm(r *http.Request, roles map[string]string) string {
 }
 
 // SetRealmCookie sets the realm selection cookie.
-func SetRealmCookie(w http.ResponseWriter, realmID string) {
+func SetRealmCookie(w http.ResponseWriter, realmID string, cfg *AuthConfig) {
+	secure := true
+	if cfg != nil {
+		secure = cfg.CookieSecure
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     realmCookieName,
 		Value:    realmID,
 		Path:     "/admin",
 		MaxAge:   86400 * 30, // 30 days
 		HttpOnly: true,
+		Secure:   secure,
 		SameSite: http.SameSiteStrictMode,
 	})
 }

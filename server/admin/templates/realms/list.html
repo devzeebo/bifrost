@@ -8,7 +8,8 @@
     <h2>Realms ({{len .Data.Realms}})</h2>
     <div id="create-realm-form" style="display: none;" class="inline-create-form">
       <form hx-post="/admin/realms/create" hx-target="body">
-        <input type="text" name="name" id="name" placeholder="Realm name" required class="form-control">
+        <label for="realm-name" class="visually-hidden">Realm name</label>
+        <input type="text" name="name" id="realm-name" placeholder="Realm name" required class="form-control">
         <button type="submit" class="btn btn-primary btn-sm">Create</button>
         <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('create-realm-form').style.display='none'; document.getElementById('add-realm-btn').style.display='inline-block'">Cancel</button>
       </form>

@@ -8,6 +8,7 @@ import (
 	"html"
 	"log"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -132,7 +133,7 @@ func (h *Handlers) SwitchRealmHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	SetRealmCookie(w, realmID)
+	SetRealmCookie(w, realmID, h.authConfig)
 
 	// Check if HTMX request
 	if r.Header.Get("HX-Request") == "true" {
@@ -530,17 +531,17 @@ func getRealmIDFromRequest(r *http.Request, roles map[string]string) string {
 
 // buildFilterParams builds a URL-encoded string of filter parameters.
 func buildFilterParams(status, priority, assignee string) string {
-	var params []string
+	v := url.Values{}
 	if status != "" {
-		params = append(params, "status="+status)
+		v.Set("status", status)
 	}
 	if priority != "" {
-		params = append(params, "priority="+priority)
+		v.Set("priority", priority)
 	}
 	if assignee != "" {
-		params = append(params, "assignee="+assignee)
+		v.Set("assignee", assignee)
 	}
-	return strings.Join(params, "&")
+	return v.Encode()
 }
 
 // buildAccountInfo creates an AccountInfo with realm information.

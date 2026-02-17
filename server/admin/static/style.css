@@ -124,8 +124,8 @@ nav .nav-user button:hover {
 }
 
 .realm-select:focus {
-  outline: none;
-  border-color: var(--accent);
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
 }
 
 /* Main content area */
@@ -814,6 +814,19 @@ textarea::placeholder {
 
 .inline-create-form .form-control {
   width: 200px;
+}
+
+/* Visually hidden but accessible to screen readers */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 @media (max-width: 768px) {
