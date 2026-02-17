@@ -69,6 +69,8 @@ func RebuildRuneState(events []core.Event) RuneState {
 			state.Status = "open"
 		case EventRuneSealed:
 			state.Status = "sealed"
+		case EventRuneShattered:
+			state.Status = "shattered"
 		}
 	}
 	return state
@@ -111,6 +113,9 @@ func HandleCreateRune(ctx context.Context, realmID string, cmd CreateRune, store
 		}
 		if parentState.Status == "sealed" {
 			return RuneCreated{}, fmt.Errorf("cannot create child of sealed rune %q", cmd.ParentID)
+		}
+		if parentState.Status == "shattered" {
+			return RuneCreated{}, fmt.Errorf("cannot create child of shattered rune %q", cmd.ParentID)
 		}
 
 		if cmd.Branch != nil {
@@ -172,6 +177,9 @@ func HandleUpdateRune(ctx context.Context, realmID string, cmd UpdateRune, store
 	if state.Status == "sealed" {
 		return fmt.Errorf("cannot update sealed rune %q", cmd.ID)
 	}
+	if state.Status == "shattered" {
+		return fmt.Errorf("cannot update shattered rune %q", cmd.ID)
+	}
 
 	updated := RuneUpdated(cmd)
 
@@ -195,6 +203,9 @@ func HandleClaimRune(ctx context.Context, realmID string, cmd ClaimRune, store c
 	}
 	if state.Status == "sealed" {
 		return fmt.Errorf("cannot claim sealed rune %q", cmd.ID)
+	}
+	if state.Status == "shattered" {
+		return fmt.Errorf("cannot claim shattered rune %q", cmd.ID)
 	}
 	if state.Status == "claimed" {
 		return fmt.Errorf("rune %q is already claimed by %q", cmd.ID, state.Claimant)
@@ -247,6 +258,9 @@ func HandleForgeRune(ctx context.Context, realmID string, cmd ForgeRune, store c
 	if !state.Exists {
 		return &core.NotFoundError{Entity: "rune", ID: cmd.ID}
 	}
+	if state.Status == "shattered" {
+		return fmt.Errorf("cannot forge shattered rune %q", cmd.ID)
+	}
 	if state.Status != "draft" {
 		return nil
 	}
@@ -289,6 +303,9 @@ func HandleFulfillRune(ctx context.Context, realmID string, cmd FulfillRune, sto
 	if state.Status == "sealed" {
 		return fmt.Errorf("cannot fulfill sealed rune %q", cmd.ID)
 	}
+	if state.Status == "shattered" {
+		return fmt.Errorf("cannot fulfill shattered rune %q", cmd.ID)
+	}
 	if state.Status == "fulfilled" {
 		return fmt.Errorf("rune %q is already fulfilled", cmd.ID)
 	}
@@ -315,6 +332,9 @@ func HandleSealRune(ctx context.Context, realmID string, cmd SealRune, store cor
 	}
 	if state.Status == "sealed" {
 		return fmt.Errorf("rune %q is already sealed", cmd.ID)
+	}
+	if state.Status == "shattered" {
+		return fmt.Errorf("cannot seal shattered rune %q", cmd.ID)
 	}
 
 	sealed := RuneSealed(cmd)
@@ -343,6 +363,9 @@ func HandleAddDependency(ctx context.Context, realmID string, cmd AddDependency,
 	if !sourceState.Exists {
 		return &core.NotFoundError{Entity: "rune", ID: cmd.RuneID}
 	}
+	if sourceState.Status == "shattered" {
+		return fmt.Errorf("cannot add dependency: rune %q is shattered", cmd.RuneID)
+	}
 
 	targetState, targetEvents, err := readAndRebuild(ctx, realmID, cmd.TargetID, store)
 	if err != nil {
@@ -350,6 +373,9 @@ func HandleAddDependency(ctx context.Context, realmID string, cmd AddDependency,
 	}
 	if !targetState.Exists {
 		return &core.NotFoundError{Entity: "rune", ID: cmd.TargetID}
+	}
+	if targetState.Status == "shattered" {
+		return fmt.Errorf("cannot add dependency: rune %q is shattered", cmd.TargetID)
 	}
 
 	if cmd.Relationship == RelBlocks {
@@ -419,6 +445,9 @@ func HandleRemoveDependency(ctx context.Context, realmID string, cmd RemoveDepen
 	if !state.Exists {
 		return &core.NotFoundError{Entity: "rune", ID: cmd.RuneID}
 	}
+	if state.Status == "shattered" {
+		return fmt.Errorf("cannot remove dependency: rune %q is shattered", cmd.RuneID)
+	}
 
 	_, targetEvents, err := readAndRebuild(ctx, realmID, cmd.TargetID, store)
 	if err != nil {
@@ -474,12 +503,36 @@ func HandleAddNote(ctx context.Context, realmID string, cmd AddNote, store core.
 	if !state.Exists {
 		return &core.NotFoundError{Entity: "rune", ID: cmd.RuneID}
 	}
+	if state.Status == "shattered" {
+		return fmt.Errorf("cannot add note to shattered rune %q", cmd.RuneID)
+	}
 
 	noted := RuneNoted(cmd)
 
 	streamID := runeStreamID(cmd.RuneID)
 	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
 		{EventType: EventRuneNoted, Data: noted},
+	})
+	return err
+}
+
+func HandleShatterRune(ctx context.Context, realmID string, cmd ShatterRune, store core.EventStore) error {
+	state, events, err := readAndRebuild(ctx, realmID, cmd.ID, store)
+	if err != nil {
+		return err
+	}
+	if !state.Exists {
+		return &core.NotFoundError{Entity: "rune", ID: cmd.ID}
+	}
+	if state.Status != "sealed" && state.Status != "fulfilled" {
+		return fmt.Errorf("cannot shatter rune %q: must be sealed or fulfilled", cmd.ID)
+	}
+
+	shattered := RuneShattered{ID: cmd.ID}
+
+	streamID := runeStreamID(cmd.ID)
+	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
+		{EventType: EventRuneShattered, Data: shattered},
 	})
 	return err
 }

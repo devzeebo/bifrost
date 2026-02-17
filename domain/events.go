@@ -11,6 +11,7 @@ const (
 	EventDependencyRemoved = "DependencyRemoved"
 	EventRuneNoted         = "RuneNoted"
 	EventRuneUnclaimed     = "RuneUnclaimed"
+	EventRuneShattered     = "RuneShattered"
 )
 
 const (
@@ -116,4 +117,8 @@ type RuneUnclaimed struct {
 type RuneNoted struct {
 	RuneID string `json:"rune_id"`
 	Text   string `json:"text"`
+}
+
+type RuneShattered struct {
+	ID string `json:"id"`
 }
