@@ -48,6 +48,8 @@ func (p *RuneListProjector) Handle(ctx context.Context, event core.Event, store 
 		return p.handleSealed(ctx, event, store)
 	case domain.EventRuneUnclaimed:
 		return p.handleUnclaimed(ctx, event, store)
+	case domain.EventRuneShattered:
+		return p.handleShattered(ctx, event, store)
 	}
 	return nil
 }
@@ -162,6 +164,12 @@ func (p *RuneListProjector) handleUnclaimed(ctx context.Context, event core.Even
 	summary.Claimant = ""
 	summary.UpdatedAt = event.Timestamp
 	return store.Put(ctx, event.RealmID, "rune_list", data.ID, summary)
+func (p *RuneListProjector) handleShattered(ctx context.Context, event core.Event, store core.ProjectionStore) error {
+	var data domain.RuneShattered
+	if err := json.Unmarshal(event.Data, &data); err != nil {
+		return err
+	}
+	return store.Delete(ctx, event.RealmID, "rune_list", data.ID)
 }
 
 func isNotFoundError(err error) bool {

@@ -66,6 +66,8 @@ func (p *RuneDetailProjector) Handle(ctx context.Context, event core.Event, stor
 		return p.handleDependencyRemoved(ctx, event, store)
 	case domain.EventRuneNoted:
 		return p.handleNoted(ctx, event, store)
+	case domain.EventRuneShattered:
+		return p.handleShattered(ctx, event, store)
 	}
 	return nil
 }
@@ -223,6 +225,14 @@ func (p *RuneDetailProjector) handleDependencyRemoved(ctx context.Context, event
 	detail.Dependencies = filtered
 	detail.UpdatedAt = event.Timestamp
 	return store.Put(ctx, event.RealmID, "rune_detail", data.RuneID, detail)
+}
+
+func (p *RuneDetailProjector) handleShattered(ctx context.Context, event core.Event, store core.ProjectionStore) error {
+	var data domain.RuneShattered
+	if err := json.Unmarshal(event.Data, &data); err != nil {
+		return err
+	}
+	return store.Delete(ctx, event.RealmID, "rune_detail", data.ID)
 }
 
 func (p *RuneDetailProjector) handleNoted(ctx context.Context, event core.Event, store core.ProjectionStore) error {
