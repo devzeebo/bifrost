@@ -29,6 +29,27 @@ bf dep list <id>                         # List dependencies of a rune
 Valid relationships: blocks, relates_to, duplicates, supersedes, replies_to.
 Inverse forms are also accepted: blocked_by, duplicated_by, superseded_by, replied_to_by.
 
+## Development Commands
+
+**ALWAYS use the `./run` script** in the project root instead of raw `go test`, `go vet`, or `go tool golangci-lint` commands. This project is a Go workspace with multiple modules; running `go test ./...` from the root will not work correctly.
+
+```bash
+./run test                        # Test all modules
+./run test core                   # Test a single module
+./run test core domain            # Test multiple modules
+./run test core -- -v -count=1    # Pass extra flags after --
+./run lint                        # Lint all modules
+./run lint server                 # Lint a single module
+./run vet                         # Vet all modules
+./run tidy                        # go mod tidy in all modules
+./run build                       # Build server + CLI
+./run list                        # List available modules
+```
+
+Available modules: `core`, `domain`, `domain/integration`, `providers/sqlite`, `server`, `cli`.
+
+**NEVER run `go test`, `go vet`, or `go tool golangci-lint` directly.** Always use `./run`.
+
 ## Completing a Rune
 
 **When ending a work session**, you MUST complete ALL steps below.
