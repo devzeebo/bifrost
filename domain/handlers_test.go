@@ -125,6 +125,20 @@ func TestRebuildRuneState(t *testing.T) {
 		tc.state_has_branch("feature/abc")
 	})
 
+	t.Run("applies RuneUnclaimed", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.events_from_created_claimed_and_unclaimed_rune()
+
+		// When
+		tc.state_is_rebuilt()
+
+		// Then
+		tc.state_has_status("open")
+		tc.state_has_claimant("")
+	})
+
 	t.Run("tracks parent ID from RuneCreated", func(t *testing.T) {
 		tc := newHandlerTestContext(t)
 
@@ -447,6 +461,90 @@ func TestHandleClaimRune(t *testing.T) {
 
 		// Then
 		tc.error_contains("fulfilled")
+	})
+}
+
+func TestHandleUnclaimRune(t *testing.T) {
+	t.Run("unclaims a claimed rune", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.existing_rune_in_stream("bf-a1b2", "claimed")
+		tc.an_unclaim_rune_command("bf-a1b2")
+
+		// When
+		tc.handle_unclaim_rune()
+
+		// Then
+		tc.no_error()
+		tc.event_was_appended_to_stream("rune-bf-a1b2")
+		tc.appended_event_has_type(EventRuneUnclaimed)
+	})
+
+	t.Run("returns error when rune is not claimed", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.existing_rune_in_stream("bf-a1b2", "open")
+		tc.an_unclaim_rune_command("bf-a1b2")
+
+		// When
+		tc.handle_unclaim_rune()
+
+		// Then
+		tc.error_contains("not claimed")
+	})
+
+	t.Run("returns error when rune is sealed", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.existing_rune_in_stream("bf-a1b2", "sealed")
+		tc.an_unclaim_rune_command("bf-a1b2")
+
+		// When
+		tc.handle_unclaim_rune()
+
+		// Then
+		tc.error_contains("sealed")
+	})
+
+	t.Run("returns error when rune is fulfilled", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.existing_rune_in_stream("bf-a1b2", "fulfilled")
+		tc.an_unclaim_rune_command("bf-a1b2")
+
+		// When
+		tc.handle_unclaim_rune()
+
+		// Then
+		tc.error_contains("fulfilled")
+	})
+
+	t.Run("returns error when rune does not exist", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.empty_stream("bf-missing")
+		tc.an_unclaim_rune_command("bf-missing")
+
+		// When
+		tc.handle_unclaim_rune()
+
+		// Then
+		tc.error_is_not_found("rune", "bf-missing")
 	})
 }
 
@@ -891,8 +989,9 @@ type handlerTestContext struct {
 
 	createCmd CreateRune
 	updateCmd UpdateRune
-	claimCmd  ClaimRune
-	fulfillCmd FulfillRune
+	claimCmd    ClaimRune
+	unclaimCmd  UnclaimRune
+	fulfillCmd  FulfillRune
 	sealCmd   SealRune
 	addDepCmd AddDependency
 	removeDepCmd RemoveDependency
@@ -1002,6 +1101,24 @@ func (tc *handlerTestContext) events_from_created_and_claimed_rune() {
 		}),
 		makeEvent(EventRuneClaimed, RuneClaimed{
 			ID: "bf-a1b2", Claimant: "odin",
+		}),
+	}
+}
+
+func (tc *handlerTestContext) events_from_created_claimed_and_unclaimed_rune() {
+	tc.t.Helper()
+	tc.events = []core.Event{
+		makeEvent(EventRuneCreated, RuneCreated{
+			ID: "bf-a1b2", Title: "Fix the bridge", Priority: 1,
+		}),
+		makeEvent(EventRuneForged, RuneForged{
+			ID: "bf-a1b2",
+		}),
+		makeEvent(EventRuneClaimed, RuneClaimed{
+			ID: "bf-a1b2", Claimant: "odin",
+		}),
+		makeEvent(EventRuneUnclaimed, RuneUnclaimed{
+			ID: "bf-a1b2",
 		}),
 	}
 }
@@ -1221,6 +1338,13 @@ func (tc *handlerTestContext) a_remove_dependency_command(runeID, targetID, rela
 	}
 }
 
+func (tc *handlerTestContext) an_unclaim_rune_command(id string) {
+	tc.t.Helper()
+	tc.unclaimCmd = UnclaimRune{
+		ID: id,
+	}
+}
+
 func (tc *handlerTestContext) an_add_note_command(runeID, text string) {
 	tc.t.Helper()
 	tc.addNoteCmd = AddNote{
@@ -1249,6 +1373,11 @@ func (tc *handlerTestContext) handle_update_rune() {
 func (tc *handlerTestContext) handle_claim_rune() {
 	tc.t.Helper()
 	tc.err = HandleClaimRune(tc.ctx, tc.realmID, tc.claimCmd, tc.eventStore)
+}
+
+func (tc *handlerTestContext) handle_unclaim_rune() {
+	tc.t.Helper()
+	tc.err = HandleUnclaimRune(tc.ctx, tc.realmID, tc.unclaimCmd, tc.eventStore)
 }
 
 func (tc *handlerTestContext) handle_fulfill_rune() {

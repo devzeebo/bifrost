@@ -60,6 +60,9 @@ func RebuildRuneState(events []core.Event) RuneState {
 			_ = json.Unmarshal(evt.Data, &data)
 			state.Status = "claimed"
 			state.Claimant = data.Claimant
+		case EventRuneUnclaimed:
+			state.Status = "open"
+			state.Claimant = ""
 		case EventRuneFulfilled:
 			state.Status = "fulfilled"
 		case EventRuneForged:
@@ -205,6 +208,33 @@ func HandleClaimRune(ctx context.Context, realmID string, cmd ClaimRune, store c
 	streamID := runeStreamID(cmd.ID)
 	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
 		{EventType: EventRuneClaimed, Data: claimed},
+	})
+	return err
+}
+
+func HandleUnclaimRune(ctx context.Context, realmID string, cmd UnclaimRune, store core.EventStore) error {
+	state, events, err := readAndRebuild(ctx, realmID, cmd.ID, store)
+	if err != nil {
+		return err
+	}
+	if !state.Exists {
+		return &core.NotFoundError{Entity: "rune", ID: cmd.ID}
+	}
+	if state.Status == "sealed" {
+		return fmt.Errorf("cannot unclaim sealed rune %q", cmd.ID)
+	}
+	if state.Status == "fulfilled" {
+		return fmt.Errorf("cannot unclaim fulfilled rune %q", cmd.ID)
+	}
+	if state.Status != "claimed" {
+		return fmt.Errorf("cannot unclaim rune %q: not claimed", cmd.ID)
+	}
+
+	unclaimed := RuneUnclaimed(cmd)
+
+	streamID := runeStreamID(cmd.ID)
+	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
+		{EventType: EventRuneUnclaimed, Data: unclaimed},
 	})
 	return err
 }

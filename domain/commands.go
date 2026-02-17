@@ -21,6 +21,10 @@ type ClaimRune struct {
 	Claimant string `json:"claimant"`
 }
 
+type UnclaimRune struct {
+	ID string `json:"id"`
+}
+
 type ForgeRune struct {
 	ID string `json:"id"`
 }

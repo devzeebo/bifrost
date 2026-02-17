@@ -10,6 +10,7 @@ func RegisterRuneCommands(root *RootCmd, out *bytes.Buffer) {
 	root.Command.AddCommand(NewListCmd(clientFn, out).Command)
 	root.Command.AddCommand(NewReadyCmd(clientFn, out).Command)
 	root.Command.AddCommand(NewClaimCmd(clientFn, out).Command)
+	root.Command.AddCommand(NewUnclaimCmd(clientFn, out).Command)
 	root.Command.AddCommand(NewFulfillCmd(clientFn, out).Command)
 	root.Command.AddCommand(NewSealCmd(clientFn, out).Command)
 	root.Command.AddCommand(NewForgeCmd(clientFn, out).Command)

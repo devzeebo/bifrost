@@ -156,6 +156,24 @@ func TestRuneDetailProjector(t *testing.T) {
 		tc.stored_detail_has_status("sealed")
 	})
 
+	t.Run("handles RuneUnclaimed by setting status to open and clearing claimant", func(t *testing.T) {
+		tc := newRuneDetailTestContext(t)
+
+		// Given
+		tc.a_rune_detail_projector()
+		tc.a_projection_store()
+		tc.existing_detail("bf-a1b2", "Fix the bridge", "", "claimed", 1, "odin", "")
+		tc.a_rune_unclaimed_event("bf-a1b2")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.stored_detail_has_status("open")
+		tc.stored_detail_has_claimant("")
+	})
+
 	t.Run("handles DependencyAdded by appending to dependencies", func(t *testing.T) {
 		tc := newRuneDetailTestContext(t)
 
@@ -416,6 +434,13 @@ func (tc *runeDetailTestContext) a_rune_noted_event(runeID, text string) {
 	tc.t.Helper()
 	tc.event = makeEvent(domain.EventRuneNoted, domain.RuneNoted{
 		RuneID: runeID, Text: text,
+	})
+}
+
+func (tc *runeDetailTestContext) a_rune_unclaimed_event(id string) {
+	tc.t.Helper()
+	tc.event = makeEvent(domain.EventRuneUnclaimed, domain.RuneUnclaimed{
+		ID: id,
 	})
 }
 

@@ -39,6 +39,7 @@ func NewHandlers(eventStore core.EventStore, projectionStore core.ProjectionStor
 	h.mux.HandleFunc("POST /create-rune", h.CreateRune)
 	h.mux.HandleFunc("POST /update-rune", h.UpdateRune)
 	h.mux.HandleFunc("POST /claim-rune", h.ClaimRune)
+	h.mux.HandleFunc("POST /unclaim-rune", h.UnclaimRune)
 	h.mux.HandleFunc("POST /fulfill-rune", h.FulfillRune)
 	h.mux.HandleFunc("POST /seal-rune", h.SealRune)
 	h.mux.HandleFunc("POST /forge-rune", h.ForgeRune)
@@ -79,6 +80,7 @@ func (h *Handlers) RegisterRoutes(mux *http.ServeMux, realmMiddleware, adminMidd
 	mux.Handle("POST /create-rune", memberAuth(http.HandlerFunc(h.CreateRune)))
 	mux.Handle("POST /update-rune", memberAuth(http.HandlerFunc(h.UpdateRune)))
 	mux.Handle("POST /claim-rune", memberAuth(http.HandlerFunc(h.ClaimRune)))
+	mux.Handle("POST /unclaim-rune", memberAuth(http.HandlerFunc(h.UnclaimRune)))
 	mux.Handle("POST /fulfill-rune", memberAuth(http.HandlerFunc(h.FulfillRune)))
 	mux.Handle("POST /seal-rune", memberAuth(http.HandlerFunc(h.SealRune)))
 	mux.Handle("POST /forge-rune", memberAuth(http.HandlerFunc(h.ForgeRune)))
@@ -156,6 +158,25 @@ func (h *Handlers) ClaimRune(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := domain.HandleClaimRune(r.Context(), realmID, cmd, h.eventStore); err != nil {
+		handleDomainError(w, err)
+		return
+	}
+	h.runSyncQuietly(r)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) UnclaimRune(w http.ResponseWriter, r *http.Request) {
+	realmID, ok := RealmIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusForbidden, "realm ID required")
+		return
+	}
+	var cmd domain.UnclaimRune
+	if err := json.NewDecoder(r.Body).Decode(&cmd); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if err := domain.HandleUnclaimRune(r.Context(), realmID, cmd, h.eventStore); err != nil {
 		handleDomainError(w, err)
 		return
 	}

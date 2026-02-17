@@ -10,6 +10,7 @@ const (
 	EventDependencyAdded   = "DependencyAdded"
 	EventDependencyRemoved = "DependencyRemoved"
 	EventRuneNoted         = "RuneNoted"
+	EventRuneUnclaimed     = "RuneUnclaimed"
 )
 
 const (
@@ -106,6 +107,10 @@ func IsInverseRelationship(rel string) bool {
 	default:
 		return false
 	}
+}
+
+type RuneUnclaimed struct {
+	ID string `json:"id"`
 }
 
 type RuneNoted struct {

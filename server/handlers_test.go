@@ -247,6 +247,27 @@ func TestClaimRuneHandler(t *testing.T) {
 	})
 }
 
+// --- Tests: UnclaimRune ---
+
+func TestUnclaimRuneHandler(t *testing.T) {
+	t.Run("unclaims rune and returns 204", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.rune_is_claimed_in_event_store("realm-1", "bf-0001", "alice")
+
+		// When
+		tc.post("/unclaim-rune", domain.UnclaimRune{
+			ID: "bf-0001",
+		})
+
+		// Then
+		tc.status_is(http.StatusNoContent)
+	})
+}
+
 // --- Tests: FulfillRune ---
 
 func TestFulfillRuneHandler(t *testing.T) {
