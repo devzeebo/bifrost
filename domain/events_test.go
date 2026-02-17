@@ -284,7 +284,6 @@ func TestIsInverseRelationship(t *testing.T) {
 }
 
 func TestRuneUnclaimed(t *testing.T) {
-func TestRuneShattered(t *testing.T) {
 	t.Run("serializes and deserializes correctly", func(t *testing.T) {
 		tc := newTestContext(t)
 
@@ -296,6 +295,14 @@ func TestRuneShattered(t *testing.T) {
 
 		// Then
 		tc.rune_unclaimed_fields_match()
+	})
+}
+
+func TestRuneShattered(t *testing.T) {
+	t.Run("serializes and deserializes correctly", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
 		tc.rune_shattered_event()
 
 		// When
@@ -474,6 +481,10 @@ func (tc *testContext) dependency_removed_event_with_is_inverse() {
 func (tc *testContext) rune_unclaimed_event() {
 	tc.t.Helper()
 	tc.runeUnclaimed = RuneUnclaimed{
+		ID: "rune-1",
+	}
+}
+
 func (tc *testContext) rune_shattered_event() {
 	tc.t.Helper()
 	tc.runeShattered = RuneShattered{
@@ -592,6 +603,8 @@ func (tc *testContext) marshal_and_unmarshal_rune_unclaimed() {
 	tc.jsonBytes, err = json.Marshal(tc.runeUnclaimed)
 	require.NoError(tc.t, err)
 	require.NoError(tc.t, json.Unmarshal(tc.jsonBytes, &tc.roundTrippedUnclaimed))
+}
+
 func (tc *testContext) marshal_and_unmarshal_rune_shattered() {
 	tc.t.Helper()
 	var err error
@@ -692,6 +705,8 @@ func (tc *testContext) dependency_removed_fields_match() {
 func (tc *testContext) rune_unclaimed_fields_match() {
 	tc.t.Helper()
 	assert.Equal(tc.t, tc.runeUnclaimed, tc.roundTrippedUnclaimed)
+}
+
 func (tc *testContext) rune_shattered_fields_match() {
 	tc.t.Helper()
 	assert.Equal(tc.t, tc.runeShattered, tc.roundTrippedShattered)

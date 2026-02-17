@@ -164,6 +164,8 @@ func (p *RuneListProjector) handleUnclaimed(ctx context.Context, event core.Even
 	summary.Claimant = ""
 	summary.UpdatedAt = event.Timestamp
 	return store.Put(ctx, event.RealmID, "rune_list", data.ID, summary)
+}
+
 func (p *RuneListProjector) handleShattered(ctx context.Context, event core.Event, store core.ProjectionStore) error {
 	var data domain.RuneShattered
 	if err := json.Unmarshal(event.Data, &data); err != nil {

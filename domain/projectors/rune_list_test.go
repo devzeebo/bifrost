@@ -394,6 +394,10 @@ func (tc *runeListTestContext) a_rune_sealed_event(id string) {
 func (tc *runeListTestContext) a_rune_unclaimed_event(id string) {
 	tc.t.Helper()
 	tc.event = makeEvent(domain.EventRuneUnclaimed, domain.RuneUnclaimed{
+		ID: id,
+	})
+}
+
 func (tc *runeListTestContext) a_rune_shattered_event(id string) {
 	tc.t.Helper()
 	tc.event = makeEvent(domain.EventRuneShattered, domain.RuneShattered{
