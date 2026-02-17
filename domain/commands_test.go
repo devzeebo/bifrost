@@ -131,6 +131,21 @@ func TestSealRuneCommand(t *testing.T) {
 	})
 }
 
+func TestShatterRuneCommand(t *testing.T) {
+	t.Run("serializes and deserializes correctly", func(t *testing.T) {
+		tc := newCmdTestContext(t)
+
+		// Given
+		tc.shatter_rune_command()
+
+		// When
+		tc.marshal_and_unmarshal_shatter_rune()
+
+		// Then
+		tc.shatter_rune_fields_match()
+	})
+}
+
 func TestAddDependencyCommand(t *testing.T) {
 	t.Run("serializes and deserializes correctly", func(t *testing.T) {
 		tc := newCmdTestContext(t)
@@ -186,6 +201,7 @@ type cmdTestContext struct {
 	claimRune       ClaimRune
 	fulfillRune     FulfillRune
 	sealRune        SealRune
+	shatterRune     ShatterRune
 	addDependency   AddDependency
 	removeDependency RemoveDependency
 	addNote         AddNote
@@ -198,6 +214,7 @@ type cmdTestContext struct {
 	roundTrippedClaimRune       ClaimRune
 	roundTrippedFulfillRune     FulfillRune
 	roundTrippedSealRune        SealRune
+	roundTrippedShatterRune     ShatterRune
 	roundTrippedAddDependency   AddDependency
 	roundTrippedRemoveDependency RemoveDependency
 	roundTrippedAddNote         AddNote
@@ -278,6 +295,13 @@ func (tc *cmdTestContext) seal_rune_command() {
 func (tc *cmdTestContext) seal_rune_command_without_reason() {
 	tc.t.Helper()
 	tc.sealRune = SealRune{
+		ID: "rune-1",
+	}
+}
+
+func (tc *cmdTestContext) shatter_rune_command() {
+	tc.t.Helper()
+	tc.shatterRune = ShatterRune{
 		ID: "rune-1",
 	}
 }
@@ -371,6 +395,14 @@ func (tc *cmdTestContext) marshal_and_unmarshal_seal_rune() {
 	require.NoError(tc.t, json.Unmarshal(tc.jsonBytes, &tc.roundTrippedSealRune))
 }
 
+func (tc *cmdTestContext) marshal_and_unmarshal_shatter_rune() {
+	tc.t.Helper()
+	var err error
+	tc.jsonBytes, err = json.Marshal(tc.shatterRune)
+	require.NoError(tc.t, err)
+	require.NoError(tc.t, json.Unmarshal(tc.jsonBytes, &tc.roundTrippedShatterRune))
+}
+
 func (tc *cmdTestContext) marshal_and_unmarshal_add_dependency() {
 	tc.t.Helper()
 	var err error
@@ -428,6 +460,11 @@ func (tc *cmdTestContext) fulfill_rune_fields_match() {
 func (tc *cmdTestContext) seal_rune_fields_match() {
 	tc.t.Helper()
 	assert.Equal(tc.t, tc.sealRune, tc.roundTrippedSealRune)
+}
+
+func (tc *cmdTestContext) shatter_rune_fields_match() {
+	tc.t.Helper()
+	assert.Equal(tc.t, tc.shatterRune, tc.roundTrippedShatterRune)
 }
 
 func (tc *cmdTestContext) add_dependency_fields_match() {

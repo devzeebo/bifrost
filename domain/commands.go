@@ -34,6 +34,10 @@ type SealRune struct {
 	Reason string `json:"reason,omitempty"`
 }
 
+type ShatterRune struct {
+	ID string `json:"id"`
+}
+
 type AddDependency struct {
 	RuneID       string `json:"rune_id"`
 	TargetID     string `json:"target_id"`
