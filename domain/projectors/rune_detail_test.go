@@ -299,6 +299,23 @@ func TestRuneDetailProjector(t *testing.T) {
 		tc.stored_detail_has_branch("feature/old")
 	})
 
+	t.Run("handles RuneShattered by deleting rune from projection", func(t *testing.T) {
+		tc := newRuneDetailTestContext(t)
+
+		// Given
+		tc.a_rune_detail_projector()
+		tc.a_projection_store()
+		tc.existing_detail("bf-a1b2", "Fix the bridge", "", "open", 1, "", "")
+		tc.a_rune_shattered_event("bf-a1b2")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.detail_was_deleted("bf-a1b2")
+	})
+
 	t.Run("ignores unknown event types", func(t *testing.T) {
 		tc := newRuneDetailTestContext(t)
 
@@ -416,6 +433,13 @@ func (tc *runeDetailTestContext) a_rune_noted_event(runeID, text string) {
 	tc.t.Helper()
 	tc.event = makeEvent(domain.EventRuneNoted, domain.RuneNoted{
 		RuneID: runeID, Text: text,
+	})
+}
+
+func (tc *runeDetailTestContext) a_rune_shattered_event(id string) {
+	tc.t.Helper()
+	tc.event = makeEvent(domain.EventRuneShattered, domain.RuneShattered{
+		ID: id,
 	})
 }
 
@@ -599,6 +623,13 @@ func (tc *runeDetailTestContext) stored_detail_has_branch(expected string) {
 	tc.t.Helper()
 	require.NotNil(tc.t, tc.storedDetail)
 	assert.Equal(tc.t, expected, tc.storedDetail.Branch)
+}
+
+func (tc *runeDetailTestContext) detail_was_deleted(id string) {
+	tc.t.Helper()
+	var detail RuneDetail
+	err := tc.store.Get(tc.ctx, tc.realmID, "rune_detail", id, &detail)
+	assert.Error(tc.t, err, "expected detail for %s to be deleted", id)
 }
 
 func (tc *runeDetailTestContext) stored_detail_has_note_text(index int, expected string) {

@@ -167,6 +167,61 @@ func TestDependencyGraphProjector(t *testing.T) {
 		tc.dep_lookup_does_not_exist("bf-a1b2", "bf-c3d4", "blocks")
 	})
 
+	t.Run("handles RuneShattered cleans up dependencies and dependents and dep keys", func(t *testing.T) {
+		tc := newDepGraphTestContext(t)
+
+		// Given
+		tc.a_dependency_graph_projector()
+		tc.a_projection_store()
+		tc.a_full_dependency_graph("bf-a1b2", "bf-c3d4", "blocks", "bf-e5f6", "relates_to")
+		tc.a_rune_shattered_event("bf-a1b2")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.no_entry_exists("bf-a1b2")
+		tc.target_has_no_dependent("bf-c3d4", "bf-a1b2")
+		tc.target_has_no_dependent("bf-e5f6", "bf-a1b2")
+		tc.dep_lookup_does_not_exist("bf-a1b2", "bf-c3d4", "blocks")
+		tc.dep_lookup_does_not_exist("bf-a1b2", "bf-e5f6", "relates_to")
+	})
+
+	t.Run("handles RuneShattered cleans up when shattered rune is a dependent", func(t *testing.T) {
+		tc := newDepGraphTestContext(t)
+
+		// Given
+		tc.a_dependency_graph_projector()
+		tc.a_projection_store()
+		tc.a_graph_where_rune_is_dependent("bf-a1b2", "bf-c3d4", "blocks")
+		tc.a_rune_shattered_event("bf-a1b2")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.no_entry_exists("bf-a1b2")
+		tc.source_has_no_dependency("bf-c3d4", "bf-a1b2")
+	})
+
+	t.Run("handles RuneShattered with no dependencies is a no-op delete", func(t *testing.T) {
+		tc := newDepGraphTestContext(t)
+
+		// Given
+		tc.a_dependency_graph_projector()
+		tc.a_projection_store()
+		tc.a_rune_shattered_event("bf-nonexistent")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.no_entry_exists("bf-nonexistent")
+	})
+
 	t.Run("ignores unknown event types", func(t *testing.T) {
 		tc := newDepGraphTestContext(t)
 
@@ -325,6 +380,78 @@ func (tc *depGraphTestContext) an_inverse_dependency_removed_event(runeID, targe
 	})
 }
 
+func (tc *depGraphTestContext) a_rune_shattered_event(id string) {
+	tc.t.Helper()
+	tc.event = makeEvent(domain.EventRuneShattered, domain.RuneShattered{
+		ID: id,
+	})
+}
+
+func (tc *depGraphTestContext) a_full_dependency_graph(runeID, target1, rel1, target2, rel2 string) {
+	tc.t.Helper()
+	tc.a_projection_store()
+	// Source rune has two dependencies
+	sourceEntry := GraphEntry{
+		RuneID: runeID,
+		Dependencies: []GraphDependency{
+			{TargetID: target1, Relationship: rel1},
+			{TargetID: target2, Relationship: rel2},
+		},
+		Dependents: []GraphDependent{},
+	}
+	tc.store.put(tc.realmID, "dependency_graph", runeID, sourceEntry)
+
+	// Target1 has source as dependent
+	target1Entry := GraphEntry{
+		RuneID:       target1,
+		Dependencies: []GraphDependency{},
+		Dependents: []GraphDependent{
+			{SourceID: runeID, Relationship: rel1},
+		},
+	}
+	tc.store.put(tc.realmID, "dependency_graph", target1, target1Entry)
+
+	// Target2 has source as dependent
+	target2Entry := GraphEntry{
+		RuneID:       target2,
+		Dependencies: []GraphDependency{},
+		Dependents: []GraphDependent{
+			{SourceID: runeID, Relationship: rel2},
+		},
+	}
+	tc.store.put(tc.realmID, "dependency_graph", target2, target2Entry)
+
+	// Dep lookup keys
+	tc.store.put(tc.realmID, "dependency_graph", "dep:"+runeID+":"+target1+":"+rel1, true)
+	tc.store.put(tc.realmID, "dependency_graph", "dep:"+runeID+":"+target2+":"+rel2, true)
+}
+
+func (tc *depGraphTestContext) a_graph_where_rune_is_dependent(runeID, sourceID, relationship string) {
+	tc.t.Helper()
+	tc.a_projection_store()
+	// The rune being shattered is a dependent (someone else depends on it... no, it appears in someone's dependents list)
+	// Actually: sourceID has runeID as a dependency target. So sourceID -> runeID.
+	// runeID's entry has sourceID as a dependent.
+	runeEntry := GraphEntry{
+		RuneID:       runeID,
+		Dependencies: []GraphDependency{},
+		Dependents: []GraphDependent{
+			{SourceID: sourceID, Relationship: relationship},
+		},
+	}
+	tc.store.put(tc.realmID, "dependency_graph", runeID, runeEntry)
+
+	// sourceID has runeID as a dependency
+	sourceEntry := GraphEntry{
+		RuneID: sourceID,
+		Dependencies: []GraphDependency{
+			{TargetID: runeID, Relationship: relationship},
+		},
+		Dependents: []GraphDependent{},
+	}
+	tc.store.put(tc.realmID, "dependency_graph", sourceID, sourceEntry)
+}
+
 func (tc *depGraphTestContext) existing_graph_entry_with_dependency(runeID, targetID, relationship string) {
 	tc.t.Helper()
 	tc.a_projection_store()
@@ -458,6 +585,36 @@ func (tc *depGraphTestContext) no_entry_exists(runeID string) {
 	var entry GraphEntry
 	err := tc.store.Get(tc.ctx, tc.realmID, "dependency_graph", runeID, &entry)
 	assert.Error(tc.t, err, "expected no graph entry for %s", runeID)
+}
+
+func (tc *depGraphTestContext) target_has_no_dependent(runeID, sourceID string) {
+	tc.t.Helper()
+	var entry GraphEntry
+	err := tc.store.Get(tc.ctx, tc.realmID, "dependency_graph", runeID, &entry)
+	if err != nil {
+		return // entry doesn't exist, so no dependent
+	}
+	for _, dep := range entry.Dependents {
+		if dep.SourceID == sourceID {
+			tc.t.Errorf("expected no dependent with source %s in %s, but found one", sourceID, runeID)
+			return
+		}
+	}
+}
+
+func (tc *depGraphTestContext) source_has_no_dependency(runeID, targetID string) {
+	tc.t.Helper()
+	var entry GraphEntry
+	err := tc.store.Get(tc.ctx, tc.realmID, "dependency_graph", runeID, &entry)
+	if err != nil {
+		return // entry doesn't exist, so no dependency
+	}
+	for _, dep := range entry.Dependencies {
+		if dep.TargetID == targetID {
+			tc.t.Errorf("expected no dependency with target %s in %s, but found one", targetID, runeID)
+			return
+		}
+	}
 }
 
 func (tc *depGraphTestContext) dep_lookup_does_not_exist(runeID, targetID, relationship string) {
