@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/devzeebo/bifrost/core"
 	"github.com/devzeebo/bifrost/domain"
 	"github.com/devzeebo/bifrost/domain/projectors"
 	"github.com/stretchr/testify/assert"
@@ -26,7 +27,8 @@ func TestLoginHandler_Get(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	handlers := NewHandlers(templates, cfg, nil, nil)
 
@@ -151,7 +153,8 @@ func TestLoginHandler_Post(t *testing.T) {
 
 		// Create a PAT that doesn't exist in the store
 		rawKey := make([]byte, 32)
-		rand.Read(rawKey)
+		_, err := rand.Read(rawKey)
+		require.NoError(t, err)
 		pat := base64.RawURLEncoding.EncodeToString(rawKey)
 
 		form := url.Values{}
@@ -203,7 +206,8 @@ func TestLogoutHandler(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	handlers := NewHandlers(templates, cfg, nil, nil)
 
@@ -317,7 +321,8 @@ func TestDashboardHandler(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	t.Run("shows username in dashboard", func(t *testing.T) {
 		handlers := NewHandlers(templates, cfg, nil, nil)
@@ -387,30 +392,54 @@ func contextWithUser(ctx context.Context, username string, roles map[string]stri
 
 // mockEventStore implements core.EventStore for testing
 type mockEventStore struct {
-	events []interface{}
-	err    error
+	streams map[string][]core.Event
+	err     error
 }
 
-func (m *mockEventStore) Append(ctx context.Context, realmID string, streamID string, expectedVersion int, events []interface{}) ([]interface{}, error) {
+func newMockEventStore() *mockEventStore {
+	return &mockEventStore{
+		streams: make(map[string][]core.Event),
+	}
+}
+
+func (m *mockEventStore) Append(ctx context.Context, realmID string, streamID string, expectedVersion int, events []core.EventData) ([]core.Event, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
-	m.events = append(m.events, events...)
-	return events, nil
+	key := realmID + "|" + streamID
+	existing := m.streams[key]
+	result := make([]core.Event, len(events))
+	for i, evt := range events {
+		dataBytes, _ := json.Marshal(evt.Data)
+		result[i] = core.Event{
+			RealmID:   realmID,
+			StreamID:  streamID,
+			Version:   len(existing) + i,
+			EventType: evt.EventType,
+			Data:      dataBytes,
+		}
+	}
+	m.streams[key] = append(existing, result...)
+	return result, nil
 }
 
-func (m *mockEventStore) ReadStream(ctx context.Context, realmID string, streamID string, fromVersion int) ([]interface{}, error) {
+func (m *mockEventStore) ReadStream(ctx context.Context, realmID string, streamID string, fromVersion int) ([]core.Event, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
-	return m.events, nil
+	key := realmID + "|" + streamID
+	return m.streams[key], nil
 }
 
-func (m *mockEventStore) ReadAll(ctx context.Context, realmID string, fromGlobalPosition int64) ([]interface{}, error) {
+func (m *mockEventStore) ReadAll(ctx context.Context, realmID string, fromGlobalPosition int64) ([]core.Event, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
-	return m.events, nil
+	var all []core.Event
+	for _, events := range m.streams {
+		all = append(all, events...)
+	}
+	return all, nil
 }
 
 func (m *mockEventStore) ListRealmIDs(ctx context.Context) ([]string, error) {
@@ -426,7 +455,8 @@ func TestRunesListHandler(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	t.Run("shows empty list when no runes", func(t *testing.T) {
 		store := newMockProjectionStore()
@@ -628,7 +658,8 @@ func TestRealmsListHandler(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	t.Run("admin can see realms list", func(t *testing.T) {
 		store := newMockProjectionStore()
@@ -779,7 +810,8 @@ func TestAccountsListHandler(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	t.Run("admin can see accounts list", func(t *testing.T) {
 		store := newMockProjectionStore()
@@ -968,5 +1000,577 @@ func TestPATsListHandler(t *testing.T) {
 		handlers.PATsListHandler(rec, req)
 
 		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+}
+
+func TestCreateRuneHandler(t *testing.T) {
+	templates, err := NewTemplates()
+	require.NoError(t, err)
+
+	cfg := DefaultAuthConfig()
+	cfg.SigningKey = make([]byte, 32)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
+
+	t.Run("viewer cannot create runes", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		form := url.Values{}
+		form.Set("title", "Test Rune")
+		form.Set("priority", "2")
+		form.Set("branch", "feat/test")
+
+		req := httptest.NewRequest("POST", "/admin/runes/create", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		ctx := contextWithUser(req.Context(), "viewer", map[string]string{"test-realm": "viewer"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.CreateRuneHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Unauthorized")
+	})
+
+	t.Run("title is required", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		form := url.Values{}
+		form.Set("title", "")
+		form.Set("priority", "2")
+
+		req := httptest.NewRequest("POST", "/admin/runes/create", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		ctx := contextWithUser(req.Context(), "member", map[string]string{"test-realm": "member"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.CreateRuneHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Title is required")
+	})
+
+	t.Run("member can create rune", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		form := url.Values{}
+		form.Set("title", "Test Rune")
+		form.Set("description", "A test rune")
+		form.Set("priority", "2")
+		form.Set("branch", "feat/test")
+
+		req := httptest.NewRequest("POST", "/admin/runes/create", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("HX-Request", "true")
+		ctx := contextWithUser(req.Context(), "member", map[string]string{"test-realm": "member"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.CreateRuneHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Rune Created")
+		// Verify event was appended
+		assert.Len(t, eventStore.streams, 1)
+	})
+
+	t.Run("non-htmx request redirects to rune detail", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		form := url.Values{}
+		form.Set("title", "Test Rune")
+		form.Set("priority", "2")
+		form.Set("branch", "feat/test")
+
+		req := httptest.NewRequest("POST", "/admin/runes/create", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		ctx := contextWithUser(req.Context(), "member", map[string]string{"test-realm": "member"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.CreateRuneHandler(rec, req)
+
+		assert.Equal(t, http.StatusSeeOther, rec.Code)
+		assert.Contains(t, rec.Header().Get("Location"), "/admin/runes/")
+	})
+}
+
+func TestUpdateRuneHandler(t *testing.T) {
+	templates, err := NewTemplates()
+	require.NoError(t, err)
+
+	cfg := DefaultAuthConfig()
+	cfg.SigningKey = make([]byte, 32)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
+
+	t.Run("viewer cannot update runes", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		form := url.Values{}
+		form.Set("title", "Updated Title")
+
+		req := httptest.NewRequest("POST", "/admin/runes/bf-1234/update", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.SetPathValue("id", "bf-1234")
+		ctx := contextWithUser(req.Context(), "viewer", map[string]string{"test-realm": "viewer"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.UpdateRuneHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Unauthorized")
+	})
+
+	t.Run("missing rune id returns error", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		form := url.Values{}
+		form.Set("title", "Updated Title")
+
+		req := httptest.NewRequest("POST", "/admin/runes//update", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		ctx := contextWithUser(req.Context(), "member", map[string]string{"test-realm": "member"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.UpdateRuneHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Rune ID is required")
+	})
+
+	t.Run("member can update rune title", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+
+		// Pre-populate event store with rune creation event
+		// This is needed because HandleUpdateRune reads events to rebuild state
+		createdData := domain.RuneCreated{
+			ID:          "bf-1234",
+			Title:       "Original Title",
+			Description: "Original description",
+			Priority:    2,
+		}
+		createdBytes, _ := json.Marshal(createdData)
+		eventStore.streams["test-realm|rune-bf-1234"] = []core.Event{
+			{
+				RealmID:   "test-realm",
+				StreamID:  "rune-bf-1234",
+				Version:   0,
+				EventType: domain.EventRuneCreated,
+				Data:      createdBytes,
+			},
+		}
+
+		// Add rune to projection for the response
+		store.data[compositeKey("test-realm", "rune_detail", "bf-1234")] = projectors.RuneDetail{
+			ID:          "bf-1234",
+			Title:       "Updated Title",
+			Description: "Original description",
+			Status:      "open",
+			Priority:    2,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+		}
+
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		form := url.Values{}
+		form.Set("title", "Updated Title")
+
+		req := httptest.NewRequest("POST", "/admin/runes/bf-1234/update", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("HX-Request", "true")
+		req.SetPathValue("id", "bf-1234")
+		ctx := contextWithUser(req.Context(), "member", map[string]string{"test-realm": "member"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.UpdateRuneHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		// Verify update event was appended (should have 2 events now)
+		assert.Len(t, eventStore.streams["test-realm|rune-bf-1234"], 2)
+	})
+
+	t.Run("member can update priority", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+
+		// Add existing rune to projection
+		store.data[compositeKey("test-realm", "rune_detail", "bf-1234")] = projectors.RuneDetail{
+			ID:          "bf-1234",
+			Title:       "Test Rune",
+			Status:      "open",
+			Priority:    3,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+		}
+
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		form := url.Values{}
+		form.Set("priority", "1")
+
+		req := httptest.NewRequest("POST", "/admin/runes/bf-1234/update", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.SetPathValue("id", "bf-1234")
+		ctx := contextWithUser(req.Context(), "member", map[string]string{"test-realm": "member"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.UpdateRuneHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+	})
+}
+
+func TestRuneForgeHandler(t *testing.T) {
+	templates, err := NewTemplates()
+	require.NoError(t, err)
+
+	cfg := DefaultAuthConfig()
+	cfg.SigningKey = make([]byte, 32)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
+
+	t.Run("viewer cannot forge runes", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		req := httptest.NewRequest("POST", "/admin/runes/bf-1234/forge", nil)
+		req.SetPathValue("id", "bf-1234")
+		ctx := contextWithUser(req.Context(), "viewer", map[string]string{"test-realm": "viewer"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.RuneForgeHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Unauthorized")
+	})
+
+	t.Run("missing rune id returns error", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		req := httptest.NewRequest("POST", "/admin/runes//forge", nil)
+		ctx := contextWithUser(req.Context(), "member", map[string]string{"test-realm": "member"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.RuneForgeHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Rune ID is required")
+	})
+
+	t.Run("member can forge draft rune", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+
+		// Pre-populate event store with rune creation event (draft status)
+		createdData := domain.RuneCreated{
+			ID:          "bf-1234",
+			Title:       "Draft Rune",
+			Description: "A draft rune",
+			Priority:    2,
+		}
+		createdBytes, _ := json.Marshal(createdData)
+		eventStore.streams["test-realm|rune-bf-1234"] = []core.Event{
+			{
+				RealmID:   "test-realm",
+				StreamID:  "rune-bf-1234",
+				Version:   0,
+				EventType: domain.EventRuneCreated,
+				Data:      createdBytes,
+			},
+		}
+
+		// Add rune to projection for the response (forged = open status)
+		store.data[compositeKey("test-realm", "rune_detail", "bf-1234")] = projectors.RuneDetail{
+			ID:          "bf-1234",
+			Title:       "Draft Rune",
+			Description: "A draft rune",
+			Status:      "open",
+			Priority:    2,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+		}
+
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		req := httptest.NewRequest("POST", "/admin/runes/bf-1234/forge", nil)
+		req.Header.Set("HX-Request", "true")
+		req.SetPathValue("id", "bf-1234")
+		ctx := contextWithUser(req.Context(), "member", map[string]string{"test-realm": "member"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.RuneForgeHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		// Verify forge event was appended (should have 2 events now)
+		assert.Len(t, eventStore.streams["test-realm|rune-bf-1234"], 2)
+	})
+}
+
+func TestAddDependencyHandler(t *testing.T) {
+	templates, err := NewTemplates()
+	require.NoError(t, err)
+
+	cfg := DefaultAuthConfig()
+	cfg.SigningKey = make([]byte, 32)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
+
+	t.Run("viewer cannot add dependencies", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		form := url.Values{}
+		form.Set("target_id", "bf-5678")
+		form.Set("relationship", "blocks")
+
+		req := httptest.NewRequest("POST", "/admin/runes/bf-1234/dependencies", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.SetPathValue("id", "bf-1234")
+		ctx := contextWithUser(req.Context(), "viewer", map[string]string{"test-realm": "viewer"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.AddDependencyHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Unauthorized")
+	})
+
+	t.Run("missing target id returns error", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		form := url.Values{}
+		form.Set("relationship", "blocks")
+
+		req := httptest.NewRequest("POST", "/admin/runes/bf-1234/dependencies", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.SetPathValue("id", "bf-1234")
+		ctx := contextWithUser(req.Context(), "member", map[string]string{"test-realm": "member"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.AddDependencyHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Target rune ID is required")
+	})
+
+	t.Run("missing relationship returns error", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		form := url.Values{}
+		form.Set("target_id", "bf-5678")
+
+		req := httptest.NewRequest("POST", "/admin/runes/bf-1234/dependencies", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.SetPathValue("id", "bf-1234")
+		ctx := contextWithUser(req.Context(), "member", map[string]string{"test-realm": "member"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.AddDependencyHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Relationship type is required")
+	})
+}
+
+func TestRemoveDependencyHandler(t *testing.T) {
+	templates, err := NewTemplates()
+	require.NoError(t, err)
+
+	cfg := DefaultAuthConfig()
+	cfg.SigningKey = make([]byte, 32)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
+
+	t.Run("viewer cannot remove dependencies", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		form := url.Values{}
+		form.Set("target_id", "bf-5678")
+		form.Set("relationship", "blocks")
+
+		req := httptest.NewRequest("DELETE", "/admin/runes/bf-1234/dependencies", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.SetPathValue("id", "bf-1234")
+		ctx := contextWithUser(req.Context(), "viewer", map[string]string{"test-realm": "viewer"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.RemoveDependencyHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Unauthorized")
+	})
+}
+
+func TestRuneUnclaimHandler(t *testing.T) {
+	templates, err := NewTemplates()
+	require.NoError(t, err)
+
+	cfg := DefaultAuthConfig()
+	cfg.SigningKey = make([]byte, 32)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
+
+	t.Run("viewer cannot unclaim runes", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		req := httptest.NewRequest("POST", "/admin/runes/bf-1234/unclaim", nil)
+		req.SetPathValue("id", "bf-1234")
+		ctx := contextWithUser(req.Context(), "viewer", map[string]string{"test-realm": "viewer"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.RuneUnclaimHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Unauthorized")
+	})
+
+	t.Run("missing rune id returns error", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		req := httptest.NewRequest("POST", "/admin/runes//unclaim", nil)
+		ctx := contextWithUser(req.Context(), "member", map[string]string{"test-realm": "member"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.RuneUnclaimHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Rune ID is required")
+	})
+}
+
+func TestRuneShatterHandler(t *testing.T) {
+	templates, err := NewTemplates()
+	require.NoError(t, err)
+
+	cfg := DefaultAuthConfig()
+	cfg.SigningKey = make([]byte, 32)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
+
+	t.Run("viewer cannot shatter runes", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		form := url.Values{}
+		form.Set("confirm", "true")
+
+		req := httptest.NewRequest("POST", "/admin/runes/bf-1234/shatter", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.SetPathValue("id", "bf-1234")
+		ctx := contextWithUser(req.Context(), "viewer", map[string]string{"test-realm": "viewer"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.RuneShatterHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Unauthorized")
+	})
+
+	t.Run("requires confirmation", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		req := httptest.NewRequest("POST", "/admin/runes/bf-1234/shatter", nil)
+		req.SetPathValue("id", "bf-1234")
+		ctx := contextWithUser(req.Context(), "member", map[string]string{"test-realm": "member"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.RuneShatterHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Shatter requires confirmation")
+	})
+}
+
+func TestSweepRunesHandler(t *testing.T) {
+	templates, err := NewTemplates()
+	require.NoError(t, err)
+
+	cfg := DefaultAuthConfig()
+	cfg.SigningKey = make([]byte, 32)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
+
+	t.Run("non-admin cannot sweep runes", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		form := url.Values{}
+		form.Set("confirm", "true")
+
+		req := httptest.NewRequest("POST", "/admin/runes/sweep", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		ctx := contextWithUser(req.Context(), "member", map[string]string{"test-realm": "member"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.SweepRunesHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Unauthorized")
+	})
+
+	t.Run("requires confirmation", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		req := httptest.NewRequest("POST", "/admin/runes/sweep", nil)
+		ctx := contextWithUser(req.Context(), "admin", map[string]string{"_admin": "admin"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.SweepRunesHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Sweep requires confirmation")
 	})
 }

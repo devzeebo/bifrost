@@ -51,9 +51,20 @@ func RegisterRoutes(mux *http.ServeMux, cfg *RouteConfig) error {
 	mux.Handle("GET /admin/runes", authMiddleware(http.HandlerFunc(handlers.RunesListHandler)))
 	mux.Handle("GET /admin/runes/", authMiddleware(http.HandlerFunc(handlers.RuneDetailHandler)))
 
-	// Runes - actions require member+ role (checked in handler)
+	// Runes - actions require member+ role
+	// Role checks are performed at handler level (not middleware) because the realm ID
+	// is derived from the user's roles at runtime, and different users may have different
+	// realm access. Handler-level checks allow dynamic realm resolution per request.
+	mux.Handle("POST /admin/runes/create", authMiddleware(http.HandlerFunc(handlers.CreateRuneHandler)))
+	mux.Handle("POST /admin/runes/sweep", authMiddleware(requireAdmin(http.HandlerFunc(handlers.SweepRunesHandler))))
+	mux.Handle("POST /admin/runes/{id}/update", authMiddleware(http.HandlerFunc(handlers.UpdateRuneHandler)))
+	mux.Handle("POST /admin/runes/{id}/forge", authMiddleware(http.HandlerFunc(handlers.RuneForgeHandler)))
+	mux.Handle("POST /admin/runes/{id}/dependencies", authMiddleware(http.HandlerFunc(handlers.AddDependencyHandler)))
+	mux.Handle("DELETE /admin/runes/{id}/dependencies", authMiddleware(http.HandlerFunc(handlers.RemoveDependencyHandler)))
 	mux.Handle("POST /admin/runes/{id}/claim", authMiddleware(http.HandlerFunc(handlers.RuneClaimHandler)))
+	mux.Handle("POST /admin/runes/{id}/unclaim", authMiddleware(http.HandlerFunc(handlers.RuneUnclaimHandler)))
 	mux.Handle("POST /admin/runes/{id}/fulfill", authMiddleware(http.HandlerFunc(handlers.RuneFulfillHandler)))
+	mux.Handle("POST /admin/runes/{id}/shatter", authMiddleware(http.HandlerFunc(handlers.RuneShatterHandler)))
 	mux.Handle("POST /admin/runes/{id}/seal", authMiddleware(http.HandlerFunc(handlers.RuneSealHandler)))
 	mux.Handle("POST /admin/runes/{id}/note", authMiddleware(http.HandlerFunc(handlers.RuneNoteHandler)))
 

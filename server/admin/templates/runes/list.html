@@ -3,6 +3,60 @@
   <p>Manage work items and tasks</p>
 </div>
 
+{{if .Data.CanTakeAction}}
+<div class="card">
+  <div class="card-header">
+    <h2>Create New Rune</h2>
+  </div>
+  <div class="card-body">
+    <form hx-post="/admin/runes/create" hx-target="#create-result" hx-swap="innerHTML" class="form">
+      <div class="form-group">
+        <label for="title">Title *</label>
+        <input type="text" name="title" id="title" class="form-control" required placeholder="Enter rune title">
+      </div>
+      <div class="form-group">
+        <label for="description">Description</label>
+        <textarea name="description" id="description" class="form-control" rows="3" placeholder="Optional description"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="create_priority">Priority</label>
+          <select name="priority" id="create_priority" class="form-control">
+            <option value="0">Unprioritized</option>
+            <option value="1">Urgent</option>
+            <option value="2" selected>High</option>
+            <option value="3">Normal</option>
+            <option value="4">Low</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="branch">Branch</label>
+          <input type="text" name="branch" id="branch" class="form-control" placeholder="e.g., feat/my-feature">
+        </div>
+        <div class="form-group">
+          <label for="parent_id">Parent Rune ID</label>
+          <input type="text" name="parent_id" id="parent_id" class="form-control" placeholder="Optional: e.g., bf-1234">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">Create Rune</button>
+    </form>
+    <div id="create-result"></div>
+  </div>
+</div>
+{{end}}
+
+{{if .Data.IsAdmin}}
+<div class="card">
+  <div class="card-header">
+    <h2>Admin Actions</h2>
+  </div>
+  <div class="card-body">
+    <p class="text-muted">Sweep unreferenced fulfilled/sealed runes. This will permanently remove (shatter) all completed runes that have no active dependents or children.</p>
+    <button class="btn btn-danger" hx-post="/admin/runes/sweep" hx-vals='{"confirm": "true"}' hx-confirm="Are you sure you want to sweep all unreferenced completed runes? This is irreversible!" hx-target="body">Sweep Completed Runes</button>
+  </div>
+</div>
+{{end}}
+
 <div class="card">
   <div class="card-header">
     <h2>Filters</h2>

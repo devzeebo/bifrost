@@ -562,33 +562,47 @@ func (m *mockProjectionStore) Get(ctx context.Context, realm, projection, key st
 	// Copy value to dest
 	switch d := dest.(type) {
 	case *string:
-		if s, ok := val.(string); ok {
-			*d = s
+		s, ok := val.(string)
+		if !ok {
+			return fmt.Errorf("mockProjectionStore.Get: type assertion failed for key %s: expected string, got %T", ckey, val)
 		}
+		*d = s
 	case *projectors.AccountLookupEntry:
-		if e, ok := val.(projectors.AccountLookupEntry); ok {
-			*d = e
+		e, ok := val.(projectors.AccountLookupEntry)
+		if !ok {
+			return fmt.Errorf("mockProjectionStore.Get: type assertion failed for key %s: expected AccountLookupEntry, got %T", ckey, val)
 		}
+		*d = e
 	case *[]string:
-		if s, ok := val.([]string); ok {
-			*d = s
+		s, ok := val.([]string)
+		if !ok {
+			return fmt.Errorf("mockProjectionStore.Get: type assertion failed for key %s: expected []string, got %T", ckey, val)
 		}
+		*d = s
 	case *projectors.RuneDetail:
-		if e, ok := val.(projectors.RuneDetail); ok {
-			*d = e
+		e, ok := val.(projectors.RuneDetail)
+		if !ok {
+			return fmt.Errorf("mockProjectionStore.Get: type assertion failed for key %s: expected RuneDetail, got %T", ckey, val)
 		}
+		*d = e
 	case *projectors.RuneSummary:
-		if e, ok := val.(projectors.RuneSummary); ok {
-			*d = e
+		e, ok := val.(projectors.RuneSummary)
+		if !ok {
+			return fmt.Errorf("mockProjectionStore.Get: type assertion failed for key %s: expected RuneSummary, got %T", ckey, val)
 		}
+		*d = e
 	case *projectors.RealmListEntry:
-		if e, ok := val.(projectors.RealmListEntry); ok {
-			*d = e
+		e, ok := val.(projectors.RealmListEntry)
+		if !ok {
+			return fmt.Errorf("mockProjectionStore.Get: type assertion failed for key %s: expected RealmListEntry, got %T", ckey, val)
 		}
+		*d = e
 	case *projectors.AccountListEntry:
-		if e, ok := val.(projectors.AccountListEntry); ok {
-			*d = e
+		e, ok := val.(projectors.AccountListEntry)
+		if !ok {
+			return fmt.Errorf("mockProjectionStore.Get: type assertion failed for key %s: expected AccountListEntry, got %T", ckey, val)
 		}
+		*d = e
 	default:
 		return fmt.Errorf("mockProjectionStore.Get: unhandled dest type %T", dest)
 	}
