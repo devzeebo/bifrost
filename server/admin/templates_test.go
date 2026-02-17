@@ -419,6 +419,64 @@ func TestTemplateInheritance(t *testing.T) {
 		assert.Contains(t, body, `<main>`)
 		assert.Contains(t, body, "Rune not found")
 	})
+
+	t.Run("realms/list.html", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		data := TemplateData{
+			Title:   "Realms",
+			Account: &AccountInfo{Username: "admin", Roles: map[string]string{"_admin": "admin"}},
+			Data: map[string]interface{}{
+				"Realms": []interface{}{},
+			},
+		}
+		err := templates.Render(rec, "realms/list.html", data)
+		require.NoError(t, err)
+
+		body := rec.Body.String()
+		assert.Contains(t, body, "<nav>")
+		assert.Contains(t, body, `<main>`)
+		assert.Contains(t, body, `<div id="toasts">`)
+	})
+
+	t.Run("realms/detail.html with realm", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		data := TemplateData{
+			Title:   "Test Realm",
+			Account: &AccountInfo{Username: "admin", Roles: map[string]string{"_admin": "admin"}},
+			Data: map[string]interface{}{
+				"Realm": map[string]interface{}{
+					"RealmID":   "realm-1",
+					"Name":      "Test Realm",
+					"Status":    "active",
+					"CreatedAt": "2024-01-01T00:00:00Z",
+				},
+				"Members": []interface{}{},
+			},
+		}
+		err := templates.Render(rec, "realms/detail.html", data)
+		require.NoError(t, err)
+
+		body := rec.Body.String()
+		assert.Contains(t, body, "<nav>")
+		assert.Contains(t, body, `<main>`)
+		assert.Contains(t, body, "Test Realm")
+	})
+
+	t.Run("realms/detail.html with error", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		data := TemplateData{
+			Title:   "Realm Not Found",
+			Error:   "Realm not found",
+			Account: &AccountInfo{Username: "admin", Roles: map[string]string{"_admin": "admin"}},
+		}
+		err := templates.Render(rec, "realms/detail.html", data)
+		require.NoError(t, err)
+
+		body := rec.Body.String()
+		assert.Contains(t, body, "<nav>")
+		assert.Contains(t, body, `<main>`)
+		assert.Contains(t, body, "Realm not found")
+	})
 }
 
 func TestBaseTemplate_CSSElement(t *testing.T) {

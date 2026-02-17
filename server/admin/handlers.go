@@ -132,6 +132,12 @@ func (h *Handlers) RegisterRoutes(publicMux, authMux *http.ServeMux) {
 	authMux.HandleFunc("POST /admin/runes/{id}/fulfill", h.RuneFulfillHandler)
 	authMux.HandleFunc("POST /admin/runes/{id}/seal", h.RuneSealHandler)
 	authMux.HandleFunc("POST /admin/runes/{id}/note", h.RuneNoteHandler)
+
+	// Realms management (admin-only)
+	authMux.HandleFunc("GET /admin/realms", h.RealmsListHandler)
+	authMux.HandleFunc("GET /admin/realms/", h.RealmDetailHandler)
+	authMux.HandleFunc("POST /admin/realms/create", h.CreateRealmHandler)
+	authMux.HandleFunc("POST /admin/realms/{id}/suspend", h.SuspendRealmHandler)
 }
 
 // DashboardHandler handles GET requests for the dashboard.
@@ -484,4 +490,194 @@ func renderRuneActionsPartial(w http.ResponseWriter, rune projectors.RuneDetail,
 	}
 
 	w.Write([]byte(`</div>`))
+}
+
+// RealmsListHandler handles GET /admin/realms - list all realms (admin-only).
+func (h *Handlers) RealmsListHandler(w http.ResponseWriter, r *http.Request) {
+	username, _ := UsernameFromContext(r.Context())
+	roles, _ := RolesFromContext(r.Context())
+
+	// Check admin authorization
+	if !isAdmin(roles) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	// Get all realms from projection
+	var realms []projectors.RealmListEntry
+	if h.projectionStore != nil {
+		rawRealms, err := h.projectionStore.List(r.Context(), domain.AdminRealmID, "realm_list")
+		if err == nil {
+			for _, raw := range rawRealms {
+				var realm projectors.RealmListEntry
+				if err := json.Unmarshal(raw, &realm); err != nil {
+					continue
+				}
+				realms = append(realms, realm)
+			}
+		}
+	}
+
+	h.templates.Render(w, "realms/list.html", TemplateData{
+		Title: "Realms",
+		Account: &AccountInfo{
+			Username: username,
+			Roles:    roles,
+		},
+		Data: map[string]interface{}{
+			"Realms": realms,
+		},
+	})
+}
+
+// RealmDetailHandler handles GET /admin/realms/{id} - show realm details (admin-only).
+func (h *Handlers) RealmDetailHandler(w http.ResponseWriter, r *http.Request) {
+	username, _ := UsernameFromContext(r.Context())
+	roles, _ := RolesFromContext(r.Context())
+
+	// Check admin authorization
+	if !isAdmin(roles) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	// Extract realm ID from path
+	realmID := strings.TrimPrefix(r.URL.Path, "/admin/realms/")
+	if realmID == "" || strings.Contains(realmID, "/") {
+		http.Error(w, "Invalid realm ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get realm detail
+	var realm projectors.RealmListEntry
+	err := h.projectionStore.Get(r.Context(), domain.AdminRealmID, "realm_list", realmID, &realm)
+	if err != nil {
+		data := TemplateData{
+			Title:   "Realm Not Found",
+			Error:   "Realm not found",
+			Account: &AccountInfo{Username: username, Roles: roles},
+		}
+		w.WriteHeader(http.StatusNotFound)
+		h.templates.Render(w, "realms/detail.html", data)
+		return
+	}
+
+	// Get members of this realm
+	var members []projectors.AccountListEntry
+	if h.projectionStore != nil {
+		rawAccounts, err := h.projectionStore.List(r.Context(), domain.AdminRealmID, "account_list")
+		if err == nil {
+			for _, raw := range rawAccounts {
+				var account projectors.AccountListEntry
+				if err := json.Unmarshal(raw, &account); err != nil {
+					continue
+				}
+				// Check if this account has a role in this realm
+				if _, hasRole := account.Roles[realmID]; hasRole {
+					members = append(members, account)
+				}
+			}
+		}
+	}
+
+	h.templates.Render(w, "realms/detail.html", TemplateData{
+		Title:   realm.Name,
+		Account: &AccountInfo{Username: username, Roles: roles},
+		Data: map[string]interface{}{
+			"Realm":   realm,
+			"Members": members,
+		},
+	})
+}
+
+// CreateRealmHandler handles POST /admin/realms/create (admin-only).
+func (h *Handlers) CreateRealmHandler(w http.ResponseWriter, r *http.Request) {
+	roles, _ := RolesFromContext(r.Context())
+
+	// Check admin authorization
+	if !isAdmin(roles) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		renderToastPartial(w, "error", "Name is required")
+		return
+	}
+
+	// Check for duplicate name
+	if h.projectionStore != nil {
+		rawRealms, _ := h.projectionStore.List(r.Context(), domain.AdminRealmID, "realm_list")
+		for _, raw := range rawRealms {
+			var existing projectors.RealmListEntry
+			if err := json.Unmarshal(raw, &existing); err == nil {
+				if existing.Name == name {
+					renderToastPartial(w, "error", "Realm name already exists")
+					return
+				}
+			}
+		}
+	}
+
+	// Create realm via domain command
+	_, err := domain.HandleCreateRealm(r.Context(), domain.CreateRealm{Name: name}, h.eventStore)
+	if err != nil {
+		renderToastPartial(w, "error", "Failed to create realm")
+		return
+	}
+
+	// Redirect to realms list
+	http.Redirect(w, r, "/admin/realms", http.StatusSeeOther)
+}
+
+// SuspendRealmHandler handles POST /admin/realms/{id}/suspend (admin-only).
+func (h *Handlers) SuspendRealmHandler(w http.ResponseWriter, r *http.Request) {
+	roles, _ := RolesFromContext(r.Context())
+
+	// Check admin authorization
+	if !isAdmin(roles) {
+		renderToastPartial(w, "error", "Forbidden")
+		return
+	}
+
+	realmID := r.PathValue("id")
+	if realmID == "" {
+		renderToastPartial(w, "error", "Realm ID is required")
+		return
+	}
+
+	// Get reason from form
+	reason := r.FormValue("reason")
+
+	// Suspend realm via domain command
+	err := domain.HandleSuspendRealm(r.Context(), domain.SuspendRealm{
+		RealmID: realmID,
+		Reason:  reason,
+	}, h.eventStore)
+
+	if err != nil {
+		if strings.Contains(err.Error(), "already suspended") {
+			renderToastPartial(w, "error", "Realm already suspended")
+			return
+		}
+		if strings.Contains(err.Error(), "not found") {
+			renderToastPartial(w, "error", "Realm not found")
+			return
+		}
+		renderToastPartial(w, "error", "Failed to suspend realm")
+		return
+	}
+
+	// Redirect to realms list
+	http.Redirect(w, r, "/admin/realms", http.StatusSeeOther)
+}
+
+// isAdmin returns true if the user has admin role in the _admin realm.
+func isAdmin(roles map[string]string) bool {
+	if roles == nil {
+		return false
+	}
+	role, ok := roles["_admin"]
+	return ok && role == "admin"
 }

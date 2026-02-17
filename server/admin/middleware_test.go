@@ -572,6 +572,14 @@ func (m *mockProjectionStore) Get(ctx context.Context, realm, projection, key st
 		if e, ok := val.(projectors.RuneSummary); ok {
 			*d = e
 		}
+	case *projectors.RealmListEntry:
+		if e, ok := val.(projectors.RealmListEntry); ok {
+			*d = e
+		}
+	case *projectors.AccountListEntry:
+		if e, ok := val.(projectors.AccountListEntry); ok {
+			*d = e
+		}
 	}
 	return nil
 }

@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/devzeebo/bifrost/domain/projectors"
 	"github.com/stretchr/testify/assert"
@@ -602,3 +603,144 @@ func TestRenderToastPartial(t *testing.T) {
 	assert.Contains(t, rec.Body.String(), "hx-swap-oob")
 }
 
+func TestRealmsListHandler(t *testing.T) {
+	templates, err := NewTemplates()
+	require.NoError(t, err)
+
+	cfg := DefaultAuthConfig()
+	cfg.SigningKey = make([]byte, 32)
+	rand.Read(cfg.SigningKey)
+
+	t.Run("admin can see realms list", func(t *testing.T) {
+		store := newMockProjectionStore()
+		store.listData["realm_list"] = []json.RawMessage{
+			json.RawMessage(`{"realm_id":"realm-1","name":"Test Realm","status":"active","created_at":"2024-01-01T00:00:00Z"}`),
+		}
+
+		handlers := NewHandlers(templates, cfg, store, nil)
+
+		req := httptest.NewRequest("GET", "/admin/realms", nil)
+		ctx := contextWithUser(req.Context(), "admin", map[string]string{"_admin": "admin"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.RealmsListHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Test Realm")
+	})
+
+	t.Run("non-admin gets 403", func(t *testing.T) {
+		store := newMockProjectionStore()
+		handlers := NewHandlers(templates, cfg, store, nil)
+
+		req := httptest.NewRequest("GET", "/admin/realms", nil)
+		ctx := contextWithUser(req.Context(), "member", map[string]string{"realm-1": "member"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.RealmsListHandler(rec, req)
+
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+}
+
+func TestRealmDetailHandler(t *testing.T) {
+	templates, err := NewTemplates()
+	require.NoError(t, err)
+
+	cfg := DefaultAuthConfig()
+	cfg.SigningKey = make([]byte, 32)
+	rand.Read(cfg.SigningKey)
+
+	t.Run("shows realm details", func(t *testing.T) {
+		store := newMockProjectionStore()
+		store.data["realm-1"] = projectors.RealmListEntry{
+			RealmID:   "realm-1",
+			Name:      "Test Realm",
+			Status:    "active",
+			CreatedAt: time.Now(),
+		}
+
+		handlers := NewHandlers(templates, cfg, store, nil)
+
+		req := httptest.NewRequest("GET", "/admin/realms/realm-1", nil)
+		ctx := contextWithUser(req.Context(), "admin", map[string]string{"_admin": "admin"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.RealmDetailHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Test Realm")
+	})
+
+	t.Run("shows 404 for non-existent realm", func(t *testing.T) {
+		store := newMockProjectionStore()
+		handlers := NewHandlers(templates, cfg, store, nil)
+
+		req := httptest.NewRequest("GET", "/admin/realms/nonexistent", nil)
+		ctx := contextWithUser(req.Context(), "admin", map[string]string{"_admin": "admin"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.RealmDetailHandler(rec, req)
+
+		assert.Equal(t, http.StatusNotFound, rec.Code)
+	})
+
+	t.Run("non-admin gets 403", func(t *testing.T) {
+		store := newMockProjectionStore()
+		handlers := NewHandlers(templates, cfg, store, nil)
+
+		req := httptest.NewRequest("GET", "/admin/realms/realm-1", nil)
+		ctx := contextWithUser(req.Context(), "member", map[string]string{"realm-1": "member"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.RealmDetailHandler(rec, req)
+
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+}
+
+func TestIsAdmin(t *testing.T) {
+	tests := []struct {
+		name     string
+		roles    map[string]string
+		expected bool
+	}{
+		{
+			name:     "admin in _admin realm",
+			roles:    map[string]string{"_admin": "admin"},
+			expected: true,
+		},
+		{
+			name:     "member in _admin realm",
+			roles:    map[string]string{"_admin": "member"},
+			expected: false,
+		},
+		{
+			name:     "admin in different realm",
+			roles:    map[string]string{"realm-1": "admin"},
+			expected: false,
+		},
+		{
+			name:     "nil roles",
+			roles:    nil,
+			expected: false,
+		},
+		{
+			name:     "empty roles",
+			roles:    map[string]string{},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isAdmin(tt.roles)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
