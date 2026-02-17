@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}} | Bifrost Admin</title>
+  <link rel="stylesheet" href="/admin/static/style.css">
+  <script src="https://unpkg.com/htmx.org@1.9.10" integrity="sha384-KInTQOm3x6d6Vq2Fa5R0VfQ8s0edNgB4HHQ8fWk+/A8Rk/OB3Q9aF7gO5v5Y0KXK" crossorigin="anonymous"></script>
+</head>
+<body>
+  <nav>
+    <a href="/admin/" class="nav-brand">Bifrost</a>
+    <ul class="nav-links">
+      <li><a href="/admin/runes">Runes</a></li>
+      {{if and .Account .Account.IsAdmin}}
+      <li><a href="/admin/realms">Realms</a></li>
+      <li><a href="/admin/accounts">Accounts</a></li>
+      {{end}}
+    </ul>
+    {{if .Account}}
+    <div class="nav-user">
+      <span>{{.Account.Username}}</span>
+      <form action="/admin/logout" method="post"><button type="submit">Logout</button></form>
+    </div>
+    {{end}}
+  </nav>
+  <main>
+    {{template "content" .}}
+  </main>
+  <div id="toasts"></div>
+</body>
+</html>

@@ -1,0 +1,119 @@
+{{if .Error}}
+<div class="page-header">
+  <h1>Rune Not Found</h1>
+</div>
+<div class="card">
+  <div class="card-body">
+    <p class="text-muted">{{.Error}}</p>
+    <a href="/admin/runes" class="btn btn-primary">Back to Runes</a>
+  </div>
+</div>
+{{else}}
+<div class="page-header">
+  <h1>{{.Data.Rune.Title}}</h1>
+  <p class="text-muted">{{.Data.Rune.ID}}</p>
+</div>
+
+<div class="rune-detail">
+  <div class="card">
+    <div class="card-header">
+      <h2>Details</h2>
+      <span class="badge badge-{{.Data.Rune.Status}}">{{.Data.Rune.Status}}</span>
+    </div>
+    <div class="card-body">
+      <dl class="dl-horizontal">
+        <dt>Status</dt>
+        <dd>{{.Data.Rune.Status}}</dd>
+        <dt>Priority</dt>
+        <dd>{{.Data.Rune.Priority}}</dd>
+        {{if .Data.Rune.Claimant}}
+        <dt>Claimant</dt>
+        <dd>{{.Data.Rune.Claimant}}</dd>
+        {{end}}
+        {{if .Data.Rune.Branch}}
+        <dt>Branch</dt>
+        <dd>{{.Data.Rune.Branch}}</dd>
+        {{end}}
+        {{if .Data.Rune.ParentID}}
+        <dt>Parent</dt>
+        <dd><a href="/admin/runes/{{.Data.Rune.ParentID}}">{{.Data.Rune.ParentID}}</a></dd>
+        {{end}}
+        <dt>Created</dt>
+        <dd>{{.Data.Rune.CreatedAt}}</dd>
+        <dt>Updated</dt>
+        <dd>{{.Data.Rune.UpdatedAt}}</dd>
+      </dl>
+
+      {{if .Data.Rune.Description}}
+      <h3>Description</h3>
+      <p>{{.Data.Rune.Description}}</p>
+      {{end}}
+    </div>
+  </div>
+
+  {{if .Data.Rune.Dependencies}}
+  <div class="card">
+    <div class="card-header">
+      <h2>Dependencies</h2>
+    </div>
+    <div class="card-body">
+      <ul class="list-unstyled">
+        {{range .Data.Rune.Dependencies}}
+        <li>
+          <span class="badge badge-secondary">{{.Relationship}}</span>
+          <a href="/admin/runes/{{.TargetID}}">{{.TargetID}}</a>
+        </li>
+        {{end}}
+      </ul>
+    </div>
+  </div>
+  {{end}}
+
+  {{if .Data.Rune.Notes}}
+  <div class="card">
+    <div class="card-header">
+      <h2>Notes</h2>
+    </div>
+    <div class="card-body">
+      <ul class="list-unstyled">
+        {{range .Data.Rune.Notes}}
+        <li class="note-entry">
+          <small class="text-muted">{{.CreatedAt}}</small>
+          <p>{{.Text}}</p>
+        </li>
+        {{end}}
+      </ul>
+    </div>
+  </div>
+  {{end}}
+
+  {{if .Data.CanTakeAction}}
+  <div class="card">
+    <div class="card-header">
+      <h2>Actions</h2>
+    </div>
+    <div class="card-body">
+      <div class="rune-actions">
+        {{if .Data.CanClaim}}
+        <button class="btn btn-primary" hx-post="/admin/runes/{{.Data.Rune.ID}}/claim" hx-target="closest .rune-detail" hx-swap="outerHTML">Claim</button>
+        {{end}}
+        {{if .Data.CanFulfill}}
+        <button class="btn btn-success" hx-post="/admin/runes/{{.Data.Rune.ID}}/fulfill" hx-target="closest .rune-detail" hx-swap="outerHTML">Fulfill</button>
+        {{end}}
+        {{if .Data.CanSeal}}
+        <button class="btn btn-secondary" hx-post="/admin/runes/{{.Data.Rune.ID}}/seal" hx-target="closest .rune-detail" hx-swap="outerHTML">Seal</button>
+        {{end}}
+        {{if .Data.CanAddNote}}
+        <form hx-post="/admin/runes/{{.Data.Rune.ID}}/note" hx-target="closest .rune-detail" hx-swap="outerHTML" class="form-inline">
+          <input type="text" name="note" placeholder="Add a note..." class="form-control" required>
+          <button type="submit" class="btn btn-primary">Add Note</button>
+        </form>
+        {{end}}
+      </div>
+    </div>
+  </div>
+  {{end}}
+</div>
+
+<a href="/admin/runes" class="btn btn-secondary">Back to Runes</a>
+{{end}}
