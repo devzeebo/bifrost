@@ -36,6 +36,31 @@ func (a *AccountInfo) IsAdmin() bool {
 	return ok && role == "admin"
 }
 
+// priorityLabel returns a human-readable label for priority levels.
+func priorityLabel(priority int) string {
+	switch priority {
+	case 0:
+		return "Unprioritized"
+	case 1:
+		return "Urgent"
+	case 2:
+		return "High"
+	case 3:
+		return "Normal"
+	case 4:
+		return "Low"
+	default:
+		return "Unknown"
+	}
+}
+
+// templateFuncs returns the function map for templates.
+func templateFuncs() template.FuncMap {
+	return template.FuncMap{
+		"priorityLabel": priorityLabel,
+	}
+}
+
 // Templates manages HTML template loading and rendering.
 type Templates struct {
 	templates map[string]*template.Template
@@ -96,9 +121,9 @@ func parseTemplate(templates map[string]*template.Template, baseContent, name st
 		return err
 	}
 
-	// Combine base + page template
+	// Combine base + page template with functions
 	// The base template defines the layout, page templates define "content"
-	tmpl, err := template.New(name).Parse(string(baseContent))
+	tmpl, err := template.New(name).Funcs(templateFuncs()).Parse(string(baseContent))
 	if err != nil {
 		return err
 	}

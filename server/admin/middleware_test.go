@@ -524,13 +524,16 @@ func TestDefaultAuthConfig(t *testing.T) {
 
 // mockProjectionStore implements core.ProjectionStore for testing
 type mockProjectionStore struct {
-	data    map[string]interface{}
-	getError error
+	data      map[string]interface{}
+	listData  map[string][]json.RawMessage
+	getError  error
+	listError error
 }
 
 func newMockProjectionStore() *mockProjectionStore {
 	return &mockProjectionStore{
-		data: make(map[string]interface{}),
+		data:     make(map[string]interface{}),
+		listData: make(map[string][]json.RawMessage),
 	}
 }
 
@@ -561,6 +564,14 @@ func (m *mockProjectionStore) Get(ctx context.Context, realm, projection, key st
 		if s, ok := val.([]string); ok {
 			*d = s
 		}
+	case *projectors.RuneDetail:
+		if e, ok := val.(projectors.RuneDetail); ok {
+			*d = e
+		}
+	case *projectors.RuneSummary:
+		if e, ok := val.(projectors.RuneSummary); ok {
+			*d = e
+		}
 	}
 	return nil
 }
@@ -576,5 +587,11 @@ func (m *mockProjectionStore) Delete(ctx context.Context, realm, projection, key
 }
 
 func (m *mockProjectionStore) List(ctx context.Context, realm, projection string) ([]json.RawMessage, error) {
-	return nil, errors.New("not implemented")
+	if m.listError != nil {
+		return nil, m.listError
+	}
+	if data, ok := m.listData[projection]; ok {
+		return data, nil
+	}
+	return []json.RawMessage{}, nil
 }

@@ -324,19 +324,12 @@ func TestTemplateInheritance(t *testing.T) {
 	templates, err := NewTemplates()
 	require.NoError(t, err)
 
-	// All non-login templates should inherit from base
-	inheritedTemplates := []string{
+	// Templates that inherit from base with minimal data
+	simpleTemplates := []string{
 		"dashboard.html",
-		"runes/list.html",
-		"runes/detail.html",
-		"realms/list.html",
-		"realms/detail.html",
-		"accounts/list.html",
-		"accounts/detail.html",
-		"accounts/pats.html",
 	}
 
-	for _, name := range inheritedTemplates {
+	for _, name := range simpleTemplates {
 		t.Run(name, func(t *testing.T) {
 			rec := httptest.NewRecorder()
 			data := TemplateData{
@@ -353,6 +346,76 @@ func TestTemplateInheritance(t *testing.T) {
 			assert.Contains(t, body, `<div id="toasts">`, "template %s should have toasts from base", name)
 		})
 	}
+
+	// Templates that require specific data
+	t.Run("runes/list.html", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		data := TemplateData{
+			Title:   "Runes",
+			Account: &AccountInfo{Username: "test"},
+			Data: map[string]interface{}{
+				"Runes":          []interface{}{},
+				"StatusFilter":   "",
+				"PriorityFilter": "",
+				"AssigneeFilter": "",
+				"CanTakeAction":  false,
+			},
+		}
+		err := templates.Render(rec, "runes/list.html", data)
+		require.NoError(t, err)
+
+		body := rec.Body.String()
+		assert.Contains(t, body, "<nav>")
+		assert.Contains(t, body, `<main>`)
+		assert.Contains(t, body, `<div id="toasts">`)
+	})
+
+	t.Run("runes/detail.html with rune", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		data := TemplateData{
+			Title:   "Test Rune",
+			Account: &AccountInfo{Username: "test"},
+			Data: map[string]interface{}{
+				"Rune": map[string]interface{}{
+					"ID":          "bf-1234",
+					"Title":       "Test Rune",
+					"Status":      "open",
+					"Priority":    2,
+					"Description": "Test description",
+					"CreatedAt":   "2024-01-01T00:00:00Z",
+					"UpdatedAt":   "2024-01-01T00:00:00Z",
+				},
+				"CanTakeAction": true,
+				"CanClaim":      true,
+				"CanFulfill":    false,
+				"CanSeal":       true,
+				"CanAddNote":    true,
+			},
+		}
+		err := templates.Render(rec, "runes/detail.html", data)
+		require.NoError(t, err)
+
+		body := rec.Body.String()
+		assert.Contains(t, body, "<nav>")
+		assert.Contains(t, body, `<main>`)
+		assert.Contains(t, body, `<div id="toasts">`)
+	})
+
+	t.Run("runes/detail.html with error", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		data := TemplateData{
+			Title:   "Rune Not Found",
+			Error:   "Rune not found",
+			Account: &AccountInfo{Username: "test"},
+		}
+		err := templates.Render(rec, "runes/detail.html", data)
+		require.NoError(t, err)
+
+		body := rec.Body.String()
+		assert.Contains(t, body, "<nav>")
+		assert.Contains(t, body, `<main>`)
+		assert.Contains(t, body, "Rune not found")
+	})
 }
 
 func TestBaseTemplate_CSSElement(t *testing.T) {

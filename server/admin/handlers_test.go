@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -25,7 +26,7 @@ func TestLoginHandler_Get(t *testing.T) {
 	cfg.SigningKey = make([]byte, 32)
 	rand.Read(cfg.SigningKey)
 
-	handlers := NewHandlers(templates, cfg, nil)
+	handlers := NewHandlers(templates, cfg, nil, nil)
 
 	req := httptest.NewRequest("GET", "/admin/login", nil)
 	rec := httptest.NewRecorder()
@@ -64,7 +65,7 @@ func TestLoginHandler_Post(t *testing.T) {
 		}
 		store.data["keyhash_pat:"+keyHash] = "pat-456"
 
-		handlers := NewHandlers(templates, cfg, store)
+		handlers := NewHandlers(templates, cfg, store, nil)
 
 		form := url.Values{}
 		form.Set("pat", pat)
@@ -94,7 +95,7 @@ func TestLoginHandler_Post(t *testing.T) {
 
 	t.Run("empty PAT - shows error", func(t *testing.T) {
 		store := newMockProjectionStore()
-		handlers := NewHandlers(templates, cfg, store)
+		handlers := NewHandlers(templates, cfg, store, nil)
 
 		form := url.Values{}
 		form.Set("pat", "")
@@ -110,7 +111,7 @@ func TestLoginHandler_Post(t *testing.T) {
 
 	t.Run("whitespace-only PAT - shows error", func(t *testing.T) {
 		store := newMockProjectionStore()
-		handlers := NewHandlers(templates, cfg, store)
+		handlers := NewHandlers(templates, cfg, store, nil)
 
 		form := url.Values{}
 		form.Set("pat", "   ")
@@ -126,7 +127,7 @@ func TestLoginHandler_Post(t *testing.T) {
 
 	t.Run("invalid PAT format - shows error", func(t *testing.T) {
 		store := newMockProjectionStore()
-		handlers := NewHandlers(templates, cfg, store)
+		handlers := NewHandlers(templates, cfg, store, nil)
 
 		form := url.Values{}
 		form.Set("pat", "!!!invalid-base64!!!")
@@ -142,7 +143,7 @@ func TestLoginHandler_Post(t *testing.T) {
 
 	t.Run("PAT not found - shows error", func(t *testing.T) {
 		store := newMockProjectionStore()
-		handlers := NewHandlers(templates, cfg, store)
+		handlers := NewHandlers(templates, cfg, store, nil)
 
 		// Create a PAT that doesn't exist in the store
 		rawKey := make([]byte, 32)
@@ -176,7 +177,7 @@ func TestLoginHandler_Post(t *testing.T) {
 			Status:    "suspended",
 		}
 
-		handlers := NewHandlers(templates, cfg, store)
+		handlers := NewHandlers(templates, cfg, store, nil)
 
 		form := url.Values{}
 		form.Set("pat", pat)
@@ -199,7 +200,7 @@ func TestLogoutHandler(t *testing.T) {
 	cfg.SigningKey = make([]byte, 32)
 	rand.Read(cfg.SigningKey)
 
-	handlers := NewHandlers(templates, cfg, nil)
+	handlers := NewHandlers(templates, cfg, nil, nil)
 
 	t.Run("POST logout - clears cookie and redirects", func(t *testing.T) {
 		req := httptest.NewRequest("POST", "/admin/logout", nil)
@@ -264,7 +265,7 @@ func TestRegisterRoutes(t *testing.T) {
 	rand.Read(cfg.SigningKey)
 
 	store := newMockProjectionStore()
-	handlers := NewHandlers(templates, cfg, store)
+	handlers := NewHandlers(templates, cfg, store, nil)
 
 	publicMux := http.NewServeMux()
 	authMux := http.NewServeMux()
@@ -312,7 +313,7 @@ func TestDashboardHandler(t *testing.T) {
 	cfg.SigningKey = make([]byte, 32)
 	rand.Read(cfg.SigningKey)
 
-	handlers := NewHandlers(templates, cfg, nil)
+	handlers := NewHandlers(templates, cfg, nil, nil)
 
 	t.Run("shows username in dashboard", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/admin/", nil)
@@ -331,3 +332,234 @@ func TestDashboardHandler(t *testing.T) {
 func contextWithUsername(ctx context.Context, username string) context.Context {
 	return context.WithValue(ctx, usernameKey, username)
 }
+
+// Helper to create context with username and roles
+func contextWithUser(ctx context.Context, username string, roles map[string]string) context.Context {
+	ctx = context.WithValue(ctx, usernameKey, username)
+	ctx = context.WithValue(ctx, rolesKey, roles)
+	return ctx
+}
+
+// mockEventStore implements core.EventStore for testing
+type mockEventStore struct {
+	events []interface{}
+	err    error
+}
+
+func (m *mockEventStore) Append(ctx context.Context, realmID string, streamID string, expectedVersion int, events []interface{}) ([]interface{}, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	m.events = append(m.events, events...)
+	return events, nil
+}
+
+func (m *mockEventStore) ReadStream(ctx context.Context, realmID string, streamID string, fromVersion int) ([]interface{}, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.events, nil
+}
+
+func (m *mockEventStore) ReadAll(ctx context.Context, realmID string, fromGlobalPosition int64) ([]interface{}, error) {
+	return m.events, nil
+}
+
+func (m *mockEventStore) ListRealmIDs(ctx context.Context) ([]string, error) {
+	return []string{"test-realm"}, nil
+}
+
+func TestRunesListHandler(t *testing.T) {
+	templates, err := NewTemplates()
+	require.NoError(t, err)
+
+	cfg := DefaultAuthConfig()
+	cfg.SigningKey = make([]byte, 32)
+	rand.Read(cfg.SigningKey)
+
+	t.Run("shows empty list when no runes", func(t *testing.T) {
+		store := newMockProjectionStore()
+		handlers := NewHandlers(templates, cfg, store, nil)
+
+		req := httptest.NewRequest("GET", "/admin/runes", nil)
+		ctx := contextWithUser(req.Context(), "testuser", map[string]string{"test-realm": "member"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.RunesListHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "No runes found")
+	})
+
+	t.Run("shows runes list with filters", func(t *testing.T) {
+		store := newMockProjectionStore()
+
+		// Add some runes to the projection
+		store.listData["rune_list"] = []json.RawMessage{
+			json.RawMessage(`{"id":"bf-1234","title":"Test Rune 1","status":"open","priority":2,"created_at":"2024-01-01T00:00:00Z","updated_at":"2024-01-01T00:00:00Z"}`),
+			json.RawMessage(`{"id":"bf-5678","title":"Test Rune 2","status":"claimed","priority":1,"claimant":"testuser","created_at":"2024-01-02T00:00:00Z","updated_at":"2024-01-02T00:00:00Z"}`),
+		}
+
+		handlers := NewHandlers(templates, cfg, store, nil)
+
+		req := httptest.NewRequest("GET", "/admin/runes?status=open", nil)
+		ctx := contextWithUser(req.Context(), "testuser", map[string]string{"test-realm": "member"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.RunesListHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Test Rune 1")
+	})
+
+	t.Run("viewer does not see action buttons", func(t *testing.T) {
+		store := newMockProjectionStore()
+		store.listData["rune_list"] = []json.RawMessage{
+			json.RawMessage(`{"id":"bf-1234","title":"Test Rune","status":"open","priority":2}`),
+		}
+
+		handlers := NewHandlers(templates, cfg, store, nil)
+
+		req := httptest.NewRequest("GET", "/admin/runes", nil)
+		ctx := contextWithUser(req.Context(), "viewer", map[string]string{"test-realm": "viewer"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.RunesListHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+	})
+}
+
+func TestRuneDetailHandler(t *testing.T) {
+	templates, err := NewTemplates()
+	require.NoError(t, err)
+
+	cfg := DefaultAuthConfig()
+	cfg.SigningKey = make([]byte, 32)
+	rand.Read(cfg.SigningKey)
+
+	t.Run("shows rune details", func(t *testing.T) {
+		store := newMockProjectionStore()
+		store.data["bf-1234"] = projectors.RuneDetail{
+			ID:          "bf-1234",
+			Title:       "Test Rune",
+			Status:      "open",
+			Priority:    2,
+			Description: "Test description",
+		}
+
+		handlers := NewHandlers(templates, cfg, store, nil)
+
+		req := httptest.NewRequest("GET", "/admin/runes/bf-1234", nil)
+		ctx := contextWithUser(req.Context(), "testuser", map[string]string{"test-realm": "member"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.RuneDetailHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Test Rune")
+	})
+
+	t.Run("shows 404 for non-existent rune", func(t *testing.T) {
+		store := newMockProjectionStore()
+		handlers := NewHandlers(templates, cfg, store, nil)
+
+		req := httptest.NewRequest("GET", "/admin/runes/bf-nonexistent", nil)
+		ctx := contextWithUser(req.Context(), "testuser", map[string]string{"test-realm": "member"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.RuneDetailHandler(rec, req)
+
+		assert.Equal(t, http.StatusNotFound, rec.Code)
+		assert.Contains(t, rec.Body.String(), "not found")
+	})
+}
+
+func TestGetRealmIDFromRoles(t *testing.T) {
+	tests := []struct {
+		name     string
+		roles    map[string]string
+		expected string
+	}{
+		{
+			name:     "single realm",
+			roles:    map[string]string{"realm-1": "member"},
+			expected: "realm-1",
+		},
+		{
+			name:     "admin only",
+			roles:    map[string]string{"_admin": "admin"},
+			expected: "_admin",
+		},
+		{
+			name:     "admin and realm",
+			roles:    map[string]string{"_admin": "admin", "realm-1": "member"},
+			expected: "realm-1", // First non-_admin realm
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getRealmIDFromRoles(tt.roles)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestCanTakeAction(t *testing.T) {
+	tests := []struct {
+		name     string
+		roles    map[string]string
+		realmID  string
+		expected bool
+	}{
+		{
+			name:     "admin can take action",
+			roles:    map[string]string{"realm-1": "admin"},
+			realmID:  "realm-1",
+			expected: true,
+		},
+		{
+			name:     "member can take action",
+			roles:    map[string]string{"realm-1": "member"},
+			realmID:  "realm-1",
+			expected: true,
+		},
+		{
+			name:     "viewer cannot take action",
+			roles:    map[string]string{"realm-1": "viewer"},
+			realmID:  "realm-1",
+			expected: false,
+		},
+		{
+			name:     "no role in realm",
+			roles:    map[string]string{"realm-2": "member"},
+			realmID:  "realm-1",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := canTakeAction(tt.roles, tt.realmID)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestRenderToastPartial(t *testing.T) {
+	rec := httptest.NewRecorder()
+
+	renderToastPartial(rec, "error", "Test error message")
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), "toast-error")
+	assert.Contains(t, rec.Body.String(), "Test error message")
+	assert.Contains(t, rec.Body.String(), "hx-swap-oob")
+}
+

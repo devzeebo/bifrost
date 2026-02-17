@@ -164,7 +164,7 @@ func TestRegisterRoutes_StaticFiles(t *testing.T) {
 	cfg.SigningKey = make([]byte, 32)
 
 	store := newMockProjectionStore()
-	handlers := NewHandlers(templates, cfg, store)
+	handlers := NewHandlers(templates, cfg, store, nil)
 
 	publicMux := http.NewServeMux()
 	authMux := http.NewServeMux()
