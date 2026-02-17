@@ -1108,6 +1108,176 @@ func TestHandleShatterRune(t *testing.T) {
 	})
 }
 
+func TestHandleSweepRunes(t *testing.T) {
+	t.Run("shatters sealed rune with no dependents and no children", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "sealed")
+		tc.rune_in_rune_list("bf-a1b2", "sealed")
+
+		// When
+		tc.handle_sweep_runes()
+
+		// Then
+		tc.no_error()
+		tc.sweep_result_has_length(1)
+		tc.sweep_result_contains("bf-a1b2")
+		tc.event_was_appended_to_stream("rune-bf-a1b2")
+	})
+
+	t.Run("shatters fulfilled rune with no dependents and no children", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "fulfilled")
+		tc.rune_in_rune_list("bf-a1b2", "fulfilled")
+
+		// When
+		tc.handle_sweep_runes()
+
+		// Then
+		tc.no_error()
+		tc.sweep_result_has_length(1)
+		tc.sweep_result_contains("bf-a1b2")
+		tc.event_was_appended_to_stream("rune-bf-a1b2")
+	})
+
+	t.Run("skips rune with active dependent", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "sealed")
+		tc.existing_rune_in_stream("bf-c3d4", "open")
+		tc.rune_in_rune_list("bf-a1b2", "sealed")
+		tc.rune_in_rune_list("bf-c3d4", "open")
+		tc.dependency_graph_has_dependents("bf-a1b2", "bf-c3d4")
+
+		// When
+		tc.handle_sweep_runes()
+
+		// Then
+		tc.no_error()
+		tc.sweep_result_is_empty()
+	})
+
+	t.Run("skips rune with active child", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "sealed")
+		tc.existing_rune_in_stream("bf-a1b2.1", "open")
+		tc.rune_in_rune_list("bf-a1b2", "sealed")
+		tc.rune_in_rune_list("bf-a1b2.1", "open")
+		tc.rune_has_children("bf-a1b2", 1)
+
+		// When
+		tc.handle_sweep_runes()
+
+		// Then
+		tc.no_error()
+		tc.sweep_result_is_empty()
+	})
+
+	t.Run("shatters rune whose only dependents are also sealed or fulfilled", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "sealed")
+		tc.existing_rune_in_stream("bf-c3d4", "fulfilled")
+		tc.rune_in_rune_list("bf-a1b2", "sealed")
+		tc.rune_in_rune_list("bf-c3d4", "fulfilled")
+		tc.dependency_graph_has_dependents("bf-a1b2", "bf-c3d4")
+
+		// When
+		tc.handle_sweep_runes()
+
+		// Then
+		tc.no_error()
+		tc.sweep_result_contains("bf-a1b2")
+		tc.event_was_appended_to_stream("rune-bf-a1b2")
+	})
+
+	t.Run("shatters rune whose only children are also sealed or fulfilled", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "sealed")
+		tc.existing_rune_in_stream("bf-a1b2.1", "fulfilled")
+		tc.rune_in_rune_list("bf-a1b2", "sealed")
+		tc.rune_in_rune_list("bf-a1b2.1", "fulfilled")
+		tc.rune_has_children("bf-a1b2", 1)
+
+		// When
+		tc.handle_sweep_runes()
+
+		// Then
+		tc.no_error()
+		tc.sweep_result_contains("bf-a1b2")
+		tc.event_was_appended_to_stream("rune-bf-a1b2")
+	})
+
+	t.Run("returns empty list when no candidates exist", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "open")
+		tc.rune_in_rune_list("bf-a1b2", "open")
+
+		// When
+		tc.handle_sweep_runes()
+
+		// Then
+		tc.no_error()
+		tc.sweep_result_is_empty()
+	})
+
+	t.Run("returns empty list when all sealed or fulfilled runes are referenced by active runes", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "sealed")
+		tc.existing_rune_in_stream("bf-c3d4", "open")
+		tc.rune_in_rune_list("bf-a1b2", "sealed")
+		tc.rune_in_rune_list("bf-c3d4", "open")
+		tc.dependency_graph_has_dependents("bf-a1b2", "bf-c3d4")
+		tc.rune_has_children("bf-a1b2", 1)
+		tc.existing_rune_in_stream("bf-a1b2.1", "claimed")
+		tc.rune_in_rune_list("bf-a1b2.1", "claimed")
+
+		// When
+		tc.handle_sweep_runes()
+
+		// Then
+		tc.no_error()
+		tc.sweep_result_is_empty()
+	})
+}
+
 func TestHandleCreateRune_RejectsShatteredParent(t *testing.T) {
 	t.Run("returns error when parent is shattered", func(t *testing.T) {
 		tc := newHandlerTestContext(t)
@@ -1318,6 +1488,7 @@ type handlerTestContext struct {
 	createdEvent RuneCreated
 	state        RuneState
 	events       []core.Event
+	sweepResult  []string
 	err          error
 }
 
@@ -1714,6 +1885,33 @@ func (tc *handlerTestContext) a_shatter_rune_command(id string) {
 	}
 }
 
+func (tc *handlerTestContext) rune_in_rune_list(runeID, status string) {
+	tc.t.Helper()
+	tc.a_projection_store()
+	entry, _ := json.Marshal(map[string]string{"id": runeID, "status": status})
+	tc.projectionStore.listData["rune_list"] = append(tc.projectionStore.listData["rune_list"], entry)
+	tc.projectionStore.data["rune_list:"+runeID] = map[string]string{"id": runeID, "status": status}
+}
+
+func (tc *handlerTestContext) dependency_graph_has_dependents(runeID string, dependentIDs ...string) {
+	tc.t.Helper()
+	tc.a_projection_store()
+	type dep struct {
+		SourceID string `json:"source_id"`
+	}
+	deps := make([]dep, len(dependentIDs))
+	for i, id := range dependentIDs {
+		deps[i] = dep{SourceID: id}
+	}
+	tc.projectionStore.data["dependency_graph:"+runeID] = map[string]any{"dependents": deps}
+}
+
+func (tc *handlerTestContext) rune_has_children(runeID string, count int) {
+	tc.t.Helper()
+	tc.a_projection_store()
+	tc.projectionStore.data["RuneChildCount:"+runeID] = count
+}
+
 // --- When ---
 
 func (tc *handlerTestContext) state_is_rebuilt() {
@@ -1774,6 +1972,11 @@ func (tc *handlerTestContext) handle_forge_rune() {
 func (tc *handlerTestContext) handle_shatter_rune() {
 	tc.t.Helper()
 	tc.err = HandleShatterRune(tc.ctx, tc.realmID, tc.shatterCmd, tc.eventStore)
+}
+
+func (tc *handlerTestContext) handle_sweep_runes() {
+	tc.t.Helper()
+	tc.sweepResult, tc.err = HandleSweepRunes(tc.ctx, tc.realmID, tc.eventStore, tc.projectionStore)
 }
 
 // --- Then ---
@@ -1914,6 +2117,22 @@ func (tc *handlerTestContext) event_was_appended_to_stream(streamID string) {
 		}
 	}
 	assert.True(tc.t, found, "expected Append to stream %q, got calls: %v", streamID, tc.eventStore.appendedCalls)
+}
+
+func (tc *handlerTestContext) sweep_result_contains(runeID string) {
+	tc.t.Helper()
+	assert.Contains(tc.t, tc.sweepResult, runeID)
+}
+
+func (tc *handlerTestContext) sweep_result_is_empty() {
+	tc.t.Helper()
+	assert.NotNil(tc.t, tc.sweepResult, "sweep result should be non-nil empty slice")
+	assert.Empty(tc.t, tc.sweepResult)
+}
+
+func (tc *handlerTestContext) sweep_result_has_length(n int) {
+	tc.t.Helper()
+	assert.Len(tc.t, tc.sweepResult, n)
 }
 
 func (tc *handlerTestContext) appended_event_has_type(eventType string) {
@@ -2084,12 +2303,14 @@ func (m *mockEventStore) ListRealmIDs(ctx context.Context) ([]string, error) {
 // --- Mock Projection Store ---
 
 type mockProjectionStore struct {
-	data map[string]any
+	data     map[string]any
+	listData map[string][]json.RawMessage
 }
 
 func newMockProjectionStore() *mockProjectionStore {
 	return &mockProjectionStore{
-		data: make(map[string]any),
+		data:     make(map[string]any),
+		listData: make(map[string][]json.RawMessage),
 	}
 }
 
@@ -2112,8 +2333,11 @@ func (m *mockProjectionStore) Put(ctx context.Context, realmID string, projectio
 	return nil
 }
 
-func (m *mockProjectionStore) List(_ context.Context, _ string, _ string) ([]json.RawMessage, error) {
-	return nil, nil
+func (m *mockProjectionStore) List(_ context.Context, _ string, projectionName string) ([]json.RawMessage, error) {
+	if entries, ok := m.listData[projectionName]; ok {
+		return entries, nil
+	}
+	return []json.RawMessage{}, nil
 }
 
 func (m *mockProjectionStore) Delete(ctx context.Context, realmID string, projectionName string, key string) error {

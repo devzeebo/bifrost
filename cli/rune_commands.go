@@ -1,6 +1,9 @@
 package cli
 
-import "bytes"
+import (
+	"bytes"
+	"os"
+)
 
 func RegisterRuneCommands(root *RootCmd, out *bytes.Buffer) {
 	clientFn := func() *Client { return root.Client }
@@ -17,4 +20,6 @@ func RegisterRuneCommands(root *RootCmd, out *bytes.Buffer) {
 	root.Command.AddCommand(NewUpdateCmd(clientFn, out).Command)
 	root.Command.AddCommand(NewNoteCmd(clientFn, out).Command)
 	root.Command.AddCommand(NewEventsCmd(clientFn, out).Command)
+	root.Command.AddCommand(NewSweepCmd(clientFn, out, os.Stdin).Command)
+	root.Command.AddCommand(NewShatterCmd(clientFn, out, os.Stdin).Command)
 }

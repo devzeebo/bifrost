@@ -537,6 +537,93 @@ func HandleShatterRune(ctx context.Context, realmID string, cmd ShatterRune, sto
 	return err
 }
 
+func HandleSweepRunes(ctx context.Context, realmID string, store core.EventStore, projStore core.ProjectionStore) ([]string, error) {
+	rawEntries, err := projStore.List(ctx, realmID, "rune_list")
+	if err != nil {
+		return nil, err
+	}
+
+	type runeEntry struct {
+		ID     string `json:"id"`
+		Status string `json:"status"`
+	}
+
+	var candidates []runeEntry
+	for _, raw := range rawEntries {
+		var entry runeEntry
+		if err := json.Unmarshal(raw, &entry); err != nil {
+			return nil, err
+		}
+		if entry.Status == "sealed" || entry.Status == "fulfilled" {
+			candidates = append(candidates, entry)
+		}
+	}
+
+	shattered := make([]string, 0)
+
+	for _, candidate := range candidates {
+		if hasActiveReference(ctx, realmID, candidate.ID, projStore) {
+			continue
+		}
+
+		if err := HandleShatterRune(ctx, realmID, ShatterRune{ID: candidate.ID}, store); err != nil {
+			return nil, err
+		}
+		shattered = append(shattered, candidate.ID)
+	}
+
+	return shattered, nil
+}
+
+func hasActiveReference(ctx context.Context, realmID string, runeID string, projStore core.ProjectionStore) bool {
+	type graphDependent struct {
+		SourceID string `json:"source_id"`
+	}
+	type graphEntry struct {
+		Dependents []graphDependent `json:"dependents"`
+	}
+
+	var entry graphEntry
+	err := projStore.Get(ctx, realmID, "dependency_graph", runeID, &entry)
+	if err == nil {
+		for _, dep := range entry.Dependents {
+			if isActiveRuneInProjection(ctx, realmID, dep.SourceID, projStore) {
+				return true
+			}
+		}
+	}
+
+	var childCount int
+	err = projStore.Get(ctx, realmID, "RuneChildCount", runeID, &childCount)
+	if err != nil {
+		if isNotFoundError(err) {
+			childCount = 0
+		} else {
+			return true
+		}
+	}
+	for i := 1; i <= childCount; i++ {
+		childID := fmt.Sprintf("%s.%d", runeID, i)
+		if isActiveRuneInProjection(ctx, realmID, childID, projStore) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func isActiveRuneInProjection(ctx context.Context, realmID string, runeID string, projStore core.ProjectionStore) bool {
+	type statusEntry struct {
+		Status string `json:"status"`
+	}
+	var s statusEntry
+	err := projStore.Get(ctx, realmID, "rune_list", runeID, &s)
+	if isNotFoundError(err) {
+		return false
+	}
+	return s.Status != "sealed" && s.Status != "fulfilled"
+}
+
 func isKnownRelationship(rel string) bool {
 	switch rel {
 	case RelBlocks, RelRelatesTo, RelDuplicates, RelSupersedes, RelRepliesTo,
