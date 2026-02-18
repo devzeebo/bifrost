@@ -57,7 +57,7 @@ func RegisterRoutes(mux *http.ServeMux, cfg *RouteConfig) error {
 	// is derived from the user's roles at runtime, and different users may have different
 	// realm access. Handler-level checks allow dynamic realm resolution per request.
 	mux.Handle("POST /admin/runes/create", authMiddleware(http.HandlerFunc(handlers.CreateRuneHandler)))
-	mux.Handle("POST /admin/runes/sweep", authMiddleware(requireAdmin(http.HandlerFunc(handlers.SweepRunesHandler))))
+	mux.Handle("POST /admin/runes/sweep", authMiddleware(http.HandlerFunc(handlers.SweepRunesHandler)))
 	mux.Handle("POST /admin/runes/{id}/update", authMiddleware(http.HandlerFunc(handlers.UpdateRuneHandler)))
 	mux.Handle("POST /admin/runes/{id}/forge", authMiddleware(http.HandlerFunc(handlers.RuneForgeHandler)))
 	mux.Handle("POST /admin/runes/{id}/dependencies", authMiddleware(http.HandlerFunc(handlers.AddDependencyHandler)))

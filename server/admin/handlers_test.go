@@ -706,6 +706,71 @@ func TestCanViewRealm(t *testing.T) {
 	}
 }
 
+func TestIsRealmAdmin(t *testing.T) {
+	tests := []struct {
+		name     string
+		roles    map[string]string
+		realmID  string
+		expected bool
+	}{
+		{
+			name:     "owner is realm admin",
+			roles:    map[string]string{"realm-1": "owner"},
+			realmID:  "realm-1",
+			expected: true,
+		},
+		{
+			name:     "admin is realm admin",
+			roles:    map[string]string{"realm-1": "admin"},
+			realmID:  "realm-1",
+			expected: true,
+		},
+		{
+			name:     "member is not realm admin",
+			roles:    map[string]string{"realm-1": "member"},
+			realmID:  "realm-1",
+			expected: false,
+		},
+		{
+			name:     "viewer is not realm admin",
+			roles:    map[string]string{"realm-1": "viewer"},
+			realmID:  "realm-1",
+			expected: false,
+		},
+		{
+			name:     "no role in realm",
+			roles:    map[string]string{"realm-2": "admin"},
+			realmID:  "realm-1",
+			expected: false,
+		},
+		{
+			name:     "nil roles",
+			roles:    nil,
+			realmID:  "realm-1",
+			expected: false,
+		},
+		{
+			name:     "empty roles",
+			roles:    map[string]string{},
+			realmID:  "realm-1",
+			expected: false,
+		},
+		{
+			name:     "system admin without realm role",
+			roles:    map[string]string{"_admin": "admin"},
+			realmID:  "realm-1",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isRealmAdmin(tt.roles, tt.realmID)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 func TestDashboardHandler_UnauthorizedNoRoles(t *testing.T) {
 	templates, err := NewTemplates()
 	require.NoError(t, err)

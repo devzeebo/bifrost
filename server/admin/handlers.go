@@ -600,6 +600,19 @@ func canViewRealm(roles map[string]string, realmID string) bool {
 	return hasRole
 }
 
+// isRealmAdmin returns true if the user has admin or owner role in the specified realm.
+// This is used for realm-level administrative actions like sweep.
+func isRealmAdmin(roles map[string]string, realmID string) bool {
+	if roles == nil {
+		return false
+	}
+	role, hasRole := roles[realmID]
+	if !hasRole {
+		return false
+	}
+	return role == "admin" || role == "owner"
+}
+
 // extractPathID extracts an entity ID from a URL path after a prefix.
 // Returns an error message if the ID is empty or contains a slash.
 func extractPathID(path, prefix string) (string, string) {
@@ -1912,9 +1925,9 @@ func (h *Handlers) SweepRunesHandler(w http.ResponseWriter, r *http.Request) {
 	roles, _ := RolesFromContext(r.Context())
 	realmID := getRealmIDFromRequest(r, roles)
 
-	// Check admin authorization (sweep is admin-only)
-	if !isAdmin(roles) {
-		renderToastPartial(w, "error", "Unauthorized: admin access required")
+	// Check realm admin authorization (sweep requires realm admin or owner)
+	if !isRealmAdmin(roles, realmID) {
+		renderToastPartial(w, "error", "Unauthorized: realm admin access required")
 		return
 	}
 
