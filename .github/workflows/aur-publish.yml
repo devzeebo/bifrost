@@ -11,12 +11,18 @@ jobs:
     container: archlinux:latest
     steps:
       - name: Install dependencies
-        run: pacman -Syu --noconfirm git openssh pacman-contrib
+        run: |
+          pacman -Syu --noconfirm git openssh pacman-contrib sudo
+          useradd -m -G wheel builder
+          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
       - name: Checkout source repo
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Grant builder write access to workspace
+        run: chown -R builder:builder $GITHUB_WORKSPACE
 
       - name: Generate pkgver
         id: pkgver
@@ -27,37 +33,35 @@ jobs:
 
       - name: Setup SSH for AUR
         run: |
-          mkdir -p /root/.ssh
-          chmod 700 /root/.ssh
-          echo "${{ secrets.AUR_SSH_PRIVATE_KEY }}" > /root/.ssh/aur
-          chmod 600 /root/.ssh/aur
-          echo "Host aur.archlinux.org" > /root/.ssh/config
-          echo "  IdentityFile /root/.ssh/aur" >> /root/.ssh/config
-          echo "  User aur" >> /root/.ssh/config
-          echo "  StrictHostKeyChecking yes" >> /root/.ssh/config
-          echo "  UserKnownHostsFile /root/.ssh/known_hosts" >> /root/.ssh/config
-          ssh-keyscan aur.archlinux.org > /root/.ssh/known_hosts
-          chmod 644 /root/.ssh/known_hosts
+          mkdir -p /home/builder/.ssh
+          chmod 700 /home/builder/.ssh
+          echo "${{ secrets.AUR_SSH_PRIVATE_KEY }}" > /home/builder/.ssh/aur
+          chmod 600 /home/builder/.ssh/aur
+          echo "Host aur.archlinux.org" > /home/builder/.ssh/config
+          echo "  IdentityFile /home/builder/.ssh/aur" >> /home/builder/.ssh/config
+          echo "  User aur" >> /home/builder/.ssh/config
+          echo "  StrictHostKeyChecking yes" >> /home/builder/.ssh/config
+          echo "  UserKnownHostsFile /home/builder/.ssh/known_hosts" >> /home/builder/.ssh/config
+          ssh-keyscan aur.archlinux.org > /home/builder/.ssh/known_hosts
+          chmod 644 /home/builder/.ssh/known_hosts
+          chown -R builder:builder /home/builder/.ssh
 
       - name: Clone AUR repo
         run: |
-          export HOME=/root
-          git clone ssh://aur@aur.archlinux.org/bifrost-go-git.git aur
+          su - builder -c "git clone ssh://aur@aur.archlinux.org/bifrost-go-git.git $GITHUB_WORKSPACE/aur"
+          chown -R builder:builder $GITHUB_WORKSPACE/aur
 
       - name: Update PKGBUILD version
-        run: sed -i "s/^pkgver=.*/pkgver=${{ steps.pkgver.outputs.pkgver }}/" aur/PKGBUILD
+        run: sed -i "s/^pkgver=.*/pkgver=${{ steps.pkgver.outputs.pkgver }}/" $GITHUB_WORKSPACE/aur/PKGBUILD
 
       - name: Generate .SRCINFO
         run: |
-          cd aur
-          makepkg --printsrcinfo > .SRCINFO
+          su - builder -c "cd $GITHUB_WORKSPACE/aur && makepkg --printsrcinfo > .SRCINFO"
 
       - name: Push to AUR
         run: |
-          export HOME=/root
-          cd aur
-          git config user.name "devzeebo"
-          git config user.email "${{ secrets.AUR_EMAIL }}"
-          git add PKGBUILD .SRCINFO
-          git commit -m "Update to ${{ steps.pkgver.outputs.pkgver }}"
-          git push
+          su - builder -c "cd $GITHUB_WORKSPACE/aur && git config user.name 'devzeebo'"
+          su - builder -c "cd $GITHUB_WORKSPACE/aur && git config user.email '${{ secrets.AUR_EMAIL }}'"
+          su - builder -c "cd $GITHUB_WORKSPACE/aur && git add PKGBUILD .SRCINFO"
+          su - builder -c "cd $GITHUB_WORKSPACE/aur && git commit --allow-empty -m 'Update to ${{ steps.pkgver.outputs.pkgver }}'"
+          su - builder -c "cd $GITHUB_WORKSPACE/aur && git push"
