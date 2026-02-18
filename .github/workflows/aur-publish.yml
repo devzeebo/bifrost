@@ -1,0 +1,56 @@
+name: Publish to AUR
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  aur-publish:
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install dependencies
+        run: pacman -Syu --noconfirm git openssh pacman-contrib
+
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate pkgver
+        id: pkgver
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          pkgver=$(git describe --tags | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g')
+          echo "pkgver=$pkgver" >> "$GITHUB_OUTPUT"
+
+      - name: Setup SSH for AUR
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.AUR_SSH_PRIVATE_KEY }}" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          echo "Host aur.archlinux.org" >> ~/.ssh/config
+          echo "  IdentityFile ~/.ssh/aur" >> ~/.ssh/config
+          echo "  User aur" >> ~/.ssh/config
+          ssh-keyscan aur.archlinux.org >> ~/.ssh/known_hosts
+
+      - name: Clone AUR repo
+        run: git clone ssh://aur@aur.archlinux.org/bifrost-go-git.git aur
+
+      - name: Update PKGBUILD version
+        run: sed -i "s/^pkgver=.*/pkgver=${{ steps.pkgver.outputs.pkgver }}/" aur/PKGBUILD
+
+      - name: Generate .SRCINFO
+        run: |
+          cd aur
+          makepkg --printsrcinfo > .SRCINFO
+
+      - name: Push to AUR
+        run: |
+          cd aur
+          git config user.name "devzeebo"
+          git config user.email "${{ secrets.AUR_EMAIL }}"
+          git add PKGBUILD .SRCINFO
+          git commit -m "Update to ${{ steps.pkgver.outputs.pkgver }}"
+          git push
