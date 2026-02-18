@@ -12,6 +12,13 @@ type RouteConfig struct {
 	AuthConfig      *AuthConfig
 	ProjectionStore core.ProjectionStore
 	EventStore      core.EventStore
+	// Vike UI configuration (production only)
+	StaticPath string // Path to built Vike assets (production mode)
+}
+
+// RegisterRoutesResult contains the result of registering admin routes.
+type RegisterRoutesResult struct {
+	Handler http.Handler // The main handler to use (may be wrapped with Vike proxy)
 }
 
 // RegisterRoutes registers all admin UI routes with the given mux.
@@ -24,11 +31,14 @@ type RouteConfig struct {
 // - Authenticated (any): /admin/, /admin/logout, /admin/runes (list/detail)
 // - Member+: /admin/runes/{id}/claim|fulfill|seal|note
 // - Admin-only: /admin/realms/*, /admin/accounts/*
-func RegisterRoutes(mux *http.ServeMux, cfg *RouteConfig) error {
+//
+// When Vike UI is configured, the returned handler wraps the mux to route
+// requests to Vike when the ui=vike cookie is set.
+func RegisterRoutes(mux *http.ServeMux, cfg *RouteConfig) (*RegisterRoutesResult, error) {
 	// Create handlers
 	templates, err := NewTemplates()
 	if err != nil {
-		return fmt.Errorf("failed to load templates: %w", err)
+		return nil, fmt.Errorf("failed to load templates: %w", err)
 	}
 
 	handlers := NewHandlers(templates, cfg.AuthConfig, cfg.ProjectionStore, cfg.EventStore)
@@ -82,6 +92,28 @@ func RegisterRoutes(mux *http.ServeMux, cfg *RouteConfig) error {
 	mux.Handle("POST /admin/accounts/{id}/roles", authMiddleware(requireAdmin(http.HandlerFunc(handlers.UpdateRolesHandler))))
 	mux.Handle("GET /admin/accounts/{id}/pats", authMiddleware(requireAdmin(http.HandlerFunc(handlers.PATsListHandler))))
 	mux.Handle("POST /admin/accounts/{id}/pats", authMiddleware(requireAdmin(http.HandlerFunc(handlers.PATActionHandler))))
+
+	// Register Vike beta admin UI if configured (production only)
+	if cfg.StaticPath != "" {
+		if err := registerVikeRoutes(mux, cfg); err != nil {
+			return nil, err
+		}
+	}
+
+	return &RegisterRoutesResult{Handler: mux}, nil
+}
+
+// registerVikeRoutes registers the Vike beta admin UI on /beta/admin/*.
+// All /beta/admin/* requests are served from built static assets (production mode).
+func registerVikeRoutes(mux *http.ServeMux, cfg *RouteConfig) error {
+	vikeHandler, err := NewVikeStaticHandler(cfg.StaticPath, BetaAdminPrefix)
+	if err != nil {
+		return fmt.Errorf("failed to create Vike static handler: %w", err)
+	}
+
+	// Catch-all: serve everything under /beta/admin/ from static assets
+	mux.Handle(BetaAdminPrefix+"/", vikeHandler)
+	mux.Handle(BetaAdminPrefix, http.RedirectHandler(BetaAdminPrefix+"/", http.StatusMovedPermanently))
 
 	return nil
 }

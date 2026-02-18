@@ -32,8 +32,9 @@ func TestRegisterRoutesConfig(t *testing.T) {
 	require.NoError(t, err, "failed to generate signing key")
 
 	mux := http.NewServeMux()
-	err = RegisterRoutes(mux, cfg)
+	result, err := RegisterRoutes(mux, cfg)
 	require.NoError(t, err)
+	_ = result // Use result.Handler if needed
 
 	tests := []struct {
 		name       string
@@ -160,8 +161,9 @@ func TestRegisterRoutes_WithAdminAuth(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	err = RegisterRoutes(mux, cfg)
+	result, err := RegisterRoutes(mux, cfg)
 	require.NoError(t, err)
+	_ = result // Use result.Handler if needed
 
 	// Generate token for admin user
 	token, err := GenerateJWT(cfg.AuthConfig, "account-admin", "pat-admin")

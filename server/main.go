@@ -102,18 +102,23 @@ func Run(ctx context.Context, cfg *Config) error {
 	// Disable secure cookies for local development
 	adminAuthConfig.CookieSecure = false
 
-	if err := admin.RegisterRoutes(mux, &admin.RouteConfig{
+	result, err := admin.RegisterRoutes(mux, &admin.RouteConfig{
 		AuthConfig:      adminAuthConfig,
 		ProjectionStore: projectionStore,
 		EventStore:      eventStore,
-	}); err != nil {
+		StaticPath:      cfg.AdminUIStaticPath,
+	})
+	if err != nil {
 		return fmt.Errorf("register admin routes: %w", err)
 	}
+
+	// Use the wrapped handler (may include Vike proxy)
+	handler := result.Handler
 
 	// 6. Create and start HTTP server
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Port),
-		Handler: mux,
+		Handler: handler,
 		BaseContext: func(l net.Listener) context.Context {
 			return ctx
 		},

@@ -31,24 +31,26 @@ Inverse forms are also accepted: blocked_by, duplicated_by, superseded_by, repli
 
 ## Development Commands
 
-**ALWAYS use the `./run` script** in the project root instead of raw `go test`, `go vet`, or `go tool golangci-lint` commands. This project is a Go workspace with multiple modules; running `go test ./...` from the root will not work correctly.
+**ALWAYS use `make`** instead of raw `go test`, `go vet`, or `go tool golangci-lint` commands. This project is a Go workspace with multiple modules; running `go test ./...` from the root will not work correctly.
 
 ```bash
-./run test                        # Test all modules
-./run test core                   # Test a single module
-./run test core domain            # Test multiple modules
-./run test core -- -v -count=1    # Pass extra flags after --
-./run lint                        # Lint all modules
-./run lint server                 # Lint a single module
-./run vet                         # Vet all modules
-./run tidy                        # go mod tidy in all modules
-./run build                       # Build server + CLI
-./run list                        # List available modules
+make test                              # Test all modules
+make test MODULES=core                 # Test a single module
+make test MODULES="core domain"        # Test multiple modules
+make test MODULES=core ARGS="-v -count=1"  # Pass extra flags
+make lint                              # Lint all modules
+make lint MODULES=server               # Lint a single module
+make vet                               # Vet all modules
+make tidy                              # go mod tidy in all modules
+make build                             # Build server + CLI
+make build-admin-ui                    # Build Vike admin-ui for production
+make dev                               # Start Go server + Vike dev server
+make list                              # List available modules
 ```
 
 Available modules: `core`, `domain`, `domain/integration`, `providers/sqlite`, `server`, `cli`.
 
-**NEVER run `go test`, `go vet`, or `go tool golangci-lint` directly.** Always use `./run`.
+**NEVER run `go test`, `go vet`, or `go tool golangci-lint` directly.** Always use `make`.
 
 ## Completing a Rune
 
