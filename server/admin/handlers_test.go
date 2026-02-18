@@ -979,6 +979,241 @@ func TestRealmDetailHandler(t *testing.T) {
 
 		assert.Equal(t, http.StatusForbidden, rec.Code)
 	})
+
+	t.Run("realm admin can view their realm", func(t *testing.T) {
+		store := newMockProjectionStore()
+		store.data[compositeKey(domain.AdminRealmID, "realm_list", "realm-1")] = projectors.RealmListEntry{
+			RealmID:   "realm-1",
+			Name:      "Test Realm",
+			Status:    "active",
+			CreatedAt: time.Now(),
+		}
+
+		handlers := NewHandlers(templates, cfg, store, nil)
+
+		req := httptest.NewRequest("GET", "/admin/realms/realm-1", nil)
+		ctx := contextWithUser(req.Context(), "admin", map[string]string{"realm-1": "admin"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.RealmDetailHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Test Realm")
+	})
+
+	t.Run("realm owner can view their realm", func(t *testing.T) {
+		store := newMockProjectionStore()
+		store.data[compositeKey(domain.AdminRealmID, "realm_list", "realm-1")] = projectors.RealmListEntry{
+			RealmID:   "realm-1",
+			Name:      "Test Realm",
+			Status:    "active",
+			CreatedAt: time.Now(),
+		}
+
+		handlers := NewHandlers(templates, cfg, store, nil)
+
+		req := httptest.NewRequest("GET", "/admin/realms/realm-1", nil)
+		ctx := contextWithUser(req.Context(), "owner", map[string]string{"realm-1": "owner"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.RealmDetailHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Test Realm")
+	})
+
+	t.Run("realm admin cannot view other realm", func(t *testing.T) {
+		store := newMockProjectionStore()
+		store.data[compositeKey(domain.AdminRealmID, "realm_list", "realm-2")] = projectors.RealmListEntry{
+			RealmID:   "realm-2",
+			Name:      "Other Realm",
+			Status:    "active",
+			CreatedAt: time.Now(),
+		}
+
+		handlers := NewHandlers(templates, cfg, store, nil)
+
+		req := httptest.NewRequest("GET", "/admin/realms/realm-2", nil)
+		ctx := contextWithUser(req.Context(), "admin", map[string]string{"realm-1": "admin"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.RealmDetailHandler(rec, req)
+
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+}
+
+func TestRealmRoleHandler(t *testing.T) {
+	templates, err := NewTemplates()
+	require.NoError(t, err)
+
+	cfg := DefaultAuthConfig()
+	cfg.SigningKey = make([]byte, 32)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
+
+	t.Run("realm admin cannot assign admin role", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		form := url.Values{}
+		form.Set("account_id", "account-123")
+		form.Set("action", "assign")
+		form.Set("role", "admin")
+
+		req := httptest.NewRequest("POST", "/admin/realms/realm-1/roles", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		ctx := contextWithUser(req.Context(), "realmadmin", map[string]string{"realm-1": "admin"})
+		req = req.WithContext(ctx)
+		req.SetPathValue("id", "realm-1")
+		rec := httptest.NewRecorder()
+
+		handlers.RealmRoleHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code) // Returns toast error
+		assert.Contains(t, rec.Body.String(), "viewer or member roles")
+	})
+
+	t.Run("realm admin cannot assign owner role", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		form := url.Values{}
+		form.Set("account_id", "account-123")
+		form.Set("action", "assign")
+		form.Set("role", "owner")
+
+		req := httptest.NewRequest("POST", "/admin/realms/realm-1/roles", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		ctx := contextWithUser(req.Context(), "realmadmin", map[string]string{"realm-1": "admin"})
+		req = req.WithContext(ctx)
+		req.SetPathValue("id", "realm-1")
+		rec := httptest.NewRecorder()
+
+		handlers.RealmRoleHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code) // Returns toast error
+		assert.Contains(t, rec.Body.String(), "viewer or member roles")
+	})
+
+	t.Run("member cannot assign roles", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		form := url.Values{}
+		form.Set("account_id", "account-123")
+		form.Set("action", "assign")
+		form.Set("role", "viewer")
+
+		req := httptest.NewRequest("POST", "/admin/realms/realm-1/roles", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		ctx := contextWithUser(req.Context(), "member", map[string]string{"realm-1": "member"})
+		req = req.WithContext(ctx)
+		req.SetPathValue("id", "realm-1")
+		rec := httptest.NewRecorder()
+
+		handlers.RealmRoleHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code) // Returns toast error
+		assert.Contains(t, rec.Body.String(), "Forbidden")
+	})
+
+	t.Run("realm admin cannot manage other realm", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		form := url.Values{}
+		form.Set("account_id", "account-123")
+		form.Set("action", "assign")
+		form.Set("role", "member")
+
+		req := httptest.NewRequest("POST", "/admin/realms/realm-2/roles", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		ctx := contextWithUser(req.Context(), "realmadmin", map[string]string{"realm-1": "admin"})
+		req = req.WithContext(ctx)
+		req.SetPathValue("id", "realm-2")
+		rec := httptest.NewRecorder()
+
+		handlers.RealmRoleHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code) // Returns toast error
+		assert.Contains(t, rec.Body.String(), "Forbidden")
+	})
+
+	t.Run("realm owner can manage roles in their realm", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		// Realm owner should pass authorization check (will fail at domain level due to mock)
+		form := url.Values{}
+		form.Set("account_id", "account-123")
+		form.Set("action", "assign")
+		form.Set("role", "member")
+
+		req := httptest.NewRequest("POST", "/admin/realms/realm-1/roles", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		ctx := contextWithUser(req.Context(), "owner", map[string]string{"realm-1": "owner"})
+		req = req.WithContext(ctx)
+		req.SetPathValue("id", "realm-1")
+		rec := httptest.NewRecorder()
+
+		handlers.RealmRoleHandler(rec, req)
+
+		// Authorization passes (returns 200 with error because domain command fails in mock)
+		// This verifies owner is authorized, domain failure is expected
+		assert.NotContains(t, rec.Body.String(), "Forbidden")
+	})
+
+	t.Run("missing realm ID returns error", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		form := url.Values{}
+		form.Set("account_id", "account-123")
+		form.Set("action", "assign")
+		form.Set("role", "viewer")
+
+		req := httptest.NewRequest("POST", "/admin/realms//roles", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		ctx := contextWithUser(req.Context(), "admin", map[string]string{"realm-1": "admin"})
+		req = req.WithContext(ctx)
+		// Don't set path value
+		rec := httptest.NewRecorder()
+
+		handlers.RealmRoleHandler(rec, req)
+
+		assert.Contains(t, rec.Body.String(), "Realm ID is required")
+	})
+
+	t.Run("missing account ID returns error", func(t *testing.T) {
+		store := newMockProjectionStore()
+		eventStore := newMockEventStore()
+		handlers := NewHandlers(templates, cfg, store, eventStore)
+
+		form := url.Values{}
+		form.Set("action", "assign")
+		form.Set("role", "viewer")
+
+		req := httptest.NewRequest("POST", "/admin/realms/realm-1/roles", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		ctx := contextWithUser(req.Context(), "admin", map[string]string{"realm-1": "admin"})
+		req = req.WithContext(ctx)
+		req.SetPathValue("id", "realm-1")
+		rec := httptest.NewRecorder()
+
+		handlers.RealmRoleHandler(rec, req)
+
+		assert.Contains(t, rec.Body.String(), "Account ID is required")
+	})
 }
 
 func TestIsAdmin(t *testing.T) {

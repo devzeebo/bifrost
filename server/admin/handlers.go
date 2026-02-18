@@ -788,21 +788,22 @@ func (h *Handlers) RealmsListHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// RealmDetailHandler handles GET /admin/realms/{id} - show realm details (admin-only).
+// RealmDetailHandler handles GET /admin/realms/{id} - show realm details.
+// System admins can view any realm. Realm admins can view their own realm.
 func (h *Handlers) RealmDetailHandler(w http.ResponseWriter, r *http.Request) {
 	username, _ := UsernameFromContext(r.Context())
 	roles, _ := RolesFromContext(r.Context())
-
-	// Check admin authorization
-	if !isAdmin(roles) {
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
-	}
 
 	// Extract realm ID from path
 	realmID, errMsg := extractPathID(r.URL.Path, "/admin/realms/")
 	if errMsg != "" {
 		http.Error(w, errMsg, http.StatusBadRequest)
+		return
+	}
+
+	// Check authorization: system admin or realm admin for this realm
+	if !isAdmin(roles) && !isRealmAdmin(roles, realmID) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
@@ -845,12 +846,31 @@ func (h *Handlers) RealmDetailHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Determine if current user can manage roles (system admin or realm admin)
+	canManageRoles := isAdmin(roles) || isRealmAdmin(roles, realmID)
+
+	// Get all accounts for the role assignment dropdown (only for those who can manage)
+	var allAccounts []projectors.AccountListEntry
+	if canManageRoles {
+		for _, raw := range rawAccounts {
+			var account projectors.AccountListEntry
+			if err := json.Unmarshal(raw, &account); err != nil {
+				continue
+			}
+			allAccounts = append(allAccounts, account)
+		}
+	}
+
 	h.templates.Render(w, "realms/detail.html", TemplateData{
 		Title:   realm.Name,
 		Account: h.buildAccountInfo(r, username, roles),
 		Data: map[string]interface{}{
-			"Realm":   realm,
-			"Members": members,
+			"Realm":           realm,
+			"Members":         members,
+			"CanManageRoles":  canManageRoles,
+			"AllAccounts":     allAccounts,
+			"ValidRoles":      domain.ValidRoles,
+			"IsSystemAdmin":   isAdmin(roles),
 		},
 	})
 }
@@ -946,6 +966,80 @@ func (h *Handlers) SuspendRealmHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Redirect to realms list
 	http.Redirect(w, r, "/admin/realms", http.StatusSeeOther)
+}
+
+// RealmRoleHandler handles POST /admin/realms/{id}/roles - assign or revoke roles within a realm.
+// System admins can assign any role. Realm admins can only assign viewer or member roles.
+func (h *Handlers) RealmRoleHandler(w http.ResponseWriter, r *http.Request) {
+	roles, _ := RolesFromContext(r.Context())
+
+	realmID := r.PathValue("id")
+	if realmID == "" {
+		renderToastPartial(w, "error", "Realm ID is required")
+		return
+	}
+
+	// Check authorization: system admin or realm admin for this realm
+	isSystemAdmin := isAdmin(roles)
+	if !isSystemAdmin && !isRealmAdmin(roles, realmID) {
+		renderToastPartial(w, "error", "Forbidden")
+		return
+	}
+
+	// Get form values
+	accountID := r.FormValue("account_id")
+	action := r.FormValue("action") // "assign" or "revoke"
+	role := r.FormValue("role")
+
+	if accountID == "" {
+		renderToastPartial(w, "error", "Account ID is required")
+		return
+	}
+
+	var err error
+
+	switch action {
+	case "assign":
+		if role == "" {
+			renderToastPartial(w, "error", "Role is required")
+			return
+		}
+		if !domain.IsValidRole(role) {
+			renderToastPartial(w, "error", "Invalid role")
+			return
+		}
+		// Realm admins can only assign viewer or member roles
+		if !isSystemAdmin && (role == "admin" || role == "owner") {
+			renderToastPartial(w, "error", "Realm admins can only assign viewer or member roles")
+			return
+		}
+		err = domain.HandleAssignRole(r.Context(), domain.AssignRole{
+			AccountID: accountID,
+			RealmID:   realmID,
+			Role:      role,
+		}, h.eventStore)
+	case "revoke":
+		err = domain.HandleRevokeRole(r.Context(), domain.RevokeRole{
+			AccountID: accountID,
+			RealmID:   realmID,
+		}, h.eventStore)
+	default:
+		renderToastPartial(w, "error", "Invalid action")
+		return
+	}
+
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			renderToastPartial(w, "error", "Account not found")
+			return
+		}
+		log.Printf("RealmRoleHandler: failed to %s role: %v", action, err)
+		renderToastPartial(w, "error", "Failed to update role")
+		return
+	}
+
+	// Redirect back to realm detail
+	http.Redirect(w, r, "/admin/realms/"+realmID, http.StatusSeeOther)
 }
 
 // isAdmin returns true if the user has admin or owner role in the admin realm.

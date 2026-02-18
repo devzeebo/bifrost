@@ -69,11 +69,12 @@ func RegisterRoutes(mux *http.ServeMux, cfg *RouteConfig) error {
 	mux.Handle("POST /admin/runes/{id}/seal", authMiddleware(http.HandlerFunc(handlers.RuneSealHandler)))
 	mux.Handle("POST /admin/runes/{id}/note", authMiddleware(http.HandlerFunc(handlers.RuneNoteHandler)))
 
-	// Realms - admin only
+	// Realms - admin only for list/create/suspend, realm admin can view/manage their realm
 	mux.Handle("GET /admin/realms", authMiddleware(requireAdmin(http.HandlerFunc(handlers.RealmsListHandler))))
-	mux.Handle("GET /admin/realms/", authMiddleware(requireAdmin(http.HandlerFunc(handlers.RealmDetailHandler))))
+	mux.Handle("GET /admin/realms/", authMiddleware(http.HandlerFunc(handlers.RealmDetailHandler)))
 	mux.Handle("POST /admin/realms/create", authMiddleware(requireAdmin(http.HandlerFunc(handlers.CreateRealmHandler))))
 	mux.Handle("POST /admin/realms/{id}/suspend", authMiddleware(requireAdmin(http.HandlerFunc(handlers.SuspendRealmHandler))))
+	mux.Handle("POST /admin/realms/{id}/roles", authMiddleware(http.HandlerFunc(handlers.RealmRoleHandler)))
 
 	// Accounts - admin only
 	mux.Handle("GET /admin/accounts", authMiddleware(requireAdmin(http.HandlerFunc(handlers.AccountsListHandler))))
