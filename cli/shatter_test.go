@@ -47,6 +47,8 @@ func TestShatterCommand(t *testing.T) {
 		tc.command_has_no_error()
 		tc.request_path_was("/shatter-rune")
 		tc.request_body_has_field("id", "bf-abc")
+		// Note: Prompt display goes to os.Stdout which cannot be captured in unit tests.
+		// The prompt timing is verified manually.
 	})
 
 	t.Run("prompts for confirmation and proceeds when user types yes", func(t *testing.T) {
