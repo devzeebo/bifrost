@@ -1333,8 +1333,8 @@ func TestHandleClaimRune_RejectsShattered(t *testing.T) {
 	})
 }
 
-func TestHandleForgeRune_RejectsShattered(t *testing.T) {
-	t.Run("returns error when rune is shattered", func(t *testing.T) {
+func TestHandleForgeRune_SkipsShattered(t *testing.T) {
+	t.Run("silently skips shattered runes as no-op", func(t *testing.T) {
 		tc := newHandlerTestContext(t)
 
 		// Given
@@ -1348,7 +1348,30 @@ func TestHandleForgeRune_RejectsShattered(t *testing.T) {
 		tc.handle_forge_rune()
 
 		// Then
-		tc.error_contains("shattered")
+		tc.no_error()
+	})
+}
+
+func TestHandleForgeRune_SkipsShatteredChildren(t *testing.T) {
+	t.Run("succeeds when forging a saga with shattered child runes", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given: a parent rune with draft status
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-1234", "draft")
+		// And: two children, one draft and one shattered
+		tc.existing_rune_in_stream("bf-1234.1", "draft")
+		tc.existing_rune_in_stream("bf-1234.2", "shattered")
+		tc.rune_has_children("bf-1234", 2)
+		tc.a_forge_rune_command("bf-1234")
+
+		// When
+		tc.handle_forge_rune()
+
+		// Then: the forge succeeds (skips the shattered child)
+		tc.no_error()
 	})
 }
 

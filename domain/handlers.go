@@ -258,10 +258,10 @@ func HandleForgeRune(ctx context.Context, realmID string, cmd ForgeRune, store c
 	if !state.Exists {
 		return &core.NotFoundError{Entity: "rune", ID: cmd.ID}
 	}
-	if state.Status == "shattered" {
-		return fmt.Errorf("cannot forge shattered rune %q", cmd.ID)
-	}
-	if state.Status != "draft" {
+	// Shattered runes are tombstones - skip them silently (no-op).
+	// This allows recursive forging of sagas to succeed even when
+	// some children have been shattered.
+	if state.Status == "shattered" || state.Status != "draft" {
 		return nil
 	}
 
