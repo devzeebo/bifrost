@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -28,11 +29,12 @@ func NewShatterCmd(clientFn func() *Client, out *bytes.Buffer, in io.Reader) *Sh
 			humanMode, _ := cmd.Flags().GetBool("human")
 
 			if !confirm {
-				fmt.Fprintf(out, "Shatter rune %s? This is irreversible. [y/N] ", id)
+				fmt.Fprintf(os.Stdout, "Shatter rune %s? This is irreversible. [y/N] ", id)
+				os.Stdout.Sync()
 				line, _ := bufio.NewReader(in).ReadString('\n')
 				answer := strings.TrimSpace(strings.ToLower(line))
 				if answer != "y" && answer != "yes" {
-					out.WriteString("Aborted")
+					fmt.Fprintln(out, "Aborted")
 					return nil
 				}
 			}

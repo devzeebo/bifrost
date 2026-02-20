@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -27,11 +28,12 @@ func NewSweepCmd(clientFn func() *Client, out *bytes.Buffer, in io.Reader) *Swee
 			humanMode, _ := cmd.Flags().GetBool("human")
 
 			if !confirm {
-				fmt.Fprintf(out, "Sweep will shatter all unreferenced sealed/fulfilled runes. Continue? [y/N] ")
+				fmt.Fprintf(os.Stdout, "Sweep will shatter all unreferenced sealed/fulfilled runes. Continue? [y/N] ")
+				os.Stdout.Sync()
 				line, _ := bufio.NewReader(in).ReadString('\n')
 				answer := strings.TrimSpace(strings.ToLower(line))
 				if answer != "y" && answer != "yes" {
-					out.WriteString("Aborted")
+					fmt.Fprintln(out, "Aborted")
 					return nil
 				}
 			}

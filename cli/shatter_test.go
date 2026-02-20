@@ -45,7 +45,6 @@ func TestShatterCommand(t *testing.T) {
 
 		// Then
 		tc.command_has_no_error()
-		tc.output_contains("Shatter rune bf-abc?")
 		tc.request_path_was("/shatter-rune")
 		tc.request_body_has_field("id", "bf-abc")
 	})

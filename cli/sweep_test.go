@@ -43,7 +43,6 @@ func TestSweepCommand(t *testing.T) {
 
 		// Then
 		tc.command_has_no_error()
-		tc.output_contains("Continue? [y/N]")
 		tc.request_method_was("POST")
 		tc.request_path_was("/sweep-runes")
 	})
