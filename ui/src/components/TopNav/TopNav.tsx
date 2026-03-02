@@ -89,8 +89,12 @@ const buildIndicatorGradient = (navWidth: number, labelRanges: LabelRange[]): st
   return `linear-gradient(90deg, ${colorStops.join(", ")})`;
 };
 
-export function TopNav() {
-  const { username, logout } = useAuth();
+type TopNavProps = {
+  currentPath?: string;
+};
+
+export function TopNav({ currentPath }: TopNavProps) {
+  const { username, accountId, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const [activeIndex, setActiveIndex] = useState(0);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
@@ -146,7 +150,8 @@ export function TopNav() {
 
   // Determine active link based on current path
   useEffect(() => {
-    const path = window.location.pathname;
+    const rawPath = currentPath ?? window.location.pathname;
+    const path = toUIPath(rawPath);
     const index = NAV_LINKS.findIndex(
       (link) => {
         const uiHref = toUIPath(link.href);
@@ -157,7 +162,7 @@ export function TopNav() {
       }
     );
     setActiveIndex(index >= 0 ? index : 0);
-  }, []);
+  }, [currentPath]);
 
   const handleNavClick = (href: string, index: number) => {
     setActiveIndex(index);
@@ -269,6 +274,16 @@ export function TopNav() {
           <Menu.Portal>
             <Menu.Positioner sideOffset={8} align="end">
               <Menu.Popup className="top-nav__account-dropdown" aria-label="User menu options">
+                <Menu.Item
+                  className="top-nav__account-dropdown-item"
+                  onClick={() => {
+                    if (accountId) {
+                      navigate(`/accounts/${accountId}`);
+                    }
+                  }}
+                >
+                  Profile
+                </Menu.Item>
                 <Menu.Item
                   className="top-nav__account-dropdown-item"
                   onClick={() => {

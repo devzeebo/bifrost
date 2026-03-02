@@ -17,7 +17,7 @@ function Layout({ children }: { children: ReactNode }) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Bifrost</title>
       </Head>
-      {!isAuthlessPage && <TopNav />}
+      {!isAuthlessPage && <TopNav currentPath={pageContext.urlPathname} />}
       <main>{children}</main>
     </>
   );

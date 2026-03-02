@@ -435,6 +435,12 @@ export class ApiClient {
     });
   }
 
+  async getAdminAccount(accountId: string): Promise<AdminAccountEntry> {
+    return this.request<AdminAccountEntry>(`/account?id=${encodeURIComponent(accountId)}`, {
+      method: "GET",
+    });
+  }
+
 
   async createAdminAccount(username: string): Promise<{ account_id: string; pat: string }> {
     return this.request<{ account_id: string; pat: string }>("/create-account", {
@@ -455,10 +461,10 @@ export class ApiClient {
   }
 
   // PAT Management (admin only)
-  async createPAT(accountId: string): Promise<{ pat: string }> {
-    return this.request<{ pat: string }>("/create-pat", {
+  async createPAT(accountId: string, label?: string): Promise<{ pat: string; pat_id: string }> {
+    return this.request<{ pat: string; pat_id: string }>("/create-pat", {
       method: "POST",
-      body: JSON.stringify({ account_id: accountId }),
+      body: JSON.stringify({ account_id: accountId, label }),
     });
   }
 
@@ -472,6 +478,13 @@ export class ApiClient {
     return this.request("/revoke-pat", {
       method: "POST",
       body: JSON.stringify({ account_id: accountId, pat_id: patId }),
+    });
+  }
+
+  async suspendAccount(accountId: string, suspend = true): Promise<void> {
+    return this.request("/suspend-account", {
+      method: "POST",
+      body: JSON.stringify({ id: accountId, suspend }),
     });
   }
 }

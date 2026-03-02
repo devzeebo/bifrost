@@ -96,6 +96,43 @@ describe("TopNav", () => {
       render(<TopNav />);
       expect(screen.getByText("Accounts")).toBeInTheDocument();
     });
+
+    test("keeps accounts section active for account subpages", () => {
+      const { rerender } = render(<TopNav currentPath="/ui/accounts/new" />);
+
+      expect(screen.getByText("Accounts").closest("button")).toHaveClass("top-nav__link--active");
+
+      rerender(<TopNav currentPath="/ui/accounts/acc-123" />);
+
+      expect(screen.getByText("Accounts").closest("button")).toHaveClass("top-nav__link--active");
+    });
+
+    test("updates active section when route changes across sections", () => {
+      const { rerender } = render(<TopNav currentPath="/ui/accounts/acc-123" />);
+
+      expect(screen.getByText("Accounts").closest("button")).toHaveClass("top-nav__link--active");
+
+      rerender(<TopNav currentPath="/ui/realms/realm-123" />);
+
+      expect(screen.getByText("Realms").closest("button")).toHaveClass("top-nav__link--active");
+      expect(screen.getByText("Accounts").closest("button")).not.toHaveClass("top-nav__link--active");
+    });
+
+    test("matches sections when currentPath is missing the /ui prefix", () => {
+      const { rerender } = render(<TopNav currentPath="/accounts/acc-123" />);
+
+      expect(screen.getByText("Accounts").closest("button")).toHaveClass("top-nav__link--active");
+
+      rerender(<TopNav currentPath="/realms/realm-123" />);
+
+      expect(screen.getByText("Realms").closest("button")).toHaveClass("top-nav__link--active");
+    });
+
+    test("keeps runes section active for rune subpages", () => {
+      render(<TopNav currentPath="/ui/runes/rune-123/edit" />);
+
+      expect(screen.getByText("Runes").closest("button")).toHaveClass("top-nav__link--active");
+    });
   });
 
   describe("Theme Toggle", () => {

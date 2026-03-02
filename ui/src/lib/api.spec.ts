@@ -591,6 +591,7 @@ describe("ApiClient", () => {
     test("sends POST request to /api/create-pat", async () => {
       const response = {
         pat: "new-pat-token",
+        pat_id: "pat-123",
       };
 
       mockFetch.mockResolvedValueOnce({

@@ -9,6 +9,8 @@ export interface AccountListEntry {
 
 export interface PatEntry {
   id: string;
+  label?: string;
+  token_preview?: string;
   created_at: string;
   last_used?: string;
 }
