@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@base-ui/react/button";
+import { Combobox } from "@base-ui/react/combobox";
+import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 import { Input } from "@base-ui/react/input";
 import { navigate } from "@/lib/router";
 import { usePageContext } from "vike-react/usePageContext";
@@ -10,7 +12,7 @@ import { useRealm } from "../../../lib/realm";
 import { useToast } from "../../../lib/toast";
 import { api } from "../../../lib/api";
 import { Dialog } from "../../../components/Dialog/Dialog";
-import type { RuneDetail, RuneStatus } from "../../../types/rune";
+import type { RuneDetail, RuneListItem, RuneStatus } from "../../../types/rune";
 
 export { Page };
 
@@ -48,12 +50,14 @@ function Page() {
   const {
     realms,
     roles,
+    realmNames,
     isSysadmin,
     accountId,
+    username,
     isAuthenticated,
     loading: authLoading,
   } = useAuth();
-  const { currentRealm, availableRealms, isLoading: realmLoading } = useRealm();
+  const { currentRealm, availableRealms, realmOptions, isLoading: realmLoading } = useRealm();
   const { showToast } = useToast();
   const fallbackRealms = realms.filter((realmId) => realmId !== "_admin");
   const effectiveRealms = availableRealms.length > 0 ? availableRealms : fallbackRealms;
@@ -65,9 +69,23 @@ function Page() {
   const [rune, setRune] = useState<RuneDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showShatterDialog, setShowShatterDialog] = useState(false);
+  const [showRelationDialog, setShowRelationDialog] = useState(false);
+  const [pendingRemoval, setPendingRemoval] = useState<{
+    targetId: string;
+    relationship: string;
+    column: "dependencies" | "dependents";
+  } | null>(null);
   const [isMutating, setIsMutating] = useState(false);
   const [assignTarget, setAssignTarget] = useState("");
   const [sealReason, setSealReason] = useState("");
+  const [availableRunes, setAvailableRunes] = useState<RuneListItem[]>([]);
+  const [currentRuneSummary, setCurrentRuneSummary] = useState<RuneListItem | null>(null);
+  const [resolvedClaimantUsername, setResolvedClaimantUsername] = useState<string | null>(null);
+  const [relationshipFilter, setRelationshipFilter] = useState("");
+  const [relationshipTargetId, setRelationshipTargetId] = useState("");
+  const [relationshipColumn, setRelationshipColumn] = useState<"dependencies" | "dependents">(
+    "dependencies"
+  );
 
   const loadRune = useCallback(async () => {
     if (!runeId || !effectiveRealm) {
@@ -85,6 +103,64 @@ function Page() {
     }
   }, [effectiveRealm, runeId, showToast]);
 
+  const loadRuneOptions = useCallback(async () => {
+    if (!effectiveRealm || !runeId) {
+      setAvailableRunes([]);
+      return;
+    }
+
+    try {
+      const runes = await api.getRunes(effectiveRealm);
+      setAvailableRunes(runes);
+      const matchingRune = runes.find((candidate) => candidate.id === runeId) ?? null;
+      setCurrentRuneSummary(matchingRune);
+      if (matchingRune?.claimant_username && matchingRune.claimant_username !== "<nil>") {
+        setResolvedClaimantUsername(matchingRune.claimant_username);
+      }
+    } catch {
+      showToast("Error", "Failed to load rune options", "error");
+    }
+  }, [effectiveRealm, runeId, showToast]);
+
+  const loadClaimantUsername = useCallback(async () => {
+    const summaryClaimantUsername =
+      currentRuneSummary?.claimant_username && currentRuneSummary.claimant_username !== "<nil>"
+        ? currentRuneSummary.claimant_username
+        : null;
+    if (summaryClaimantUsername) {
+      setResolvedClaimantUsername(summaryClaimantUsername);
+      return;
+    }
+
+    const claimantId =
+      (rune?.claimant && rune.claimant !== "<nil>" ? rune.claimant : null) ??
+      currentRuneSummary?.claimant ??
+      null;
+    if (!effectiveRealm || !claimantId) {
+      setResolvedClaimantUsername(null);
+      return;
+    }
+
+    if (accountId && username && claimantId === accountId) {
+      setResolvedClaimantUsername(username);
+      return;
+    }
+
+    try {
+      const account = await api.getAccount(effectiveRealm, claimantId);
+      setResolvedClaimantUsername(account.username || null);
+    } catch {
+      setResolvedClaimantUsername(null);
+    }
+  }, [
+    accountId,
+    currentRuneSummary?.claimant,
+    currentRuneSummary?.claimant_username,
+    effectiveRealm,
+    rune?.claimant,
+    username,
+  ]);
+
   useEffect(() => {
     if (authLoading || realmLoading) return;
 
@@ -94,7 +170,12 @@ function Page() {
     }
 
     void loadRune();
-  }, [authLoading, isAuthenticated, loadRune, realmLoading]);
+    void loadRuneOptions();
+  }, [authLoading, isAuthenticated, loadRune, loadRuneOptions, realmLoading]);
+
+  useEffect(() => {
+    void loadClaimantUsername();
+  }, [loadClaimantUsername]);
 
   const handleShatter = async () => {
     if (!rune || !effectiveRealm) return;
@@ -229,27 +310,144 @@ function Page() {
     return statusColors[status as RuneStatus] ?? statusColors.draft;
   };
 
-  const formatRelationship = (relationship: string, targetId: string) => {
-    switch (relationship) {
-      case "blocks":
-        return `This rune blocks ${targetId}.`;
-      case "blocked_by":
-        return `This rune is blocked by ${targetId}.`;
-      case "duplicates":
-        return `This rune duplicates ${targetId}.`;
-      case "duplicated_by":
-        return `${targetId} duplicates this rune.`;
-      case "supersedes":
-        return `This rune supersedes ${targetId}.`;
-      case "superseded_by":
-        return `${targetId} supersedes this rune.`;
-      case "replies_to":
-        return `This rune replies to ${targetId}.`;
-      case "replied_to_by":
-        return `${targetId} replies to this rune.`;
-      case "relates_to":
-      default:
-        return `This rune relates to ${targetId}.`;
+  const getPriorityBadge = (priority: number) => {
+    if (priority >= 4) {
+      return { label: "P1", color: "var(--color-red)" };
+    }
+    if (priority >= 3) {
+      return { label: "P2", color: "var(--color-amber)" };
+    }
+    if (priority >= 2) {
+      return { label: "P3", color: "var(--color-blue)" };
+    }
+    return { label: "P4", color: "var(--color-text-muted)" };
+  };
+
+  const dependencies = rune?.dependencies.filter((dep) => dep.relationship === "blocked_by") ?? [];
+  const dependents = rune?.dependencies.filter((dep) => dep.relationship === "blocks") ?? [];
+  const runeTitleById = new Map(availableRunes.map((candidate) => [candidate.id, candidate.title]));
+
+  const getRuneDisplay = (targetId: string) => {
+    const title = runeTitleById.get(targetId);
+    if (!title) {
+      return { title: targetId, id: targetId, hasDistinctTitle: false };
+    }
+    return { title, id: targetId, hasDistinctTitle: title !== targetId };
+  };
+
+  const filteredRuneOptions = availableRunes.filter((candidate) => {
+    if (candidate.id === rune?.id) {
+      return false;
+    }
+    if (!relationshipFilter.trim()) {
+      return true;
+    }
+    const query = relationshipFilter.trim().toLowerCase();
+    return (
+      candidate.id.toLowerCase().includes(query) ||
+      candidate.title.toLowerCase().includes(query)
+    );
+  });
+
+  const openRelationshipDialog = (column: "dependencies" | "dependents") => {
+    setRelationshipColumn(column);
+    setRelationshipFilter("");
+    setRelationshipTargetId("");
+    void loadRuneOptions();
+    setShowRelationDialog(true);
+  };
+
+  const closeRelationshipDialog = () => {
+    setShowRelationDialog(false);
+    setRelationshipFilter("");
+    setRelationshipTargetId("");
+  };
+
+  const handleAddRelationship = async () => {
+    if (!effectiveRealm || !rune || !relationshipTargetId) {
+      return;
+    }
+
+    const nextRelationship = relationshipColumn === "dependencies" ? "blocked_by" : "blocks";
+    const alreadyLinked = (rune.dependencies ?? []).some(
+      (dependency) =>
+        dependency.target_id === relationshipTargetId && dependency.relationship === nextRelationship
+    );
+    if (alreadyLinked) {
+      showToast("Relationship Exists", "That relationship already exists", "error");
+      return;
+    }
+
+    setIsMutating(true);
+    try {
+      await api.addDependency(
+        {
+          rune_id: rune.id,
+          target_id: relationshipTargetId,
+          relationship: nextRelationship,
+        },
+        effectiveRealm
+      );
+      showToast(
+        "Relationship Added",
+        relationshipColumn === "dependencies"
+          ? `Added dependency on ${relationshipTargetId}`
+          : `Added dependent ${relationshipTargetId}`,
+        "success"
+      );
+      closeRelationshipDialog();
+      setIsLoading(true);
+      await loadRune();
+      await loadRuneOptions();
+    } catch {
+      showToast("Error", "Failed to add relationship", "error");
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
+  const requestRelationshipRemoval = (
+    targetId: string,
+    relationship: string,
+    column: "dependencies" | "dependents"
+  ) => {
+    setPendingRemoval({ targetId, relationship, column });
+  };
+
+  const closeRemoveDialog = () => {
+    setPendingRemoval(null);
+  };
+
+  const handleRemoveRelationship = async () => {
+    if (!effectiveRealm || !rune || !pendingRemoval) {
+      return;
+    }
+
+    setIsMutating(true);
+    try {
+      await api.removeDependency(
+        {
+          rune_id: rune.id,
+          target_id: pendingRemoval.targetId,
+          relationship: pendingRemoval.relationship,
+        },
+        effectiveRealm
+      );
+      showToast(
+        "Relationship Removed",
+        pendingRemoval.column === "dependencies"
+          ? `Removed dependency ${pendingRemoval.targetId}`
+          : `Removed dependent ${pendingRemoval.targetId}`,
+        "success"
+      );
+      closeRemoveDialog();
+      setIsLoading(true);
+      await loadRune();
+      await loadRuneOptions();
+    } catch {
+      showToast("Error", "Failed to remove relationship", "error");
+    } finally {
+      setIsMutating(false);
     }
   };
 
@@ -313,42 +511,78 @@ function Page() {
   }
 
   const statusStyle = getStatusStyle(rune.status);
+  const realmId = rune.realm_id || currentRuneSummary?.realm_id || effectiveRealm || "";
+  const realmName =
+    realmOptions.find((realmOption) => realmOption.id === realmId)?.name ??
+    realmNames[realmId] ??
+    realmId;
+  const claimantId =
+    (rune.claimant && rune.claimant !== "<nil>" ? rune.claimant : null) ??
+    currentRuneSummary?.claimant ??
+    null;
+  const claimantName =
+    rune.claimant_username ||
+    resolvedClaimantUsername ||
+    currentRuneSummary?.claimant_username ||
+    ((accountId && username && claimantId === accountId ? username : null) ?? null);
+  const priorityBadge = getPriorityBadge(rune.priority);
 
   return (
     <div className="min-h-[calc(100vh-56px)] p-6">
       {/* Header */}
       <div className="mb-8">
-        <Button
-          onClick={() => navigate("/runes")}
-          className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wider mb-4 transition-all duration-150 hover:translate-x-[-2px]"
-          style={{ color: "var(--color-text-muted)" }}
-        >
-          <span>&larr;</span>
-          <span>Back to Runes</span>
-        </Button>
-        <h1
-          className="text-4xl font-bold tracking-tight uppercase"
-          style={{ color: "var(--color-amber)" }}
-        >
-          {rune.title}
-        </h1>
-        <div className="flex items-center gap-4 mt-3">
-          <span
-            className="text-xs uppercase tracking-wider px-3 py-1 font-bold"
-            style={{
-              backgroundColor: statusStyle.bg,
-              border: `2px solid ${statusStyle.border}`,
-              color: statusStyle.text,
-            }}
-          >
-            {rune.status.replace("_", " ")}
-          </span>
-          <span
-            className="text-xs uppercase tracking-wider"
+        <div className="grid grid-cols-[auto_1fr_auto] items-center gap-4">
+          <Button
+            onClick={() => navigate("/runes")}
+            className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wider transition-all duration-150 hover:translate-x-[-2px]"
             style={{ color: "var(--color-text-muted)" }}
           >
-            ID: {rune.id}
-          </span>
+            <span>&larr;</span>
+            <span>Back to Runes</span>
+          </Button>
+
+          <div className="justify-self-center flex flex-wrap items-center justify-center gap-4 text-center">
+            <span
+              className="text-xs uppercase tracking-wider px-3 py-1 font-bold"
+              style={{
+                backgroundColor: statusStyle.bg,
+                border: `2px solid ${statusStyle.border}`,
+                color: statusStyle.text,
+              }}
+            >
+              {rune.status.replace("_", " ")}
+            </span>
+            <h1
+              className="text-4xl font-bold tracking-tight uppercase"
+              style={{ color: "var(--color-amber)" }}
+            >
+              {rune.title}
+            </h1>
+            <span
+              className="text-xs uppercase tracking-wider"
+              style={{ color: "var(--color-text-muted)" }}
+            >
+              ID: {rune.id}
+            </span>
+          </div>
+
+          <Button
+            onClick={() => navigate(`/runes/${rune.id}/edit`)}
+            className="inline-flex h-9 w-9 items-center justify-center text-base font-bold"
+            style={{
+              backgroundColor: "var(--color-amber)",
+              border: "2px solid var(--color-border)",
+              color: "white",
+              boxShadow: "var(--shadow-soft)",
+            }}
+            title="Edit Rune"
+            aria-label="Edit rune"
+            disabled={isMutating}
+          >
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+              <path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zm17.71-10.04a1.003 1.003 0 0 0 0-1.42l-2.5-2.5a1.003 1.003 0 0 0-1.42 0L14.83 5.25l3.75 3.75 2.13-2.12z" />
+            </svg>
+          </Button>
         </div>
       </div>
 
@@ -363,12 +597,6 @@ function Page() {
             boxShadow: "var(--shadow-soft)",
           }}
         >
-          <h2
-            className="text-sm uppercase tracking-wider font-bold mb-4"
-            style={{ color: "var(--color-text-muted)" }}
-          >
-            Description
-          </h2>
           {rune.description ? (
             <p className="text-base leading-relaxed whitespace-pre-wrap">
               {rune.description}
@@ -394,30 +622,53 @@ function Page() {
             boxShadow: "var(--shadow-soft)",
             }}
           >
-            <h2
-              className="text-sm uppercase tracking-wider font-bold mb-4"
-              style={{ color: "var(--color-text-muted)" }}
-            >
-              Details
-            </h2>
             <div className="space-y-4">
               <div>
                 <div
                   className="text-xs uppercase tracking-wider block mb-1"
                   style={{ color: "var(--color-text-muted)" }}
                 >
-                  Status
+                  Claimant
                 </div>
-                <span
-                  className="text-xs uppercase tracking-wider px-2 py-1 font-bold"
-                  style={{
-                    backgroundColor: statusStyle.bg,
-                    border: `1px solid ${statusStyle.border}`,
-                    color: statusStyle.text,
-                  }}
+                {claimantName || claimantId ? (
+                  <div className="text-sm font-mono">
+                    <span>{claimantName || claimantId}</span>
+                    {claimantName && claimantId && claimantName !== claimantId ? (
+                      <span
+                        className="ml-2 text-xs"
+                        style={{ color: "var(--color-text-muted)" }}
+                      >
+                        {claimantId}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : (
+                  <span className="text-sm font-mono">-</span>
+                )}
+              </div>
+
+              <div>
+                <div
+                  className="text-xs uppercase tracking-wider block mb-1"
+                  style={{ color: "var(--color-text-muted)" }}
                 >
-                  {rune.status.replace("_", " ")}
-                </span>
+                  Realm
+                </div>
+                {realmName || realmId ? (
+                  <div className="text-sm">
+                    <span>{realmName || realmId}</span>
+                    {realmName && realmId && realmName !== realmId ? (
+                      <span
+                        className="ml-2 text-xs"
+                        style={{ color: "var(--color-text-muted)" }}
+                      >
+                        {realmId}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : (
+                  <span className="text-sm">-</span>
+                )}
               </div>
 
               <div>
@@ -427,7 +678,15 @@ function Page() {
                 >
                   Priority
                 </div>
-                <span className="text-sm font-bold">{rune.priority}</span>
+                <span
+                  className="text-xs font-bold px-2 py-1"
+                  style={{
+                    backgroundColor: priorityBadge.color,
+                    color: "white",
+                  }}
+                >
+                  {priorityBadge.label}
+                </span>
               </div>
 
               <div>
@@ -510,38 +769,6 @@ function Page() {
             </div>
           )}
 
-          {rune.dependencies.length > 0 && (
-            <div
-              className="p-6"
-              style={{
-                backgroundColor: "var(--color-bg)",
-                border: "2px solid var(--color-border)",
-            boxShadow: "var(--shadow-soft)",
-              }}
-            >
-              <h2
-                className="text-sm uppercase tracking-wider font-bold mb-4"
-                style={{ color: "var(--color-text-muted)" }}
-              >
-                Relationships
-              </h2>
-              <div className="space-y-2">
-                {rune.dependencies.map((dep) => (
-                  <div
-                    key={`${dep.relationship}:${dep.target_id}`}
-                    className="text-xs p-2"
-                    style={{
-                      backgroundColor: "var(--color-surface)",
-                      border: "1px solid var(--color-border)",
-                    }}
-                  >
-                    {formatRelationship(dep.relationship, dep.target_id)}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Actions Card */}
           <div
             className="p-6"
@@ -551,27 +778,7 @@ function Page() {
             boxShadow: "var(--shadow-soft)",
             }}
           >
-            <h2
-              className="text-sm uppercase tracking-wider font-bold mb-4"
-              style={{ color: "var(--color-text-muted)" }}
-            >
-              Actions
-            </h2>
             <div className="space-y-3">
-              <Button
-                onClick={() => navigate(`/runes/${rune.id}/edit`)}
-                className="w-full px-4 py-3 text-sm font-bold uppercase tracking-wider transition-all duration-150"
-                style={{
-                  backgroundColor: "var(--color-amber)",
-                  border: "2px solid var(--color-border)",
-                  color: "white",
-                  boxShadow: "var(--shadow-soft)",
-                }}
-                disabled={isMutating}
-              >
-                Edit Rune
-              </Button>
-
               {canForge && (
                 <Button
                   onClick={handleForge}
@@ -692,6 +899,166 @@ function Page() {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+        <div
+          className="p-6"
+          style={{
+            backgroundColor: "var(--color-bg)",
+            border: "2px solid var(--color-border)",
+            boxShadow: "var(--shadow-soft)",
+          }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2
+              className="text-sm uppercase tracking-wider font-bold"
+              style={{ color: "var(--color-text-muted)" }}
+            >
+              Dependencies
+            </h2>
+            <Button
+              onClick={() => openRelationshipDialog("dependencies")}
+              className="h-7 w-7 p-0 text-lg font-bold"
+              style={{
+                backgroundColor: "var(--color-amber)",
+                border: "2px solid var(--color-border)",
+                color: "white",
+              }}
+              disabled={isMutating}
+            >
+              +
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {dependencies.length > 0 ? (
+              dependencies.map((dep) => (
+                <div
+                  key={`${dep.relationship}:${dep.target_id}`}
+                  className="text-xs p-2 flex items-start justify-between gap-2"
+                  style={{
+                    backgroundColor: "var(--color-surface)",
+                    border: "1px solid var(--color-border)",
+                  }}
+                >
+                  <span>
+                    <span style={{ color: "var(--color-text-muted)" }}>Depends on </span>
+                    <span>{getRuneDisplay(dep.target_id).title}</span>
+                    {getRuneDisplay(dep.target_id).hasDistinctTitle ? (
+                      <span
+                        className="ml-2 text-xs"
+                        style={{ color: "var(--color-text-muted)" }}
+                      >
+                        {getRuneDisplay(dep.target_id).id}
+                      </span>
+                    ) : null}
+                  </span>
+                  <Button
+                    onClick={() =>
+                      requestRelationshipRemoval(dep.target_id, dep.relationship, "dependencies")
+                    }
+                    className="text-xs px-1 py-0 leading-none"
+                    style={{
+                      backgroundColor: "transparent",
+                      border: "none",
+                      color: "var(--color-text-muted)",
+                    }}
+                    title="Remove dependency"
+                    aria-label={`Remove dependency ${dep.target_id}`}
+                    disabled={isMutating}
+                  >
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true">
+                      <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.41L10.59 12 5.7 16.89a1 1 0 1 0 1.41 1.41L12 13.41l4.89 4.89a1 1 0 0 0 1.41-1.41L13.41 12l4.89-4.89a1 1 0 0 0 0-1.4z" />
+                    </svg>
+                  </Button>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm italic" style={{ color: "var(--color-text-muted)" }}>
+                No dependencies
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div
+          className="p-6"
+          style={{
+            backgroundColor: "var(--color-bg)",
+            border: "2px solid var(--color-border)",
+            boxShadow: "var(--shadow-soft)",
+          }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2
+              className="text-sm uppercase tracking-wider font-bold"
+              style={{ color: "var(--color-text-muted)" }}
+            >
+              Dependents
+            </h2>
+            <Button
+              onClick={() => openRelationshipDialog("dependents")}
+              className="h-7 w-7 p-0 text-lg font-bold"
+              style={{
+                backgroundColor: "var(--color-amber)",
+                border: "2px solid var(--color-border)",
+                color: "white",
+              }}
+              disabled={isMutating}
+            >
+              +
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {dependents.length > 0 ? (
+              dependents.map((dep) => (
+                <div
+                  key={`${dep.relationship}:${dep.target_id}`}
+                  className="text-xs p-2 flex items-start justify-between gap-2"
+                  style={{
+                    backgroundColor: "var(--color-surface)",
+                    border: "1px solid var(--color-border)",
+                  }}
+                >
+                  <span>
+                    <span style={{ color: "var(--color-text-muted)" }}>Blocked by </span>
+                    <span>{getRuneDisplay(dep.target_id).title}</span>
+                    {getRuneDisplay(dep.target_id).hasDistinctTitle ? (
+                      <span
+                        className="ml-2 text-xs"
+                        style={{ color: "var(--color-text-muted)" }}
+                      >
+                        {getRuneDisplay(dep.target_id).id}
+                      </span>
+                    ) : null}
+                  </span>
+                  <Button
+                    onClick={() =>
+                      requestRelationshipRemoval(dep.target_id, dep.relationship, "dependents")
+                    }
+                    className="text-xs px-1 py-0 leading-none"
+                    style={{
+                      backgroundColor: "transparent",
+                      border: "none",
+                      color: "var(--color-text-muted)",
+                    }}
+                    title="Remove dependent"
+                    aria-label={`Remove dependent ${dep.target_id}`}
+                    disabled={isMutating}
+                  >
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true">
+                      <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.41L10.59 12 5.7 16.89a1 1 0 1 0 1.41 1.41L12 13.41l4.89 4.89a1 1 0 0 0 1.41-1.41L13.41 12l4.89-4.89a1 1 0 0 0 0-1.4z" />
+                    </svg>
+                  </Button>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm italic" style={{ color: "var(--color-text-muted)" }}>
+                No dependents
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
       <Dialog
         open={showShatterDialog}
         onClose={() => setShowShatterDialog(false)}
@@ -702,6 +1069,161 @@ function Page() {
         onConfirm={handleShatter}
         color="red"
       />
+
+      <Dialog
+        open={pendingRemoval !== null}
+        onClose={closeRemoveDialog}
+        title="Remove Relationship"
+        description={
+          pendingRemoval
+            ? `Remove ${pendingRemoval.column === "dependencies" ? "dependency" : "dependent"} ${getRuneDisplay(pendingRemoval.targetId).title}${getRuneDisplay(pendingRemoval.targetId).hasDistinctTitle ? ` (${getRuneDisplay(pendingRemoval.targetId).id})` : ""}?`
+            : "Remove relationship?"
+        }
+        confirmLabel={isMutating ? "Removing..." : "Remove"}
+        cancelLabel="Cancel"
+        onConfirm={handleRemoveRelationship}
+        color="red"
+      />
+
+      <BaseDialog.Root
+        open={showRelationDialog}
+        onOpenChange={(nextOpen) => {
+          if (nextOpen) {
+            void loadRuneOptions();
+          }
+          if (!nextOpen) {
+            closeRelationshipDialog();
+          }
+        }}
+      >
+        <BaseDialog.Portal>
+          <BaseDialog.Backdrop className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" />
+          <BaseDialog.Viewport className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <BaseDialog.Popup
+              className="w-full max-w-xl p-6"
+              style={{
+                backgroundColor: "var(--color-bg)",
+                border: "2px solid var(--color-border)",
+                boxShadow: "var(--shadow-soft)",
+              }}
+              aria-labelledby="relationship-dialog-title"
+              aria-describedby="relationship-dialog-description"
+            >
+              <div className="space-y-4">
+                <div>
+                  <BaseDialog.Title
+                    id="relationship-dialog-title"
+                    className="text-xl font-bold uppercase tracking-tight"
+                    style={{ color: "var(--color-amber)" }}
+                  >
+                    Add {relationshipColumn === "dependencies" ? "Dependency" : "Dependent"}
+                  </BaseDialog.Title>
+                  <BaseDialog.Description
+                    id="relationship-dialog-description"
+                    className="text-sm mt-1"
+                    style={{ color: "var(--color-text-muted)" }}
+                  >
+                    Select a rune from this realm.
+                  </BaseDialog.Description>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="rune-relationship-selector"
+                    className="text-xs uppercase tracking-wider block mb-2 font-bold"
+                    style={{ color: "var(--color-text-muted)" }}
+                  >
+                    Rune
+                  </label>
+                  <Combobox.Root
+                    value={relationshipTargetId || null}
+                    onValueChange={(value) => {
+                      if (typeof value === "string") {
+                        setRelationshipTargetId(value);
+                      }
+                    }}
+                    onInputValueChange={setRelationshipFilter}
+                  >
+                    <Combobox.Input
+                      id="rune-relationship-selector"
+                      placeholder="Search by rune ID or title"
+                      className="w-full px-3 py-2 text-sm outline-none"
+                      style={{
+                        backgroundColor: "var(--color-surface)",
+                        border: "2px solid var(--color-border)",
+                        color: "var(--color-text)",
+                      }}
+                    />
+                    <Combobox.Portal>
+                      <Combobox.Positioner sideOffset={8} align="start">
+                        <Combobox.Popup
+                          className="z-[80] max-h-64 overflow-y-auto"
+                          style={{
+                            backgroundColor: "var(--color-bg)",
+                            border: "2px solid var(--color-border)",
+                            boxShadow: "var(--shadow-soft)",
+                            width: "var(--anchor-width)",
+                          }}
+                        >
+                          <Combobox.List>
+                            {filteredRuneOptions.map((candidate) => (
+                              <Combobox.Item
+                                key={candidate.id}
+                                value={candidate.id}
+                                className="px-3 py-2 text-sm cursor-pointer"
+                                style={{ color: "var(--color-text)" }}
+                              >
+                                {candidate.title}
+                                <span
+                                  className="ml-2 text-xs"
+                                  style={{ color: "var(--color-text-muted)" }}
+                                >
+                                  {candidate.id}
+                                </span>
+                              </Combobox.Item>
+                            ))}
+                          </Combobox.List>
+                          <Combobox.Empty
+                            className="px-3 py-2 text-sm"
+                            style={{ color: "var(--color-text-muted)" }}
+                          >
+                            No runes found
+                          </Combobox.Empty>
+                        </Combobox.Popup>
+                      </Combobox.Positioner>
+                    </Combobox.Portal>
+                  </Combobox.Root>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-2">
+                  <BaseDialog.Close
+                    className="px-4 py-2 text-sm font-semibold"
+                    style={{
+                      backgroundColor: "var(--color-bg)",
+                      border: "2px solid var(--color-border)",
+                      color: "var(--color-text)",
+                    }}
+                  >
+                    Cancel
+                  </BaseDialog.Close>
+                  <Button
+                    onClick={handleAddRelationship}
+                    disabled={!relationshipTargetId || isMutating}
+                    className="px-4 py-2 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{
+                      backgroundColor: "var(--color-amber)",
+                      border: "2px solid var(--color-border)",
+                      color: "white",
+                    }}
+                  >
+                    {isMutating ? "Adding..." : "Add"}
+                  </Button>
+                </div>
+              </div>
+            </BaseDialog.Popup>
+          </BaseDialog.Viewport>
+        </BaseDialog.Portal>
+      </BaseDialog.Root>
     </div>
   );
 }

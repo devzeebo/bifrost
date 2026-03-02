@@ -129,6 +129,12 @@ export class ApiClient {
       title: raw.title ?? "",
       status: raw.status ?? "draft",
       priority: raw.priority ?? 1,
+      claimant:
+        typeof raw.claimant === "string" && raw.claimant !== "<nil>" ? raw.claimant : undefined,
+      claimant_username:
+        typeof raw.claimant_username === "string" && raw.claimant_username !== "<nil>"
+          ? raw.claimant_username
+          : undefined,
       realm_id: raw.realm_id ?? "",
       created_at: raw.created_at ?? new Date(0).toISOString(),
       updated_at: raw.updated_at ?? new Date(0).toISOString(),
@@ -228,6 +234,18 @@ export class ApiClient {
     relationship: string;
   }, realmId?: string): Promise<void> {
     return this.request("/add-dependency", {
+      method: "POST",
+      body: JSON.stringify(request),
+      headers: this.withRealmHeader(realmId),
+    });
+  }
+
+  async removeDependency(request: {
+    rune_id: string;
+    target_id: string;
+    relationship: string;
+  }, realmId?: string): Promise<void> {
+    return this.request("/remove-dependency", {
       method: "POST",
       body: JSON.stringify(request),
       headers: this.withRealmHeader(realmId),
