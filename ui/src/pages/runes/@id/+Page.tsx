@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 import { navigate } from "@/lib/router";
 import { usePageContext } from "vike-react/usePageContext";
 import { useAuth } from "../../../lib/auth";
@@ -44,7 +45,14 @@ const statusColors: Record<RuneStatus, { bg: string; border: string; text: strin
 function Page() {
   const pageContext = usePageContext();
   const runeId = pageContext.routeParams?.id as string;
-  const { realms, isAuthenticated, loading: authLoading } = useAuth();
+  const {
+    realms,
+    roles,
+    isSysadmin,
+    accountId,
+    isAuthenticated,
+    loading: authLoading,
+  } = useAuth();
   const { currentRealm, availableRealms, isLoading: realmLoading } = useRealm();
   const { showToast } = useToast();
   const fallbackRealms = realms.filter((realmId) => realmId !== "_admin");
@@ -56,8 +64,26 @@ function Page() {
 
   const [rune, setRune] = useState<RuneDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [showShatterDialog, setShowShatterDialog] = useState(false);
+  const [isMutating, setIsMutating] = useState(false);
+  const [assignTarget, setAssignTarget] = useState("");
+  const [sealReason, setSealReason] = useState("");
+
+  const loadRune = useCallback(async () => {
+    if (!runeId || !effectiveRealm) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const data = await api.getRune(effectiveRealm, runeId);
+      setRune(data);
+    } catch {
+      showToast("Error", "Failed to load rune", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [effectiveRealm, runeId, showToast]);
 
   useEffect(() => {
     if (authLoading || realmLoading) return;
@@ -67,36 +93,117 @@ function Page() {
       return;
     }
 
-    if (!runeId || !effectiveRealm) {
-      setIsLoading(false);
+    void loadRune();
+  }, [authLoading, isAuthenticated, loadRune, realmLoading]);
+
+  const handleShatter = async () => {
+    if (!rune || !effectiveRealm) return;
+
+    setIsMutating(true);
+    try {
+      await api.shatterRune(rune.id, effectiveRealm);
+      showToast("Rune Shattered", `"${rune.title}" has been shattered`, "success");
+      navigate("/runes");
+    } catch {
+      showToast("Error", "Failed to shatter rune", "error");
+      setIsMutating(false);
+    }
+  };
+
+  const isRealmAdmin = (effectiveRealm ? roles[effectiveRealm] : undefined) === "admin";
+  const isAdmin = isRealmAdmin || isSysadmin;
+  const runeStatus: string = rune?.status ?? "";
+  const canForge = runeStatus === "draft";
+  const canClaim = runeStatus === "open" && Boolean(accountId);
+  const canAssign = runeStatus === "open" && isRealmAdmin;
+  const canFulfill =
+    runeStatus === "claimed" &&
+    ((Boolean(accountId) && rune?.assignee_id === accountId) || isAdmin);
+  const canSeal = runeStatus !== "fulfilled" && runeStatus !== "sealed" && runeStatus !== "";
+  const canShatter = runeStatus === "sealed" || runeStatus === "fulfilled";
+
+  const handleForge = async () => {
+    if (!effectiveRealm || !rune) return;
+
+    setIsMutating(true);
+    try {
+      await api.forgeRune(rune.id, effectiveRealm);
+      showToast("Rune Forged", `"${rune.title}" is now open`, "success");
+      setIsLoading(true);
+      await loadRune();
+    } catch {
+      showToast("Error", "Failed to forge rune", "error");
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
+  const handleClaim = async () => {
+    if (!effectiveRealm || !rune || !accountId) return;
+
+    setIsMutating(true);
+    try {
+      await api.claimRune(rune.id, accountId, effectiveRealm);
+      showToast("Rune Claimed", `You are now assigned to "${rune.title}"`, "success");
+      setIsLoading(true);
+      await loadRune();
+    } catch {
+      showToast("Error", "Failed to claim rune", "error");
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
+  const handleAssign = async () => {
+    if (!effectiveRealm || !rune) return;
+    const target = assignTarget.trim();
+    if (!target) {
+      showToast("Error", "Enter an account ID to assign", "error");
       return;
     }
 
-    const fetchRune = async () => {
-      try {
-        const data = await api.getRune(effectiveRealm, runeId);
-        setRune(data);
-      } catch (error) {
-        showToast("Error", "Failed to load rune", "error");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchRune();
-  }, [authLoading, effectiveRealm, isAuthenticated, realmLoading, runeId, showToast]);
-
-  const handleDelete = async () => {
-    if (!rune || !effectiveRealm) return;
-
-    setIsDeleting(true);
+    setIsMutating(true);
     try {
-      await api.deleteRune(effectiveRealm, rune.id);
-      showToast("Rune Deleted", `"${rune.title}" has been deleted`, "success");
-      navigate("/runes");
-    } catch (error) {
-      showToast("Error", "Failed to delete rune", "error");
-      setIsDeleting(false);
+      await api.claimRune(rune.id, target, effectiveRealm);
+      showToast("Rune Assigned", `Assigned "${rune.title}" to ${target}`, "success");
+      setIsLoading(true);
+      await loadRune();
+    } catch {
+      showToast("Error", "Failed to assign rune", "error");
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
+  const handleFulfill = async () => {
+    if (!effectiveRealm || !rune) return;
+
+    setIsMutating(true);
+    try {
+      await api.fulfillRune(rune.id, effectiveRealm);
+      showToast("Rune Fulfilled", `"${rune.title}" has been fulfilled`, "success");
+      setIsLoading(true);
+      await loadRune();
+    } catch {
+      showToast("Error", "Failed to fulfill rune", "error");
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
+  const handleSeal = async () => {
+    if (!effectiveRealm || !rune) return;
+
+    setIsMutating(true);
+    try {
+      await api.sealRune(rune.id, sealReason.trim(), effectiveRealm);
+      showToast("Rune Sealed", `"${rune.title}" has been sealed`, "success");
+      setIsLoading(true);
+      await loadRune();
+    } catch {
+      showToast("Error", "Failed to seal rune", "error");
+    } finally {
+      setIsMutating(false);
     }
   };
 
@@ -111,7 +218,16 @@ function Page() {
     });
   };
 
-  const getStatusStyle = (status: RuneStatus) => statusColors[status];
+  const getStatusStyle = (status: string) => {
+    if (status === "claimed") {
+      return {
+        bg: "var(--color-amber)",
+        border: "var(--color-border)",
+        text: "white",
+      };
+    }
+    return statusColors[status as RuneStatus] ?? statusColors.draft;
+  };
 
   const formatRelationship = (relationship: string, targetId: string) => {
     switch (relationship) {
@@ -168,7 +284,7 @@ function Page() {
           <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">
             Rune Not Found
           </h2>
-          <p className="text-sm mb-6" style={{ color: "var(--color-border)" }}>
+          <p className="text-sm mb-6" style={{ color: "var(--color-text-muted)" }}>
             The rune you're looking for doesn't exist or you don't have access to it.
           </p>
           <Button
@@ -205,7 +321,7 @@ function Page() {
         <Button
           onClick={() => navigate("/runes")}
           className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wider mb-4 transition-all duration-150 hover:translate-x-[-2px]"
-          style={{ color: "var(--color-border)" }}
+          style={{ color: "var(--color-text-muted)" }}
         >
           <span>&larr;</span>
           <span>Back to Runes</span>
@@ -229,7 +345,7 @@ function Page() {
           </span>
           <span
             className="text-xs uppercase tracking-wider"
-            style={{ color: "var(--color-border)" }}
+            style={{ color: "var(--color-text-muted)" }}
           >
             ID: {rune.id}
           </span>
@@ -249,7 +365,7 @@ function Page() {
         >
           <h2
             className="text-sm uppercase tracking-wider font-bold mb-4"
-            style={{ color: "var(--color-border)" }}
+            style={{ color: "var(--color-text-muted)" }}
           >
             Description
           </h2>
@@ -260,7 +376,7 @@ function Page() {
           ) : (
             <p
               className="text-base italic"
-              style={{ color: "var(--color-border)" }}
+              style={{ color: "var(--color-text-muted)" }}
             >
               No description provided
             </p>
@@ -280,18 +396,18 @@ function Page() {
           >
             <h2
               className="text-sm uppercase tracking-wider font-bold mb-4"
-              style={{ color: "var(--color-border)" }}
+              style={{ color: "var(--color-text-muted)" }}
             >
               Details
             </h2>
             <div className="space-y-4">
               <div>
-                <label
+                <div
                   className="text-xs uppercase tracking-wider block mb-1"
-                  style={{ color: "var(--color-border)" }}
+                  style={{ color: "var(--color-text-muted)" }}
                 >
                   Status
-                </label>
+                </div>
                 <span
                   className="text-xs uppercase tracking-wider px-2 py-1 font-bold"
                   style={{
@@ -305,55 +421,55 @@ function Page() {
               </div>
 
               <div>
-                <label
+                <div
                   className="text-xs uppercase tracking-wider block mb-1"
-                  style={{ color: "var(--color-border)" }}
+                  style={{ color: "var(--color-text-muted)" }}
                 >
                   Priority
-                </label>
+                </div>
                 <span className="text-sm font-bold">{rune.priority}</span>
               </div>
 
               <div>
-                <label
+                <div
                   className="text-xs uppercase tracking-wider block mb-1"
-                  style={{ color: "var(--color-border)" }}
+                  style={{ color: "var(--color-text-muted)" }}
                 >
                   Created
-                </label>
+                </div>
                 <span className="text-sm">{formatDate(rune.created_at)}</span>
               </div>
 
               <div>
-                <label
+                <div
                   className="text-xs uppercase tracking-wider block mb-1"
-                  style={{ color: "var(--color-border)" }}
+                  style={{ color: "var(--color-text-muted)" }}
                 >
                   Updated
-                </label>
+                </div>
                 <span className="text-sm">{formatDate(rune.updated_at)}</span>
               </div>
 
               {rune.saga_id && (
                 <div>
-                  <label
+                  <div
                     className="text-xs uppercase tracking-wider block mb-1"
-                    style={{ color: "var(--color-border)" }}
+                    style={{ color: "var(--color-text-muted)" }}
                   >
                     Saga
-                  </label>
+                  </div>
                   <span className="text-sm font-mono">{rune.saga_id}</span>
                 </div>
               )}
 
               {rune.assignee_id && (
                 <div>
-                  <label
+                  <div
                     className="text-xs uppercase tracking-wider block mb-1"
-                    style={{ color: "var(--color-border)" }}
+                    style={{ color: "var(--color-text-muted)" }}
                   >
                     Assignee
-                  </label>
+                  </div>
                   <span className="text-sm font-mono">{rune.assignee_id}</span>
                 </div>
               )}
@@ -372,7 +488,7 @@ function Page() {
             >
               <h2
                 className="text-sm uppercase tracking-wider font-bold mb-4"
-                style={{ color: "var(--color-border)" }}
+                style={{ color: "var(--color-text-muted)" }}
               >
                 Tags
               </h2>
@@ -405,7 +521,7 @@ function Page() {
             >
               <h2
                 className="text-sm uppercase tracking-wider font-bold mb-4"
-                style={{ color: "var(--color-border)" }}
+                style={{ color: "var(--color-text-muted)" }}
               >
                 Relationships
               </h2>
@@ -437,7 +553,7 @@ function Page() {
           >
             <h2
               className="text-sm uppercase tracking-wider font-bold mb-4"
-              style={{ color: "var(--color-border)" }}
+              style={{ color: "var(--color-text-muted)" }}
             >
               Actions
             </h2>
@@ -449,53 +565,141 @@ function Page() {
                   backgroundColor: "var(--color-amber)",
                   border: "2px solid var(--color-border)",
                   color: "white",
-            boxShadow: "var(--shadow-soft)",
+                  boxShadow: "var(--shadow-soft)",
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
-                  e.currentTarget.style.transform = "translate(2px, 2px)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.boxShadow = "var(--shadow-soft)";
-                  e.currentTarget.style.transform = "translate(0, 0)";
-                }}
+                disabled={isMutating}
               >
                 Edit Rune
               </Button>
-              <Button
-                onClick={() => setShowDeleteDialog(true)}
-                className="w-full px-4 py-3 text-sm font-bold uppercase tracking-wider transition-all duration-150"
-                style={{
-                  backgroundColor: "var(--color-red)",
-                  border: "2px solid var(--color-border)",
-                  color: "white",
-            boxShadow: "var(--shadow-soft)",
-                }}
-                onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
-                  e.currentTarget.style.transform = "translate(2px, 2px)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.boxShadow = "var(--shadow-soft)";
-                  e.currentTarget.style.transform = "translate(0, 0)";
-                }}
-              >
-                Delete Rune
-              </Button>
+
+              {canForge && (
+                <Button
+                  onClick={handleForge}
+                  className="w-full px-4 py-3 text-sm font-bold uppercase tracking-wider"
+                  style={{
+                    backgroundColor: "var(--color-blue)",
+                    border: "2px solid var(--color-border)",
+                    color: "white",
+                  }}
+                  disabled={isMutating}
+                >
+                  Forge
+                </Button>
+              )}
+
+              {canClaim && (
+                <Button
+                  onClick={handleClaim}
+                  className="w-full px-4 py-3 text-sm font-bold uppercase tracking-wider"
+                  style={{
+                    backgroundColor: "var(--color-green)",
+                    border: "2px solid var(--color-border)",
+                    color: "white",
+                  }}
+                  disabled={isMutating}
+                >
+                  Claim
+                </Button>
+              )}
+
+              {canAssign && (
+                <div className="space-y-2">
+                  <Input
+                    value={assignTarget}
+                    onChange={(e) => setAssignTarget(e.target.value)}
+                    placeholder="Assignee account ID"
+                    className="w-full px-3 py-2 text-sm font-mono outline-none"
+                    style={{
+                      backgroundColor: "var(--color-surface)",
+                      border: "2px solid var(--color-border)",
+                      color: "var(--color-text)",
+                    }}
+                  />
+                  <Button
+                    onClick={handleAssign}
+                    className="w-full px-4 py-3 text-sm font-bold uppercase tracking-wider"
+                    style={{
+                      backgroundColor: "var(--color-blue)",
+                      border: "2px solid var(--color-border)",
+                      color: "white",
+                    }}
+                    disabled={isMutating || assignTarget.trim().length === 0}
+                  >
+                    Assign
+                  </Button>
+                </div>
+              )}
+
+              {canFulfill && (
+                <Button
+                  onClick={handleFulfill}
+                  className="w-full px-4 py-3 text-sm font-bold uppercase tracking-wider"
+                  style={{
+                    backgroundColor: "var(--color-green)",
+                    border: "2px solid var(--color-border)",
+                    color: "white",
+                  }}
+                  disabled={isMutating}
+                >
+                  Fulfill
+                </Button>
+              )}
+
+              {canSeal && (
+                <div className="space-y-2">
+                  <Input
+                    value={sealReason}
+                    onChange={(e) => setSealReason(e.target.value)}
+                    placeholder="Seal reason (optional)"
+                    className="w-full px-3 py-2 text-sm outline-none"
+                    style={{
+                      backgroundColor: "var(--color-surface)",
+                      border: "2px solid var(--color-border)",
+                      color: "var(--color-text)",
+                    }}
+                  />
+                  <Button
+                    onClick={handleSeal}
+                    className="w-full px-4 py-3 text-sm font-bold uppercase tracking-wider"
+                    style={{
+                      backgroundColor: "var(--color-purple)",
+                      border: "2px solid var(--color-border)",
+                      color: "white",
+                    }}
+                    disabled={isMutating}
+                  >
+                    Seal
+                  </Button>
+                </div>
+              )}
+
+              {canShatter && (
+                <Button
+                  onClick={() => setShowShatterDialog(true)}
+                  className="w-full px-4 py-3 text-sm font-bold uppercase tracking-wider"
+                  style={{
+                    backgroundColor: "var(--color-red)",
+                    border: "2px solid var(--color-border)",
+                    color: "white",
+                  }}
+                  disabled={isMutating}
+                >
+                  Shatter
+                </Button>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Delete Confirmation Dialog */}
       <Dialog
-        open={showDeleteDialog}
-        onClose={() => setShowDeleteDialog(false)}
-        title="Delete Rune"
-        description={`Are you sure you want to delete "${rune.title}"? This action cannot be undone.`}
-        confirmLabel={isDeleting ? "Deleting..." : "Delete"}
+        open={showShatterDialog}
+        onClose={() => setShowShatterDialog(false)}
+        title="Shatter Rune"
+        description={`Are you sure you want to shatter "${rune.title}"? This action cannot be undone.`}
+        confirmLabel={isMutating ? "Shattering..." : "Shatter"}
         cancelLabel="Cancel"
-        onConfirm={handleDelete}
+        onConfirm={handleShatter}
         color="red"
       />
     </div>

@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 :root {
   /* Navigation colors */
   --color-red: #ef4444;
@@ -13,12 +15,14 @@
   /* Dark theme (default) */
   --color-bg: #1a1a1a;
   --color-text: #f5f5f5;
+  --color-text-muted: #a3a3a3;
   --color-border: #404040;
 }
 
 .light {
   --color-bg: #ffffff;
   --color-text: #1a1a1a;
+  --color-text-muted: #525252;
   --color-border: #e5e5e5;
 }
 
@@ -109,4 +113,3 @@ body {
 .FormControl {
   border: 2px solid var(--color-border);
 }
-@import "tailwindcss";

@@ -87,7 +87,10 @@ function Page() {
     });
   };
 
-  const getStatusColor = (status: RuneStatus) => {
+  const getStatusColor = (status: string) => {
+    if (status === "claimed") {
+      return "var(--color-amber)";
+    }
     const colors: Record<RuneStatus, string> = {
       draft: "var(--color-border)",
       open: "var(--color-blue)",
@@ -95,7 +98,7 @@ function Page() {
       fulfilled: "var(--color-green)",
       sealed: "var(--color-purple)",
     };
-    return colors[status];
+    return colors[status as RuneStatus] ?? "var(--color-border)";
   };
 
   const getPriorityBadge = (priority: number) => {
@@ -106,7 +109,7 @@ function Page() {
     } else if (priority >= 2) {
       return { label: "P3", color: "var(--color-blue)" };
     }
-    return { label: "P4", color: "var(--color-border)" };
+    return { label: "P4", color: "var(--color-text-muted)" };
   };
 
   if (authLoading || realmLoading || isLoading) {
@@ -140,7 +143,7 @@ function Page() {
           <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">
             No Realms Found
           </h2>
-          <p className="text-sm mb-6" style={{ color: "var(--color-border)" }}>
+          <p className="text-sm mb-6" style={{ color: "var(--color-text-muted)" }}>
             You don't have access to any realms yet. Contact your administrator.
           </p>
         </div>
@@ -221,24 +224,27 @@ function Page() {
       >
         {/* Table Header */}
         <div
-          className="grid grid-cols-12 gap-4 px-4 py-3 text-xs font-bold uppercase tracking-wider"
+          className="grid grid-cols-16 gap-4 px-4 py-3 text-xs font-bold uppercase tracking-wider"
           style={{
             borderBottom: "2px solid var(--color-border)",
             backgroundColor: "var(--color-surface)",
           }}
         >
           <div className="col-span-1">ID</div>
-          <div className="col-span-5">Title</div>
+          <div className="col-span-4">Title</div>
           <div className="col-span-2">Status</div>
-          <div className="col-span-2">Priority</div>
-          <div className="col-span-2">Created</div>
+          <div className="col-span-3">Claimed By</div>
+          <div className="col-span-2">Dependencies</div>
+          <div className="col-span-2">Dependents</div>
+          <div className="col-span-1">Priority</div>
+          <div className="col-span-1">Created</div>
         </div>
 
         {/* Table Body */}
         {filteredRunes.length === 0 ? (
           <div
             className="px-4 py-12 text-center text-sm uppercase tracking-wider"
-            style={{ color: "var(--color-border)" }}
+            style={{ color: "var(--color-text-muted)" }}
           >
             No runes found. Create your first rune to get started.
           </div>
@@ -247,14 +253,23 @@ function Page() {
             {filteredRunes.map((rune) => {
               const priorityBadge = getPriorityBadge(rune.priority);
               return (
-                <div
+                <button
+                  type="button"
                   key={rune.id}
-                  className="grid grid-cols-12 gap-4 px-4 py-4 items-center cursor-pointer transition-all duration-150 hover:translate-x-[2px]"
+                  className="grid grid-cols-16 gap-4 px-4 py-4 items-center cursor-pointer transition-all duration-150 hover:translate-x-[2px]"
                   style={{
                     borderBottom: "1px solid var(--color-border)",
                     backgroundColor: "var(--color-bg)",
+                    width: "100%",
+                    textAlign: "left",
                   }}
                   onClick={() => navigate(`/runes/${rune.id}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      navigate(`/runes/${rune.id}`);
+                    }
+                  }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = "var(--color-surface)";
                     e.currentTarget.style.borderLeftWidth = "4px";
@@ -269,12 +284,12 @@ function Page() {
                   <div className="col-span-1">
                     <span
                       className="text-xs font-mono"
-                      style={{ color: "var(--color-border)" }}
+                      style={{ color: "var(--color-text-muted)" }}
                     >
                       {rune.id.slice(0, 8)}
                     </span>
                   </div>
-                  <div className="col-span-5">
+                  <div className="col-span-4">
                     <span className="font-medium truncate block">
                       {rune.title}
                     </span>
@@ -290,7 +305,25 @@ function Page() {
                       {rune.status.replace("_", " ")}
                     </span>
                   </div>
+                  <div className="col-span-3">
+                    <span className="text-xs font-mono" style={{ color: "var(--color-text-muted)" }}>
+                      {(() => {
+                        const claimant = rune.claimant_username || rune.claimant || "";
+                        return claimant && claimant !== "<nil>" ? claimant : "-";
+                      })()}
+                    </span>
+                  </div>
                   <div className="col-span-2">
+                    <span className="text-xs font-semibold" style={{ color: "var(--color-text)" }}>
+                      {rune.dependencies_count ?? 0}
+                    </span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-xs font-semibold" style={{ color: "var(--color-text)" }}>
+                      {rune.dependents_count ?? 0}
+                    </span>
+                  </div>
+                  <div className="col-span-1">
                     <span
                       className="text-xs font-bold px-2 py-1"
                       style={{
@@ -301,15 +334,15 @@ function Page() {
                       {priorityBadge.label}
                     </span>
                   </div>
-                  <div className="col-span-2">
+                  <div className="col-span-1">
                     <span
                       className="text-xs"
-                      style={{ color: "var(--color-border)" }}
+                      style={{ color: "var(--color-text-muted)" }}
                     >
                       {formatDate(rune.created_at)}
                     </span>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>

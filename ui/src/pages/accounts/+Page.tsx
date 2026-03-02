@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@base-ui/react/button";
+import { Dialog as BaseDialog } from "@base-ui/react/dialog";
+import { Input } from "@base-ui/react/input";
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
 import { navigate } from "@/lib/router";
@@ -16,6 +18,9 @@ function Page() {
   const [accounts, setAccounts] = useState<AdminAccountEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [newUsername, setNewUsername] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
   const {
     isAuthenticated,
     isSysadmin,
@@ -27,7 +32,7 @@ function Page() {
   } = useAuth();
   const { showToast } = useToast();
 
-  const toFallbackAccounts = (): AdminAccountEntry[] => {
+  const toFallbackAccounts = useCallback((): AdminAccountEntry[] => {
     if (!accountId || !username) {
       return [];
     }
@@ -43,9 +48,9 @@ function Page() {
         created_at: new Date(0).toISOString(),
       },
     ];
-  };
+  }, [accountId, realms, roles, username]);
 
-  const normalizeAccounts = (rawData: unknown): AdminAccountEntry[] => {
+  const normalizeAccounts = useCallback((rawData: unknown): AdminAccountEntry[] => {
     if (!Array.isArray(rawData)) {
       return [];
     }
@@ -72,7 +77,7 @@ function Page() {
         };
       })
       .filter((entry): entry is AdminAccountEntry => entry !== null);
-  };
+  }, []);
 
   useEffect(() => {
     if (authLoading) return;
@@ -108,11 +113,9 @@ function Page() {
     authLoading,
     isAuthenticated,
     isSysadmin,
-    accountId,
-    username,
-    realms,
-    roles,
+    normalizeAccounts,
     showToast,
+    toFallbackAccounts,
   ]);
 
   const formatDate = (dateStr: string) => {
@@ -139,6 +142,26 @@ function Page() {
       : accounts.filter((account) =>
           statusFilter === "active" ? account.status === "active" : account.status !== "active"
         );
+
+  const handleCreateAccount = async () => {
+    const usernameInput = newUsername.trim();
+    if (!usernameInput || isCreating) {
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const created = await api.createAdminAccount(usernameInput);
+      setIsCreateDialogOpen(false);
+      setNewUsername("");
+      showToast("Success", `Account ${usernameInput} created`, "success");
+      navigate(`/accounts/${created.account_id}`);
+    } catch {
+      showToast("Error", "Failed to create account", "error");
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   if (authLoading || isLoading) {
     return (
@@ -171,7 +194,7 @@ function Page() {
           <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">
             No Accounts Found
           </h2>
-          <p className="text-sm mb-6" style={{ color: "var(--color-border)" }}>
+          <p className="text-sm mb-6" style={{ color: "var(--color-text-muted)" }}>
             No accounts have been created yet. Use the CLI to create an account.
           </p>
         </div>
@@ -215,7 +238,7 @@ function Page() {
         </ToggleGroup>
 
         <Button
-          onClick={() => navigate("/accounts/new")}
+          onClick={() => setIsCreateDialogOpen(true)}
           className="px-3 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-150"
           style={{
             backgroundColor: "var(--color-bg)",
@@ -237,6 +260,83 @@ function Page() {
           +
         </Button>
       </div>
+
+      <BaseDialog.Root open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <BaseDialog.Portal>
+          <BaseDialog.Backdrop className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" />
+          <BaseDialog.Viewport className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <BaseDialog.Popup
+              className="w-full max-w-md p-6"
+              style={{
+                backgroundColor: "var(--color-bg)",
+                border: "2px solid var(--color-border)",
+                boxShadow: "var(--shadow-soft)",
+              }}
+              aria-labelledby="create-account-title"
+              aria-describedby="create-account-description"
+            >
+              <div className="space-y-4">
+                <div>
+                  <BaseDialog.Title id="create-account-title" className="text-xl font-bold uppercase tracking-wide">
+                    Create Account
+                  </BaseDialog.Title>
+                  <BaseDialog.Description
+                    id="create-account-description"
+                    className="mt-2 text-sm"
+                    style={{ color: "var(--color-text-muted)" }}
+                  >
+                    Enter a username to create a new account.
+                  </BaseDialog.Description>
+                </div>
+
+                <div>
+                  <label htmlFor="new-account-username" className="text-xs uppercase tracking-wider block mb-2 font-bold">
+                    Username
+                  </label>
+                  <Input
+                    id="new-account-username"
+                    value={newUsername}
+                    onChange={(e) => setNewUsername(e.target.value)}
+                    placeholder="new-user"
+                    className="w-full px-3 py-2 text-sm font-mono outline-none"
+                    style={{
+                      backgroundColor: "var(--color-surface)",
+                      border: "2px solid var(--color-border)",
+                      color: "var(--color-text)",
+                    }}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3">
+                  <BaseDialog.Close
+                    className="px-4 py-2 text-xs font-bold uppercase tracking-wider"
+                    style={{
+                      backgroundColor: "var(--color-bg)",
+                      border: "2px solid var(--color-border)",
+                      color: "var(--color-text)",
+                    }}
+                  >
+                    Cancel
+                  </BaseDialog.Close>
+                  <Button
+                    type="button"
+                    onClick={handleCreateAccount}
+                    disabled={newUsername.trim().length === 0 || isCreating}
+                    className="px-4 py-2 text-xs font-bold uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{
+                      backgroundColor: "var(--color-blue)",
+                      border: "2px solid var(--color-border)",
+                      color: "white",
+                    }}
+                  >
+                    {isCreating ? "Creating..." : "Create Account"}
+                  </Button>
+                </div>
+              </div>
+            </BaseDialog.Popup>
+          </BaseDialog.Viewport>
+        </BaseDialog.Portal>
+      </BaseDialog.Root>
 
       {/* Accounts Table */}
       <div
@@ -265,19 +365,22 @@ function Page() {
         {filteredAccounts.length === 0 ? (
           <div
             className="px-4 py-12 text-center text-sm uppercase tracking-wider"
-            style={{ color: "var(--color-border)" }}
+            style={{ color: "var(--color-text-muted)" }}
           >
             No accounts match this filter.
           </div>
         ) : (
           <div>
             {filteredAccounts.map((account) => (
-            <div
+            <button
+              type="button"
               key={account.account_id}
               className="grid grid-cols-12 gap-4 px-4 py-4 items-center cursor-pointer transition-all duration-150 hover:translate-x-[2px]"
               style={{
                 borderBottom: "1px solid var(--color-border)",
                 backgroundColor: "var(--color-bg)",
+                width: "100%",
+                textAlign: "left",
               }}
               onClick={() => navigate(`/accounts/${account.account_id}`)}
               onMouseEnter={(e) => {
@@ -294,7 +397,7 @@ function Page() {
               <div className="col-span-2">
                 <span
                   className="text-xs font-mono"
-                  style={{ color: "var(--color-border)" }}
+                  style={{ color: "var(--color-text-muted)" }}
                 >
                   {account.account_id.slice(0, 8)}
                 </span>
@@ -318,7 +421,7 @@ function Page() {
               <div className="col-span-3">
                 <span
                   className="text-xs"
-                  style={{ color: "var(--color-border)" }}
+                  style={{ color: "var(--color-text-muted)" }}
                 >
                   {account.realms.length > 0
                     ? account.realms.slice(0, 3).join(", ") +
@@ -331,12 +434,12 @@ function Page() {
               <div className="col-span-2">
                 <span
                   className="text-xs"
-                  style={{ color: "var(--color-border)" }}
+                  style={{ color: "var(--color-text-muted)" }}
                 >
                   {formatDate(account.created_at)}
                 </span>
               </div>
-            </div>
+            </button>
             ))}
           </div>
         )}

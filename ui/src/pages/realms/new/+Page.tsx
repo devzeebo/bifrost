@@ -108,7 +108,7 @@ function Page() {
         <Button
           onClick={() => navigate("/realms")}
           className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wider mb-4 transition-all duration-150 hover:translate-x-[-2px]"
-          style={{ color: "var(--color-border)" }}
+          style={{ color: "var(--color-text-muted)" }}
         >
           <span>&larr;</span>
           <span>Back to Realms</span>
@@ -121,7 +121,7 @@ function Page() {
         </h1>
         <p
           className="text-sm uppercase tracking-widest mt-1"
-          style={{ color: "var(--color-border)" }}
+          style={{ color: "var(--color-text-muted)" }}
         >
           Create a new workspace for your project
         </p>
@@ -163,7 +163,7 @@ function Page() {
             style={{
               backgroundColor: "var(--color-surface)",
               border: "1px solid var(--color-border)",
-              color: "var(--color-border)",
+              color: "var(--color-text-muted)",
             }}
           >
             Step {step + 1} of {STEPS.length}
@@ -176,7 +176,7 @@ function Page() {
             <div>
               <label
                 className="text-xs uppercase tracking-wider block mb-2 font-bold"
-                style={{ color: "var(--color-border)" }}
+                style={{ color: "var(--color-text-muted)" }}
               >
                 What's the name of your realm?
               </label>
@@ -203,7 +203,7 @@ function Page() {
               />
               <p
                 className="text-xs mt-2"
-                style={{ color: "var(--color-border)" }}
+                style={{ color: "var(--color-text-muted)" }}
               >
                 {form.name.length}/50 characters (minimum 2)
               </p>
@@ -214,7 +214,7 @@ function Page() {
             <div>
               <label
                 className="text-xs uppercase tracking-wider block mb-2 font-bold"
-                style={{ color: "var(--color-border)" }}
+                style={{ color: "var(--color-text-muted)" }}
               >
                 Describe your realm (optional)
               </label>
@@ -253,17 +253,17 @@ function Page() {
           >
             <h3
               className="text-xs uppercase tracking-wider font-bold mb-3"
-              style={{ color: "var(--color-border)" }}
+              style={{ color: "var(--color-text-muted)" }}
             >
               Summary
             </h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span style={{ color: "var(--color-border)" }}>Name:</span>
+                <span style={{ color: "var(--color-text-muted)" }}>Name:</span>
                 <span className="font-medium">{form.name}</span>
               </div>
               <div className="flex justify-between">
-                <span style={{ color: "var(--color-border)" }}>Description:</span>
+                <span style={{ color: "var(--color-text-muted)" }}>Description:</span>
                 <span className="font-medium truncate max-w-[200px]">
                   {form.description || "—"}
                 </span>

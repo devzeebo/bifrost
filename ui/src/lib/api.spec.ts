@@ -200,6 +200,7 @@ describe("ApiClient", () => {
       );
       expect(result).toEqual(runes);
     });
+
   });
 
   describe("getRune", () => {
@@ -236,6 +237,7 @@ describe("ApiClient", () => {
       );
       expect(result).toEqual(rune);
     });
+
   });
 
   describe("createRune", () => {
@@ -303,35 +305,32 @@ describe("ApiClient", () => {
   });
 
   describe("updateRune", () => {
-    test("sends PATCH request to /api/realms/{realmId}/runes/{runeId}", async () => {
+    test("sends POST request to /api/update-rune with command payload", async () => {
       const updates = { title: "Updated Rune", status: "in_progress" as const };
-      const rune = {
-        id: "1",
-        title: "Updated Rune",
-        status: "in_progress" as const,
-      };
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => rune,
+        status: 204,
       });
 
-      const result = await apiClient.updateRune("test-realm", "1", updates);
+      await apiClient.updateRune("test-realm", "1", updates);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "/api/realms/test-realm/runes/1",
+        "/api/update-rune",
         expect.objectContaining({
-          method: "PATCH",
-          body: JSON.stringify(updates),
+          method: "POST",
+          body: JSON.stringify({ id: "1", title: "Updated Rune" }),
+          headers: expect.objectContaining({
+            "X-Bifrost-Realm": "test-realm",
+          }),
           credentials: "include",
         })
       );
-      expect(result).toEqual(rune);
     });
   });
 
   describe("deleteRune", () => {
-    test("sends DELETE request to /api/realms/{realmId}/runes/{runeId}", async () => {
+    test("sends POST request to /api/shatter-rune", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 204,
@@ -340,9 +339,13 @@ describe("ApiClient", () => {
       await apiClient.deleteRune("test-realm", "1");
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "/api/realms/test-realm/runes/1",
+        "/api/shatter-rune",
         expect.objectContaining({
-          method: "DELETE",
+          method: "POST",
+          body: JSON.stringify({ id: "1" }),
+          headers: expect.objectContaining({
+            "X-Bifrost-Realm": "test-realm",
+          }),
           credentials: "include",
         })
       );

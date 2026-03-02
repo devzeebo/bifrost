@@ -21,6 +21,10 @@ export interface RuneListItem {
   title: string;
   status: RuneStatus;
   priority: number;
+  claimant?: string;
+  claimant_username?: string;
+  dependencies_count?: number;
+  dependents_count?: number;
   realm_id: string;
   created_at: string;
   updated_at: string;
@@ -29,6 +33,7 @@ export interface RuneListItem {
 
 export interface RuneDetail extends RuneListItem {
   description: string;
+  branch?: string;
   saga_id?: string;
   assignee_id?: string;
   dependencies: RuneRelationship[];

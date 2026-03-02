@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@base-ui/react/button";
 import { navigate } from "@/lib/router";
 import { useAuth } from "../../lib/auth";
+import { useRealm } from "../../lib/realm";
 import { useToast } from "../../lib/toast";
 import { ApiError, api } from "../../lib/api";
 import type { RuneListItem, RuneStatus } from "../../types/rune";
@@ -20,7 +21,14 @@ function Page() {
   const [runes, setRunes] = useState<RuneListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { realms, isAuthenticated, loading: authLoading } = useAuth();
+  const { currentRealm, availableRealms, isLoading: realmLoading } = useRealm();
   const { showToast } = useToast();
+  const fallbackRealms = realms.filter((realmId) => realmId !== "_admin");
+  const effectiveRealms = availableRealms.length > 0 ? availableRealms : fallbackRealms;
+  const effectiveRealm =
+    currentRealm && effectiveRealms.includes(currentRealm)
+      ? currentRealm
+      : (effectiveRealms[0] ?? null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -31,13 +39,17 @@ function Page() {
     }
 
     const fetchRunes = async () => {
-      if (realms.length === 0) {
+      if (realmLoading) {
+        return;
+      }
+
+      if (!effectiveRealm) {
         setIsLoading(false);
         return;
       }
 
       try {
-        const data = await api.getRunes(realms[0]);
+        const data = await api.getRunes(effectiveRealm);
         setRunes(data);
       } catch (error) {
         if (error instanceof ApiError && error.status === 404) {
@@ -51,7 +63,7 @@ function Page() {
     };
 
     fetchRunes();
-  }, [authLoading, isAuthenticated, realms, showToast]);
+  }, [authLoading, effectiveRealm, isAuthenticated, realmLoading, showToast]);
 
   const stats: StatCard[] = [
     {
@@ -77,7 +89,7 @@ function Page() {
     {
       label: "Sealed",
       value: runes.filter((r) => r.status === "sealed").length,
-      color: "var(--color-border)",
+      color: "var(--color-text-muted)",
     },
   ];
 
@@ -95,7 +107,10 @@ function Page() {
     });
   };
 
-  const getStatusColor = (status: RuneStatus) => {
+  const getStatusColor = (status: string) => {
+    if (status === "claimed") {
+      return "var(--color-amber)";
+    }
     const colors: Record<RuneStatus, string> = {
       draft: "var(--color-border)",
       open: "var(--color-blue)",
@@ -103,10 +118,10 @@ function Page() {
       fulfilled: "var(--color-green)",
       sealed: "var(--color-purple)",
     };
-    return colors[status];
+    return colors[status as RuneStatus] ?? "var(--color-border)";
   };
 
-  if (authLoading || isLoading) {
+  if (authLoading || realmLoading || isLoading) {
     return (
       <div className="min-h-[calc(100vh-56px)] flex items-center justify-center">
         <div
@@ -123,7 +138,7 @@ function Page() {
     );
   }
 
-  if (realms.length === 0) {
+  if (effectiveRealms.length === 0) {
     return (
       <div className="min-h-[calc(100vh-56px)] flex items-center justify-center p-6">
         <div
@@ -137,7 +152,7 @@ function Page() {
           <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">
             No Realms Found
           </h2>
-          <p className="text-sm mb-6" style={{ color: "var(--color-border)" }}>
+          <p className="text-sm mb-6" style={{ color: "var(--color-text-muted)" }}>
             You don't have access to any realms yet. Contact your administrator.
           </p>
         </div>
@@ -158,12 +173,6 @@ function Page() {
               border: "2px solid var(--color-border)",
             boxShadow: "var(--shadow-soft)",
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = "var(--shadow-soft)";
-            }}
           >
             <div
               className="text-4xl font-bold mb-2"
@@ -173,7 +182,7 @@ function Page() {
             </div>
             <div
               className="text-xs uppercase tracking-wider font-semibold"
-              style={{ color: "var(--color-border)" }}
+              style={{ color: "var(--color-text-muted)" }}
             >
               {stat.label}
             </div>
@@ -219,19 +228,22 @@ function Page() {
         {recentRunes.length === 0 ? (
           <p
             className="text-center py-8 text-sm uppercase tracking-wider"
-            style={{ color: "var(--color-border)" }}
+            style={{ color: "var(--color-text-muted)" }}
           >
             No runes yet. Create your first rune to get started.
           </p>
         ) : (
           <div className="space-y-2">
             {recentRunes.map((rune) => (
-              <div
+              <button
+                type="button"
                 key={rune.id}
                 className="flex items-center justify-between p-4 transition-all duration-150 cursor-pointer hover:translate-x-[2px]"
                 style={{
                   backgroundColor: "var(--color-bg)",
                   border: "1px solid var(--color-border)",
+                  width: "100%",
+                  textAlign: "left",
                 }}
                 onClick={() => navigate(`/runes/${rune.id}`)}
                 onMouseEnter={(e) => {
@@ -262,12 +274,12 @@ function Page() {
                   </span>
                   <span
                     className="text-xs"
-                    style={{ color: "var(--color-border)" }}
+                    style={{ color: "var(--color-text-muted)" }}
                   >
                     {formatDate(rune.updated_at)}
                   </span>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}

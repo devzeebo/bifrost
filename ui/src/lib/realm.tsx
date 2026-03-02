@@ -94,7 +94,12 @@ export function RealmProvider({ children }: { children: ReactNode }) {
   const [realmOptions, setRealmOptions] = useState<RealmOption[]>([]);
   const [availableRealms, setAvailableRealms] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { realms: sessionRealms, isAuthenticated, loading: authLoading } = useAuth();
+  const {
+    realms: sessionRealms,
+    realmNames,
+    isAuthenticated,
+    loading: authLoading,
+  } = useAuth();
 
   // Load available realms and restore persisted realm
   useEffect(() => {
@@ -135,22 +140,34 @@ export function RealmProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      const sessionRealmIds = sanitizeRealms(sessionRealms);
+      const sessionRealmSet = new Set(sessionRealmIds);
+
       const fallbackRealms = normalizeRealmOptions(
-        sanitizeRealms(sessionRealms).map((realmId) => ({ id: realmId, name: realmId }))
+        sessionRealmIds.map((realmId) => ({
+          id: realmId,
+          name: realmNames[realmId] || realmId,
+        }))
       );
 
       try {
         const realms = await api.getRealms();
-        const filteredRealms = normalizeRealmOptions(
+        const normalizedRealms = normalizeRealmOptions(
           realms.map((realm) => {
             const value = realm as RealmListEntry & { realm_id?: string };
             const id = value.id || value.realm_id;
+            const resolvedId = id ?? "";
             return {
-              id: id ?? "",
-              name: value.name || id || "",
+              id: resolvedId,
+              name: value.name || realmNames[resolvedId] || resolvedId,
             };
           })
         );
+
+        const filteredRealms =
+          sessionRealmSet.size > 0
+            ? normalizedRealms.filter((realm) => sessionRealmSet.has(realm.id))
+            : normalizedRealms;
 
         applyRealmSelection(filteredRealms.length > 0 ? filteredRealms : fallbackRealms);
       } catch (err) {
@@ -162,7 +179,7 @@ export function RealmProvider({ children }: { children: ReactNode }) {
     };
 
     init();
-  }, [authLoading, isAuthenticated, sessionRealms]);
+  }, [authLoading, isAuthenticated, realmNames, sessionRealms]);
 
   const setCurrentRealm = (realm: string | null) => {
     const nextRealm = realm && availableRealms.includes(realm) ? realm : null;

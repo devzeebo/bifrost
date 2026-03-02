@@ -88,21 +88,21 @@ func RegisterAccountsAPIRoutes(mux *http.ServeMux, cfg *RouteConfig) {
 	requireAdmin := RequireAdminMiddleware()
 
 	// Account list and detail
-	mux.Handle("GET /accounts", authMiddleware(requireAdmin(http.HandlerFunc(handleGetAccounts(cfg)))))
-	mux.Handle("GET /account", authMiddleware(requireAdmin(http.HandlerFunc(handleGetAccount(cfg)))))
+	mux.Handle("GET /api/accounts", authMiddleware(requireAdmin(http.HandlerFunc(handleGetAccounts(cfg)))))
+	mux.Handle("GET /api/account", authMiddleware(requireAdmin(http.HandlerFunc(handleGetAccount(cfg)))))
 
 	// Account management
-	mux.Handle("POST /create-account", authMiddleware(requireAdmin(http.HandlerFunc(handleCreateAccount(cfg)))))
-	mux.Handle("POST /suspend-account", authMiddleware(requireAdmin(http.HandlerFunc(handleSuspendAccount(cfg)))))
+	mux.Handle("POST /api/create-account", authMiddleware(requireAdmin(http.HandlerFunc(handleCreateAccount(cfg)))))
+	mux.Handle("POST /api/suspend-account", authMiddleware(requireAdmin(http.HandlerFunc(handleSuspendAccount(cfg)))))
 
 	// Realm access management
-	mux.Handle("POST /grant-realm", authMiddleware(requireAdmin(http.HandlerFunc(handleGrantRealm(cfg)))))
-	mux.Handle("POST /revoke-realm", authMiddleware(requireAdmin(http.HandlerFunc(handleRevokeRealm(cfg)))))
+	mux.Handle("POST /api/grant-realm", authMiddleware(requireAdmin(http.HandlerFunc(handleGrantRealm(cfg)))))
+	mux.Handle("POST /api/revoke-realm", authMiddleware(requireAdmin(http.HandlerFunc(handleRevokeRealm(cfg)))))
 
 	// PAT management
-	mux.Handle("POST /create-pat", authMiddleware(requireAdmin(http.HandlerFunc(handleCreatePat(cfg)))))
-	mux.Handle("POST /revoke-pat", authMiddleware(requireAdmin(http.HandlerFunc(handleRevokePat(cfg)))))
-	mux.Handle("GET /pats", authMiddleware(requireAdmin(http.HandlerFunc(handleGetPats(cfg)))))
+	mux.Handle("POST /api/create-pat", authMiddleware(requireAdmin(http.HandlerFunc(handleCreatePat(cfg)))))
+	mux.Handle("POST /api/revoke-pat", authMiddleware(requireAdmin(http.HandlerFunc(handleRevokePat(cfg)))))
+	mux.Handle("GET /api/pats", authMiddleware(requireAdmin(http.HandlerFunc(handleGetPats(cfg)))))
 }
 
 func handleGetAccounts(cfg *RouteConfig) http.HandlerFunc {

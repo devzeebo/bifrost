@@ -109,7 +109,7 @@ function Page() {
           }}
         >
           <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">No Realms Found</h2>
-          <p className="text-sm" style={{ color: "var(--color-border)" }}>
+          <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
             You need access to a realm to create runes.
           </p>
         </div>
@@ -224,7 +224,7 @@ function Page() {
         <Button
           onClick={() => navigate("/runes")}
           className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wider transition-all duration-150 hover:translate-x-[-2px]"
-          style={{ color: "var(--color-border)" }}
+          style={{ color: "var(--color-text-muted)" }}
         >
           <span>&larr;</span>
           <span>Back to Runes</span>
@@ -444,7 +444,7 @@ function Page() {
                               </Combobox.Item>
                             ))}
                           </Combobox.List>
-                          <Combobox.Empty className="px-3 py-2 text-sm" style={{ color: "var(--color-border)" }}>
+                          <Combobox.Empty className="px-3 py-2 text-sm" style={{ color: "var(--color-text-muted)" }}>
                             No matching runes.
                           </Combobox.Empty>
                         </Combobox.Popup>
@@ -470,7 +470,7 @@ function Page() {
                   <ScrollArea.Viewport className="max-h-44 overflow-auto">
                     <ScrollArea.Content className="space-y-2 p-2">
                       {selectedRelationships.length === 0 ? (
-                        <p className="text-sm" style={{ color: "var(--color-border)" }}>
+                        <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
                           No relationships added.
                         </p>
                       ) : (

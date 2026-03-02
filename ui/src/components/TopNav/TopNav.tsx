@@ -10,10 +10,10 @@ import { useTheme } from "../../lib/theme";
 import "./TopNav.css";
 
 const NAV_LINKS = [
-  { href: "/", label: "Dashboard", color: "#ef4444" },
-  { href: "/runes", label: "Runes", color: "#f59e0b" },
-  { href: "/realms", label: "Realms", color: "#22c55e" },
-  { href: "/accounts", label: "Accounts", color: "#3b82f6" },
+  { href: "/ui/", label: "Dashboard", color: "#ef4444" },
+  { href: "/ui/runes", label: "Runes", color: "#f59e0b" },
+  { href: "/ui/realms", label: "Realms", color: "#22c55e" },
+  { href: "/ui/accounts", label: "Accounts", color: "#3b82f6" },
 ];
 
 const FALLBACK_INDICATOR_GRADIENT =
@@ -173,7 +173,7 @@ export function TopNav() {
   return (
     <nav className="top-nav">
       {/* Logo */}
-      <a href="/ui/" className="top-nav__logo" onClick={(e) => { e.preventDefault(); navigate("/"); }}>
+      <a href="/ui/" className="top-nav__logo" onClick={(e) => { e.preventDefault(); navigate("/ui/"); }}>
         <span className="top-nav__logo-text">Bifrost</span>
       </a>
 
@@ -188,6 +188,7 @@ export function TopNav() {
         {NAV_LINKS.map((link, index) => (
           <button
             key={link.href}
+            type="button"
             className={`top-nav__link ${activeIndex === index ? "top-nav__link--active" : ""}`}
             onClick={() => handleNavClick(link.href, index)}
             style={{ "--link-color": link.color } as CSSProperties}
@@ -218,7 +219,16 @@ export function TopNav() {
         >
           <Switch.Thumb className="sr-only" />
           {isDark ? (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden="true"
+              focusable="false"
+            >
               <circle cx="12" cy="12" r="5" />
               <line x1="12" y1="1" x2="12" y2="3" />
               <line x1="12" y1="21" x2="12" y2="23" />
@@ -230,7 +240,16 @@ export function TopNav() {
               <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
             </svg>
           ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden="true"
+              focusable="false"
+            >
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
             </svg>
           )}

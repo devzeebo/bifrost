@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@base-ui/react/button";
+import { Dialog as BaseDialog } from "@base-ui/react/dialog";
+import { Input } from "@base-ui/react/input";
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
 import { navigate } from "@/lib/router";
@@ -16,6 +18,9 @@ function Page() {
   const [realms, setRealms] = useState<RealmListEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [newRealmName, setNewRealmName] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
   const {
     isAuthenticated,
     realms: sessionRealmIds,
@@ -24,7 +29,7 @@ function Page() {
   } = useAuth();
   const { showToast } = useToast();
 
-  const toFallbackRealms = (): RealmListEntry[] => {
+  const toFallbackRealms = useCallback((): RealmListEntry[] => {
     const visibleRealmIds = sessionRealmIds.filter((realmId) => realmId !== "_admin");
 
     return visibleRealmIds.map((realmId) => ({
@@ -33,9 +38,9 @@ function Page() {
       status: "active",
       created_at: new Date(0).toISOString(),
     }));
-  };
+  }, [realmNames, sessionRealmIds]);
 
-  const normalizeRealms = (rawData: unknown): RealmListEntry[] => {
+  const normalizeRealms = useCallback((rawData: unknown): RealmListEntry[] => {
     if (!Array.isArray(rawData)) {
       return [];
     }
@@ -69,7 +74,7 @@ function Page() {
         };
       })
       .filter((entry): entry is RealmListEntry => entry !== null);
-  };
+  }, [realmNames]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -96,7 +101,7 @@ function Page() {
     };
 
     fetchRealms();
-  }, [authLoading, isAuthenticated, sessionRealmIds, realmNames, showToast]);
+  }, [authLoading, isAuthenticated, normalizeRealms, showToast, toFallbackRealms]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -121,6 +126,26 @@ function Page() {
       : realms.filter((realm) =>
           statusFilter === "active" ? realm.status === "active" : realm.status !== "active"
         );
+
+  const handleCreateRealm = async () => {
+    const realmName = newRealmName.trim();
+    if (!realmName || isCreating) {
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const created = await api.createRealm({ name: realmName });
+      setIsCreateDialogOpen(false);
+      setNewRealmName("");
+      showToast("Success", `Realm ${realmName} created`, "success");
+      navigate(`/realms/${created.id}`);
+    } catch {
+      showToast("Error", "Failed to create realm", "error");
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   if (authLoading || isLoading) {
     return (
@@ -153,7 +178,7 @@ function Page() {
           <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">
             No Realms Found
           </h2>
-          <p className="text-sm mb-6" style={{ color: "var(--color-border)" }}>
+          <p className="text-sm mb-6" style={{ color: "var(--color-text-muted)" }}>
             You don't have access to any realms yet. Contact your administrator.
           </p>
         </div>
@@ -197,7 +222,7 @@ function Page() {
         </ToggleGroup>
 
         <Button
-          onClick={() => navigate("/realms/new")}
+          onClick={() => setIsCreateDialogOpen(true)}
           className="px-3 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-150"
           style={{
             backgroundColor: "var(--color-bg)",
@@ -219,6 +244,83 @@ function Page() {
           +
         </Button>
       </div>
+
+      <BaseDialog.Root open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <BaseDialog.Portal>
+          <BaseDialog.Backdrop className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" />
+          <BaseDialog.Viewport className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <BaseDialog.Popup
+              className="w-full max-w-md p-6"
+              style={{
+                backgroundColor: "var(--color-bg)",
+                border: "2px solid var(--color-border)",
+                boxShadow: "var(--shadow-soft)",
+              }}
+              aria-labelledby="create-realm-title"
+              aria-describedby="create-realm-description"
+            >
+              <div className="space-y-4">
+                <div>
+                  <BaseDialog.Title id="create-realm-title" className="text-xl font-bold uppercase tracking-wide">
+                    Create Realm
+                  </BaseDialog.Title>
+                  <BaseDialog.Description
+                    id="create-realm-description"
+                    className="mt-2 text-sm"
+                    style={{ color: "var(--color-text-muted)" }}
+                  >
+                    Enter a realm name to create a new realm.
+                  </BaseDialog.Description>
+                </div>
+
+                <div>
+                  <label htmlFor="new-realm-name" className="text-xs uppercase tracking-wider block mb-2 font-bold">
+                    Realm Name
+                  </label>
+                  <Input
+                    id="new-realm-name"
+                    value={newRealmName}
+                    onChange={(e) => setNewRealmName(e.target.value)}
+                    placeholder="Engineering"
+                    className="w-full px-3 py-2 text-sm outline-none"
+                    style={{
+                      backgroundColor: "var(--color-surface)",
+                      border: "2px solid var(--color-border)",
+                      color: "var(--color-text)",
+                    }}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3">
+                  <BaseDialog.Close
+                    className="px-4 py-2 text-xs font-bold uppercase tracking-wider"
+                    style={{
+                      backgroundColor: "var(--color-bg)",
+                      border: "2px solid var(--color-border)",
+                      color: "var(--color-text)",
+                    }}
+                  >
+                    Cancel
+                  </BaseDialog.Close>
+                  <Button
+                    type="button"
+                    onClick={handleCreateRealm}
+                    disabled={newRealmName.trim().length === 0 || isCreating}
+                    className="px-4 py-2 text-xs font-bold uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{
+                      backgroundColor: "var(--color-green)",
+                      border: "2px solid var(--color-border)",
+                      color: "white",
+                    }}
+                  >
+                    {isCreating ? "Creating..." : "Create Realm"}
+                  </Button>
+                </div>
+              </div>
+            </BaseDialog.Popup>
+          </BaseDialog.Viewport>
+        </BaseDialog.Portal>
+      </BaseDialog.Root>
 
       {/* Realms Table */}
       <div
@@ -246,19 +348,22 @@ function Page() {
         {filteredRealms.length === 0 ? (
           <div
             className="px-4 py-12 text-center text-sm uppercase tracking-wider"
-            style={{ color: "var(--color-border)" }}
+            style={{ color: "var(--color-text-muted)" }}
           >
             No realms match this filter.
           </div>
         ) : (
           <div>
             {filteredRealms.map((realm) => (
-            <div
+            <button
+              type="button"
               key={realm.id}
               className="grid grid-cols-12 gap-4 px-4 py-4 items-center cursor-pointer transition-all duration-150 hover:translate-x-[2px]"
               style={{
                 borderBottom: "1px solid var(--color-border)",
                 backgroundColor: "var(--color-bg)",
+                width: "100%",
+                textAlign: "left",
               }}
               onClick={() => navigate(`/realms/${realm.id}`)}
               onMouseEnter={(e) => {
@@ -275,7 +380,7 @@ function Page() {
               <div className="col-span-2">
                 <span
                   className="text-xs font-mono"
-                  style={{ color: "var(--color-border)" }}
+                  style={{ color: "var(--color-text-muted)" }}
                 >
                   {realm.id.slice(0, 8)}
                 </span>
@@ -299,12 +404,12 @@ function Page() {
               <div className="col-span-2">
                 <span
                   className="text-xs"
-                  style={{ color: "var(--color-border)" }}
+                  style={{ color: "var(--color-text-muted)" }}
                 >
                   {formatDate(realm.created_at)}
                 </span>
               </div>
-            </div>
+            </button>
             ))}
           </div>
         )}

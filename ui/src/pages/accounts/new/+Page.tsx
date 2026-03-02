@@ -170,7 +170,7 @@ function Page() {
         <button
           onClick={() => navigate("/accounts")}
           className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wider mb-4 transition-all duration-150 hover:translate-x-[-2px]"
-          style={{ color: "var(--color-border)" }}
+          style={{ color: "var(--color-text-muted)" }}
         >
           <span>&larr;</span>
           <span>Back to Accounts</span>
@@ -183,7 +183,7 @@ function Page() {
         </h1>
         <p
           className="text-sm uppercase tracking-widest mt-1"
-          style={{ color: "var(--color-border)" }}
+          style={{ color: "var(--color-text-muted)" }}
         >
           Create a new user account
         </p>
@@ -225,7 +225,7 @@ function Page() {
             style={{
               backgroundColor: "var(--color-surface)",
               border: "1px solid var(--color-border)",
-              color: "var(--color-border)",
+              color: "var(--color-text-muted)",
             }}
           >
             Step {step + 1} of {STEPS.length}
@@ -238,7 +238,7 @@ function Page() {
             <div>
               <label
                 className="text-xs uppercase tracking-wider block mb-2 font-bold"
-                style={{ color: "var(--color-border)" }}
+                style={{ color: "var(--color-text-muted)" }}
               >
                 Choose a username
               </label>
@@ -265,7 +265,7 @@ function Page() {
               />
               <p
                 className="text-xs mt-2"
-                style={{ color: "var(--color-border)" }}
+                style={{ color: "var(--color-text-muted)" }}
               >
                 {form.username.length}/50 characters (minimum 2)
               </p>
@@ -276,7 +276,7 @@ function Page() {
             <div>
               <label
                 className="text-xs uppercase tracking-wider block mb-2 font-bold"
-                style={{ color: "var(--color-border)" }}
+                style={{ color: "var(--color-text-muted)" }}
               >
                 Select realm
               </label>
@@ -327,7 +327,7 @@ function Page() {
 
               <label
                 className="text-xs uppercase tracking-wider block mb-2 font-bold"
-                style={{ color: "var(--color-border)" }}
+                style={{ color: "var(--color-text-muted)" }}
               >
                 Select role
               </label>
@@ -359,7 +359,7 @@ function Page() {
 
               <p
                 className="text-sm mb-6"
-                style={{ color: "var(--color-border)" }}
+                style={{ color: "var(--color-text-muted)" }}
               >
                 This account will be granted access to the selected realm with the chosen role.
               </p>
@@ -370,7 +370,7 @@ function Page() {
             <div>
               <p
                 className="text-sm mb-6"
-                style={{ color: "var(--color-border)" }}
+                style={{ color: "var(--color-text-muted)" }}
               >
                 Review the account details before creating.
               </p>
@@ -385,26 +385,26 @@ function Page() {
               >
                 <h3
                   className="text-xs uppercase tracking-wider font-bold mb-4"
-                  style={{ color: "var(--color-border)" }}
+                  style={{ color: "var(--color-text-muted)" }}
                 >
                   Account Summary
                 </h3>
                 <div className="space-y-4">
                   <div className="flex justify-between items-center py-2 border-b border-dashed" style={{ borderColor: "var(--color-border)" }}>
-                    <span style={{ color: "var(--color-border)" }}>Username</span>
+                    <span style={{ color: "var(--color-text-muted)" }}>Username</span>
                     <span className="font-bold text-lg">{form.username}</span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-dashed" style={{ borderColor: "var(--color-border)" }}>
-                    <span style={{ color: "var(--color-border)" }}>Realm</span>
+                    <span style={{ color: "var(--color-text-muted)" }}>Realm</span>
                     <span className="font-mono text-sm">{form.realmId}</span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-dashed" style={{ borderColor: "var(--color-border)" }}>
-                    <span style={{ color: "var(--color-border)" }}>Role</span>
+                    <span style={{ color: "var(--color-text-muted)" }}>Role</span>
                     <span className="font-bold uppercase">{form.role}</span>
                   </div>
                   <div className="flex justify-between items-center py-2">
-                    <span style={{ color: "var(--color-border)" }}>Initial PAT</span>
-                    <span className="text-sm" style={{ color: "var(--color-border)" }}>
+                    <span style={{ color: "var(--color-text-muted)" }}>Initial PAT</span>
+                    <span className="text-sm" style={{ color: "var(--color-text-muted)" }}>
                       Will be generated automatically
                     </span>
                   </div>
@@ -413,7 +413,7 @@ function Page() {
 
               <p
                 className="text-xs mt-4"
-                style={{ color: "var(--color-border)" }}
+                style={{ color: "var(--color-text-muted)" }}
               >
                 A Personal Access Token (PAT) will be generated for this account. 
                 You can share it with the user to allow them to authenticate.

@@ -4,3 +4,4 @@ bin/
 *.exe
 node_modules
 .windsurf/
+ui/dist

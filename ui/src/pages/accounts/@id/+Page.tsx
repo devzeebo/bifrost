@@ -192,7 +192,7 @@ function Page() {
           <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">
             Account Not Found
           </h2>
-          <p className="text-sm mb-6" style={{ color: "var(--color-border)" }}>
+          <p className="text-sm mb-6" style={{ color: "var(--color-text-muted)" }}>
             The account you're looking for doesn't exist or has been deleted.
           </p>
           <Button
@@ -229,7 +229,7 @@ function Page() {
         <Button
           onClick={() => navigate("/accounts")}
           className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wider mb-4 transition-all duration-150 hover:translate-x-[-2px]"
-          style={{ color: "var(--color-border)" }}
+          style={{ color: "var(--color-text-muted)" }}
         >
           <span>&larr;</span>
           <span>Back to Accounts</span>
@@ -253,7 +253,7 @@ function Page() {
           </span>
           <span
             className="text-xs uppercase tracking-wider"
-            style={{ color: "var(--color-border)" }}
+            style={{ color: "var(--color-text-muted)" }}
           >
             ID: {account.account_id}
           </span>
@@ -273,7 +273,7 @@ function Page() {
         >
           <h2
             className="text-sm uppercase tracking-wider font-bold mb-6"
-            style={{ color: "var(--color-border)" }}
+            style={{ color: "var(--color-text-muted)" }}
           >
             Account Information
           </h2>
@@ -283,7 +283,7 @@ function Page() {
             <div>
               <label
                 className="text-xs uppercase tracking-wider block mb-2"
-                style={{ color: "var(--color-border)" }}
+                style={{ color: "var(--color-text-muted)" }}
               >
                 Username
               </label>
@@ -294,7 +294,7 @@ function Page() {
             <div>
               <label
                 className="text-xs uppercase tracking-wider block mb-2"
-                style={{ color: "var(--color-border)" }}
+                style={{ color: "var(--color-text-muted)" }}
               >
                 Account ID
               </label>
@@ -305,7 +305,7 @@ function Page() {
             <div>
               <label
                 className="text-xs uppercase tracking-wider block mb-2"
-                style={{ color: "var(--color-border)" }}
+                style={{ color: "var(--color-text-muted)" }}
               >
                 Status
               </label>
@@ -325,7 +325,7 @@ function Page() {
             <div>
               <label
                 className="text-xs uppercase tracking-wider block mb-2"
-                style={{ color: "var(--color-border)" }}
+                style={{ color: "var(--color-text-muted)" }}
               >
                 Created
               </label>
@@ -347,7 +347,7 @@ function Page() {
           >
             <h2
               className="text-sm uppercase tracking-wider font-bold mb-4"
-              style={{ color: "var(--color-border)" }}
+              style={{ color: "var(--color-text-muted)" }}
             >
               Personal Access Tokens
             </h2>
@@ -362,7 +362,7 @@ function Page() {
               >
                 {account.pat_count}
               </div>
-              <span className="text-sm" style={{ color: "var(--color-border)" }}>
+              <span className="text-sm" style={{ color: "var(--color-text-muted)" }}>
                 active token{account.pat_count !== 1 ? "s" : ""}
               </span>
             </div>
@@ -379,19 +379,19 @@ function Page() {
           >
             <h2
               className="text-sm uppercase tracking-wider font-bold mb-4"
-              style={{ color: "var(--color-border)" }}
+              style={{ color: "var(--color-text-muted)" }}
             >
               Quick Stats
             </h2>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-sm" style={{ color: "var(--color-border)" }}>
+                <span className="text-sm" style={{ color: "var(--color-text-muted)" }}>
                   Realms
                 </span>
                 <span className="text-lg font-bold">{account.realms.length}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm" style={{ color: "var(--color-border)" }}>
+                <span className="text-sm" style={{ color: "var(--color-text-muted)" }}>
                   PATs
                 </span>
                 <span className="text-lg font-bold">{account.pat_count}</span>
@@ -412,7 +412,7 @@ function Page() {
           </h2>
           <span
             className="text-sm uppercase tracking-widest"
-            style={{ color: "var(--color-border)" }}
+            style={{ color: "var(--color-text-muted)" }}
           >
             {account.realms.length} realm{account.realms.length !== 1 ? "s" : ""}
           </span>
@@ -429,7 +429,7 @@ function Page() {
           >
             <p
               className="text-sm"
-              style={{ color: "var(--color-border)" }}
+              style={{ color: "var(--color-text-muted)" }}
             >
               This account has no realm memberships.
             </p>
@@ -497,7 +497,7 @@ function Page() {
                     <div className="col-span-3">
                       <span
                         className="text-xs uppercase tracking-wider"
-                        style={{ color: "var(--color-border)" }}
+                        style={{ color: "var(--color-text-muted)" }}
                       >
                         View Realm
                       </span>

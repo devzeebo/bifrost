@@ -231,7 +231,7 @@ function Page() {
           <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">
             Realm Not Found
           </h2>
-          <p className="text-sm mb-6" style={{ color: "var(--color-border)" }}>
+          <p className="text-sm mb-6" style={{ color: "var(--color-text-muted)" }}>
             The realm you're looking for doesn't exist or you don't have access to it.
           </p>
           <Button
@@ -268,7 +268,7 @@ function Page() {
         <Button
           onClick={() => navigate("/realms")}
           className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wider mb-4 transition-all duration-150 hover:translate-x-[-2px]"
-          style={{ color: "var(--color-border)" }}
+          style={{ color: "var(--color-text-muted)" }}
         >
           <span>&larr;</span>
           <span>Back to Realms</span>
@@ -292,13 +292,13 @@ function Page() {
           </span>
           <span
             className="text-xs uppercase tracking-wider"
-            style={{ color: "var(--color-border)" }}
+            style={{ color: "var(--color-text-muted)" }}
           >
             ID: {realm.id}
           </span>
           <span
             className="text-xs uppercase tracking-wider"
-            style={{ color: "var(--color-border)" }}
+            style={{ color: "var(--color-text-muted)" }}
           >
             {realm.member_count} member{realm.member_count !== 1 ? "s" : ""}
           </span>
@@ -318,7 +318,7 @@ function Page() {
         >
           <h2
             className="text-sm uppercase tracking-wider font-bold mb-4"
-            style={{ color: "var(--color-border)" }}
+            style={{ color: "var(--color-text-muted)" }}
           >
             Description
           </h2>
@@ -329,7 +329,7 @@ function Page() {
           ) : (
             <p
               className="text-base italic"
-              style={{ color: "var(--color-border)" }}
+              style={{ color: "var(--color-text-muted)" }}
             >
               No description provided
             </p>
@@ -349,7 +349,7 @@ function Page() {
           >
             <h2
               className="text-sm uppercase tracking-wider font-bold mb-4"
-              style={{ color: "var(--color-border)" }}
+              style={{ color: "var(--color-text-muted)" }}
             >
               Details
             </h2>
@@ -357,7 +357,7 @@ function Page() {
               <div>
                 <label
                   className="text-xs uppercase tracking-wider block mb-1"
-                  style={{ color: "var(--color-border)" }}
+                  style={{ color: "var(--color-text-muted)" }}
                 >
                   Status
                 </label>
@@ -376,7 +376,7 @@ function Page() {
               <div>
                 <label
                   className="text-xs uppercase tracking-wider block mb-1"
-                  style={{ color: "var(--color-border)" }}
+                  style={{ color: "var(--color-text-muted)" }}
                 >
                   Owner ID
                 </label>
@@ -386,7 +386,7 @@ function Page() {
               <div>
                 <label
                   className="text-xs uppercase tracking-wider block mb-1"
-                  style={{ color: "var(--color-border)" }}
+                  style={{ color: "var(--color-text-muted)" }}
                 >
                   Created
                 </label>
@@ -396,7 +396,7 @@ function Page() {
               <div>
                 <label
                   className="text-xs uppercase tracking-wider block mb-1"
-                  style={{ color: "var(--color-border)" }}
+                  style={{ color: "var(--color-text-muted)" }}
                 >
                   Members
                 </label>
@@ -416,7 +416,7 @@ function Page() {
           >
             <h2
               className="text-sm uppercase tracking-wider font-bold mb-4"
-              style={{ color: "var(--color-border)" }}
+              style={{ color: "var(--color-text-muted)" }}
             >
               Actions
             </h2>
@@ -477,7 +477,7 @@ function Page() {
           </h2>
           <span
             className="text-sm uppercase tracking-widest"
-            style={{ color: "var(--color-border)" }}
+            style={{ color: "var(--color-text-muted)" }}
           >
             {runes.length} rune{runes.length !== 1 ? "s" : ""}
           </span>
@@ -494,7 +494,7 @@ function Page() {
           >
             <p
               className="text-sm"
-              style={{ color: "var(--color-border)" }}
+              style={{ color: "var(--color-text-muted)" }}
             >
               No runes in this realm yet.
             </p>
@@ -549,7 +549,7 @@ function Page() {
                     <div className="col-span-2">
                       <span
                         className="text-xs font-mono"
-                        style={{ color: "var(--color-border)" }}
+                        style={{ color: "var(--color-text-muted)" }}
                       >
                         {rune.id.slice(0, 8)}
                       </span>
@@ -577,7 +577,7 @@ function Page() {
                     <div className="col-span-2">
                       <span
                         className="text-xs"
-                        style={{ color: "var(--color-border)" }}
+                        style={{ color: "var(--color-text-muted)" }}
                       >
                         {formatShortDate(rune.created_at)}
                       </span>

@@ -44,8 +44,6 @@ export class ApiClient {
     options: RequestInit = {}
   ): Promise<T> {
     const apiUrl = `${this.baseUrl}${API_PREFIX}${endpoint}`;
-    const fallbackUrl = `${this.baseUrl}${endpoint}`;
-    const canFallback = endpoint === "/create-rune" || endpoint === "/add-dependency";
     const headers: HeadersInit = {
       "Content-Type": "application/json",
       ...options.headers,
@@ -59,10 +57,6 @@ export class ApiClient {
       });
 
     let response = await makeRequest(apiUrl);
-    if (!response.ok && response.status === 404 && canFallback) {
-      response = await makeRequest(fallbackUrl);
-    }
-
     if (!response.ok) {
       let data: unknown;
       try {
@@ -240,21 +234,83 @@ export class ApiClient {
     });
   }
 
+  async forgeRune(runeId: string, realmId?: string): Promise<void> {
+    await this.request<void>("/forge-rune", {
+      method: "POST",
+      body: JSON.stringify({ id: runeId }),
+      headers: this.withRealmHeader(realmId),
+    });
+  }
+
+  async claimRune(runeId: string, claimant: string, realmId?: string): Promise<void> {
+    await this.request<void>("/claim-rune", {
+      method: "POST",
+      body: JSON.stringify({ id: runeId, claimant }),
+      headers: this.withRealmHeader(realmId),
+    });
+  }
+
+  async fulfillRune(runeId: string, realmId?: string): Promise<void> {
+    await this.request<void>("/fulfill-rune", {
+      method: "POST",
+      body: JSON.stringify({ id: runeId }),
+      headers: this.withRealmHeader(realmId),
+    });
+  }
+
+  async sealRune(runeId: string, reason: string, realmId?: string): Promise<void> {
+    await this.request<void>("/seal-rune", {
+      method: "POST",
+      body: JSON.stringify({ id: runeId, reason }),
+      headers: this.withRealmHeader(realmId),
+    });
+  }
+
+  async shatterRune(runeId: string, realmId?: string): Promise<void> {
+    await this.request<void>("/shatter-rune", {
+      method: "POST",
+      body: JSON.stringify({ id: runeId }),
+      headers: this.withRealmHeader(realmId),
+    });
+  }
+
   async updateRune(
     realmId: string,
     runeId: string,
     updates: Partial<RuneDetail>
-  ): Promise<RuneDetail> {
-    return this.request<RuneDetail>(`/realms/${realmId}/runes/${runeId}`, {
-      method: "PATCH",
-      body: JSON.stringify(updates),
+  ): Promise<void> {
+    const command: {
+      id: string;
+      title?: string;
+      description?: string;
+      priority?: number;
+      branch?: string;
+    } = {
+      id: runeId,
+    };
+
+    if (typeof updates.title === "string") {
+      command.title = updates.title;
+    }
+    if (typeof updates.description === "string") {
+      command.description = updates.description;
+    }
+    if (typeof updates.priority === "number") {
+      command.priority = updates.priority;
+    }
+    if (typeof updates.branch === "string") {
+      command.branch = updates.branch;
+    }
+
+    await this.request<void>("/update-rune", {
+      method: "POST",
+      body: JSON.stringify(command),
+      headers: this.withRealmHeader(realmId),
     });
   }
 
   async deleteRune(realmId: string, runeId: string): Promise<void> {
-    return this.request(`/realms/${realmId}/runes/${runeId}`, {
-      method: "DELETE",
-    });
+    await this.shatterRune(runeId, realmId);
   }
 
   // Realms
