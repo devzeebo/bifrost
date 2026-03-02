@@ -52,6 +52,7 @@ func NewHandlers(eventStore core.EventStore, projectionStore core.ProjectionStor
 	h.mux.HandleFunc("GET /runes", h.ListRunes)
 	h.mux.HandleFunc("GET /rune", h.GetRune)
 	h.mux.HandleFunc("POST /create-realm", h.CreateRealm)
+	h.mux.HandleFunc("POST /suspend-realm", h.SuspendRealm)
 	h.mux.HandleFunc("GET /realms", h.ListRealms)
 	h.mux.HandleFunc("GET /realm", h.GetRealm)
 	h.mux.HandleFunc("POST /assign-role", h.AssignRole)
@@ -104,6 +105,7 @@ func (h *Handlers) RegisterRoutes(mux *http.ServeMux, realmMiddleware, adminMidd
 
 	// Admin commands (admin auth — role check)
 	mux.Handle("POST /api/create-realm", adminRoleAuth(http.HandlerFunc(h.CreateRealm)))
+	mux.Handle("POST /api/suspend-realm", adminMiddleware(http.HandlerFunc(h.SuspendRealm)))
 	mux.Handle("GET /api/realms", adminRoleAuth(http.HandlerFunc(h.ListRealms)))
 	mux.Handle("GET /api/realm", viewerAuth(http.HandlerFunc(h.GetRealm)))
 }
@@ -439,6 +441,41 @@ func (h *Handlers) CreateRealm(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]string{
 		"realm_id": result.RealmID,
 	})
+}
+
+func (h *Handlers) SuspendRealm(w http.ResponseWriter, r *http.Request) {
+	realmID, ok := RealmIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusForbidden, "realm ID required")
+		return
+	}
+
+	var cmd domain.SuspendRealm
+	if err := json.NewDecoder(r.Body).Decode(&cmd); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if realmID == domain.AdminRealmID {
+		if cmd.RealmID == "" {
+			writeError(w, http.StatusBadRequest, "realm_id is required")
+			return
+		}
+	} else {
+		if cmd.RealmID == "" {
+			cmd.RealmID = realmID
+		}
+		if cmd.RealmID != realmID {
+			writeError(w, http.StatusForbidden, "realm mismatch")
+			return
+		}
+	}
+
+	if err := domain.HandleSuspendRealm(r.Context(), cmd, h.eventStore); err != nil {
+		handleDomainError(w, err)
+		return
+	}
+	h.runSyncQuietly(r)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // --- Query Handlers ---

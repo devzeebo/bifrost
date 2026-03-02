@@ -378,7 +378,7 @@ describe("ApiClient", () => {
   });
 
   describe("getRealm", () => {
-    test("sends GET request to /api/realms/{realmId}", async () => {
+    test("sends GET request to /api/realm?id={realmId}", async () => {
       const realm = {
         id: "1",
         name: "Realm 1",
@@ -393,10 +393,13 @@ describe("ApiClient", () => {
       const result = await apiClient.getRealm("1");
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "/api/realms/1",
+        "/api/realm?id=1",
         expect.objectContaining({
           method: "GET",
           credentials: "include",
+          headers: expect.objectContaining({
+            "X-Bifrost-Realm": "1",
+          }),
         })
       );
       expect(result).toEqual(realm);
@@ -658,8 +661,8 @@ describe("ApiClient", () => {
     test("throws ApiError with status and message on non-OK response", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
-        status: 404,
-        statusText: "Not Found",
+        status: 500,
+        statusText: "Internal Server Error",
         json: async () => ({ error: "Resource not found" }),
       });
 
@@ -668,8 +671,8 @@ describe("ApiClient", () => {
         throw new Error("Should have thrown ApiError");
       } catch (error) {
         expect(error).toBeInstanceOf(ApiError);
-        expect((error as ApiError).status).toBe(404);
-        expect((error as ApiError).message).toBe("Request failed: Not Found");
+        expect((error as ApiError).status).toBe(500);
+        expect((error as ApiError).message).toBe("Request failed: Internal Server Error");
         expect((error as ApiError).data).toEqual({ error: "Resource not found" });
       }
     });
@@ -707,7 +710,7 @@ describe("ApiClient", () => {
       await customClient.getRealm("1");
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "https://custom.example.com/api/realms/1",
+        "https://custom.example.com/api/realm?id=1",
         expect.any(Object)
       );
     });
@@ -723,7 +726,7 @@ describe("ApiClient", () => {
       await apiClient.getRealm("1");
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "/api/realms/1",
+        "/api/realm?id=1",
         expect.any(Object)
       );
     });

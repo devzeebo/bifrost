@@ -42,7 +42,7 @@ const initialForm: FormData = {
 
 function Page() {
   const { realms, isAuthenticated, loading: authLoading } = useAuth();
-  const { currentRealm, availableRealms, isLoading: realmLoading } = useRealm();
+  const { currentRealm, setCurrentRealm, availableRealms, isLoading: realmLoading } = useRealm();
   const { showToast } = useToast();
   const visibleRealms =
     availableRealms.length > 0 ? availableRealms : realms.filter((realmId) => realmId !== "_admin");
@@ -57,6 +57,20 @@ function Page() {
     useState<RelationshipDirection>("depends_on");
   const [relationshipFilter, setRelationshipFilter] = useState("");
   const [relationshipTargetId, setRelationshipTargetId] = useState("");
+  const [queryRealmApplied, setQueryRealmApplied] = useState(false);
+
+  useEffect(() => {
+    if (queryRealmApplied || realmLoading) {
+      return;
+    }
+
+    const search = typeof window !== "undefined" ? window.location.search : "";
+    const requestedRealm = new URLSearchParams(search).get("realm");
+    if (requestedRealm && visibleRealms.includes(requestedRealm)) {
+      setCurrentRealm(requestedRealm);
+    }
+    setQueryRealmApplied(true);
+  }, [queryRealmApplied, realmLoading, setCurrentRealm, visibleRealms]);
 
   useEffect(() => {
     if (authLoading || realmLoading || !isAuthenticated || !selectedRealm) {
@@ -242,8 +256,11 @@ function Page() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="space-y-6">
             <div>
-              <label className="text-xs uppercase tracking-wider block mb-2 font-bold">Title</label>
+              <label htmlFor="new-rune-title" className="text-xs uppercase tracking-wider block mb-2 font-bold">
+                Title
+              </label>
               <Input
+                id="new-rune-title"
                 type="text"
                 value={form.title}
                 onChange={(e) => updateForm("title", e.target.value)}
@@ -259,10 +276,11 @@ function Page() {
             </div>
 
             <div>
-              <label className="text-xs uppercase tracking-wider block mb-2 font-bold">
+              <label htmlFor="new-rune-description" className="text-xs uppercase tracking-wider block mb-2 font-bold">
                 Description
               </label>
               <textarea
+                id="new-rune-description"
                 value={form.description}
                 onChange={(e) => updateForm("description", e.target.value)}
                 placeholder="Add details about what this rune involves..."
@@ -277,8 +295,11 @@ function Page() {
             </div>
 
             <div>
-              <label className="text-xs uppercase tracking-wider block mb-2 font-bold">Branch</label>
+              <label htmlFor="new-rune-branch" className="text-xs uppercase tracking-wider block mb-2 font-bold">
+                Branch
+              </label>
               <Input
+                id="new-rune-branch"
                 type="text"
                 value={form.branch}
                 onChange={(e) => updateForm("branch", e.target.value)}
@@ -295,12 +316,14 @@ function Page() {
 
           <div className="space-y-6">
             <div>
-              <label className="text-xs uppercase tracking-wider block mb-3 font-bold">Realm</label>
+              <label htmlFor="realm-select" className="text-xs uppercase tracking-wider block mb-3 font-bold">
+                Realm
+              </label>
               <RealmSelector />
             </div>
 
             <div>
-              <label className="text-xs uppercase tracking-wider block mb-3 font-bold">Priority</label>
+              <div className="text-xs uppercase tracking-wider block mb-3 font-bold">Priority</div>
               <ToggleGroup
                 value={[String(form.priority)]}
                 onValueChange={(values) => {
@@ -335,7 +358,7 @@ function Page() {
             </div>
 
             <div>
-              <label className="text-xs uppercase tracking-wider block mb-3 font-bold">Status</label>
+              <div className="text-xs uppercase tracking-wider block mb-3 font-bold">Status</div>
               <ToggleGroup
                 value={[form.status]}
                 onValueChange={(values) => {

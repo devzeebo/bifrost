@@ -339,9 +339,20 @@ export class ApiClient {
   }
 
   async getRealm(realmId: string): Promise<RealmDetail> {
-    return this.request<RealmDetail>(`/realms/${realmId}`, {
-      method: "GET",
-    });
+    try {
+      return await this.request<RealmDetail>(`/realm?id=${encodeURIComponent(realmId)}`, {
+        method: "GET",
+        headers: this.withRealmHeader(realmId),
+      });
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 404) {
+        throw error;
+      }
+
+      return this.request<RealmDetail>(`/realms/${realmId}`, {
+        method: "GET",
+      });
+    }
   }
 
   async createRealm(request: CreateRealmRequest): Promise<CreateRealmResponse> {
@@ -358,6 +369,37 @@ export class ApiClient {
       id: response.realm_id,
       name: request.name,
     };
+  }
+
+  async suspendRealm(request: { realm_id: string; reason?: string }, realmId?: string): Promise<void> {
+    void realmId;
+    return this.request("/suspend-realm", {
+      method: "POST",
+      body: JSON.stringify(request),
+      headers: this.withRealmHeader("_admin"),
+    });
+  }
+
+  async assignRole(
+    request: { account_id: string; realm_id: string; role: string },
+    realmId?: string
+  ): Promise<void> {
+    return this.request("/assign-role", {
+      method: "POST",
+      body: JSON.stringify(request),
+      headers: this.withRealmHeader(realmId ?? request.realm_id),
+    });
+  }
+
+  async revokeRole(
+    request: { account_id: string; realm_id: string },
+    realmId?: string
+  ): Promise<void> {
+    return this.request("/revoke-role", {
+      method: "POST",
+      body: JSON.stringify(request),
+      headers: this.withRealmHeader(realmId ?? request.realm_id),
+    });
   }
 
   // Accounts
