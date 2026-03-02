@@ -669,7 +669,7 @@ func (tc *testContext) middleware_is_invoked() {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	middleware := AuthMiddleware(tc.store)
+	middleware := AuthMiddleware(tc.store, nil)
 	handler := middleware(next)
 	handler.ServeHTTP(tc.recorder, tc.request)
 }

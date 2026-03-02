@@ -49,16 +49,16 @@ func TestAuthRequired_E2E(t *testing.T) {
 			path   string
 			body   string
 		}{
-			{"POST", "/create-rune", `{"title":"t","priority":1}`},
-			{"POST", "/update-rune", `{"id":"bf-0001"}`},
-			{"POST", "/claim-rune", `{"id":"bf-0001","claimant":"me"}`},
-			{"POST", "/fulfill-rune", `{"id":"bf-0001"}`},
-			{"POST", "/seal-rune", `{"id":"bf-0001"}`},
-			{"POST", "/add-dependency", `{"rune_id":"bf-0001","target_id":"bf-0002","relationship":"blocks"}`},
-			{"POST", "/remove-dependency", `{"rune_id":"bf-0001","target_id":"bf-0002","relationship":"blocks"}`},
-			{"POST", "/add-note", `{"rune_id":"bf-0001","text":"note"}`},
-			{"GET", "/runes", ""},
-			{"GET", "/rune?id=bf-0001", ""},
+			{"POST", "/api/create-rune", `{"title":"t","priority":1}`},
+			{"POST", "/api/update-rune", `{"id":"bf-0001"}`},
+			{"POST", "/api/claim-rune", `{"id":"bf-0001","claimant":"me"}`},
+			{"POST", "/api/fulfill-rune", `{"id":"bf-0001"}`},
+			{"POST", "/api/seal-rune", `{"id":"bf-0001"}`},
+			{"POST", "/api/add-dependency", `{"rune_id":"bf-0001","target_id":"bf-0002","relationship":"blocks"}`},
+			{"POST", "/api/remove-dependency", `{"rune_id":"bf-0001","target_id":"bf-0002","relationship":"blocks"}`},
+			{"POST", "/api/add-note", `{"rune_id":"bf-0001","text":"note"}`},
+			{"GET", "/api/runes", ""},
+			{"GET", "/api/rune?id=bf-0001", ""},
 		}
 
 		for _, ep := range endpoints {
@@ -83,8 +83,8 @@ func TestAuthRequired_E2E(t *testing.T) {
 			path   string
 			body   string
 		}{
-			{"POST", "/create-realm", `{"name":"test"}`},
-			{"GET", "/realms", ""},
+			{"POST", "/api/create-realm", `{"name":"test"}`},
+			{"GET", "/api/realms", ""},
 		}
 
 		for _, ep := range endpoints {
@@ -105,7 +105,7 @@ func TestAuthRequired_E2E(t *testing.T) {
 		tc.server_is_running()
 
 		// When — admin key has _admin realm grant, not a user realm
-		tc.request_with_realm("GET", "/runes", "", tc.adminKey, "realm-1")
+		tc.request_with_realm("GET", "/api/runes", "", tc.adminKey, "realm-1")
 
 		// Then
 		tc.status_is(http.StatusForbidden)
@@ -119,7 +119,7 @@ func TestAuthRequired_E2E(t *testing.T) {
 		tc.a_realm_exists("Test Realm")
 
 		// When — realm key has realm grant, not _admin
-		tc.request_with_realm("GET", "/realms", "", tc.realmPATToken, "_admin")
+		tc.request_with_realm("GET", "/api/realms", "", tc.realmPATToken, "_admin")
 
 		// Then
 		tc.status_is(http.StatusForbidden)
@@ -134,7 +134,7 @@ func TestAdminEndpoints_E2E(t *testing.T) {
 		tc.server_is_running()
 
 		// When
-		tc.post("/create-realm", `{"name":"My Realm"}`, tc.adminKey)
+	tc.post("/api/create-realm", `{"name":"My Realm"}`, tc.adminKey)
 
 		// Then
 		tc.status_is(http.StatusCreated)
@@ -149,7 +149,7 @@ func TestAdminEndpoints_E2E(t *testing.T) {
 		tc.a_realm_exists("Realm Alpha")
 
 		// When
-		tc.get("/realms", tc.adminKey)
+	tc.get("/api/realms", tc.adminKey)
 
 		// Then
 		// NOTE: returns empty due to bifrost-rdp (projectors don't write _all key)
@@ -167,7 +167,7 @@ func TestCreateRune_E2E(t *testing.T) {
 		tc.a_realm_exists("Rune Realm")
 
 		// When
-		tc.post("/create-rune", `{"title":"Fix the bridge","description":"Needs repair","priority":1,"branch":"main"}`, tc.realmPATToken)
+	tc.post("/api/create-rune", `{"title":"Fix the bridge","description":"Needs repair","priority":1,"branch":"main"}`, tc.realmPATToken)
 
 		// Then
 		tc.status_is(http.StatusCreated)
@@ -188,7 +188,7 @@ func TestListRunes_E2E(t *testing.T) {
 		tc.a_rune_exists("Task B", 2)
 
 		// When
-		tc.get("/runes", tc.realmPATToken)
+	tc.get("/api/runes", tc.realmPATToken)
 
 		// Then
 		// NOTE: returns empty due to bifrost-rdp (projectors don't write _all key)
@@ -206,7 +206,7 @@ func TestGetRune_E2E(t *testing.T) {
 		tc.a_rune_exists("Detailed Task", 3)
 
 		// When
-		tc.get("/rune?id="+tc.lastRuneID, tc.realmPATToken)
+	tc.get("/api/rune?id="+tc.lastRuneID, tc.realmPATToken)
 
 		// Then
 		tc.status_is(http.StatusOK)
@@ -222,7 +222,7 @@ func TestGetRune_E2E(t *testing.T) {
 		tc.a_realm_exists("Detail Realm")
 
 		// When
-		tc.get("/rune?id=bf-9999", tc.realmPATToken)
+	tc.get("/api/rune?id=bf-9999", tc.realmPATToken)
 
 		// Then
 		tc.status_is(http.StatusNotFound)
@@ -249,13 +249,13 @@ func TestRealmIsolation_E2E(t *testing.T) {
 		realmBToken := tc.realmPATToken
 
 		// When — get rune from realm A using realm B's key
-		tc.request_with_realm("GET", "/rune?id="+runeInA, "", realmBToken, realmBID)
+		tc.request_with_realm("GET", "/api/rune?id="+runeInA, "", realmBToken, realmBID)
 
 		// Then — realm B cannot see realm A's rune
 		tc.status_is(http.StatusNotFound)
 
 		// When — get rune from realm A using realm A's key
-		tc.request_with_realm("GET", "/rune?id="+runeInA, "", realmAToken, realmAID)
+		tc.request_with_realm("GET", "/api/rune?id="+runeInA, "", realmAToken, realmAID)
 
 		// Then — realm A can see its own rune
 		tc.status_is(http.StatusOK)
@@ -323,16 +323,17 @@ func (tc *e2eTestContext) server_is_running() {
 			projectors.NewRuneDetailProjector(),
 			projectors.NewDependencyGraphProjector(),
 			projectors.NewAccountLookupProjector(),
+			projectors.NewAccountListProjector(),
 		},
 	}
 	tc.engine = engine
 
-	// Create an admin account with PAT and _admin realm grant
+	// Create an admin account with PAT and _admin realm grant (with admin role)
 	ctx := context.Background()
 	acctResult, err := domain.HandleCreateAccount(ctx, domain.CreateAccount{Username: "admin"}, es, ps)
 	require.NoError(tc.t, err)
 	_ = engine.RunSync(ctx, nil)
-	err = domain.HandleGrantRealm(ctx, domain.GrantRealm{AccountID: acctResult.AccountID, RealmID: "_admin"}, es)
+	err = domain.HandleAssignRole(ctx, domain.AssignRole{AccountID: acctResult.AccountID, RealmID: "_admin", Role: domain.RoleAdmin}, es)
 	require.NoError(tc.t, err)
 	_ = engine.RunSync(ctx, nil)
 	tc.adminKey = acctResult.RawToken
@@ -340,7 +341,7 @@ func (tc *e2eTestContext) server_is_running() {
 	handlers := NewHandlers(es, ps, engine)
 
 	mux := http.NewServeMux()
-	auth := AuthMiddleware(ps)
+	auth := AuthMiddleware(ps, nil)
 	realmAuth := func(h http.Handler) http.Handler { return auth(RequireRealm(h)) }
 	adminAuth := func(h http.Handler) http.Handler { return auth(h) }
 	handlers.RegisterRoutes(mux, realmAuth, adminAuth)
@@ -354,7 +355,7 @@ func (tc *e2eTestContext) server_is_running() {
 
 func (tc *e2eTestContext) a_realm_exists(name string) {
 	tc.t.Helper()
-	tc.post("/create-realm", `{"name":"`+name+`"}`, tc.adminKey)
+	tc.post("/api/create-realm", `{"name":"`+name+`"}`, tc.adminKey)
 	require.Equal(tc.t, http.StatusCreated, tc.resp.StatusCode, "failed to create realm: %s", string(tc.respBody))
 	tc.realmID = tc.respJSON["realm_id"].(string)
 
@@ -376,7 +377,7 @@ func (tc *e2eTestContext) a_rune_exists(title string, priority int) {
 		"priority": priority,
 		"branch":   "main",
 	})
-	tc.post("/create-rune", string(body), tc.realmPATToken)
+	tc.post("/api/create-rune", string(body), tc.realmPATToken)
 	require.Equal(tc.t, http.StatusCreated, tc.resp.StatusCode, "failed to create rune: %s", string(tc.respBody))
 	tc.lastRuneID = tc.respJSON["id"].(string)
 }

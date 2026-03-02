@@ -929,7 +929,7 @@ func TestAssignRoleHandler(t *testing.T) {
 		tc.routes_are_registered()
 
 		// When
-		tc.post_to_mux("/assign-role", domain.AssignRole{
+		tc.post_to_mux("/api/assign-role", domain.AssignRole{
 			AccountID: "acct-target",
 			RealmID:   "realm-1",
 			Role:      "member",
@@ -1166,23 +1166,23 @@ func TestRegisterRoutes(t *testing.T) {
 
 		// Then
 		tc.route_exists("GET", "/health")
-		tc.route_exists("POST", "/create-rune")
-		tc.route_exists("POST", "/update-rune")
-		tc.route_exists("POST", "/claim-rune")
-		tc.route_exists("POST", "/fulfill-rune")
-		tc.route_exists("POST", "/forge-rune")
-		tc.route_exists("POST", "/seal-rune")
-		tc.route_exists("POST", "/shatter-rune")
-		tc.route_exists("POST", "/sweep-runes")
-		tc.route_exists("POST", "/add-dependency")
-		tc.route_exists("POST", "/remove-dependency")
-		tc.route_exists("POST", "/add-note")
-		tc.route_exists("GET", "/runes")
-		tc.route_exists("GET", "/rune")
-		tc.route_exists("POST", "/create-realm")
-		tc.route_exists("GET", "/realms")
-		tc.route_exists("POST", "/assign-role")
-		tc.route_exists("POST", "/revoke-role")
+		tc.route_exists("POST", "/api/create-rune")
+		tc.route_exists("POST", "/api/update-rune")
+		tc.route_exists("POST", "/api/claim-rune")
+		tc.route_exists("POST", "/api/fulfill-rune")
+		tc.route_exists("POST", "/api/forge-rune")
+		tc.route_exists("POST", "/api/seal-rune")
+		tc.route_exists("POST", "/api/shatter-rune")
+		tc.route_exists("POST", "/api/sweep-runes")
+		tc.route_exists("POST", "/api/add-dependency")
+		tc.route_exists("POST", "/api/remove-dependency")
+		tc.route_exists("POST", "/api/add-note")
+		tc.route_exists("GET", "/api/runes")
+		tc.route_exists("GET", "/api/rune")
+		tc.route_exists("POST", "/api/create-realm")
+		tc.route_exists("GET", "/api/realms")
+		tc.route_exists("POST", "/api/assign-role")
+		tc.route_exists("POST", "/api/revoke-role")
 	})
 }
 
@@ -1199,7 +1199,7 @@ func TestRoleBasedRouting(t *testing.T) {
 		tc.routes_are_registered()
 
 		// When
-		tc.get_from_mux("/runes")
+		tc.get_from_mux("/api/runes")
 
 		// Then
 		tc.status_is(http.StatusOK)
@@ -1215,7 +1215,7 @@ func TestRoleBasedRouting(t *testing.T) {
 		tc.routes_are_registered()
 
 		// When
-		tc.post_to_mux("/create-rune", domain.CreateRune{
+		tc.post_to_mux("/api/create-rune", domain.CreateRune{
 			Title:    "Test",
 			Priority: 1,
 			Branch:   strPtr("main"),
@@ -1236,7 +1236,7 @@ func TestRoleBasedRouting(t *testing.T) {
 		tc.routes_are_registered()
 
 		// When
-		tc.post_to_mux("/create-rune", domain.CreateRune{
+		tc.post_to_mux("/api/create-rune", domain.CreateRune{
 			Title:    "Test",
 			Priority: 1,
 			Branch:   strPtr("main"),
@@ -1256,7 +1256,7 @@ func TestRoleBasedRouting(t *testing.T) {
 		tc.routes_are_registered()
 
 		// When
-		tc.post_to_mux("/assign-role", domain.AssignRole{
+		tc.post_to_mux("/api/assign-role", domain.AssignRole{
 			AccountID: "acct-target",
 			RealmID:   "realm-1",
 			Role:      "member",
@@ -1276,7 +1276,7 @@ func TestRoleBasedRouting(t *testing.T) {
 		tc.routes_are_registered()
 
 		// When
-		tc.post_to_mux("/forge-rune", domain.ForgeRune{
+		tc.post_to_mux("/api/forge-rune", domain.ForgeRune{
 			ID: "bf-0001",
 		})
 
@@ -1295,7 +1295,7 @@ func TestRoleBasedRouting(t *testing.T) {
 		tc.routes_are_registered()
 
 		// When
-		tc.post_to_mux("/forge-rune", domain.ForgeRune{
+		tc.post_to_mux("/api/forge-rune", domain.ForgeRune{
 			ID: "bf-0001",
 		})
 
@@ -1314,7 +1314,7 @@ func TestRoleBasedRouting(t *testing.T) {
 		tc.routes_are_registered()
 
 		// When
-		tc.post_to_mux("/assign-role", domain.AssignRole{
+		tc.post_to_mux("/api/assign-role", domain.AssignRole{
 			AccountID: "acct-target",
 			RealmID:   "realm-1",
 			Role:      "member",

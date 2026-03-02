@@ -54,21 +54,29 @@ type SessionInfo struct {
 }
 
 // OnboardingCheckResponse is the response for GET /ui/check-onboarding.
+// Returns the state of the system to determine what onboarding steps are needed.
+// Note: A "sysadmin" is any account with admin or owner role in the _admin realm.
 type OnboardingCheckResponse struct {
-	NeedsOnboarding bool `json:"needs_onboarding"`
+	NeedsSysAdmin bool `json:"needs_sysadmin"` // true if no sysadmin exists
+	NeedsRealm    bool `json:"needs_realm"`    // true if no realms exist (excluding _admin)
+	NeedsOnboarding bool `json:"needs_onboarding"` // true if either is needed
 }
 
 // CreateAdminRequest is the request body for POST /ui/onboarding/create-admin.
+// Fields are conditionally required based on what's being created.
 type CreateAdminRequest struct {
-	Username  string `json:"username"`
-	RealmName string `json:"realm_name"`
+	Username      string `json:"username"`       // Required if creating sysadmin
+	RealmName     string `json:"realm_name"`     // Required if creating realm
+	CreateSysAdmin bool   `json:"create_sysadmin"` // Whether to create a sysadmin account
+	CreateRealm    bool   `json:"create_realm"`    // Whether to create an initial realm
 }
 
 // CreateAdminResponse is the response for POST /ui/onboarding/create-admin.
+// Fields are populated based on what was created.
 type CreateAdminResponse struct {
-	AccountID string `json:"account_id"`
-	PAT       string `json:"pat"`
-	RealmID   string `json:"realm_id"`
+	AccountID string `json:"account_id,omitempty"` // Set if sysadmin was created
+	PAT       string `json:"pat,omitempty"`       // Set if sysadmin was created
+	RealmID   string `json:"realm_id,omitempty"`  // Set if realm was created
 }
 
 // RegisterSessionAPIRoutes registers the session API routes for the Vike/React UI.
@@ -223,18 +231,49 @@ func handleUISession(cfg *RouteConfig) http.HandlerFunc {
 
 func handleCheckOnboarding(cfg *RouteConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		needsOnboarding := true
+		needsSysAdmin := true
+		needsRealm := true
 
-		// Check if any accounts exist
 		if cfg.ProjectionStore != nil {
-			accounts, err := cfg.ProjectionStore.List(r.Context(), "_admin", "account_list")
-			if err == nil && len(accounts) > 0 {
-				needsOnboarding = false
+			// Check if any sysadmin exists (account with admin/owner role in _admin realm)
+			rawAccounts, err := cfg.ProjectionStore.List(r.Context(), "_admin", "account_list")
+			if err == nil {
+				for _, raw := range rawAccounts {
+					var account struct {
+						Roles map[string]string `json:"roles"`
+					}
+					if err := json.Unmarshal(raw, &account); err != nil {
+						continue
+					}
+					if account.Roles["_admin"] == "admin" || account.Roles["_admin"] == "owner" {
+						needsSysAdmin = false
+						break
+					}
+				}
+			}
+
+			// Check if any realms exist (excluding _admin)
+			rawRealms, err := cfg.ProjectionStore.List(r.Context(), "_admin", "realm_list")
+			if err == nil {
+				for _, raw := range rawRealms {
+					var realm struct {
+						RealmID string `json:"realm_id"`
+					}
+					if err := json.Unmarshal(raw, &realm); err != nil {
+						continue
+					}
+					if realm.RealmID != "_admin" {
+						needsRealm = false
+						break
+					}
+				}
 			}
 		}
 
 		resp := OnboardingCheckResponse{
-			NeedsOnboarding: needsOnboarding,
+			NeedsSysAdmin:  needsSysAdmin,
+			NeedsRealm:     needsRealm,
+			NeedsOnboarding: needsSysAdmin || needsRealm,
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -244,77 +283,125 @@ func handleCheckOnboarding(cfg *RouteConfig) http.HandlerFunc {
 
 func handleCreateAdmin(cfg *RouteConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Check if onboarding is allowed (no accounts exist)
+		// Determine what's actually needed
+		needsSysAdmin := true
+		needsRealm := true
+
 		if cfg.ProjectionStore != nil {
-			accounts, err := cfg.ProjectionStore.List(r.Context(), "_admin", "account_list")
-			if err == nil && len(accounts) > 0 {
-				http.Error(w, "onboarding already complete", http.StatusBadRequest)
-				return
+			// Check if any sysadmin exists
+			rawAccounts, err := cfg.ProjectionStore.List(r.Context(), "_admin", "account_list")
+			if err == nil {
+				for _, raw := range rawAccounts {
+					var account struct {
+						Roles map[string]string `json:"roles"`
+					}
+					if err := json.Unmarshal(raw, &account); err != nil {
+						continue
+					}
+					if account.Roles["_admin"] == "admin" || account.Roles["_admin"] == "owner" {
+						needsSysAdmin = false
+						break
+					}
+				}
+			}
+
+			// Check if any realms exist (excluding _admin)
+			rawRealms, err := cfg.ProjectionStore.List(r.Context(), "_admin", "realm_list")
+			if err == nil {
+				for _, raw := range rawRealms {
+					var realm struct {
+						RealmID string `json:"realm_id"`
+					}
+					if err := json.Unmarshal(raw, &realm); err != nil {
+						continue
+					}
+					if realm.RealmID != "_admin" {
+						needsRealm = false
+						break
+					}
+				}
 			}
 		}
 
+		// Parse request
 		var req CreateAdminRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "invalid JSON", http.StatusBadRequest)
 			return
 		}
 
-		username := strings.TrimSpace(req.Username)
-		if username == "" {
-			http.Error(w, "username is required", http.StatusBadRequest)
+		// Validate request against what's actually needed
+		if req.CreateSysAdmin && !needsSysAdmin {
+			http.Error(w, "sysadmin already exists", http.StatusBadRequest)
+			return
+		}
+		if req.CreateRealm && !needsRealm {
+			http.Error(w, "realm already exists", http.StatusBadRequest)
+			return
+		}
+		if !req.CreateSysAdmin && !req.CreateRealm {
+			http.Error(w, "must specify at least one of create_sysadmin or create_realm", http.StatusBadRequest)
+			return
+		}
+		if req.CreateSysAdmin && strings.TrimSpace(req.Username) == "" {
+			http.Error(w, "username is required when creating sysadmin", http.StatusBadRequest)
+			return
+		}
+		if req.CreateRealm && strings.TrimSpace(req.RealmName) == "" {
+			http.Error(w, "realm_name is required when creating realm", http.StatusBadRequest)
 			return
 		}
 
-		realmName := strings.TrimSpace(req.RealmName)
-		if realmName == "" {
-			realmName = "default" // Default realm name if not provided
+		var resp CreateAdminResponse
+
+		// Conditionally create realm
+		if req.CreateRealm {
+			realmResult, err := domain.HandleCreateRealm(r.Context(), domain.CreateRealm{
+				Name: strings.TrimSpace(req.RealmName),
+			}, cfg.EventStore)
+			if err != nil {
+				http.Error(w, "failed to create realm", http.StatusInternalServerError)
+				return
+			}
+			resp.RealmID = realmResult.RealmID
 		}
 
-		// Create the initial realm
-		realmResult, err := domain.HandleCreateRealm(r.Context(), domain.CreateRealm{
-			Name: realmName,
-		}, cfg.EventStore)
-		if err != nil {
-			http.Error(w, "failed to create realm", http.StatusInternalServerError)
-			return
-		}
+		// Conditionally create sysadmin
+		if req.CreateSysAdmin {
+			result, err := domain.HandleCreateAccount(r.Context(), domain.CreateAccount{
+				Username: strings.TrimSpace(req.Username),
+			}, cfg.EventStore, cfg.ProjectionStore)
+			if err != nil {
+				http.Error(w, "failed to create account", http.StatusInternalServerError)
+				return
+			}
 
-		// Create account via domain command
-		result, err := domain.HandleCreateAccount(r.Context(), domain.CreateAccount{
-			Username: username,
-		}, cfg.EventStore, cfg.ProjectionStore)
-		if err != nil {
-			http.Error(w, "failed to create account", http.StatusInternalServerError)
-			return
-		}
+			// Grant admin role in _admin realm
+			err = domain.HandleAssignRole(r.Context(), domain.AssignRole{
+				AccountID: result.AccountID,
+				RealmID:   "_admin",
+				Role:      "admin",
+			}, cfg.EventStore)
+			if err != nil {
+				http.Error(w, "failed to assign admin role", http.StatusInternalServerError)
+				return
+			}
 
-		// Grant admin role in _admin realm
-		err = domain.HandleAssignRole(r.Context(), domain.AssignRole{
-			AccountID: result.AccountID,
-			RealmID:   "_admin",
-			Role:      "admin",
-		}, cfg.EventStore)
-		if err != nil {
-			http.Error(w, "failed to assign admin role", http.StatusInternalServerError)
-			return
-		}
+			// Grant owner role in the realm if we created one
+			if resp.RealmID != "" {
+				err = domain.HandleAssignRole(r.Context(), domain.AssignRole{
+					AccountID: result.AccountID,
+					RealmID:   resp.RealmID,
+					Role:      "owner",
+				}, cfg.EventStore)
+				if err != nil {
+					http.Error(w, "failed to assign realm role", http.StatusInternalServerError)
+					return
+				}
+			}
 
-		// Grant owner role in the initial realm
-		err = domain.HandleAssignRole(r.Context(), domain.AssignRole{
-			AccountID: result.AccountID,
-			RealmID:   realmResult.RealmID,
-			Role:      "owner",
-		}, cfg.EventStore)
-		if err != nil {
-			http.Error(w, "failed to assign realm role", http.StatusInternalServerError)
-			return
-		}
-
-		// Return account info with PAT
-		resp := CreateAdminResponse{
-			AccountID: result.AccountID,
-			PAT:       result.RawToken,
-			RealmID:   realmResult.RealmID,
+			resp.AccountID = result.AccountID
+			resp.PAT = result.RawToken
 		}
 
 		w.Header().Set("Content-Type", "application/json")

@@ -102,7 +102,7 @@ func RegisterAccountsAPIRoutes(mux *http.ServeMux, cfg *RouteConfig) {
 
 	// Account management
 	mux.Handle("POST /api/create-account", authMiddleware(requireAdmin(http.HandlerFunc(handleCreateAccount(cfg)))))
-	mux.Handle("POST /api/suspend-account", authMiddleware(http.HandlerFunc(handleSuspendAccount(cfg))))
+	mux.Handle("POST /api/suspend-account", authMiddleware(requireAdmin(http.HandlerFunc(handleSuspendAccount(cfg)))))
 
 	// Realm access management
 	mux.Handle("POST /api/grant-realm", authMiddleware(requireAdmin(http.HandlerFunc(handleGrantRealm(cfg)))))
