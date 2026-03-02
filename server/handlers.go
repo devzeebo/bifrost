@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/devzeebo/bifrost/core"
 	"github.com/devzeebo/bifrost/domain"
@@ -51,7 +52,9 @@ func NewHandlers(eventStore core.EventStore, projectionStore core.ProjectionStor
 	h.mux.HandleFunc("GET /runes", h.ListRunes)
 	h.mux.HandleFunc("GET /rune", h.GetRune)
 	h.mux.HandleFunc("POST /create-realm", h.CreateRealm)
+	h.mux.HandleFunc("POST /suspend-realm", h.SuspendRealm)
 	h.mux.HandleFunc("GET /realms", h.ListRealms)
+	h.mux.HandleFunc("GET /realm", h.GetRealm)
 	h.mux.HandleFunc("POST /assign-role", h.AssignRole)
 	h.mux.HandleFunc("POST /revoke-role", h.RevokeRole)
 	return h
@@ -79,30 +82,32 @@ func (h *Handlers) RegisterRoutes(mux *http.ServeMux, realmMiddleware, adminMidd
 	mux.HandleFunc("GET /health", h.Health)
 
 	// Rune commands (member role minimum)
-	mux.Handle("POST /create-rune", memberAuth(http.HandlerFunc(h.CreateRune)))
-	mux.Handle("POST /update-rune", memberAuth(http.HandlerFunc(h.UpdateRune)))
-	mux.Handle("POST /claim-rune", memberAuth(http.HandlerFunc(h.ClaimRune)))
-	mux.Handle("POST /unclaim-rune", memberAuth(http.HandlerFunc(h.UnclaimRune)))
-	mux.Handle("POST /fulfill-rune", memberAuth(http.HandlerFunc(h.FulfillRune)))
-	mux.Handle("POST /seal-rune", memberAuth(http.HandlerFunc(h.SealRune)))
-	mux.Handle("POST /forge-rune", memberAuth(http.HandlerFunc(h.ForgeRune)))
-	mux.Handle("POST /add-dependency", memberAuth(http.HandlerFunc(h.AddDependency)))
-	mux.Handle("POST /remove-dependency", memberAuth(http.HandlerFunc(h.RemoveDependency)))
-	mux.Handle("POST /add-note", memberAuth(http.HandlerFunc(h.AddNote)))
-	mux.Handle("POST /shatter-rune", memberAuth(http.HandlerFunc(h.ShatterRune)))
-	mux.Handle("POST /sweep-runes", memberAuth(http.HandlerFunc(h.SweepRunes)))
+	mux.Handle("POST /api/create-rune", memberAuth(http.HandlerFunc(h.CreateRune)))
+	mux.Handle("POST /api/update-rune", memberAuth(http.HandlerFunc(h.UpdateRune)))
+	mux.Handle("POST /api/claim-rune", memberAuth(http.HandlerFunc(h.ClaimRune)))
+	mux.Handle("POST /api/unclaim-rune", memberAuth(http.HandlerFunc(h.UnclaimRune)))
+	mux.Handle("POST /api/fulfill-rune", memberAuth(http.HandlerFunc(h.FulfillRune)))
+	mux.Handle("POST /api/seal-rune", memberAuth(http.HandlerFunc(h.SealRune)))
+	mux.Handle("POST /api/forge-rune", memberAuth(http.HandlerFunc(h.ForgeRune)))
+	mux.Handle("POST /api/add-dependency", memberAuth(http.HandlerFunc(h.AddDependency)))
+	mux.Handle("POST /api/remove-dependency", memberAuth(http.HandlerFunc(h.RemoveDependency)))
+	mux.Handle("POST /api/add-note", memberAuth(http.HandlerFunc(h.AddNote)))
+	mux.Handle("POST /api/shatter-rune", memberAuth(http.HandlerFunc(h.ShatterRune)))
+	mux.Handle("POST /api/sweep-runes", memberAuth(http.HandlerFunc(h.SweepRunes)))
 
 	// Rune queries (viewer role minimum)
-	mux.Handle("GET /runes", viewerAuth(http.HandlerFunc(h.ListRunes)))
-	mux.Handle("GET /rune", viewerAuth(http.HandlerFunc(h.GetRune)))
+	mux.Handle("GET /api/runes", viewerAuth(http.HandlerFunc(h.ListRunes)))
+	mux.Handle("GET /api/rune", viewerAuth(http.HandlerFunc(h.GetRune)))
 
 	// Role management (admin role minimum, realm auth)
-	mux.Handle("POST /assign-role", adminRoleAuth(http.HandlerFunc(h.AssignRole)))
-	mux.Handle("POST /revoke-role", adminRoleAuth(http.HandlerFunc(h.RevokeRole)))
+	mux.Handle("POST /api/assign-role", adminRoleAuth(http.HandlerFunc(h.AssignRole)))
+	mux.Handle("POST /api/revoke-role", adminRoleAuth(http.HandlerFunc(h.RevokeRole)))
 
-	// Admin commands (admin auth — _admin realm check)
-	mux.Handle("POST /create-realm", adminMiddleware(http.HandlerFunc(h.CreateRealm)))
-	mux.Handle("GET /realms", adminMiddleware(http.HandlerFunc(h.ListRealms)))
+	// Admin commands (admin auth — role check)
+	mux.Handle("POST /api/create-realm", adminRoleAuth(http.HandlerFunc(h.CreateRealm)))
+	mux.Handle("POST /api/suspend-realm", adminMiddleware(http.HandlerFunc(h.SuspendRealm)))
+	mux.Handle("GET /api/realms", adminRoleAuth(http.HandlerFunc(h.ListRealms)))
+	mux.Handle("GET /api/realm", viewerAuth(http.HandlerFunc(h.GetRealm)))
 }
 
 // --- Command Handlers ---
@@ -419,10 +424,58 @@ func (h *Handlers) CreateRealm(w http.ResponseWriter, r *http.Request) {
 		handleDomainError(w, err)
 		return
 	}
+
+	if accountID, ok := AccountIDFromContext(r.Context()); ok && accountID != "" {
+		err = domain.HandleAssignRole(r.Context(), domain.AssignRole{
+			AccountID: accountID,
+			RealmID:   result.RealmID,
+			Role:      domain.RoleOwner,
+		}, h.eventStore)
+		if err != nil {
+			handleDomainError(w, err)
+			return
+		}
+	}
+
 	h.runSyncQuietly(r)
 	writeJSON(w, http.StatusCreated, map[string]string{
 		"realm_id": result.RealmID,
 	})
+}
+
+func (h *Handlers) SuspendRealm(w http.ResponseWriter, r *http.Request) {
+	realmID, ok := RealmIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusForbidden, "realm ID required")
+		return
+	}
+
+	var cmd domain.SuspendRealm
+	if err := json.NewDecoder(r.Body).Decode(&cmd); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if realmID == domain.AdminRealmID {
+		if cmd.RealmID == "" {
+			writeError(w, http.StatusBadRequest, "realm_id is required")
+			return
+		}
+	} else {
+		if cmd.RealmID == "" {
+			cmd.RealmID = realmID
+		}
+		if cmd.RealmID != realmID {
+			writeError(w, http.StatusForbidden, "realm mismatch")
+			return
+		}
+	}
+
+	if err := domain.HandleSuspendRealm(r.Context(), cmd, h.eventStore); err != nil {
+		handleDomainError(w, err)
+		return
+	}
+	h.runSyncQuietly(r)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // --- Query Handlers ---
@@ -438,6 +491,7 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to list runes")
 		return
 	}
+	allRunes := append([]json.RawMessage(nil), runes...)
 
 	statusFilter := r.URL.Query().Get("status")
 	priorityFilter := r.URL.Query().Get("priority")
@@ -516,16 +570,80 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 		runes = unblocked
 	}
 
+	allStatuses := make(map[string]string)
+	for _, raw := range allRunes {
+		var item map[string]any
+		if json.Unmarshal(raw, &item) != nil {
+			continue
+		}
+		runeID := fmt.Sprintf("%v", item["id"])
+		status := fmt.Sprintf("%v", item["status"])
+		if runeID != "" {
+			allStatuses[runeID] = status
+		}
+	}
+
+	isActiveStatus := func(status string) bool {
+		return status != "fulfilled" && status != "sealed" && status != ""
+	}
+
+	augmented := make([]map[string]any, 0, len(runes))
+	for _, raw := range runes {
+		var item map[string]any
+		if json.Unmarshal(raw, &item) != nil {
+			continue
+		}
+
+		runeID := fmt.Sprintf("%v", item["id"])
+		if runeID == "" {
+			augmented = append(augmented, item)
+			continue
+		}
+
+		var graph projectors.GraphEntry
+		depCount := 0
+		dependentCount := 0
+		if err := h.projectionStore.Get(r.Context(), realmID, "dependency_graph", runeID, &graph); err == nil {
+			for _, dep := range graph.Dependencies {
+				if isActiveStatus(allStatuses[dep.TargetID]) {
+					depCount++
+				}
+			}
+			for _, dependent := range graph.Dependents {
+				if isActiveStatus(allStatuses[dependent.SourceID]) {
+					dependentCount++
+				}
+			}
+		}
+
+		item["dependencies_count"] = depCount
+		item["dependents_count"] = dependentCount
+		claimant, _ := item["claimant"].(string)
+		if claimant != "" {
+			var accountInfo map[string]any
+			lookupKey := "accountinfo:" + claimant
+			if err := h.projectionStore.Get(r.Context(), domain.AdminRealmID, "account_lookup", lookupKey, &accountInfo); err == nil {
+				if username, ok := accountInfo["username"].(string); ok && username != "" {
+					item["claimant_username"] = username
+				} else {
+					item["claimant_username"] = claimant
+				}
+			} else {
+				item["claimant_username"] = claimant
+			}
+		}
+		augmented = append(augmented, item)
+	}
+
 	isSagaFilter := r.URL.Query().Get("is_saga")
 	if isSagaFilter == "true" || isSagaFilter == "false" {
 		wantSaga := isSagaFilter == "true"
-		var filtered []json.RawMessage
-		for _, raw := range runes {
-			var item map[string]any
-			if json.Unmarshal(raw, &item) != nil {
+		filtered := make([]map[string]any, 0, len(augmented))
+		for _, item := range augmented {
+			runeID := fmt.Sprintf("%v", item["id"])
+			if runeID == "" {
 				continue
 			}
-			runeID := fmt.Sprintf("%v", item["id"])
 			var count int
 			err := h.projectionStore.Get(r.Context(), realmID, "RuneChildCount", runeID, &count)
 			if err != nil {
@@ -537,13 +655,13 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 			}
 			isSaga := count > 0
 			if isSaga == wantSaga {
-				filtered = append(filtered, raw)
+				filtered = append(filtered, item)
 			}
 		}
-		runes = filtered
+		augmented = filtered
 	}
 
-	writeJSON(w, http.StatusOK, runes)
+	writeJSON(w, http.StatusOK, augmented)
 }
 
 func (h *Handlers) GetRune(w http.ResponseWriter, r *http.Request) {
@@ -577,6 +695,79 @@ func (h *Handlers) ListRealms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, realms)
+}
+
+// RealmDetailResponse is the response structure for GET /realm
+type RealmDetailResponse struct {
+	RealmID   string        `json:"realm_id"`
+	Name      string        `json:"name"`
+	Status    string        `json:"status"`
+	CreatedAt time.Time     `json:"created_at"`
+	Members   []RealmMember `json:"members"`
+}
+
+// RealmMember represents a member of a realm
+type RealmMember struct {
+	AccountID string `json:"account_id"`
+	Username  string `json:"username"`
+	Role      string `json:"role"`
+}
+
+func (h *Handlers) GetRealm(w http.ResponseWriter, r *http.Request) {
+	realmID := r.URL.Query().Get("id")
+	if realmID == "" {
+		writeError(w, http.StatusBadRequest, "id parameter required")
+		return
+	}
+
+	// Get realm info using Get method
+	var realmInfo struct {
+		RealmID   string    `json:"realm_id"`
+		Name      string    `json:"name"`
+		Status    string    `json:"status"`
+		CreatedAt time.Time `json:"created_at"`
+	}
+	err := h.projectionStore.Get(r.Context(), "_admin", "realm_list", realmID, &realmInfo)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "realm not found")
+		return
+	}
+
+	// Get members by scanning account list
+	rawAccounts, err := h.projectionStore.List(r.Context(), "_admin", "account_list")
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to get members")
+		return
+	}
+
+	var members []RealmMember
+	for _, raw := range rawAccounts {
+		var account struct {
+			AccountID string            `json:"account_id"`
+			Username  string            `json:"username"`
+			Roles     map[string]string `json:"roles"`
+		}
+		if err := json.Unmarshal(raw, &account); err != nil {
+			continue
+		}
+		if role, ok := account.Roles[realmID]; ok {
+			members = append(members, RealmMember{
+				AccountID: account.AccountID,
+				Username:  account.Username,
+				Role:      role,
+			})
+		}
+	}
+
+	response := RealmDetailResponse{
+		RealmID:   realmInfo.RealmID,
+		Name:      realmInfo.Name,
+		Status:    realmInfo.Status,
+		CreatedAt: realmInfo.CreatedAt,
+		Members:   members,
+	}
+
+	writeJSON(w, http.StatusOK, response)
 }
 
 // --- Helpers ---

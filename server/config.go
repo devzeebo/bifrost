@@ -8,10 +8,12 @@ import (
 )
 
 type Config struct {
-	DBDriver        string
-	DBPath          string
-	Port            int
-	CatchUpInterval time.Duration
+	DBDriver          string
+	DBPath            string
+	Port              int
+	CatchUpInterval   time.Duration
+	AdminUIStaticPath string // Path to built Vike assets (production mode)
+	ViteDevServerURL  string // URL of Vite dev server (development mode, e.g., "http://localhost:3000")
 }
 
 func LoadConfig() (*Config, error) {
@@ -47,9 +49,11 @@ func LoadConfig() (*Config, error) {
 	}
 
 	return &Config{
-		DBDriver:        dbDriver,
-		DBPath:          dbPath,
-		Port:            port,
-		CatchUpInterval: catchUpInterval,
+		DBDriver:          dbDriver,
+		DBPath:            dbPath,
+		Port:              port,
+		CatchUpInterval:   catchUpInterval,
+		AdminUIStaticPath: os.Getenv("BIFROST_ADMIN_UI_STATIC_PATH"),
+		ViteDevServerURL:  os.Getenv("BIFROST_VITE_DEV_SERVER_URL"),
 	}, nil
 }

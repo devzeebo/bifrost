@@ -1,0 +1,798 @@
+
+> bifrost-ui@0.0.0 dev
+> vite --host 0.0.0.0 --port 5173
+
+2026-03-01T00:59:41.879Z vite:config config file loaded in 158.91ms
+2026-03-01T00:59:41.885Z vite:config config file loaded in 7.12ms
+2026-03-01T00:59:41.929Z vite:env loading env files: [
+  '/home/blake/Documents/software/bifrost/ui/.env',
+  '/home/blake/Documents/software/bifrost/ui/.env.local',
+  '/home/blake/Documents/software/bifrost/ui/.env.development',
+  '/home/blake/Documents/software/bifrost/ui/.env.development.local'
+]
+2026-03-01T00:59:41.929Z vite:env env files loaded in 0.22ms
+2026-03-01T00:59:41.930Z vite:env using resolved env: { BASE_SERVER: '/ui', BASE_ASSETS: '/ui' }
+2026-03-01T00:59:41.933Z vite:env loading env files: [
+  '/home/blake/Documents/software/bifrost/ui/.env',
+  '/home/blake/Documents/software/bifrost/ui/.env.local',
+  '/home/blake/Documents/software/bifrost/ui/.env.development',
+  '/home/blake/Documents/software/bifrost/ui/.env.development.local'
+]
+2026-03-01T00:59:41.933Z vite:env env files loaded in 0.09ms
+2026-03-01T00:59:41.933Z vite:env using resolved env: {
+  SHELL: '/usr/bin/zsh',
+  npm_command: 'run-script',
+  LSCOLORS: 'Gxfxcxdxbxegedabagacad',
+  SESSION_MANAGER: 'local/Willem-Dafoe:@/tmp/.ICE-unix/1606,unix/Willem-Dafoe:/tmp/.ICE-unix/1606',
+  WINDOWID: '94830981185616',
+  npm_config_userconfig: '/home/blake/.npmrc',
+  COLORTERM: 'truecolor',
+  XDG_CONFIG_DIRS: '/home/blake/.config/kdedefaults:/etc/xdg',
+  npm_config_cache: '/home/blake/.npm',
+  LESS: '-R',
+  XDG_SESSION_PATH: '/org/freedesktop/DisplayManager/Session1',
+  NVM_INC: '/home/blake/.nvm/versions/node/v22.20.0/include/node',
+  HISTCONTROL: 'ignoreboth',
+  XDG_MENU_PREFIX: 'plasma-',
+  ICEAUTHORITY: '/run/user/1000/iceauth_fWBvlR',
+  LANGUAGE: '',
+  _P9K_TTY: '/dev/pts/0',
+  NODE: '/usr/bin/node',
+  LC_ADDRESS: 'en_US.UTF-8',
+  LC_NAME: 'en_US.UTF-8',
+  P9K_TTY: 'old',
+  SHELL_SESSION_ID: '472ffbea299e4a588019d4b346f0f7cb',
+  AGENT: '1',
+  MEMORY_PRESSURE_WRITE: 'c29tZSAyMDAwMDAgMjAwMDAwMAA=',
+  COLOR: '0',
+  npm_config_local_prefix: '/home/blake/Documents/software/bifrost/ui',
+  LIBVA_DRIVER_NAME: 'nvidia',
+  DESKTOP_SESSION: 'plasma',
+  LC_MONETARY: 'en_US.UTF-8',
+  OSH: '/home/blake/.oh-my-bash',
+  GTK_RC_FILES: '/etc/gtk/gtkrc:/home/blake/.gtkrc:/home/blake/.config/gtkrc',
+  npm_config_globalconfig: '/home/blake/.npm-global/etc/npmrc',
+  EDITOR: 'vi',
+  PUPPETEER_EXECUTABLE_PATH: '/usr/bin/chromium',
+  XDG_SEAT: 'seat0',
+  PWD: '/home/blake/Documents/software/bifrost/ui',
+  XDG_SESSION_DESKTOP: 'KDE',
+  LOGNAME: 'blake',
+  XDG_SESSION_TYPE: 'wayland',
+  PNPM_HOME: '/home/blake/.local/share/pnpm',
+  npm_config_init_module: '/home/blake/.npm-init.js',
+  SYSTEMD_EXEC_PID: '9610',
+  _: '/home/blake/Documents/software/bifrost/ui/node_modules/.bin/vite',
+  XAUTHORITY: '/run/user/1000/xauth_XHTaGY',
+  FZF_DEFAULT_COMMAND: 'fd --type f --hidden --exclude .git',
+  MOTD_SHOWN: 'pam',
+  GTK2_RC_FILES: '/etc/gtk-2.0/gtkrc:/home/blake/.gtkrc-2.0:/home/blake/.config/gtkrc-2.0',
+  HOME: '/home/blake',
+  OPENCODE: '1',
+  LANG: 'en_US.UTF-8',
+  LC_PAPER: 'en_US.UTF-8',
+  _JAVA_AWT_WM_NONREPARENTING: '1',
+  LS_COLORS: 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=00:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.7z=01;31:*.ace=01;31:*.alz=01;31:*.apk=01;31:*.arc=01;31:*.arj=01;31:*.bz=01;31:*.bz2=01;31:*.cab=01;31:*.cpio=01;31:*.crate=01;31:*.deb=01;31:*.drpm=01;31:*.dwm=01;31:*.dz=01;31:*.ear=01;31:*.egg=01;31:*.esd=01;31:*.gz=01;31:*.jar=01;31:*.lha=01;31:*.lrz=01;31:*.lz=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.lzo=01;31:*.pyz=01;31:*.rar=01;31:*.rpm=01;31:*.rz=01;31:*.sar=01;31:*.swm=01;31:*.t7z=01;31:*.tar=01;31:*.taz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tgz=01;31:*.tlz=01;31:*.txz=01;31:*.tz=01;31:*.tzo=01;31:*.tzst=01;31:*.udeb=01;31:*.war=01;31:*.whl=01;31:*.wim=01;31:*.xz=01;31:*.z=01;31:*.zip=01;31:*.zoo=01;31:*.zst=01;31:*.avif=01;35:*.jpg=01;35:*.jpeg=01;35:*.jxl=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:*~=00;90:*#=00;90:*.bak=00;90:*.crdownload=00;90:*.dpkg-dist=00;90:*.dpkg-new=00;90:*.dpkg-old=00;90:*.dpkg-tmp=00;90:*.old=00;90:*.orig=00;90:*.part=00;90:*.rej=00;90:*.rpmnew=00;90:*.rpmorig=00;90:*.rpmsave=00;90:*.swp=00;90:*.tmp=00;90:*.ucf-dist=00;90:*.ucf-new=00;90:*.ucf-old=00;90:',
+  XDG_CURRENT_DESKTOP: 'KDE',
+  KONSOLE_DBUS_SERVICE: ':1.104',
+  npm_package_version: '0.0.0',
+  MEMORY_PRESSURE_WATCH: '/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/app-dbus\\x2d:1.2\\x2dorg.kde.yakuake.slice/dbus-:1.2-org.kde.yakuake@0.service/memory.pressure',
+  WAYLAND_DISPLAY: 'wayland-0',
+  KONSOLE_DBUS_SESSION: '/Sessions/1',
+  PROFILEHOME: '',
+  XDG_SEAT_PATH: '/org/freedesktop/DisplayManager/Seat0',
+  INVOCATION_ID: 'f89085e3616b41838ca8977516082290',
+  KONSOLE_VERSION: '251202',
+  MANAGERPID: '1325',
+  INIT_CWD: '/home/blake/Documents/software/bifrost/ui',
+  KDE_SESSION_UID: '1000',
+  npm_lifecycle_script: 'vite',
+  NVM_DIR: '/home/blake/.nvm',
+  XKB_DEFAULT_LAYOUT: 'us',
+  npm_config_npm_version: '10.9.3',
+  XDG_SESSION_CLASS: 'user',
+  LC_IDENTIFICATION: 'en_US.UTF-8',
+  TERM: 'xterm-256color',
+  npm_package_name: 'bifrost-ui',
+  ZSH: '/usr/share/oh-my-zsh',
+  LESS_TERMCAP_me: '\x1B(B\x1B[m',
+  LESS_TERMCAP_md: '\x1B[1m\x1B[32m',
+  KONSOLE_DBUS_ACTIVATION_COOKIE: 'oIeW252prHVFb+l6QluDiTk7Zj/twKkkxuLoefH5Ql0=',
+  npm_config_prefix: '/home/blake/.npm-global',
+  USER: 'blake',
+  CUDA_PATH: '/opt/cuda',
+  COLORFGBG: '15;0',
+  QT_WAYLAND_RECONNECT: '1',
+  KDE_SESSION_VERSION: '6',
+  PAM_KWALLET5_LOGIN: '/run/user/1000/kwallet5.socket',
+  DISPLAY: ':0',
+  npm_lifecycle_event: 'dev',
+  SHLVL: '1',
+  NVM_CD_FLAGS: '-q',
+  PAGER: 'less',
+  LC_TELEPHONE: 'en_US.UTF-8',
+  _P9K_SSH_TTY: '/dev/pts/0',
+  LC_MEASUREMENT: 'en_US.UTF-8',
+  XDG_VTNR: '2',
+  XDG_SESSION_ID: '2',
+  MANAGERPIDFDID: '1326',
+  npm_config_user_agent: 'npm/10.9.3 node/v25.6.1 linux x64 workspaces/false',
+  CUDA_DISABLE_PERF_BOOST: '1',
+  npm_execpath: '/home/blake/.nvm/versions/node/v22.20.0/lib/node_modules/npm/bin/npm-cli.js',
+  XDG_RUNTIME_DIR: '/run/user/1000',
+  FZF_BASE: '/usr/share/fzf',
+  DEBUGINFOD_URLS: 'https://debuginfod.archlinux.org https://debuginfod.cachyos.org ',
+  NVCC_CCBIN: '/usr/bin/g++',
+  npm_package_json: '/home/blake/Documents/software/bifrost/ui/package.json',
+  DOCKER_HOST: 'unix:///run/user/1000/podman/podman.sock',
+  LC_TIME: 'en_US.UTF-8',
+  BUN_INSTALL: '/home/blake/.bun',
+  HISTORY_IGNORE: '(\\&|[bf]g|c|clear|history|exit|q|pwd|* --help)',
+  P9K_SSH: '0',
+  JOURNAL_STREAM: '9:142005',
+  XDG_DATA_DIRS: '/home/blake/.local/share/flatpak/exports/share:/var/lib/flatpak/exports/share:/usr/local/share:/usr/share:/var/lib/snapd/desktop',
+  KDE_FULL_SESSION: 'true',
+  npm_config_noproxy: '',
+  PATH: '/home/blake/Documents/software/bifrost/ui/node_modules/.bin:/home/blake/Documents/software/bifrost/node_modules/.bin:/home/blake/Documents/software/node_modules/.bin:/home/blake/Documents/node_modules/.bin:/home/blake/node_modules/.bin:/home/node_modules/.bin:/node_modules/.bin:/home/blake/.nvm/versions/node/v22.20.0/lib/node_modules/npm/node_modules/@npmcli/run-script/lib/node-gyp-bin:/home/blake/.bun/bin:/home/blake/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/home/blake/.nvm/versions/node/*/bin:/home/blake/.opencode/bin:/home/blake/.opperator/bin:/home/blake/.local/bin:/home/blake/.nvm/versions/node/v22.20.0/bin:/home/blake/.npm-global/bin:/home/blake/miniconda3/bin:/home/blake/.nvm/versions/node/v22.20.0/bin:/home/blake/.bun/bin:/home/blake/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/home/blake/.nvm/versions/node/*/bin:/home/blake/.opencode/bin:/home/blake/.opperator/bin:/home/blake/.local/share/pnpm:/home/blake/.local/bin:/home/blake/.nvm/versions/node/v22.20.0/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/opt/cuda/bin:/home/blake/.local/share/flatpak/exports/bin:/var/lib/flatpak/exports/bin:/usr/lib/jvm/default/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl:/var/lib/snapd/snap/bin:/home/blake/.lmstudio/bin:/home/blake/.lmstudio/bin:/home/blake/.lmstudio/bin:/home/blake/.lmstudio/bin',
+  npm_config_node_gyp: '/home/blake/.nvm/versions/node/v22.20.0/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js',
+  DBUS_SESSION_BUS_ADDRESS: 'unix:path=/run/user/1000/bus',
+  npm_config_global_prefix: '/home/blake/.npm-global',
+  KDE_APPLICATIONS_AS_SCOPE: '1',
+  NVM_BIN: '/home/blake/.nvm/versions/node/v22.20.0/bin',
+  MAIL: '/var/spool/mail/blake',
+  DEBUG: 'vite:*',
+  npm_node_execpath: '/usr/bin/node',
+  LC_NUMERIC: 'en_US.UTF-8',
+  OLDPWD: '/home/blake/Documents/software/bifrost/ui',
+  TERM_PROGRAM: 'Cursor',
+  NODE_ENV: 'development',
+  BASE_SERVER: '/ui',
+  BASE_ASSETS: '/ui'
+}
+2026-03-01T00:59:41.944Z vite:config using resolved config: {
+  base: '/ui/',
+  plugins: [
+    'vite:optimized-deps',
+    'vite:watch-package-data',
+    'vite:pre-alias',
+    'alias',
+    'vite:react-babel',
+    'vite:react-refresh',
+    'vike:pluginCommon:pre',
+    'vike:pluginSetGlobalContext:pre',
+    '@tailwindcss/vite:scan',
+    '@tailwindcss/vite:generate:serve',
+    'vite:modulepreload-polyfill',
+    'vite:resolve',
+    'vite:html-inline-proxy',
+    'vite:css',
+    'vite:esbuild',
+    'vite:json',
+    'vite:wasm-helper',
+    'vite:worker',
+    'vite:asset',
+    'vike:pluginCommon',
+    'vike:pluginVirtualFiles',
+    'vike:pluginDev',
+    'vike:pluginExtractAssets-4',
+    'vike:pluginAssertFileEnv:dev',
+    'vike:pluginWorkaroundCssModuleHmr',
+    'vike:pluginReplaceConstantsGlobalThis:define',
+    'vike:pluginReplaceConstantsGlobalThis:virtual-file',
+    'vike:pluginViteRPC:1',
+    'vike:pluginReplaceConstantsNonRunnableDev:IS_NON_RUNNABLE_DEV',
+    'vike:pluginReplaceConstantsNonRunnableDev:DYNAMIC_IMPORT',
+    'vike:pluginStripPointerImportAttribute',
+    'vite:wasm-fallback',
+    'vite:css-post',
+    'vite:worker-import-meta-url',
+    'vite:asset-import-meta-url',
+    'vite:dynamic-import-vars',
+    'vite:import-glob',
+    'vike:pluginCommon:post',
+    'vike:pluginDev:post',
+    'vike:pluginExtractExportNames',
+    'vike:pluginSetGlobalContext:post',
+    'vike:pluginBaseUrls',
+    'vike:pluginReplaceConstantsEnvVars',
+    'vike:pluginWorkaroundVite6HmrRegression',
+    'vike:pluginStaticReplace',
+    'vite:client-inject',
+    'vite:css-analysis',
+    'vite:import-analysis',
+    'vite:define'
+  ],
+  resolve: {
+    externalConditions: [ 'node' ],
+    extensions: [
+      '.mjs',  '.js',
+      '.mts',  '.ts',
+      '.jsx',  '.tsx',
+      '.json'
+    ],
+    dedupe: [ 'react', 'react-dom' ],
+    noExternal: [],
+    external: [],
+    preserveSymlinks: false,
+    alias: [
+      { find: '@', replacement: '/src' },
+      {
+        find: /^\/?@vite\/env/,
+        replacement: '/@fs/home/blake/Documents/software/bifrost/ui/node_modules/vite/dist/client/env.mjs'
+      },
+      {
+        find: /^\/?@vite\/client/,
+        replacement: '/@fs/home/blake/Documents/software/bifrost/ui/node_modules/vite/dist/client/client.mjs'
+      }
+    ],
+    mainFields: [ 'browser', 'module', 'jsnext:main', 'jsnext' ],
+    conditions: [ 'module', 'browser', 'development|production' ],
+    builtins: []
+  },
+  server: {
+    port: 5173,
+    strictPort: false,
+    host: '0.0.0.0',
+    allowedHosts: [],
+    https: undefined,
+    open: false,
+    proxy: { '/api': { target: 'http://localhost:8080', changeOrigin: true } },
+    cors: {
+      origin: /^https?:\/\/(?:(?:[^:]+\.)?localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/
+    },
+    headers: {},
+    warmup: { clientFiles: [], ssrFiles: [] },
+    middlewareMode: false,
+    fs: {
+      strict: true,
+      deny: [ '.env', '.env.*', '*.{crt,pem}', '**/.git/**' ],
+      allow: [
+        '/home/blake/Documents/software/bifrost/ui',
+        '/home/blake/Documents/software/bifrost/ui',
+        '/home/blake/Documents/software/bifrost/ui',
+        '/home/blake/Documents/software/bifrost/ui/node_modules/vike/'
+      ]
+    },
+    preTransformRequests: true,
+    perEnvironmentStartEndDuringDev: false,
+    sourcemapIgnoreList: [Function: isInNodeModules$1]
+  },
+  _isDev: true,
+  _viteVersionResolved: '6.3.0',
+  _rootResolvedEarly: '/home/blake/Documents/software/bifrost/ui',
+  configVikePromise: Promise { { prerender: false } },
+  esbuild: { jsxDev: true, jsx: 'automatic', jsxImportSource: undefined },
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react/jsx-dev-runtime',
+      'react/jsx-runtime',
+      'vike > @brillout/json-serializer/parse',
+      'vike > @brillout/json-serializer/stringify',
+      'vike > @brillout/picocolors',
+      'vike-react/__internal/integration/onRenderClient',
+      'vike-react/__internal/integration/Loading'
+    ],
+    exclude: [ 'vike/client', 'vike/client/router' ],
+    needsInterop: [],
+    extensions: [],
+    disabled: undefined,
+    holdUntilCrawlEnd: true,
+    force: false,
+    noDiscovery: false,
+    esbuildOptions: { preserveSymlinks: false, jsx: 'automatic' },
+    entries: [
+      '/home/blake/Documents/software/bifrost/ui/src/pages/_error/+Page.tsx',
+      '/home/blake/Documents/software/bifrost/ui/src/pages/+Layout.tsx',
+      '/home/blake/Documents/software/bifrost/ui/src/pages/+Wrapper.tsx',
+      '/home/blake/Documents/software/bifrost/ui/src/pages/account/+Page.tsx',
+      '/home/blake/Documents/software/bifrost/ui/src/pages/accounts/+Page.tsx',
+      '/home/blake/Documents/software/bifrost/ui/src/pages/accounts/[id]/+Page.tsx',
+      '/home/blake/Documents/software/bifrost/ui/src/pages/accounts/new/+Page.tsx',
+      '/home/blake/Documents/software/bifrost/ui/src/pages/dashboard/+Page.tsx',
+      '/home/blake/Documents/software/bifrost/ui/src/pages/index/+Page.tsx',
+      '/home/blake/Documents/software/bifrost/ui/src/pages/login/+Page.tsx',
+      '/home/blake/Documents/software/bifrost/ui/src/pages/onboarding/+Page.tsx',
+      '/home/blake/Documents/software/bifrost/ui/src/pages/realms/+Page.tsx',
+      '/home/blake/Documents/software/bifrost/ui/src/pages/realms/[id]/+Page.tsx',
+      '/home/blake/Documents/software/bifrost/ui/src/pages/realms/new/+Page.tsx',
+      '/home/blake/Documents/software/bifrost/ui/src/pages/runes/+Page.tsx',
+      '/home/blake/Documents/software/bifrost/ui/src/pages/runes/[id]/+Page.tsx',
+      '/home/blake/Documents/software/bifrost/ui/src/pages/runes/new/+Page.tsx',
+      'virtual:vike:page-entry:client:/src/pages/_error',
+      'virtual:vike:page-entry:client:/src/pages/account',
+      'virtual:vike:page-entry:client:/src/pages/accounts',
+      'virtual:vike:page-entry:client:/src/pages/accounts/[id]',
+      'virtual:vike:page-entry:client:/src/pages/accounts/new',
+      'virtual:vike:page-entry:client:/src/pages/dashboard',
+      'virtual:vike:page-entry:client:/src/pages/index',
+      'virtual:vike:page-entry:client:/src/pages/login',
+      'virtual:vike:page-entry:client:/src/pages/onboarding',
+      'virtual:vike:page-entry:client:/src/pages/realms',
+      'virtual:vike:page-entry:client:/src/pages/realms/[id]',
+      'virtual:vike:page-entry:client:/src/pages/realms/new',
+      'virtual:vike:page-entry:client:/src/pages/runes',
+      'virtual:vike:page-entry:client:/src/pages/runes/[id]',
+      'virtual:vike:page-entry:client:/src/pages/runes/new',
+      'virtual:vike:global-entry:client:client-routing'
+    ]
+  },
+  build: {
+    target: [ 'es2020', 'edge88', 'firefox78', 'chrome87', 'safari14' ],
+    polyfillModulePreload: true,
+    modulePreload: { polyfill: true },
+    outDir: 'dist',
+    assetsDir: 'assets',
+    assetsInlineLimit: 4096,
+    sourcemap: false,
+    terserOptions: {},
+    rollupOptions: { onwarn: [Function: onwarn] },
+    commonjsOptions: { include: [ /node_modules/ ], extensions: [ '.js', '.cjs' ] },
+    dynamicImportVarsOptions: { warnOnError: true, exclude: [ /node_modules/ ] },
+    write: true,
+    emptyOutDir: null,
+    copyPublicDir: true,
+    manifest: false,
+    lib: false,
+    ssrManifest: false,
+    ssrEmitAssets: false,
+    reportCompressedSize: true,
+    chunkSizeWarningLimit: 500,
+    watch: null,
+    cssCodeSplit: true,
+    minify: 'esbuild',
+    ssr: false,
+    emitAssets: false,
+    createEnvironment: [Function: createEnvironment],
+    cssTarget: [ 'es2020', 'edge88', 'firefox78', 'chrome87', 'safari14' ],
+    cssMinify: true
+  },
+  appType: 'custom',
+  ssr: {
+    target: 'node',
+    optimizeDeps: {
+      esbuildOptions: { preserveSymlinks: false },
+      include: [],
+      exclude: [
+        '@brillout/import',
+        '@brillout/json-serializer',
+        '@brillout/picocolors',
+        '@brillout/vite-plugin-server-entry',
+        'vike'
+      ],
+      needsInterop: [],
+      extensions: [],
+      holdUntilCrawlEnd: true,
+      force: false,
+      noDiscovery: true
+    },
+    external: [],
+    noExternal: [],
+    resolve: {
+      conditions: [ 'module', 'node', 'development|production' ],
+      externalConditions: [ 'node' ]
+    }
+  },
+  define: {
+    'globalThis.__VIKE__IS_DEV': 'true',
+    'globalThis.__VIKE__IS_DEBUG': 'false',
+    'globalThis.__VIKE__NO_EXTERNAL': 'true'
+  },
+  envPrefix: [ 'VITE_', 'BASE_SERVER', 'BASE_ASSETS' ],
+  _baseViteOriginal: '/ui',
+  preview: {
+    port: 3000,
+    strictPort: false,
+    host: '0.0.0.0',
+    allowedHosts: [],
+    https: undefined,
+    open: false,
+    proxy: { '/api': { target: 'http://localhost:8080', changeOrigin: true } },
+    cors: {
+      origin: /^https?:\/\/(?:(?:[^:]+\.)?localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/
+    },
+    headers: {}
+  },
+  environments: {
+    client: {
+      define: {
+        'globalThis.__VIKE__IS_DEV': 'true',
+        'globalThis.__VIKE__IS_DEBUG': 'false',
+        'globalThis.__VIKE__NO_EXTERNAL': 'true',
+        'globalThis.__VIKE__IS_CLIENT': 'true'
+      },
+      resolve: {
+        externalConditions: [ 'node' ],
+        extensions: [
+          '.mjs',  '.js',
+          '.mts',  '.ts',
+          '.jsx',  '.tsx',
+          '.json'
+        ],
+        dedupe: [ 'react', 'react-dom' ],
+        noExternal: [],
+        external: [],
+        preserveSymlinks: false,
+        alias: [
+          { find: '@', replacement: '/src' },
+          {
+            find: /^\/?@vite\/env/,
+            replacement: '/@fs/home/blake/Documents/software/bifrost/ui/node_modules/vite/dist/client/env.mjs'
+          },
+          {
+            find: /^\/?@vite\/client/,
+            replacement: '/@fs/home/blake/Documents/software/bifrost/ui/node_modules/vite/dist/client/client.mjs'
+          }
+        ],
+        mainFields: [ 'browser', 'module', 'jsnext:main', 'jsnext' ],
+        conditions: [ 'module', 'browser', 'development|production' ],
+        builtins: []
+      },
+      keepProcessEnv: false,
+      consumer: 'client',
+      optimizeDeps: {
+        include: [
+          'react',
+          'react-dom',
+          'react/jsx-dev-runtime',
+          'react/jsx-runtime',
+          'vike > @brillout/json-serializer/parse',
+          'vike > @brillout/json-serializer/stringify',
+          'vike > @brillout/picocolors',
+          'vike-react/__internal/integration/onRenderClient',
+          'vike-react/__internal/integration/Loading'
+        ],
+        exclude: [ 'vike/client', 'vike/client/router' ],
+        needsInterop: [],
+        extensions: [],
+        disabled: undefined,
+        holdUntilCrawlEnd: true,
+        force: false,
+        noDiscovery: false,
+        esbuildOptions: { preserveSymlinks: false, jsx: 'automatic' },
+        entries: [
+          '/home/blake/Documents/software/bifrost/ui/src/pages/_error/+Page.tsx',
+          '/home/blake/Documents/software/bifrost/ui/src/pages/+Layout.tsx',
+          '/home/blake/Documents/software/bifrost/ui/src/pages/+Wrapper.tsx',
+          '/home/blake/Documents/software/bifrost/ui/src/pages/account/+Page.tsx',
+          '/home/blake/Documents/software/bifrost/ui/src/pages/accounts/+Page.tsx',
+          '/home/blake/Documents/software/bifrost/ui/src/pages/accounts/[id]/+Page.tsx',
+          '/home/blake/Documents/software/bifrost/ui/src/pages/accounts/new/+Page.tsx',
+          '/home/blake/Documents/software/bifrost/ui/src/pages/dashboard/+Page.tsx',
+          '/home/blake/Documents/software/bifrost/ui/src/pages/index/+Page.tsx',
+          '/home/blake/Documents/software/bifrost/ui/src/pages/login/+Page.tsx',
+          '/home/blake/Documents/software/bifrost/ui/src/pages/onboarding/+Page.tsx',
+          '/home/blake/Documents/software/bifrost/ui/src/pages/realms/+Page.tsx',
+          '/home/blake/Documents/software/bifrost/ui/src/pages/realms/[id]/+Page.tsx',
+          '/home/blake/Documents/software/bifrost/ui/src/pages/realms/new/+Page.tsx',
+          '/home/blake/Documents/software/bifrost/ui/src/pages/runes/+Page.tsx',
+          '/home/blake/Documents/software/bifrost/ui/src/pages/runes/[id]/+Page.tsx',
+          '/home/blake/Documents/software/bifrost/ui/src/pages/runes/new/+Page.tsx',
+          'virtual:vike:page-entry:client:/src/pages/_error',
+          'virtual:vike:page-entry:client:/src/pages/account',
+          'virtual:vike:page-entry:client:/src/pages/accounts',
+          'virtual:vike:page-entry:client:/src/pages/accounts/[id]',
+          'virtual:vike:page-entry:client:/src/pages/accounts/new',
+          'virtual:vike:page-entry:client:/src/pages/dashboard',
+          'virtual:vike:page-entry:client:/src/pages/index',
+          'virtual:vike:page-entry:client:/src/pages/login',
+          'virtual:vike:page-entry:client:/src/pages/onboarding',
+          'virtual:vike:page-entry:client:/src/pages/realms',
+          'virtual:vike:page-entry:client:/src/pages/realms/[id]',
+          'virtual:vike:page-entry:client:/src/pages/realms/new',
+          'virtual:vike:page-entry:client:/src/pages/runes',
+          'virtual:vike:page-entry:client:/src/pages/runes/[id]',
+          'virtual:vike:page-entry:client:/src/pages/runes/new',
+          'virtual:vike:global-entry:client:client-routing'
+        ]
+      },
+      dev: {
+        warmup: [],
+        sourcemap: { js: true },
+        sourcemapIgnoreList: [Function: isInNodeModules$1],
+        preTransformRequests: true,
+        createEnvironment: [Function: defaultCreateClientDevEnvironment],
+        recoverable: true,
+        moduleRunnerTransform: false
+      },
+      build: {
+        target: [ 'es2020', 'edge88', 'firefox78', 'chrome87', 'safari14' ],
+        polyfillModulePreload: true,
+        modulePreload: { polyfill: true },
+        outDir: 'dist',
+        assetsDir: 'assets',
+        assetsInlineLimit: 4096,
+        sourcemap: false,
+        terserOptions: {},
+        rollupOptions: { onwarn: [Function: onwarn] },
+        commonjsOptions: { include: [ /node_modules/ ], extensions: [ '.js', '.cjs' ] },
+        dynamicImportVarsOptions: { warnOnError: true, exclude: [ /node_modules/ ] },
+        write: true,
+        emptyOutDir: null,
+        copyPublicDir: true,
+        manifest: false,
+        lib: false,
+        ssrManifest: false,
+        ssrEmitAssets: false,
+        reportCompressedSize: true,
+        chunkSizeWarningLimit: 500,
+        watch: null,
+        cssCodeSplit: true,
+        minify: 'esbuild',
+        ssr: false,
+        emitAssets: true,
+        createEnvironment: [Function: createEnvironment],
+        cssTarget: [ 'es2020', 'edge88', 'firefox78', 'chrome87', 'safari14' ],
+        cssMinify: true
+      }
+    },
+    ssr: {
+      define: {
+        'globalThis.__VIKE__IS_DEV': 'true',
+        'globalThis.__VIKE__IS_DEBUG': 'false',
+        'globalThis.__VIKE__NO_EXTERNAL': 'true',
+        'globalThis.__VIKE__IS_CLIENT': 'false'
+      },
+      resolve: {
+        externalConditions: [ 'node' ],
+        extensions: [
+          '.mjs',  '.js',
+          '.mts',  '.ts',
+          '.jsx',  '.tsx',
+          '.json'
+        ],
+        dedupe: [ 'react', 'react-dom' ],
+        noExternal: [],
+        external: [],
+        preserveSymlinks: false,
+        alias: [
+          { find: '@', replacement: '/src' },
+          {
+            find: /^\/?@vite\/env/,
+            replacement: '/@fs/home/blake/Documents/software/bifrost/ui/node_modules/vite/dist/client/env.mjs'
+          },
+          {
+            find: /^\/?@vite\/client/,
+            replacement: '/@fs/home/blake/Documents/software/bifrost/ui/node_modules/vite/dist/client/client.mjs'
+          }
+        ],
+        mainFields: [ 'module', 'jsnext:main', 'jsnext' ],
+        conditions: [ 'module', 'node', 'development|production' ],
+        builtins: [
+          '_http_agent',         '_http_client',        '_http_common',
+          '_http_incoming',      '_http_outgoing',      '_http_server',
+          '_stream_duplex',      '_stream_passthrough', '_stream_readable',
+          '_stream_transform',   '_stream_wrap',        '_stream_writable',
+          '_tls_common',         '_tls_wrap',           'assert',
+          'assert/strict',       'async_hooks',         'buffer',
+          'child_process',       'cluster',             'console',
+          'constants',           'crypto',              'dgram',
+          'diagnostics_channel', 'dns',                 'dns/promises',
+          'domain',              'events',              'fs',
+          'fs/promises',         'http',                'http2',
+          'https',               'inspector',           'inspector/promises',
+          'module',              'net',                 'os',
+          'path',                'path/posix',          'path/win32',
+          'perf_hooks',          'process',             'punycode',
+          'querystring',         'readline',            'readline/promises',
+          'repl',                'stream',              'stream/consumers',
+          'stream/promises',     'stream/web',          'string_decoder',
+          'sys',                 'timers',              'timers/promises',
+          'tls',                 'trace_events',        'tty',
+          'url',                 'util',                'util/types',
+          'v8',                  'vm',                  'wasi',
+          'worker_threads',      'zlib',                /^node:/,
+          /^npm:/,               /^bun:/
+        ]
+      },
+      keepProcessEnv: true,
+      consumer: 'server',
+      optimizeDeps: {
+        include: [],
+        exclude: [
+          '@brillout/import',
+          '@brillout/json-serializer',
+          '@brillout/picocolors',
+          '@brillout/vite-plugin-server-entry',
+          'vike'
+        ],
+        needsInterop: [],
+        extensions: [],
+        disabled: undefined,
+        holdUntilCrawlEnd: true,
+        force: false,
+        noDiscovery: true,
+        esbuildOptions: { preserveSymlinks: false },
+        entries: []
+      },
+      dev: {
+        warmup: [],
+        sourcemap: { js: true },
+        sourcemapIgnoreList: [Function: isInNodeModules$1],
+        preTransformRequests: false,
+        createEnvironment: [Function: defaultCreateDevEnvironment],
+        recoverable: false,
+        moduleRunnerTransform: true
+      },
+      build: {
+        target: [ 'es2020', 'edge88', 'firefox78', 'chrome87', 'safari14' ],
+        polyfillModulePreload: true,
+        modulePreload: { polyfill: true },
+        outDir: 'dist',
+        assetsDir: 'assets',
+        assetsInlineLimit: 4096,
+        sourcemap: false,
+        terserOptions: {},
+        rollupOptions: { onwarn: [Function: onwarn] },
+        commonjsOptions: { include: [ /node_modules/ ], extensions: [ '.js', '.cjs' ] },
+        dynamicImportVarsOptions: { warnOnError: true, exclude: [ /node_modules/ ] },
+        write: true,
+        emptyOutDir: null,
+        copyPublicDir: true,
+        manifest: false,
+        lib: false,
+        ssrManifest: false,
+        ssrEmitAssets: false,
+        reportCompressedSize: true,
+        chunkSizeWarningLimit: 500,
+        watch: null,
+        cssCodeSplit: true,
+        minify: false,
+        ssr: true,
+        emitAssets: false,
+        createEnvironment: [Function: createEnvironment],
+        cssTarget: [ 'es2020', 'edge88', 'firefox78', 'chrome87', 'safari14' ],
+        cssMinify: 'esbuild'
+      }
+    }
+  },
+  configFile: '/home/blake/Documents/software/bifrost/ui/vite.config.ts',
+  configFileDependencies: [ '/home/blake/Documents/software/bifrost/ui/vite.config.ts' ],
+  inlineConfig: {
+    root: undefined,
+    base: undefined,
+    mode: undefined,
+    configFile: undefined,
+    configLoader: undefined,
+    logLevel: undefined,
+    clearScreen: undefined,
+    server: { host: '0.0.0.0', port: 5173 },
+    forceOptimizeDeps: undefined
+  },
+  root: '/home/blake/Documents/software/bifrost/ui',
+  decodedBase: '/ui/',
+  rawBase: '/ui',
+  publicDir: '/home/blake/Documents/software/bifrost/ui/public',
+  cacheDir: '/home/blake/Documents/software/bifrost/ui/node_modules/.vite',
+  command: 'serve',
+  mode: 'development',
+  isWorker: false,
+  mainConfig: null,
+  bundleChain: [],
+  isProduction: false,
+  css: {
+    transformer: 'postcss',
+    preprocessorMaxWorkers: 0,
+    devSourcemap: false,
+    lightningcss: undefined
+  },
+  json: { namedExports: true, stringify: 'auto' },
+  builder: undefined,
+  envDir: '/home/blake/Documents/software/bifrost/ui',
+  env: {
+    BASE_SERVER: '/ui',
+    BASE_ASSETS: '/ui',
+    BASE_URL: '/ui',
+    MODE: 'development',
+    DEV: true,
+    PROD: false
+  },
+  assetsInclude: [Function: assetsInclude],
+  logger: {
+    hasWarned: false,
+    info: [Function (anonymous)],
+    warn: [Function (anonymous)],
+    warnOnce: [Function: warnOnce],
+    error: [Function (anonymous)],
+    clearScreen: [Function: clearScreen],
+    hasErrorLogged: [Function: hasErrorLogged]
+  },
+  packageCache: Map(1) {
+    'fnpd_/home/blake/Documents/software/bifrost/ui' => {
+      dir: '/home/blake/Documents/software/bifrost/ui',
+      data: {
+        name: 'bifrost-ui',
+        private: true,
+        version: '0.0.0',
+        type: 'module',
+        scripts: {
+          dev: 'vite',
+          build: 'tsc && vite build',
+          test: 'vitest',
+          lint: 'oxlint',
+          format: 'prettier --write .'
+        },
+        dependencies: {
+          '@base-ui/react': '^1.0.0-beta.2',
+          react: '^18.3.1',
+          'react-dom': '^18.3.1',
+          tailwindcss: '^4.0.0',
+          vike: '^0.4.160',
+          'vike-react': '^0.6.0'
+        },
+        devDependencies: {
+          '@playwright/test': '^1.58.2',
+          '@tailwindcss/vite': '^4.0.0',
+          '@testing-library/dom': '^10.4.1',
+          '@testing-library/jest-dom': '^6.9.1',
+          '@testing-library/react': '^16.3.2',
+          '@types/react': '^18.3.18',
+          '@types/react-dom': '^18.3.5',
+          '@vitejs/plugin-react': '^4.3.4',
+          jsdom: '^28.1.0',
+          oxlint: '^0.15.13',
+          prettier: '^3.4.2',
+          typescript: '^5.7.2',
+          vite: '6.3.0',
+          'vite-tsconfig-paths': '^5.1.4',
+          vitest: '^2.1.8'
+        }
+      },
+      hasSideEffects: [Function: hasSideEffects],
+      setResolvedCache: [Function: setResolvedCache],
+      getResolvedCache: [Function: getResolvedCache]
+    },
+    set: [Function (anonymous)]
+  },
+  worker: { format: 'iife', plugins: '() => plugins', rollupOptions: {} },
+  experimental: { importGlobRestoreExtension: false, hmrPartialAccept: false },
+  future: undefined,
+  dev: {
+    warmup: [],
+    sourcemap: { js: true },
+    sourcemapIgnoreList: [Function: isInNodeModules$1],
+    preTransformRequests: false,
+    createEnvironment: [Function: defaultCreateDevEnvironment],
+    recoverable: false,
+    moduleRunnerTransform: false
+  },
+  webSocketToken: 'IkLbtGCeV7Hy',
+  getSortedPlugins: [Function: getSortedPlugins],
+  getSortedPluginHooks: [Function: getSortedPluginHooks],
+  createResolver: [Function: createResolver],
+  fsDenyGlob: [Function: arrayMatcher],
+  safeModulePaths: Set(0) {},
+  additionalAllowedHosts: [ '0.0.0.0', '0.0.0.0' ]
+}
+2026-03-01T00:59:41.951Z vite:resolve 1.43ms virtual:vike:global-entry:server ->  virtual:vike:global-entry:server
+2026-03-01T00:59:41.953Z vite:load 1.80ms [plugin] virtual:vike:global-entry:server
+2026-03-01T00:59:41.960Z vite:deps (client) Hash is consistent. Skipping. Use --force to override.
+Port 5173 is in use, trying another one...
+  VITE v6.3.0  ready in 280 ms
+  ➜  Local:   http://localhost:5174/ui
+  ➜  Network: http://10.97.1.177:5174/ui
+2026-03-01T00:59:41.970Z vite:resolve 1.19ms virtual:vike:server:constantsGlobalThis ->  virtual:vike:server:constantsGlobalThis
+2026-03-01T00:59:41.970Z vite:resolve 1.20ms virtual:vike:page-entry:server:/src/pages/_error ->  virtual:vike:page-entry:server:/src/pages/_error
+2026-03-01T00:59:41.970Z vite:resolve 1.17ms virtual:vike:page-entry:server:/src/pages/account ->  virtual:vike:page-entry:server:/src/pages/account
+2026-03-01T00:59:41.970Z vite:resolve 1.09ms virtual:vike:page-entry:server:/src/pages/accounts ->  virtual:vike:page-entry:server:/src/pages/accounts
+2026-03-01T00:59:41.970Z vite:resolve 1.05ms virtual:vike:page-entry:server:/src/pages/accounts/[id] ->  virtual:vike:page-entry:server:/src/pages/accounts/[id]
+2026-03-01T00:59:41.970Z vite:resolve 1.00ms virtual:vike:page-entry:server:/src/pages/accounts/new ->  virtual:vike:page-entry:server:/src/pages/accounts/new
+2026-03-01T00:59:41.970Z vite:resolve 0.97ms virtual:vike:page-entry:server:/src/pages/dashboard ->  virtual:vike:page-entry:server:/src/pages/dashboard
+2026-03-01T00:59:41.970Z vite:resolve 0.93ms virtual:vike:page-entry:server:/src/pages/index ->  virtual:vike:page-entry:server:/src/pages/index
+2026-03-01T00:59:41.970Z vite:resolve 0.90ms virtual:vike:page-entry:server:/src/pages/login ->  virtual:vike:page-entry:server:/src/pages/login
+2026-03-01T00:59:41.970Z vite:resolve 0.88ms virtual:vike:page-entry:server:/src/pages/onboarding ->  virtual:vike:page-entry:server:/src/pages/onboarding
+2026-03-01T00:59:41.970Z vite:resolve 0.66ms virtual:vike:page-entry:server:/src/pages/realms ->  virtual:vike:page-entry:server:/src/pages/realms
+2026-03-01T00:59:41.970Z vite:resolve 0.62ms virtual:vike:page-entry:server:/src/pages/realms/[id] ->  virtual:vike:page-entry:server:/src/pages/realms/[id]
+2026-03-01T00:59:41.970Z vite:resolve 0.59ms virtual:vike:page-entry:server:/src/pages/realms/new ->  virtual:vike:page-entry:server:/src/pages/realms/new
+2026-03-01T00:59:41.970Z vite:resolve 0.56ms virtual:vike:page-entry:server:/src/pages/runes ->  virtual:vike:page-entry:server:/src/pages/runes
+2026-03-01T00:59:41.970Z vite:resolve 0.53ms virtual:vike:page-entry:server:/src/pages/runes/[id] ->  virtual:vike:page-entry:server:/src/pages/runes/[id]
+2026-03-01T00:59:41.970Z vite:resolve 0.50ms virtual:vike:page-entry:server:/src/pages/runes/new ->  virtual:vike:page-entry:server:/src/pages/runes/new
+2026-03-01T00:59:41.971Z vite:import-analysis 3.28ms [16 imports rewritten]  virtual:vike:global-entry:server
+2026-03-01T00:59:41.971Z vite:transform 17.34ms virtual:vike:global-entry:server
+2026-03-01T00:59:41.979Z vite:load 0.25ms [plugin]  virtual:vike:server:constantsGlobalThis
+2026-03-01T00:59:41.979Z vite:import-analysis 0.02ms [no imports]  virtual:vike:server:constantsGlobalThis
+2026-03-01T00:59:41.981Z vite:hmr [file change] .devserver-debug.log
+2026-03-01T00:59:41.982Z vite:hmr (client) [no modules matched] .devserver-debug.log
+2026-03-01T00:59:41.982Z vite:hmr (ssr) [no modules matched] .devserver-debug.log
+2026-03-01T00:59:41.982Z vite:transform 3.58ms  virtual:vike:server:constantsGlobalThis

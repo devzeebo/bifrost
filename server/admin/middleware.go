@@ -93,6 +93,10 @@ func RolesFromContext(ctx context.Context) (map[string]string, bool) {
 // GenerateJWT creates a signed JWT token for the given account and PAT.
 // Returns an error if SigningKey is not configured.
 func GenerateJWT(cfg *AuthConfig, accountID, patID string) (string, error) {
+	return GenerateJWTWithExpiry(cfg, accountID, patID, cfg.TokenExpiry)
+}
+
+func GenerateJWTWithExpiry(cfg *AuthConfig, accountID, patID string, tokenExpiry time.Duration) (string, error) {
 	if len(cfg.SigningKey) == 0 {
 		return "", errors.New("JWT signing key not configured")
 	}
@@ -101,7 +105,7 @@ func GenerateJWT(cfg *AuthConfig, accountID, patID string) (string, error) {
 		AccountID: accountID,
 		PATID:     patID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(cfg.TokenExpiry)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(tokenExpiry)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
@@ -162,10 +166,10 @@ func CheckPATStatus(ctx context.Context, projectionStore core.ProjectionStore, p
 
 // Authentication errors
 var (
-	ErrNoToken        = errors.New("no authentication token provided")
-	ErrInvalidToken   = errors.New("invalid authentication token")
-	ErrTokenExpired   = errors.New("authentication token expired")
-	ErrPATRevoked     = errors.New("PAT has been revoked")
+	ErrNoToken          = errors.New("no authentication token provided")
+	ErrInvalidToken     = errors.New("invalid authentication token")
+	ErrTokenExpired     = errors.New("authentication token expired")
+	ErrPATRevoked       = errors.New("PAT has been revoked")
 	ErrAccountSuspended = errors.New("account is suspended")
 )
 

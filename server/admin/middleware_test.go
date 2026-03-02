@@ -614,10 +614,11 @@ func TestBuildAvailableRealms(t *testing.T) {
 
 // mockProjectionStore implements core.ProjectionStore for testing
 type mockProjectionStore struct {
-	data      map[string]interface{}
-	listData  map[string][]json.RawMessage
-	getError  error
-	listError error
+	data       map[string]interface{}
+	listData   map[string][]json.RawMessage
+	getError   error
+	listError  error
+	validToken string // For session API tests
 }
 
 func newMockProjectionStore() *mockProjectionStore {

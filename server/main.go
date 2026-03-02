@@ -73,16 +73,7 @@ func Run(ctx context.Context, cfg *Config) error {
 		return fmt.Errorf("start catch-up: %w", err)
 	}
 
-	// 5. Set up HTTP routes with auth middleware
-	mux := http.NewServeMux()
-	auth := AuthMiddleware(projectionStore)
-	realmAuth := func(h http.Handler) http.Handler { return auth(RequireRealm(h)) }
-	adminAuth := func(h http.Handler) http.Handler { return auth(RequireAdmin(h)) }
-
-	handlers := NewHandlers(eventStore, projectionStore, engine)
-	handlers.RegisterRoutes(mux, realmAuth, adminAuth)
-
-	// Register admin UI routes
+	// 5. Set up admin auth config (used by both API and UI routes)
 	adminAuthConfig := admin.DefaultAuthConfig()
 	if keyStr := os.Getenv("ADMIN_JWT_SIGNING_KEY"); keyStr != "" {
 		key, err := base64.RawURLEncoding.DecodeString(keyStr)
@@ -103,18 +94,34 @@ func Run(ctx context.Context, cfg *Config) error {
 	// Disable secure cookies for local development
 	adminAuthConfig.CookieSecure = false
 
-	if err := admin.RegisterRoutes(mux, &admin.RouteConfig{
-		AuthConfig:      adminAuthConfig,
-		ProjectionStore: projectionStore,
-		EventStore:      eventStore,
-	}); err != nil {
+	// 6. Set up HTTP routes with auth middleware
+	mux := http.NewServeMux()
+	auth := AuthMiddleware(projectionStore, &AuthConfig{AdminAuthConfig: adminAuthConfig})
+	realmAuth := func(h http.Handler) http.Handler { return auth(RequireRealm(h)) }
+	adminAuth := func(h http.Handler) http.Handler { return auth(RequireAdmin(h)) }
+
+	handlers := NewHandlers(eventStore, projectionStore, engine)
+	handlers.RegisterRoutes(mux, realmAuth, adminAuth)
+
+	// Register admin UI routes
+	result, err := admin.RegisterRoutes(mux, &admin.RouteConfig{
+		AuthConfig:       adminAuthConfig,
+		ProjectionStore:  projectionStore,
+		EventStore:       eventStore,
+		StaticPath:       cfg.AdminUIStaticPath,
+		ViteDevServerURL: cfg.ViteDevServerURL,
+	})
+	if err != nil {
 		return fmt.Errorf("register admin routes: %w", err)
 	}
+
+	// Use the wrapped handler (may include Vike proxy)
+	handler := result.Handler
 
 	// 6. Create and start HTTP server
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Port),
-		Handler: mux,
+		Handler: handler,
 		BaseContext: func(l net.Listener) context.Context {
 			return ctx
 		},

@@ -436,6 +436,36 @@ func TestCreateRealmHandler(t *testing.T) {
 		tc.content_type_is_json()
 		tc.response_body_has_field("realm_id")
 	})
+
+	t.Run("auto-assigns creator as owner", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_account_id("acct-creator")
+		tc.account_exists_in_event_store("acct-creator")
+
+		// When
+		tc.post("/create-realm", domain.CreateRealm{
+			Name: "My Realm",
+		})
+
+		// Then
+		tc.status_is(http.StatusCreated)
+
+		stream := tc.eventStore.streams["_admin:account-acct-creator"]
+		require.NotEmpty(t, stream)
+
+		lastEvent := stream[len(stream)-1]
+		assert.Equal(t, domain.EventRoleAssigned, lastEvent.EventType)
+
+		var roleAssigned domain.RoleAssigned
+		err := json.Unmarshal(lastEvent.Data, &roleAssigned)
+		require.NoError(t, err)
+		assert.Equal(t, "acct-creator", roleAssigned.AccountID)
+		assert.Equal(t, domain.RoleOwner, roleAssigned.Role)
+		assert.NotEmpty(t, roleAssigned.RealmID)
+	})
 }
 
 // --- Tests: ListRealms ---
@@ -1307,9 +1337,10 @@ type handlerTestContext struct {
 	handlers        *Handlers
 
 	// HTTP
-	recorder *httptest.ResponseRecorder
-	realmID  string
-	role     string
+	recorder  *httptest.ResponseRecorder
+	realmID   string
+	accountID string
+	role      string
 
 	// Error for handleDomainError tests
 	domainErr error
@@ -1339,6 +1370,11 @@ func (tc *handlerTestContext) handlers_configured() {
 func (tc *handlerTestContext) request_has_realm_id(realmID string) {
 	tc.t.Helper()
 	tc.realmID = realmID
+}
+
+func (tc *handlerTestContext) request_has_account_id(accountID string) {
+	tc.t.Helper()
+	tc.accountID = accountID
 }
 
 func (tc *handlerTestContext) request_has_role(role string) {
@@ -1424,13 +1460,11 @@ func (tc *handlerTestContext) account_has_role_in_event_store(accountID, realmID
 	tc.eventStore.appendToStream("_admin", "account-"+accountID, domain.EventRoleAssigned, assigned)
 }
 
-
 func (tc *handlerTestContext) projection_has_rune_summary(realmID, runeID, status string) {
 	tc.t.Helper()
 	summary := projectors.RuneSummary{ID: runeID, Status: status}
 	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", runeID, summary)
 }
-
 
 func (tc *handlerTestContext) projection_has_child_count(realmID, runeID string, count int) {
 	tc.t.Helper()
@@ -1513,6 +1547,9 @@ func (tc *handlerTestContext) build_context(ctx context.Context) context.Context
 	tc.t.Helper()
 	if tc.realmID != "" {
 		ctx = context.WithValue(ctx, realmIDKey, tc.realmID)
+	}
+	if tc.accountID != "" {
+		ctx = context.WithValue(ctx, accountIDKey, tc.accountID)
 	}
 	if tc.role != "" {
 		ctx = context.WithValue(ctx, roleKey, tc.role)

@@ -1,0 +1,11 @@
+
+> bifrost-ui@0.0.0 dev
+> vite --host 0.0.0.0 --port 5173
+
+  VITE v6.3.0  ready in 276 ms
+  ➜  Local:   http://localhost:5173/ui
+  ➜  Network: http://10.97.1.177:5173/ui
+7:12:13 PM [vike][request-1] HTTP request  → /ui
+7:12:13 PM [vike][request-1] HTTP response ← /ui 200
+7:12:19 PM [vike][request-2] HTTP request  → /ui
+7:12:19 PM [vike][request-2] HTTP response ← /ui 200

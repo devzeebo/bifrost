@@ -4,5 +4,9 @@
     "build.env": {
       "GOWORK": "${workspaceFolder}/go.work"
     }
+  },
+  "oxc.path.oxlint": "admin-ui/node_modules/.bin/oxlint",
+  "files.exclude": {
+    "**/node_modules": true
   }
 }
