@@ -9,9 +9,10 @@ import (
 
 // RouteConfig holds the configuration for registering admin routes.
 type RouteConfig struct {
-	AuthConfig      *AuthConfig
-	ProjectionStore core.ProjectionStore
-	EventStore      core.EventStore
+	AuthConfig        *AuthConfig
+	ProjectionStore   core.ProjectionStore
+	EventStore        core.EventStore
+	EncryptionService core.EncryptionService
 	// Vike UI configuration (production only)
 	StaticPath string // Path to built Vike assets (production mode)
 	// Vike UI configuration (development only)
@@ -31,6 +32,12 @@ func RegisterRoutes(mux *http.ServeMux, cfg *RouteConfig) (*RegisterRoutesResult
 
 	// Register accounts JSON API routes for Vike/React UI
 	RegisterAccountsAPIRoutes(mux, cfg)
+
+	// Register agents, skills, and workflows API routes
+	RegisterAgentsAPIRoutes(mux, cfg)
+
+	// Register runner settings API routes
+	RegisterRunnerSettingsAPIRoutes(mux, cfg)
 
 	// Register new /ui/ routes (development or production)
 	if err := registerUIRoutes(mux, cfg); err != nil {
