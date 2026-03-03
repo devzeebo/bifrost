@@ -22,4 +22,10 @@ func RegisterRuneCommands(root *RootCmd, out *bytes.Buffer) {
 	root.Command.AddCommand(NewEventsCmd(clientFn, out).Command)
 	root.Command.AddCommand(NewSweepCmd(clientFn, out, os.Stdin).Command)
 	root.Command.AddCommand(NewShatterCmd(clientFn, out, os.Stdin).Command)
+
+	// Agent management commands
+	root.Command.AddCommand(NewAgentCmd(clientFn, out).Command)
+	root.Command.AddCommand(NewSkillCmd(clientFn, out).Command)
+	root.Command.AddCommand(NewWorkflowCmd(clientFn, out).Command)
+	root.Command.AddCommand(NewRunnerSettingsCmd(clientFn, out).Command)
 }

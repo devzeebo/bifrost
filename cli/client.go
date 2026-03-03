@@ -39,7 +39,7 @@ func (c *Client) DoRequest(method, path string, body []byte) (*http.Response, er
 
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	req.Header.Set("X-Bifrost-Realm", c.realm)
-	if method == http.MethodPost {
+	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
 
