@@ -13,7 +13,7 @@ import (
 
 func TestRegistry(t *testing.T) {
 	t.Run("registers and retrieves runner", func(t *testing.T) {
-		tc := newTestContext(t)
+		tc := newRegistryTestContext(t)
 
 		// Given
 		tc.mock_runner_is_created()
@@ -26,7 +26,7 @@ func TestRegistry(t *testing.T) {
 	})
 
 	t.Run("returns nil for non-existent runner", func(t *testing.T) {
-		tc := newTestContext(t)
+		tc := newRegistryTestContext(t)
 
 		// Given
 		tc.registry_is_created()
@@ -39,7 +39,7 @@ func TestRegistry(t *testing.T) {
 	})
 
 	t.Run("handles concurrent access", func(t *testing.T) {
-		tc := newTestContext(t)
+		tc := newRegistryTestContext(t)
 
 		// Given
 		tc.registry_is_created()
@@ -55,7 +55,7 @@ func TestRegistry(t *testing.T) {
 
 // --- Test Context ---
 
-type testContext struct {
+type registryTestContext struct {
 	t       *testing.T
 	runner  core.Runner
 	registry *Registry
@@ -63,42 +63,42 @@ type testContext struct {
 	wg      sync.WaitGroup
 }
 
-func newTestContext(t *testing.T) *testContext {
+func newRegistryTestContext(t *testing.T) *registryTestContext {
 	t.Helper()
-	return &testContext{t: t}
+	return &registryTestContext{t: t}
 }
 
 // --- Given ---
 
-func (tc *testContext) mock_runner_is_created() {
+func (tc *registryTestContext) mock_runner_is_created() {
 	tc.t.Helper()
 	tc.runner = &mockRunner{name: "test-runner"}
 }
 
-func (tc *testContext) registry_is_created() {
+func (tc *registryTestContext) registry_is_created() {
 	tc.t.Helper()
 	tc.registry = NewRegistry()
 }
 
-func (tc *testContext) concurrent_goroutines_are_configured() {
+func (tc *registryTestContext) concurrent_goroutines_are_configured() {
 	tc.t.Helper()
-	// No setup needed - wg is embedded in testContext
+	// No setup needed - wg is embedded in registryTestContext
 }
 
 // --- When ---
 
-func (tc *testContext) runner_is_registered() {
+func (tc *registryTestContext) runner_is_registered() {
 	tc.t.Helper()
 	tc.registry = NewRegistry()
 	tc.registry.Register("test-runner", tc.runner)
 }
 
-func (tc *testContext) non_existent_runner_is_retrieved() {
+func (tc *registryTestContext) non_existent_runner_is_retrieved() {
 	tc.t.Helper()
 	tc.result = tc.registry.Get("non-existent")
 }
 
-func (tc *testContext) concurrent_register_and_get_operations_are_performed() {
+func (tc *registryTestContext) concurrent_register_and_get_operations_are_performed() {
 	tc.t.Helper()
 	
 	// Register 10 runners concurrently
@@ -126,19 +126,19 @@ func (tc *testContext) concurrent_register_and_get_operations_are_performed() {
 
 // --- Then ---
 
-func (tc *testContext) runner_is_retrievable() {
+func (tc *registryTestContext) runner_is_retrievable() {
 	tc.t.Helper()
 	result := tc.registry.Get("test-runner")
 	require.NotNil(tc.t, result)
 	assert.Equal(tc.t, tc.runner, result)
 }
 
-func (tc *testContext) nil_is_returned() {
+func (tc *registryTestContext) nil_is_returned() {
 	tc.t.Helper()
 	assert.Nil(tc.t, tc.result)
 }
 
-func (tc *testContext) all_operations_complete_without_race() {
+func (tc *registryTestContext) all_operations_complete_without_race() {
 	tc.t.Helper()
 	// If we got here without a race detector firing, the test passed
 	assert.True(tc.t, true)

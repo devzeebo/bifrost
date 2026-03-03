@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -151,7 +152,9 @@ func handleUILogin(cfg *RouteConfig) http.HandlerFunc {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			log.Printf("handleUILogin: failed to encode response: %v", err)
+		}
 	}
 }
 
@@ -225,7 +228,9 @@ func handleUISession(cfg *RouteConfig) http.HandlerFunc {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			log.Printf("handleUISession: failed to encode response: %v", err)
+		}
 	}
 }
 
@@ -277,7 +282,9 @@ func handleCheckOnboarding(cfg *RouteConfig) http.HandlerFunc {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			log.Printf("handleCheckOnboarding: failed to encode response: %v", err)
+		}
 	}
 }
 
@@ -405,7 +412,9 @@ func handleCreateAdmin(cfg *RouteConfig) http.HandlerFunc {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			log.Printf("handleCreateAdmin: failed to encode response: %v", err)
+		}
 	}
 }
 

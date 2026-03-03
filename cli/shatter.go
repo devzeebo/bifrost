@@ -30,7 +30,7 @@ func NewShatterCmd(clientFn func() *Client, out *bytes.Buffer, in io.Reader) *Sh
 
 			if !confirm {
 				fmt.Fprintf(os.Stdout, "Shatter rune %s? This is irreversible. [y/N] ", id)
-				os.Stdout.Sync()
+				_ = os.Stdout.Sync()
 				line, err := bufio.NewReader(in).ReadString('\n')
 				if err != nil && err != io.EOF {
 					return fmt.Errorf("failed to read user input: %w", err)

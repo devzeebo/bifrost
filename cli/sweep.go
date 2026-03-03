@@ -29,7 +29,7 @@ func NewSweepCmd(clientFn func() *Client, out *bytes.Buffer, in io.Reader) *Swee
 
 			if !confirm {
 				fmt.Fprintf(os.Stdout, "Sweep will shatter all unreferenced sealed/fulfilled runes. Continue? [y/N] ")
-				os.Stdout.Sync()
+				_ = os.Stdout.Sync()
 				line, err := bufio.NewReader(in).ReadString('\n')
 				if err != nil && err != io.EOF {
 					return fmt.Errorf("failed to read user input: %w", err)
