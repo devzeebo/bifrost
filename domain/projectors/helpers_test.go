@@ -16,6 +16,10 @@ var _ core.Projector = (*RealmListProjector)(nil)
 var _ core.Projector = (*AccountListProjector)(nil)
 var _ core.Projector = (*AccountLookupProjector)(nil)
 var _ core.Projector = (*RuneChildCountProjector)(nil)
+var _ core.Projector = (*AgentDetailProjector)(nil)
+var _ core.Projector = (*SkillListProjector)(nil)
+var _ core.Projector = (*WorkflowListProjector)(nil)
+var _ core.Projector = (*RunnerSettingsProjector)(nil)
 
 // --- Helpers ---
 
