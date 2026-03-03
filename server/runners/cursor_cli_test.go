@@ -14,7 +14,7 @@ import (
 
 func TestCursorCLIRunner(t *testing.T) {
 	t.Run("name returns cursor-cli", func(t *testing.T) {
-		tc := newTestContext(t)
+		tc := newCursorCLITestContext(t)
 
 		// Given
 		tc.cursor_cli_runner_is_created()
@@ -27,7 +27,7 @@ func TestCursorCLIRunner(t *testing.T) {
 	})
 
 	t.Run("image name returns default when not configured", func(t *testing.T) {
-		tc := newTestContext(t)
+		tc := newCursorCLITestContext(t)
 
 		// Given
 		tc.cursor_cli_runner_is_created()
@@ -40,7 +40,7 @@ func TestCursorCLIRunner(t *testing.T) {
 	})
 
 	t.Run("image name returns configured value", func(t *testing.T) {
-		tc := newTestContext(t)
+		tc := newCursorCLITestContext(t)
 
 		// Given
 		tc.cursor_cli_runner_with_custom_image_is_created()
@@ -53,7 +53,7 @@ func TestCursorCLIRunner(t *testing.T) {
 	})
 
 	t.Run("prepare workspace creates windsurf directory", func(t *testing.T) {
-		tc := newTestContext(t)
+		tc := newCursorCLITestContext(t)
 
 		// Given
 		tc.cursor_cli_runner_is_created()
@@ -68,7 +68,7 @@ func TestCursorCLIRunner(t *testing.T) {
 	})
 
 	t.Run("build container spec creates correct spec", func(t *testing.T) {
-		tc := newTestContext(t)
+		tc := newCursorCLITestContext(t)
 
 		// Given
 		tc.cursor_cli_runner_is_created()
@@ -85,7 +85,7 @@ func TestCursorCLIRunner(t *testing.T) {
 	})
 
 	t.Run("parse output extracts result on success", func(t *testing.T) {
-		tc := newTestContext(t)
+		tc := newCursorCLITestContext(t)
 
 		// Given
 		tc.cursor_cli_runner_is_created()
@@ -100,7 +100,7 @@ func TestCursorCLIRunner(t *testing.T) {
 	})
 
 	t.Run("parse output returns error on failure", func(t *testing.T) {
-		tc := newTestContext(t)
+		tc := newCursorCLITestContext(t)
 
 		// Given
 		tc.cursor_cli_runner_is_created()
@@ -116,7 +116,7 @@ func TestCursorCLIRunner(t *testing.T) {
 
 // --- Test Context ---
 
-type testContext struct {
+type cursorCLITestContext struct {
 	t           *testing.T
 	runner      *CursorCLIRunner
 	workspace   string
@@ -129,24 +129,24 @@ type testContext struct {
 	err         error
 }
 
-func newTestContext(t *testing.T) *testContext {
+func newCursorCLITestContext(t *testing.T) *cursorCLITestContext {
 	t.Helper()
-	return &testContext{t: t}
+	return &cursorCLITestContext{t: t}
 }
 
 // --- Given ---
 
-func (tc *testContext) cursor_cli_runner_is_created() {
+func (tc *cursorCLITestContext) cursor_cli_runner_is_created() {
 	tc.t.Helper()
 	tc.runner = NewCursorCLIRunner("")
 }
 
-func (tc *testContext) cursor_cli_runner_with_custom_image_is_created() {
+func (tc *cursorCLITestContext) cursor_cli_runner_with_custom_image_is_created() {
 	tc.t.Helper()
 	tc.runner = NewCursorCLIRunner("custom-image:v1")
 }
 
-func (tc *testContext) temp_workspace_is_created() {
+func (tc *cursorCLITestContext) temp_workspace_is_created() {
 	tc.t.Helper()
 	dir, err := os.MkdirTemp("", "cursor-cli-test")
 	require.NoError(tc.t, err)
@@ -156,7 +156,7 @@ func (tc *testContext) temp_workspace_is_created() {
 	})
 }
 
-func (tc *testContext) agent_details_are_set() {
+func (tc *cursorCLITestContext) agent_details_are_set() {
 	tc.t.Helper()
 	tc.agent = core.AgentDetail{
 		ID:   "agent-123",
@@ -171,12 +171,12 @@ func (tc *testContext) agent_details_are_set() {
 	}
 }
 
-func (tc *testContext) workspace_path_is_set() {
+func (tc *cursorCLITestContext) workspace_path_is_set() {
 	tc.t.Helper()
 	tc.workspace = "/workspace/path"
 }
 
-func (tc *testContext) env_vars_are_set() {
+func (tc *cursorCLITestContext) env_vars_are_set() {
 	tc.t.Helper()
 	tc.envVars = map[string]string{
 		"API_KEY": "test-key",
@@ -184,14 +184,14 @@ func (tc *testContext) env_vars_are_set() {
 	}
 }
 
-func (tc *testContext) success_output_is_set() {
+func (tc *cursorCLITestContext) success_output_is_set() {
 	tc.t.Helper()
 	tc.output = `RESULT: Task completed successfully
 Status: OK
 Output: All tests passed`
 }
 
-func (tc *testContext) error_output_is_set() {
+func (tc *cursorCLITestContext) error_output_is_set() {
 	tc.t.Helper()
 	tc.output = `ERROR: Failed to execute task
 Status: FAILED
@@ -200,49 +200,49 @@ Reason: Invalid configuration`
 
 // --- When ---
 
-func (tc *testContext) name_is_retrieved() {
+func (tc *cursorCLITestContext) name_is_retrieved() {
 	tc.t.Helper()
 	tc.result = tc.runner.Name()
 }
 
-func (tc *testContext) image_name_is_retrieved() {
+func (tc *cursorCLITestContext) image_name_is_retrieved() {
 	tc.t.Helper()
 	tc.result = tc.runner.ImageName()
 }
 
-func (tc *testContext) workspace_is_prepared() {
+func (tc *cursorCLITestContext) workspace_is_prepared() {
 	tc.t.Helper()
 	tc.err = tc.runner.PrepareWorkspace(tc.workspace, tc.agent, tc.settings)
 }
 
-func (tc *testContext) container_spec_is_built() {
+func (tc *cursorCLITestContext) container_spec_is_built() {
 	tc.t.Helper()
 	tc.spec = tc.runner.BuildContainerSpec(tc.workspace, tc.envVars)
 }
 
-func (tc *testContext) output_is_parsed() {
+func (tc *cursorCLITestContext) output_is_parsed() {
 	tc.t.Helper()
 	tc.result, tc.err = tc.runner.ParseOutput(tc.output)
 }
 
 // --- Then ---
 
-func (tc *testContext) name_is_cursor_cli() {
+func (tc *cursorCLITestContext) name_is_cursor_cli() {
 	tc.t.Helper()
 	assert.Equal(tc.t, "cursor-cli", tc.result)
 }
 
-func (tc *testContext) image_name_is_default() {
+func (tc *cursorCLITestContext) image_name_is_default() {
 	tc.t.Helper()
 	assert.Equal(tc.t, "bifrost-cursor-cli:latest", tc.result)
 }
 
-func (tc *testContext) image_name_is_custom() {
+func (tc *cursorCLITestContext) image_name_is_custom() {
 	tc.t.Helper()
 	assert.Equal(tc.t, "custom-image:v1", tc.result)
 }
 
-func (tc *testContext) windsurf_directory_is_created() {
+func (tc *cursorCLITestContext) windsurf_directory_is_created() {
 	tc.t.Helper()
 	require.NoError(tc.t, tc.err)
 	
@@ -264,35 +264,35 @@ func (tc *testContext) windsurf_directory_is_created() {
 	assert.Equal(tc.t, tc.settings.Config["skill"], string(skillContent))
 }
 
-func (tc *testContext) spec_has_correct_image() {
+func (tc *cursorCLITestContext) spec_has_correct_image() {
 	tc.t.Helper()
 	assert.Equal(tc.t, "bifrost-cursor-cli:latest", tc.spec.Image)
 }
 
-func (tc *testContext) spec_has_workspace_mount() {
+func (tc *cursorCLITestContext) spec_has_workspace_mount() {
 	tc.t.Helper()
 	require.Len(tc.t, tc.spec.Mounts, 1)
 	assert.Equal(tc.t, tc.workspace, tc.spec.Mounts[0].Source)
 	assert.Equal(tc.t, "/workspace", tc.spec.Mounts[0].Target)
 }
 
-func (tc *testContext) spec_has_env_vars() {
+func (tc *cursorCLITestContext) spec_has_env_vars() {
 	tc.t.Helper()
 	assert.Equal(tc.t, tc.envVars, tc.spec.EnvVars)
 	assert.Equal(tc.t, "/workspace", tc.spec.WorkingDir)
 }
 
-func (tc *testContext) result_is_extracted() {
+func (tc *cursorCLITestContext) result_is_extracted() {
 	tc.t.Helper()
 	assert.Contains(tc.t, tc.result, "Task completed successfully")
 }
 
-func (tc *testContext) no_error_is_returned() {
+func (tc *cursorCLITestContext) no_error_is_returned() {
 	tc.t.Helper()
 	assert.NoError(tc.t, tc.err)
 }
 
-func (tc *testContext) error_is_returned() {
+func (tc *cursorCLITestContext) error_is_returned() {
 	tc.t.Helper()
 	assert.Error(tc.t, tc.err)
 	assert.Contains(tc.t, tc.err.Error(), "Failed to execute task")
