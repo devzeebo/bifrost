@@ -98,11 +98,11 @@ func AuthMiddleware(projectionStore core.ProjectionStore, authConfig *AuthConfig
 			// Try JWT cookie auth first (for UI sessions)
 			if authConfig != nil && authConfig.AdminAuthConfig != nil {
 				if cookie, err := r.Cookie(authConfig.AdminAuthConfig.CookieName); err == nil {
-			ctx, err := authenticateViaJWT(r.Context(), cookie.Value, authConfig.AdminAuthConfig, projectionStore, r)
-				if err == nil {
-					next.ServeHTTP(w, r.WithContext(ctx))
-					return
-				}
+					ctx, err := authenticateViaJWT(r.Context(), cookie.Value, authConfig.AdminAuthConfig, projectionStore, r)
+					if err == nil {
+						next.ServeHTTP(w, r.WithContext(ctx))
+						return
+					}
 				}
 			}
 
@@ -216,6 +216,7 @@ func getSelectedRealm(r *http.Request, roles map[string]string, realms []string)
 
 	return ""
 }
+
 
 // authenticateViaBearerToken validates a Bearer token and returns the context with auth info.
 // Returns an AuthError for authentication/authorization failures.

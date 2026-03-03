@@ -45,3 +45,27 @@ func isAdmin(roles map[string]string) bool {
 	}
 	return role == "admin" || role == "owner"
 }
+
+// RequireMemberMiddleware returns middleware that checks if the user has member+ role in a specific realm.
+func RequireMemberMiddleware(realmID string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			roles, ok := RolesFromContext(r.Context())
+			if !ok {
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return
+			}
+			role, hasRealm := roles[realmID]
+			if !hasRealm {
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return
+			}
+			// Allow member, admin, or owner
+			if role == "viewer" {
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}

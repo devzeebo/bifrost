@@ -33,6 +33,13 @@ func (p *RuneChildCountProjector) Handle(ctx context.Context, event core.Event, 
 		return nil
 	}
 
+	// Check if already counted for idempotency
+	countedKey := "child_counted:" + data.ID
+	var alreadyCounted bool
+	if err := store.Get(ctx, event.RealmID, "RuneChildCount", countedKey, &alreadyCounted); err == nil && alreadyCounted {
+		return nil // Already counted, idempotent
+	}
+
 	var count int
 	err := store.Get(ctx, event.RealmID, "RuneChildCount", data.ParentID, &count)
 	if err != nil {
@@ -44,5 +51,8 @@ func (p *RuneChildCountProjector) Handle(ctx context.Context, event core.Event, 
 	}
 
 	count++
-	return store.Put(ctx, event.RealmID, "RuneChildCount", data.ParentID, count)
+	if err := store.Put(ctx, event.RealmID, "RuneChildCount", data.ParentID, count); err != nil {
+		return err
+	}
+	return store.Put(ctx, event.RealmID, "RuneChildCount", countedKey, true)
 }

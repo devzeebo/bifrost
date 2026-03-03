@@ -134,7 +134,7 @@ func TestAdminEndpoints_E2E(t *testing.T) {
 		tc.server_is_running()
 
 		// When
-	tc.post("/api/create-realm", `{"name":"My Realm"}`, tc.adminKey)
+		tc.post("/api/create-realm", `{"name":"My Realm"}`, tc.adminKey)
 
 		// Then
 		tc.status_is(http.StatusCreated)
@@ -149,7 +149,7 @@ func TestAdminEndpoints_E2E(t *testing.T) {
 		tc.a_realm_exists("Realm Alpha")
 
 		// When
-	tc.get("/api/realms", tc.adminKey)
+		tc.get("/api/realms", tc.adminKey)
 
 		// Then
 		// NOTE: returns empty due to bifrost-rdp (projectors don't write _all key)
@@ -167,7 +167,7 @@ func TestCreateRune_E2E(t *testing.T) {
 		tc.a_realm_exists("Rune Realm")
 
 		// When
-	tc.post("/api/create-rune", `{"title":"Fix the bridge","description":"Needs repair","priority":1,"branch":"main"}`, tc.realmPATToken)
+		tc.post("/api/create-rune", `{"title":"Fix the bridge","description":"Needs repair","priority":1,"branch":"main"}`, tc.realmPATToken)
 
 		// Then
 		tc.status_is(http.StatusCreated)
@@ -188,7 +188,7 @@ func TestListRunes_E2E(t *testing.T) {
 		tc.a_rune_exists("Task B", 2)
 
 		// When
-	tc.get("/api/runes", tc.realmPATToken)
+		tc.get("/api/runes", tc.realmPATToken)
 
 		// Then
 		// NOTE: returns empty due to bifrost-rdp (projectors don't write _all key)
@@ -206,7 +206,7 @@ func TestGetRune_E2E(t *testing.T) {
 		tc.a_rune_exists("Detailed Task", 3)
 
 		// When
-	tc.get("/api/rune?id="+tc.lastRuneID, tc.realmPATToken)
+		tc.get("/api/rune?id="+tc.lastRuneID, tc.realmPATToken)
 
 		// Then
 		tc.status_is(http.StatusOK)
@@ -222,7 +222,7 @@ func TestGetRune_E2E(t *testing.T) {
 		tc.a_realm_exists("Detail Realm")
 
 		// When
-	tc.get("/api/rune?id=bf-9999", tc.realmPATToken)
+		tc.get("/api/rune?id=bf-9999", tc.realmPATToken)
 
 		// Then
 		tc.status_is(http.StatusNotFound)
@@ -323,17 +323,16 @@ func (tc *e2eTestContext) server_is_running() {
 			projectors.NewRuneDetailProjector(),
 			projectors.NewDependencyGraphProjector(),
 			projectors.NewAccountLookupProjector(),
-			projectors.NewAccountListProjector(),
 		},
 	}
 	tc.engine = engine
 
-	// Create an admin account with PAT and _admin realm grant (with admin role)
+	// Create an admin account with PAT and _admin realm with admin role
 	ctx := context.Background()
 	acctResult, err := domain.HandleCreateAccount(ctx, domain.CreateAccount{Username: "admin"}, es, ps)
 	require.NoError(tc.t, err)
 	_ = engine.RunSync(ctx, nil)
-	err = domain.HandleAssignRole(ctx, domain.AssignRole{AccountID: acctResult.AccountID, RealmID: "_admin", Role: domain.RoleAdmin}, es)
+	err = domain.HandleAssignRole(ctx, domain.AssignRole{AccountID: acctResult.AccountID, RealmID: "_admin", Role: "admin"}, es)
 	require.NoError(tc.t, err)
 	_ = engine.RunSync(ctx, nil)
 	tc.adminKey = acctResult.RawToken

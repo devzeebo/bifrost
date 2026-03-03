@@ -67,15 +67,20 @@ func (h *Handlers) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // RegisterRoutes registers all handler routes on the given mux with middleware.
 func (h *Handlers) RegisterRoutes(mux *http.ServeMux, realmMiddleware, adminMiddleware func(http.Handler) http.Handler) {
-	// Compose role-based middleware chains
+	// Compose role-based middleware chains for realm endpoints (non-_admin realms)
 	viewerAuth := func(next http.Handler) http.Handler {
 		return realmMiddleware(RequireRole("viewer")(next))
 	}
 	memberAuth := func(next http.Handler) http.Handler {
 		return realmMiddleware(RequireRole("member")(next))
 	}
-	adminRoleAuth := func(next http.Handler) http.Handler {
+	adminRealmAuth := func(next http.Handler) http.Handler {
 		return realmMiddleware(RequireRole("admin")(next))
+	}
+
+	// Admin endpoints use adminMiddleware (allows _admin realm) with role check
+	adminAuth := func(next http.Handler) http.Handler {
+		return adminMiddleware(RequireRole("admin")(next))
 	}
 
 	// Health check — no auth
@@ -100,14 +105,13 @@ func (h *Handlers) RegisterRoutes(mux *http.ServeMux, realmMiddleware, adminMidd
 	mux.Handle("GET /api/rune", viewerAuth(http.HandlerFunc(h.GetRune)))
 
 	// Role management (admin role minimum, realm auth)
-	mux.Handle("POST /api/assign-role", adminRoleAuth(http.HandlerFunc(h.AssignRole)))
-	mux.Handle("POST /api/revoke-role", adminRoleAuth(http.HandlerFunc(h.RevokeRole)))
+	mux.Handle("POST /api/assign-role", adminRealmAuth(http.HandlerFunc(h.AssignRole)))
+	mux.Handle("POST /api/revoke-role", adminRealmAuth(http.HandlerFunc(h.RevokeRole)))
 
-	// Admin commands (system admin auth required)
-	mux.Handle("POST /api/create-realm", adminMiddleware(http.HandlerFunc(h.CreateRealm)))
+	// Admin commands (admin auth — allows _admin realm with role check)
+	mux.Handle("POST /api/create-realm", adminAuth(http.HandlerFunc(h.CreateRealm)))
 	mux.Handle("POST /api/suspend-realm", adminMiddleware(http.HandlerFunc(h.SuspendRealm)))
-	// Realm listing - any authenticated user (handler filters to accessible realms)
-	mux.Handle("GET /api/realms", adminMiddleware(http.HandlerFunc(h.ListRealms)))
+	mux.Handle("GET /api/realms", adminAuth(http.HandlerFunc(h.ListRealms)))
 	mux.Handle("GET /api/realm", viewerAuth(http.HandlerFunc(h.GetRealm)))
 }
 

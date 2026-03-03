@@ -199,6 +199,12 @@ func (p *RuneDetailProjector) handleDependencyAdded(ctx context.Context, event c
 	if err := store.Get(ctx, event.RealmID, "rune_detail", data.RuneID, &detail); err != nil {
 		return err
 	}
+	// Check for duplicate for idempotency
+	for _, dep := range detail.Dependencies {
+		if dep.TargetID == data.TargetID && dep.Relationship == data.Relationship {
+			return nil // Already exists, idempotent
+		}
+	}
 	detail.Dependencies = append(detail.Dependencies, DependencyRef{
 		TargetID:     data.TargetID,
 		Relationship: data.Relationship,
@@ -243,6 +249,12 @@ func (p *RuneDetailProjector) handleNoted(ctx context.Context, event core.Event,
 	var detail RuneDetail
 	if err := store.Get(ctx, event.RealmID, "rune_detail", data.RuneID, &detail); err != nil {
 		return err
+	}
+	// Check for duplicate for idempotency (notes are unique by text + timestamp)
+	for _, note := range detail.Notes {
+		if note.Text == data.Text && note.CreatedAt.Equal(event.Timestamp) {
+			return nil // Already exists, idempotent
+		}
 	}
 	detail.Notes = append(detail.Notes, NoteEntry{
 		Text:      data.Text,

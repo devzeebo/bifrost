@@ -2,6 +2,7 @@ package admin
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -11,12 +12,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/devzeebo/bifrost/core"
 	"github.com/devzeebo/bifrost/domain/projectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// TestUISessionAPI_Login tests the POST /ui/login endpoint.
+// TestUISessionAPI_Login tests the POST /api/ui/login endpoint.
 func TestUISessionAPI_Login(t *testing.T) {
 	store := newMockProjectionStoreWithAccount()
 	cfg := &RouteConfig{
@@ -33,9 +35,6 @@ func TestUISessionAPI_Login(t *testing.T) {
 	mux := http.NewServeMux()
 	_, err = RegisterRoutes(mux, cfg)
 	require.NoError(t, err)
-
-	// Register session API routes
-	RegisterSessionAPIRoutes(mux, cfg)
 
 	t.Run("login with valid PAT returns session info", func(t *testing.T) {
 		// Use the valid token from the mock store
@@ -69,7 +68,7 @@ func TestUISessionAPI_Login(t *testing.T) {
 				foundAuthCookie = true
 				assert.NotEmpty(t, c.Value)
 				assert.True(t, c.HttpOnly)
-				assert.Equal(t, "/ui", c.Path)
+				assert.Equal(t, "/", c.Path)
 				assert.Equal(t, int((4 * time.Hour).Seconds()), c.MaxAge)
 			}
 		}
@@ -148,9 +147,6 @@ func TestUISessionAPI_Logout(t *testing.T) {
 	_, err = RegisterRoutes(mux, cfg)
 	require.NoError(t, err)
 
-	// Register session API routes
-	RegisterSessionAPIRoutes(mux, cfg)
-
 	t.Run("logout clears auth cookie", func(t *testing.T) {
 		req := httptest.NewRequest("POST", "/api/ui/logout", nil)
 		rec := httptest.NewRecorder()
@@ -190,9 +186,6 @@ func TestUISessionAPI_GetSession(t *testing.T) {
 	mux := http.NewServeMux()
 	_, err = RegisterRoutes(mux, cfg)
 	require.NoError(t, err)
-
-	// Register session API routes
-	RegisterSessionAPIRoutes(mux, cfg)
 
 	t.Run("get session without auth returns 401", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/api/ui/session", nil)
@@ -398,4 +391,49 @@ func newMockProjectionStoreWithAccount() *mockProjectionStore {
 	}
 
 	return store
+}
+
+// mockEventStore implements core.EventStore for testing
+type mockEventStore struct {
+	streams map[string][]core.Event
+}
+
+func newMockEventStore() *mockEventStore {
+	return &mockEventStore{
+		streams: make(map[string][]core.Event),
+	}
+}
+
+func (m *mockEventStore) Append(ctx context.Context, realmID string, streamID string, expectedVersion int, events []core.EventData) ([]core.Event, error) {
+	key := realmID + "|" + streamID
+	var result []core.Event
+	for i, evt := range events {
+		dataBytes, _ := json.Marshal(evt.Data)
+		result = append(result, core.Event{
+			RealmID:   realmID,
+			StreamID:  streamID,
+			Version:   len(m.streams[key]) + i,
+			EventType: evt.EventType,
+			Data:      dataBytes,
+		})
+	}
+	m.streams[key] = append(m.streams[key], result...)
+	return result, nil
+}
+
+func (m *mockEventStore) ReadStream(ctx context.Context, realmID string, streamID string, fromVersion int) ([]core.Event, error) {
+	key := realmID + "|" + streamID
+	return m.streams[key], nil
+}
+
+func (m *mockEventStore) ReadAll(ctx context.Context, realmID string, fromGlobalPosition int64) ([]core.Event, error) {
+	var all []core.Event
+	for _, events := range m.streams {
+		all = append(all, events...)
+	}
+	return all, nil
+}
+
+func (m *mockEventStore) ListRealmIDs(ctx context.Context) ([]string, error) {
+	return []string{"test-realm"}, nil
 }

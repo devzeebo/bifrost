@@ -124,6 +124,7 @@ func TestAccountListProjector(t *testing.T) {
 		tc.an_account_list_projector()
 		tc.a_projection_store()
 		tc.existing_account_entry_with_pat_count("acct-1", "alice", "active", 3)
+		tc.store.put("_admin", "account_list", "pat_counted:pat-1", true)
 		tc.a_pat_revoked_event("acct-1", "pat-1")
 
 		// When

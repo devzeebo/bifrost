@@ -1,5 +1,20 @@
 # Agent Instructions
 
+# Banned Commands
+
+You are NEVER allowed to use the following commands:
+
+- `go test`
+- `go vet`
+- `go tool golangci-lint`
+- `go <anything>`
+- `npx`
+
+## Acceptable Alternatives
+
+- go commands: You MUST use the `make` command instead of any of the above commands.
+- npx: You MUST use the `npm run <script-name>` command instead of any of the above commands.
+
 This project uses **Bifrost** for rune (issue) management in realm **bifrost**.
 
 ## Quick Reference

@@ -72,6 +72,13 @@ func (p *DependencyGraphProjector) handleAdded(ctx context.Context, event core.E
 		return nil
 	}
 
+	// Check if dependency already exists for idempotency
+	depKey := "dep:" + data.RuneID + ":" + data.TargetID + ":" + data.Relationship
+	var exists bool
+	if err := store.Get(ctx, event.RealmID, "dependency_graph", depKey, &exists); err == nil && exists {
+		return nil // Already exists, idempotent
+	}
+
 	// Update source entry: append dependency
 	sourceEntry, err := p.getOrCreateEntry(ctx, event.RealmID, data.RuneID, store)
 	if err != nil {
@@ -99,7 +106,6 @@ func (p *DependencyGraphProjector) handleAdded(ctx context.Context, event core.E
 	}
 
 	// Store dep lookup key for existence checks
-	depKey := "dep:" + data.RuneID + ":" + data.TargetID + ":" + data.Relationship
 	return store.Put(ctx, event.RealmID, "dependency_graph", depKey, true)
 }
 
