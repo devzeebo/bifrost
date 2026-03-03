@@ -56,6 +56,27 @@ func TestEnsureSchema(t *testing.T) {
 		tc.index_exists("idx_events_realm_stream")
 		tc.index_exists("idx_events_realm_global")
 	})
+
+	t.Run("creates agent projection tables", func(t *testing.T) {
+		tc := newSchemaTestContext(t)
+
+		// Given
+		tc.an_empty_database()
+
+		// When
+		tc.ensure_schema_is_called()
+
+		// Then
+		tc.no_error_occurred()
+		tc.agents_table_exists()
+		tc.agent_skills_table_exists()
+		tc.agent_workflows_table_exists()
+		tc.agent_realms_table_exists()
+		tc.skills_table_exists()
+		tc.workflows_table_exists()
+		tc.runner_settings_table_exists()
+		tc.runner_settings_fields_table_exists()
+	})
 }
 
 // --- Test Context ---
@@ -108,6 +129,46 @@ func (tc *schemaTestContext) projections_table_exists() {
 func (tc *schemaTestContext) checkpoints_table_exists() {
 	tc.t.Helper()
 	tc.table_exists("checkpoints")
+}
+
+func (tc *schemaTestContext) agents_table_exists() {
+	tc.t.Helper()
+	tc.table_exists("agents")
+}
+
+func (tc *schemaTestContext) agent_skills_table_exists() {
+	tc.t.Helper()
+	tc.table_exists("agent_skills")
+}
+
+func (tc *schemaTestContext) agent_workflows_table_exists() {
+	tc.t.Helper()
+	tc.table_exists("agent_workflows")
+}
+
+func (tc *schemaTestContext) agent_realms_table_exists() {
+	tc.t.Helper()
+	tc.table_exists("agent_realms")
+}
+
+func (tc *schemaTestContext) skills_table_exists() {
+	tc.t.Helper()
+	tc.table_exists("skills")
+}
+
+func (tc *schemaTestContext) workflows_table_exists() {
+	tc.t.Helper()
+	tc.table_exists("workflows")
+}
+
+func (tc *schemaTestContext) runner_settings_table_exists() {
+	tc.t.Helper()
+	tc.table_exists("runner_settings")
+}
+
+func (tc *schemaTestContext) runner_settings_fields_table_exists() {
+	tc.t.Helper()
+	tc.table_exists("runner_settings_fields")
 }
 
 func (tc *schemaTestContext) table_exists(name string) {
