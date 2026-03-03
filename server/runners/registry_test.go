@@ -82,7 +82,7 @@ func (tc *registryTestContext) registry_is_created() {
 
 func (tc *registryTestContext) concurrent_goroutines_are_configured() {
 	tc.t.Helper()
-	// No setup needed - wg is embedded in registryTestContext
+// No setup needed - wg is embedded in registryTestContext
 }
 
 // --- When ---
