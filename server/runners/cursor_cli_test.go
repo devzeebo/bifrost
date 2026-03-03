@@ -52,7 +52,7 @@ func TestCursorCLIRunner(t *testing.T) {
 		tc.image_name_is_custom()
 	})
 
-	t.Run("prepare workspace creates windsurf directory", func(t *testing.T) {
+	t.Run("prepare workspace creates cursor directories", func(t *testing.T) {
 		tc := newCursorCLITestContext(t)
 
 		// Given
@@ -64,7 +64,7 @@ func TestCursorCLIRunner(t *testing.T) {
 		tc.workspace_is_prepared()
 
 		// Then
-		tc.windsurf_directory_is_created()
+		tc.cursor_directories_are_created()
 	})
 
 	t.Run("build container spec creates correct spec", func(t *testing.T) {
@@ -242,22 +242,27 @@ func (tc *cursorCLITestContext) image_name_is_custom() {
 	assert.Equal(tc.t, "custom-image:v1", tc.result)
 }
 
-func (tc *cursorCLITestContext) windsurf_directory_is_created() {
+func (tc *cursorCLITestContext) cursor_directories_are_created() {
 	tc.t.Helper()
 	require.NoError(tc.t, tc.err)
-	
-	windsurfDir := filepath.Join(tc.workspace, ".windsurf")
-	assert.DirExists(tc.t, windsurfDir)
-	
+
+	// Check .cursor/commands directory
+	commandsDir := filepath.Join(tc.workspace, ".cursor", "commands")
+	assert.DirExists(tc.t, commandsDir)
+
 	// Check workflow file
-	workflowPath := filepath.Join(windsurfDir, "workflow.md")
+	workflowPath := filepath.Join(commandsDir, "workflow.md")
 	assert.FileExists(tc.t, workflowPath)
 	content, err := os.ReadFile(workflowPath)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, tc.settings.Config["workflow"], string(content))
-	
+
+	// Check .agents/skills directory
+	skillsDir := filepath.Join(tc.workspace, ".agents", "skills")
+	assert.DirExists(tc.t, skillsDir)
+
 	// Check skill file
-	skillPath := filepath.Join(windsurfDir, "skill.md")
+	skillPath := filepath.Join(skillsDir, "skill.md")
 	assert.FileExists(tc.t, skillPath)
 	skillContent, err := os.ReadFile(skillPath)
 	require.NoError(tc.t, err)

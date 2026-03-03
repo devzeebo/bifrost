@@ -5,9 +5,10 @@ set -e
 # This script reads workflow/skill/rule files and runs cursor-cli agent
 
 WORKSPACE="/workspace"
-WINDSURF_DIR="$WORKSPACE/.windsurf"
-WORKFLOW_FILE="$WINDSURF_DIR/workflow.md"
-SKILL_FILE="$WINDSURF_DIR/skill.md"
+COMMANDS_DIR="$WORKSPACE/.cursor/commands"
+SKILLS_DIR="$WORKSPACE/.agents/skills"
+WORKFLOW_FILE="$COMMANDS_DIR/workflow.md"
+SKILL_FILE="$SKILLS_DIR/skill.md"
 RULES_DIR="$WORKSPACE/.cursor/rules"
 
 # Build cursor-cli command

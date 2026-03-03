@@ -32,9 +32,10 @@ The container expects workflow and skill files in the workspace:
 
 ```bash
 # Prepare workspace
-mkdir -p /path/to/workspace/.windsurf
-echo "Your workflow content" > /path/to/workspace/.windsurf/workflow.md
-echo "Your skill content" > /path/to/workspace/.windsurf/skill.md
+mkdir -p /path/to/workspace/.cursor/commands
+mkdir -p /path/to/workspace/.agents/skills
+echo "Your workflow content" > /path/to/workspace/.cursor/commands/workflow.md
+echo "Your skill content" > /path/to/workspace/.agents/skills/skill.md
 
 # Run container
 docker run --rm \
@@ -56,13 +57,14 @@ docker run --rm \
 ### Directories
 
 - `/workspace` - Working directory (mounted from host)
-- `/workspace/.windsurf/` - Windsurf configuration directory
+- `/workspace/.cursor/commands/` - Cursor commands directory (workflows)
+- `/workspace/.agents/skills/` - Skills directory
 - `/workspace/.cursor/rules/` - Cursor rules directory
 
 ### Files
 
-- `/workspace/.windsurf/workflow.md` - Workflow definition
-- `/workspace/.windsurf/skill.md` - Skill definition
+- `/workspace/.cursor/commands/workflow.md` - Workflow definition
+- `/workspace/.agents/skills/skill.md` - Skill definition
 
 ### Environment Variables
 
@@ -72,8 +74,8 @@ docker run --rm \
 
 The `entrypoint.sh` script:
 
-1. Checks for workflow file at `/workspace/.windsurf/workflow.md`
-2. Checks for skill file at `/workspace/.windsurf/skill.md`
+1. Checks for workflow file at `/workspace/.cursor/commands/workflow.md`
+2. Checks for skill file at `/workspace/.agents/skills/skill.md`
 3. Checks for rules directory at `/workspace/.cursor/rules/`
 4. Runs cursor-cli agent with discovered configuration
 5. Reports status to `BIFROST_CALLBACK_URL` if set
