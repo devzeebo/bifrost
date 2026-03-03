@@ -61,6 +61,13 @@ func (p *AccountLookupProjector) handleAccountCreated(ctx context.Context, event
 		return err
 	}
 
+	// Check if account already exists for idempotency
+	var existingID string
+	if err := store.Get(ctx, "_admin", "account_lookup", "username:"+data.Username, &existingID); err == nil {
+		// Account already exists, idempotent - don't reset the PAT hash list
+		return nil
+	}
+
 	// Store username → accountID reverse lookup
 	if err := store.Put(ctx, "_admin", "account_lookup", "username:"+data.Username, data.AccountID); err != nil {
 		return err

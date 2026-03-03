@@ -56,6 +56,14 @@ func (p *AccountListProjector) handleAccountCreated(ctx context.Context, event c
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
+
+	// Check if account already exists for idempotency
+	var existing AccountListEntry
+	if err := store.Get(ctx, "_admin", "account_list", data.AccountID, &existing); err == nil {
+		// Account already exists, idempotent - don't reset accumulated state
+		return nil
+	}
+
 	entry := AccountListEntry{
 		AccountID: data.AccountID,
 		Username:  data.Username,

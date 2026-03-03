@@ -94,6 +94,7 @@ func NewAdminCmd() *AdminCmd {
 	addAdminRealmCommands(admin)
 	addAdminAccountCommands(admin)
 	addAdminPATCommands(admin)
+	addAdminRebuildCommands(admin)
 
 	return admin
 }
