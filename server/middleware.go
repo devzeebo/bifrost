@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -97,8 +98,8 @@ func AuthMiddleware(projectionStore core.ProjectionStore, authConfig *AuthConfig
 			// Try JWT cookie auth first (for UI sessions)
 			if authConfig != nil && authConfig.AdminAuthConfig != nil {
 				if cookie, err := r.Cookie(authConfig.AdminAuthConfig.CookieName); err == nil {
-					ctx, ok := authenticateViaJWT(r.Context(), cookie.Value, authConfig.AdminAuthConfig, projectionStore, r)
-					if ok {
+					ctx, err := authenticateViaJWT(r.Context(), cookie.Value, authConfig.AdminAuthConfig, projectionStore, r)
+					if err == nil {
 						next.ServeHTTP(w, r.WithContext(ctx))
 						return
 					}
@@ -129,28 +130,33 @@ func AuthMiddleware(projectionStore core.ProjectionStore, authConfig *AuthConfig
 				return
 			}
 
-			result := authenticateViaBearerToken(r.Context(), token, realmID, projectionStore)
-			if result.statusCode != http.StatusOK {
-				http.Error(w, http.StatusText(result.statusCode), result.statusCode)
+			ctx, err := authenticateViaBearerToken(r.Context(), token, realmID, projectionStore)
+			if err != nil {
+				if authErr, ok := err.(*AuthError); ok {
+					http.Error(w, authErr.Message, authErr.Status)
+				} else {
+					http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				}
 				return
 			}
 
-			next.ServeHTTP(w, r.WithContext(result.ctx))
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
 // authenticateViaJWT validates a JWT cookie and returns the context with auth info.
-func authenticateViaJWT(ctx context.Context, token string, cfg *admin.AuthConfig, projectionStore core.ProjectionStore, r *http.Request) (context.Context, bool) {
+// Returns an AuthError for authentication/authorization failures.
+func authenticateViaJWT(ctx context.Context, token string, cfg *admin.AuthConfig, projectionStore core.ProjectionStore, r *http.Request) (context.Context, error) {
 	claims, err := admin.ValidateJWT(cfg, token)
 	if err != nil {
-		return nil, false
+		return nil, ErrUnauthorized("Unauthorized")
 	}
 
 	// Check that the PAT is still active
 	entry, err := admin.CheckPATStatus(r.Context(), projectionStore, claims.PATID)
 	if err != nil {
-		return nil, false
+		return nil, ErrUnauthorized("Unauthorized")
 	}
 
 	// Get realm from header or cookie, fallback to first available
@@ -160,7 +166,7 @@ func authenticateViaJWT(ctx context.Context, token string, cfg *admin.AuthConfig
 	}
 
 	if realmID == "" {
-		return nil, false
+		return nil, ErrForbidden("No realm selected")
 	}
 
 	// Get role for the realm
@@ -176,13 +182,13 @@ func authenticateViaJWT(ctx context.Context, token string, cfg *admin.AuthConfig
 	}
 
 	if role == "" {
-		return nil, false
+		return nil, ErrForbidden("No access to realm")
 	}
 
 	ctx = context.WithValue(ctx, accountIDKey, claims.AccountID)
 	ctx = context.WithValue(ctx, realmIDKey, realmID)
 	ctx = context.WithValue(ctx, roleKey, role)
-	return ctx, true
+	return ctx, nil
 }
 
 // getSelectedRealm returns the realm ID from cookie if valid, otherwise the first available realm.
@@ -211,38 +217,34 @@ func getSelectedRealm(r *http.Request, roles map[string]string, realms []string)
 	return ""
 }
 
-// authResult represents the result of authentication with appropriate status code.
-type authResult struct {
-	ctx        context.Context
-	statusCode int
-}
 
 // authenticateViaBearerToken validates a Bearer token and returns the context with auth info.
-// Returns authResult with appropriate HTTP status code (200, 403, or 500).
-func authenticateViaBearerToken(ctx context.Context, token string, realmID string, projectionStore core.ProjectionStore) authResult {
+// Returns an AuthError for authentication/authorization failures.
+func authenticateViaBearerToken(ctx context.Context, token string, realmID string, projectionStore core.ProjectionStore) (context.Context, error) {
 	// Decode the raw key from base64url
 	rawBytes, err := base64.RawURLEncoding.DecodeString(token)
 	if err != nil {
-		return authResult{nil, http.StatusUnauthorized}
+		return nil, ErrUnauthorized("Unauthorized")
 	}
 
 	// SHA-256 hash the raw bytes and encode as base64url
 	h := sha256.Sum256(rawBytes)
 	keyHash := base64.RawURLEncoding.EncodeToString(h[:])
-
 	// Look up in account_lookup projection
 	var entry projectors.AccountLookupEntry
 	err = projectionStore.Get(ctx, "_admin", "account_lookup", keyHash, &entry)
 	if err != nil {
-		// Check if it's a "not found" error vs an actual error
-		if strings.Contains(err.Error(), "not found") {
-			return authResult{nil, http.StatusUnauthorized}
+		// If the error is NotFoundError, it means the token is invalid
+		var notFound *core.NotFoundError
+		if errors.As(err, &notFound) {
+			return nil, ErrUnauthorized("Unauthorized")
 		}
-		return authResult{nil, http.StatusInternalServerError}
+		// Other errors are internal server errors
+		return nil, ErrInternal("Internal server error")
 	}
 
 	if entry.Status == "suspended" {
-		return authResult{nil, http.StatusForbidden}
+		return nil, ErrForbidden("Account suspended")
 	}
 
 	// Extract role for the requested realm
@@ -261,11 +263,36 @@ func authenticateViaBearerToken(ctx context.Context, token string, realmID strin
 	}
 
 	if role == "" {
-		return authResult{nil, http.StatusForbidden}
+		return nil, ErrForbidden("No access to realm")
 	}
 
 	ctx = context.WithValue(ctx, accountIDKey, entry.AccountID)
 	ctx = context.WithValue(ctx, realmIDKey, realmID)
 	ctx = context.WithValue(ctx, roleKey, role)
-	return authResult{ctx, http.StatusOK}
+	return ctx, nil
+}
+
+// AuthError represents an authentication/authorization error with HTTP status
+type AuthError struct {
+	Status  int
+	Message string
+}
+
+func (e *AuthError) Error() string {
+	return e.Message
+}
+
+// ErrUnauthorized returns a 401 auth error
+func ErrUnauthorized(msg string) *AuthError {
+	return &AuthError{Status: http.StatusUnauthorized, Message: msg}
+}
+
+// ErrForbidden returns a 403 auth error
+func ErrForbidden(msg string) *AuthError {
+	return &AuthError{Status: http.StatusForbidden, Message: msg}
+}
+
+// ErrInternal returns a 500 auth error
+func ErrInternal(msg string) *AuthError {
+	return &AuthError{Status: http.StatusInternalServerError, Message: msg}
 }

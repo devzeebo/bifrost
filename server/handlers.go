@@ -305,11 +305,38 @@ func (h *Handlers) AssignRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Only owner can assign owner role
-	callerRole, _ := RoleFromContext(r.Context())
-	if cmd.Role == domain.RoleOwner && callerRole != domain.RoleOwner {
-		writeError(w, http.StatusForbidden, "only owner can assign owner role")
-		return
+	// Get caller's role in the target realm and check if they're a system admin
+	callerRealmRole, _ := RoleFromContext(r.Context())
+	accountID, _ := AccountIDFromContext(r.Context())
+	isSysAdmin := false
+	if accountID != "" {
+		var accountEntry struct {
+			Roles map[string]string `json:"roles"`
+		}
+		if err := h.projectionStore.Get(r.Context(), "_admin", "account_list", accountID, &accountEntry); err == nil {
+			isSysAdmin = accountEntry.Roles["_admin"] == "admin" || accountEntry.Roles["_admin"] == "owner"
+		}
+	}
+
+	// Role assignment rules:
+	// - System admins can assign any role
+	// - Realm owners can assign any role in their realm
+	// - Realm admins can only assign member/viewer roles
+	// - Members/viewers cannot assign roles at all
+	if !isSysAdmin {
+		// Must have at least admin role to assign roles
+		if callerRealmRole != domain.RoleAdmin && callerRealmRole != domain.RoleOwner {
+			writeError(w, http.StatusForbidden, "admin or owner role required to assign roles")
+			return
+		}
+		if cmd.Role == domain.RoleOwner && callerRealmRole != domain.RoleOwner {
+			writeError(w, http.StatusForbidden, "only owner can assign owner role")
+			return
+		}
+		if cmd.Role == domain.RoleAdmin && callerRealmRole != domain.RoleOwner {
+			writeError(w, http.StatusForbidden, "only owner can assign admin role")
+			return
+		}
 	}
 
 	if err := domain.HandleAssignRole(r.Context(), cmd, h.eventStore); err != nil {
@@ -332,16 +359,45 @@ func (h *Handlers) RevokeRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Only owner can revoke owner role — need to look up target's current role
-	callerRole, _ := RoleFromContext(r.Context())
+	// Look up target's current role
+	callerRealmRole, _ := RoleFromContext(r.Context())
 	targetRole, err := h.lookupAccountRole(r.Context(), cmd.AccountID, cmd.RealmID)
 	if err != nil {
 		handleDomainError(w, err)
 		return
 	}
-	if targetRole == domain.RoleOwner && callerRole != domain.RoleOwner {
-		writeError(w, http.StatusForbidden, "only owner can revoke owner role")
-		return
+
+	// Check if caller is a system admin
+	accountID, _ := AccountIDFromContext(r.Context())
+	isSysAdmin := false
+	if accountID != "" {
+		var accountEntry struct {
+			Roles map[string]string `json:"roles"`
+		}
+		if err := h.projectionStore.Get(r.Context(), "_admin", "account_list", accountID, &accountEntry); err == nil {
+			isSysAdmin = accountEntry.Roles["_admin"] == "admin" || accountEntry.Roles["_admin"] == "owner"
+		}
+	}
+
+	// Role revocation rules:
+	// - System admins can revoke any role
+	// - Realm owners can revoke any role in their realm
+	// - Realm admins can only revoke member/viewer roles
+	// - Members/viewers cannot revoke roles at all
+	if !isSysAdmin {
+		// Must have at least admin role to revoke roles
+		if callerRealmRole != domain.RoleAdmin && callerRealmRole != domain.RoleOwner {
+			writeError(w, http.StatusForbidden, "admin or owner role required to revoke roles")
+			return
+		}
+		if targetRole == domain.RoleOwner && callerRealmRole != domain.RoleOwner {
+			writeError(w, http.StatusForbidden, "only owner can revoke owner role")
+			return
+		}
+		if targetRole == domain.RoleAdmin && callerRealmRole != domain.RoleOwner {
+			writeError(w, http.StatusForbidden, "only owner can revoke admin role")
+			return
+		}
 	}
 
 	if err := domain.HandleRevokeRole(r.Context(), cmd, h.eventStore); err != nil {
@@ -449,30 +505,14 @@ func (h *Handlers) CreateRealm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) SuspendRealm(w http.ResponseWriter, r *http.Request) {
-	realmID, ok := RealmIDFromContext(r.Context())
-	if !ok {
-		writeError(w, http.StatusForbidden, "realm ID required")
-		return
-	}
-
 	var cmd domain.SuspendRealm
 	if err := json.NewDecoder(r.Body).Decode(&cmd); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if realmID == domain.AdminRealmID {
-		if cmd.RealmID == "" {
-			writeError(w, http.StatusBadRequest, "realm_id is required")
-			return
-		}
-	} else {
-		if cmd.RealmID == "" {
-			cmd.RealmID = realmID
-		}
-		if cmd.RealmID != realmID {
-			writeError(w, http.StatusForbidden, "realm mismatch")
-			return
-		}
+	if cmd.RealmID == "" {
+		writeError(w, http.StatusBadRequest, "realm_id is required")
+		return
 	}
 
 	if err := domain.HandleSuspendRealm(r.Context(), cmd, h.eventStore); err != nil {
@@ -699,6 +739,35 @@ func (h *Handlers) ListRealms(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to list realms")
 		return
 	}
+
+	// Filter realms based on user's access
+	accountID, hasAccountID := AccountIDFromContext(r.Context())
+	if hasAccountID && accountID != "" {
+		var accountEntry struct {
+			Roles map[string]string `json:"roles"`
+		}
+		if err := h.projectionStore.Get(r.Context(), "_admin", "account_list", accountID, &accountEntry); err == nil {
+			// System admins (admin/owner in _admin realm) can see all realms
+			isSysAdmin := accountEntry.Roles["_admin"] == "admin" || accountEntry.Roles["_admin"] == "owner"
+			if !isSysAdmin {
+				// Filter to only realms the user has access to
+				var filteredRealms []json.RawMessage
+				for _, raw := range realms {
+					var realm struct {
+						RealmID string `json:"realm_id"`
+					}
+					if err := json.Unmarshal(raw, &realm); err != nil {
+						continue
+					}
+					if _, hasAccess := accountEntry.Roles[realm.RealmID]; hasAccess {
+						filteredRealms = append(filteredRealms, raw)
+					}
+				}
+				realms = filteredRealms
+			}
+		}
+	}
+
 	writeJSON(w, http.StatusOK, realms)
 }
 
@@ -725,6 +794,27 @@ func (h *Handlers) GetRealm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if user has access to this realm
+	accountID, hasAccountID := AccountIDFromContext(r.Context())
+	if hasAccountID && accountID != "" {
+		// Look up user's roles to check access
+		var accountEntry struct {
+			Roles map[string]string `json:"roles"`
+		}
+		if err := h.projectionStore.Get(r.Context(), "_admin", "account_list", accountID, &accountEntry); err == nil {
+			// System admins (admin/owner in _admin realm) can view any realm
+			isAdminRealmRole := accountEntry.Roles["_admin"] == "admin" || accountEntry.Roles["_admin"] == "owner"
+			// Regular users can only view realms they're a member of
+			_, hasRealmAccess := accountEntry.Roles[realmID]
+			if !isAdminRealmRole && !hasRealmAccess {
+				writeError(w, http.StatusForbidden, "access denied to this realm")
+				return
+			}
+		}
+	}
+
+
+	// Get realm info using Get method
 	// Get realm info using Get method
 	var realmInfo struct {
 		RealmID   string    `json:"realm_id"`
