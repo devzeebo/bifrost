@@ -114,20 +114,6 @@ func RegisterAccountsAPIRoutes(mux *http.ServeMux, cfg *RouteConfig) {
 	mux.Handle("GET /api/pats", authMiddleware(http.HandlerFunc(handleGetPats(cfg))))
 }
 
-func tokenPreview(rawToken string) string {
-	token := strings.TrimSpace(rawToken)
-	if token == "" {
-		return ""
-	}
-
-	if len(token) <= 11 {
-		return token
-	}
-
-	return token[:5] + "..." + token[len(token)-6:]
-}
-
-
 func canManageAccount(ctx context.Context, targetAccountID string) bool {
 	if targetAccountID == "" {
 		return false
@@ -171,7 +157,9 @@ func handleGetAccounts(cfg *RouteConfig) http.HandlerFunc {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(accounts)
+		if err := json.NewEncoder(w).Encode(accounts); err != nil {
+			log.Printf("handleGetAccounts: failed to encode response: %v", err)
+		}
 	}
 }
 
@@ -209,7 +197,9 @@ func handleGetAccount(cfg *RouteConfig) http.HandlerFunc {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(detail)
+		if err := json.NewEncoder(w).Encode(detail); err != nil {
+			log.Printf("handleGetAccount: failed to encode response: %v", err)
+		}
 	}
 }
 
@@ -249,7 +239,9 @@ func handleCreateAccount(cfg *RouteConfig) http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			log.Printf("handleCreateAccount: failed to encode response: %v", err)
+		}
 	}
 }
 
@@ -392,7 +384,9 @@ func handleCreatePat(cfg *RouteConfig) http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			log.Printf("handleCreatePat: failed to encode response: %v", err)
+		}
 	}
 }
 
@@ -529,6 +523,8 @@ func handleGetPats(cfg *RouteConfig) http.HandlerFunc {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(pats)
+		if err := json.NewEncoder(w).Encode(pats); err != nil {
+			log.Printf("handleGetPats: failed to encode response: %v", err)
+		}
 	}
 }

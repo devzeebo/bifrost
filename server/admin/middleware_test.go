@@ -59,7 +59,7 @@ func TestValidateJWT(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "account-123", claims.AccountID)
 		assert.Equal(t, "pat-456", claims.PATID)
-		assert.False(t, claims.ExpiresAt.Time.Before(time.Now()))
+		assert.False(t, claims.ExpiresAt.Before(time.Now()))
 	})
 
 	t.Run("invalid signature", func(t *testing.T) {
@@ -275,7 +275,7 @@ func TestAuthMiddleware(t *testing.T) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("account: " + accountID))
+		_, _ = w.Write([]byte("account: " + accountID))
 	})
 
 	t.Run("valid JWT with active PAT", func(t *testing.T) {

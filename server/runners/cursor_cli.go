@@ -38,15 +38,21 @@ func (r *CursorCLIRunner) ImageName() string {
 
 // PrepareWorkspace prepares the workspace directory for cursor-cli.
 func (r *CursorCLIRunner) PrepareWorkspace(workspace string, agent core.AgentDetail, settings core.RunnerSettings) error {
-	// Create .windsurf directory
-	windsurfDir := filepath.Join(workspace, ".windsurf")
-	if err := os.MkdirAll(windsurfDir, 0755); err != nil {
-		return fmt.Errorf("failed to create .windsurf directory: %w", err)
+	// Create .cursor/commands directory for workflows
+	commandsDir := filepath.Join(workspace, ".cursor", "commands")
+	if err := os.MkdirAll(commandsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create .cursor/commands directory: %w", err)
+	}
+
+	// Create .agents/skills directory for skills
+	skillsDir := filepath.Join(workspace, ".agents", "skills")
+	if err := os.MkdirAll(skillsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create .agents/skills directory: %w", err)
 	}
 
 	// Write workflow file if present in config
 	if workflow, ok := settings.Config["workflow"]; ok && workflow != "" {
-		workflowPath := filepath.Join(windsurfDir, "workflow.md")
+		workflowPath := filepath.Join(commandsDir, "workflow.md")
 		if err := os.WriteFile(workflowPath, []byte(workflow), 0644); err != nil {
 			return fmt.Errorf("failed to write workflow file: %w", err)
 		}
@@ -54,7 +60,7 @@ func (r *CursorCLIRunner) PrepareWorkspace(workspace string, agent core.AgentDet
 
 	// Write skill file if present in config
 	if skill, ok := settings.Config["skill"]; ok && skill != "" {
-		skillPath := filepath.Join(windsurfDir, "skill.md")
+		skillPath := filepath.Join(skillsDir, "skill.md")
 		if err := os.WriteFile(skillPath, []byte(skill), 0644); err != nil {
 			return fmt.Errorf("failed to write skill file: %w", err)
 		}

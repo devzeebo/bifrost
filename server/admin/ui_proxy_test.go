@@ -19,7 +19,7 @@ func TestNewVikeProxyHandler(t *testing.T) {
 		w.Header().Set("X-Requested-Path", r.URL.Path)
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("<html>Vite Response</html>"))
+		_, _ = w.Write([]byte("<html>Vite Response</html>"))
 	}))
 	defer viteServer.Close()
 
@@ -155,7 +155,7 @@ func TestRegisterUIRoutes_DevelopmentMode(t *testing.T) {
 	viteServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("<html>Vite Dev Response</html>"))
+		_, _ = w.Write([]byte("<html>Vite Dev Response</html>"))
 	}))
 	defer viteServer.Close()
 
