@@ -31,6 +31,11 @@ build-cli:
 	go build -o $(BINARY_DIR)/$(CLI_BINARY) ./cli/cmd/bf
 	ln -sf $(CLI_BINARY) $(BINARY_DIR)/bifrost
 
+build-cli-debug:
+	@echo "» building cli (debug) → $(BINARY_DIR)/$(CLI_BINARY)"
+	go build -tags debug -o $(BINARY_DIR)/$(CLI_BINARY) ./cli/cmd/bf
+	ln -sf $(CLI_BINARY) $(BINARY_DIR)/bifrost
+
 build-ui:
 	@echo "» building ui for production"
 	cd ui && npm run build

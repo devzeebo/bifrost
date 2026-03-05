@@ -542,8 +542,9 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 	priorityFilter := r.URL.Query().Get("priority")
 	assigneeFilter := r.URL.Query().Get("assignee")
 	branchFilter := r.URL.Query().Get("branch")
+	sagaFilter := r.URL.Query().Get("saga")
 
-	if statusFilter != "" || priorityFilter != "" || assigneeFilter != "" || branchFilter != "" {
+	if statusFilter != "" || priorityFilter != "" || assigneeFilter != "" || branchFilter != "" || sagaFilter != "" {
 		var filtered []json.RawMessage
 		for _, raw := range runes {
 			var item map[string]any
@@ -567,6 +568,11 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 			}
 			if branchFilter != "" {
 				if fmt.Sprintf("%v", item["branch"]) != branchFilter {
+					continue
+				}
+			}
+			if sagaFilter != "" {
+				if fmt.Sprintf("%v", item["parent_id"]) != sagaFilter {
 					continue
 				}
 			}

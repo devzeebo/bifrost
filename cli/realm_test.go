@@ -29,7 +29,7 @@ func TestRealmCreateCommand(t *testing.T) {
 		// Then
 		tc.command_has_no_error()
 		tc.request_method_was("POST")
-		tc.request_path_was("/create-realm")
+		tc.request_path_was("/api/create-realm")
 		tc.request_body_has("name", "my-realm")
 	})
 
@@ -63,7 +63,7 @@ func TestRealmListCommand(t *testing.T) {
 		// Then
 		tc.command_has_no_error()
 		tc.request_method_was("GET")
-		tc.request_path_was("/realms")
+		tc.request_path_was("/api/realms")
 	})
 
 	t.Run("outputs human-readable table", func(t *testing.T) {

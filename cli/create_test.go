@@ -28,7 +28,7 @@ func TestCreateCommand(t *testing.T) {
 		// Then
 		tc.command_has_no_error()
 		tc.request_method_was("POST")
-		tc.request_path_was("/create-rune")
+		tc.request_path_was("/api/create-rune")
 		tc.request_body_has_field("title", "My Rune")
 		tc.request_body_has_float_field("priority", 0)
 	})

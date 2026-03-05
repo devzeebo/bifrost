@@ -27,7 +27,7 @@ func TestShowCommand(t *testing.T) {
 		// Then
 		tc.command_has_no_error()
 		tc.request_method_was("GET")
-		tc.request_path_was("/rune")
+		tc.request_path_was("/api/rune")
 		tc.request_query_param_was("id", "bf-abc")
 	})
 

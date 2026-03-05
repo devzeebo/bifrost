@@ -29,7 +29,7 @@ func TestDepAddCommand(t *testing.T) {
 		// Then
 		tc.command_has_no_error()
 		tc.request_method_was("POST")
-		tc.request_path_was("/add-dependency")
+		tc.request_path_was("/api/add-dependency")
 		tc.request_body_has("rune_id", "rune-1")
 		tc.request_body_has("target_id", "rune-2")
 		tc.request_body_has("relationship", "blocks")
@@ -132,7 +132,7 @@ func TestDepRemoveCommand(t *testing.T) {
 		// Then
 		tc.command_has_no_error()
 		tc.request_method_was("POST")
-		tc.request_path_was("/remove-dependency")
+		tc.request_path_was("/api/remove-dependency")
 		tc.request_body_has("rune_id", "rune-1")
 		tc.request_body_has("target_id", "rune-2")
 		tc.request_body_has("relationship", "blocks")

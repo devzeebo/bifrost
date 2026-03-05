@@ -27,7 +27,7 @@ func TestSweepCommand(t *testing.T) {
 		// Then
 		tc.command_has_no_error()
 		tc.request_method_was("POST")
-		tc.request_path_was("/sweep-runes")
+		tc.request_path_was("/api/sweep-runes")
 	})
 
 	t.Run("prompts for confirmation and proceeds when user types y", func(t *testing.T) {
@@ -44,7 +44,7 @@ func TestSweepCommand(t *testing.T) {
 		// Then
 		tc.command_has_no_error()
 		tc.request_method_was("POST")
-		tc.request_path_was("/sweep-runes")
+		tc.request_path_was("/api/sweep-runes")
 	})
 
 	t.Run("prompts for confirmation and aborts when user types n", func(t *testing.T) {

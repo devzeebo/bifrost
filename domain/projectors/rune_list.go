@@ -18,6 +18,7 @@ type RuneSummary struct {
 	Claimant  string    `json:"claimant,omitempty"`
 	ParentID  string    `json:"parent_id,omitempty"`
 	Branch    string    `json:"branch,omitempty"`
+	Type      string    `json:"type,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -66,6 +67,7 @@ func (p *RuneListProjector) handleCreated(ctx context.Context, event core.Event,
 		Priority:  data.Priority,
 		ParentID:  data.ParentID,
 		Branch:    data.Branch,
+		Type:      data.Type,
 		CreatedAt: event.Timestamp,
 		UpdatedAt: event.Timestamp,
 	}

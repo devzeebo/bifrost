@@ -22,6 +22,7 @@ type RuneState struct {
 	ParentID    string
 	Branch      string
 	Priority    int
+	Type        string
 	Exists      bool
 }
 
@@ -39,6 +40,10 @@ func RebuildRuneState(events []core.Event) RuneState {
 			state.Priority = data.Priority
 			state.ParentID = data.ParentID
 			state.Branch = data.Branch
+			state.Type = data.Type
+			if state.Type == "" {
+				state.Type = "rune"
+			}
 			state.Status = "draft"
 		case EventRuneUpdated:
 			var data RuneUpdated
@@ -146,6 +151,10 @@ func HandleCreateRune(ctx context.Context, realmID string, cmd CreateRune, store
 		}
 	}
 
+	runeType := cmd.Type
+	if runeType == "" {
+		runeType = "rune"
+	}
 	created := RuneCreated{
 		ID:          runeID,
 		Title:       cmd.Title,
@@ -153,6 +162,7 @@ func HandleCreateRune(ctx context.Context, realmID string, cmd CreateRune, store
 		Priority:    cmd.Priority,
 		ParentID:    cmd.ParentID,
 		Branch:      branch,
+		Type:        runeType,
 	}
 
 	streamID := runeStreamID(runeID)

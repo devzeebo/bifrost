@@ -27,7 +27,7 @@ func TestListCommand(t *testing.T) {
 		// Then
 		tc.command_has_no_error()
 		tc.request_method_was("GET")
-		tc.request_path_was("/runes")
+		tc.request_path_was("/api/runes")
 	})
 
 	t.Run("passes status filter as query parameter", func(t *testing.T) {

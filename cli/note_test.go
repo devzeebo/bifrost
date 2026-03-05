@@ -28,7 +28,7 @@ func TestNoteCommand(t *testing.T) {
 		// Then
 		tc.command_has_no_error()
 		tc.request_method_was("POST")
-		tc.request_path_was("/add-note")
+		tc.request_path_was("/api/add-note")
 		tc.request_body_has_field("rune_id", "bf-abc")
 		tc.request_body_has_field("text", "This is a note")
 	})

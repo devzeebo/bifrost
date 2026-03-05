@@ -28,7 +28,7 @@ func TestShatterCommand(t *testing.T) {
 		// Then
 		tc.command_has_no_error()
 		tc.request_method_was("POST")
-		tc.request_path_was("/shatter-rune")
+		tc.request_path_was("/api/shatter-rune")
 		tc.request_body_has_field("id", "bf-abc")
 	})
 
@@ -45,7 +45,7 @@ func TestShatterCommand(t *testing.T) {
 
 		// Then
 		tc.command_has_no_error()
-		tc.request_path_was("/shatter-rune")
+		tc.request_path_was("/api/shatter-rune")
 		tc.request_body_has_field("id", "bf-abc")
 		// Note: Prompt display goes to os.Stdout which cannot be captured in unit tests.
 		// The prompt timing is verified manually.
@@ -64,7 +64,7 @@ func TestShatterCommand(t *testing.T) {
 
 		// Then
 		tc.command_has_no_error()
-		tc.request_path_was("/shatter-rune")
+		tc.request_path_was("/api/shatter-rune")
 	})
 
 	t.Run("prompts for confirmation and aborts when user types n", func(t *testing.T) {

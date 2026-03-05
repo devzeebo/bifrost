@@ -28,7 +28,7 @@ func TestForgeCommand(t *testing.T) {
 		// Then
 		tc.command_has_no_error()
 		tc.request_method_was("POST")
-		tc.request_path_was("/forge-rune")
+		tc.request_path_was("/api/forge-rune")
 		tc.request_body_has_field("id", "bf-abc")
 	})
 

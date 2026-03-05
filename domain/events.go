@@ -34,6 +34,7 @@ type RuneCreated struct {
 	Priority    int    `json:"priority"`
 	ParentID    string `json:"parent_id,omitempty"`
 	Branch      string `json:"branch,omitempty"`
+	Type        string `json:"type,omitempty"`
 }
 
 type RuneForged struct {

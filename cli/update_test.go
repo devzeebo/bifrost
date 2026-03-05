@@ -28,7 +28,7 @@ func TestUpdateCommand(t *testing.T) {
 		// Then
 		tc.command_has_no_error()
 		tc.request_method_was("POST")
-		tc.request_path_was("/update-rune")
+		tc.request_path_was("/api/update-rune")
 		tc.request_body_has_field("id", "bf-abc")
 		tc.request_body_has_field("title", "New Title")
 	})

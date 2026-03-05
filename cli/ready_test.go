@@ -27,7 +27,7 @@ func TestReadyCommand(t *testing.T) {
 		// Then
 		tc.command_has_no_error()
 		tc.request_method_was("GET")
-		tc.request_path_was("/runes")
+		tc.request_path_was("/api/runes")
 		tc.request_query_param_was("status", "open")
 		tc.request_query_param_was("blocked", "false")
 		tc.request_query_param_was("is_saga", "false")

@@ -28,7 +28,7 @@ func TestUnclaimCommand(t *testing.T) {
 		// Then
 		tc.command_has_no_error()
 		tc.request_method_was("POST")
-		tc.request_path_was("/unclaim-rune")
+		tc.request_path_was("/api/unclaim-rune")
 		tc.request_body_has_field("id", "bf-abc")
 	})
 

@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -32,7 +33,18 @@ func (c *Client) DoRequest(method, path string, body []byte) (*http.Response, er
 		bodyReader = bytes.NewReader(body)
 	}
 
-	req, err := http.NewRequest(method, c.baseURL+path, bodyReader)
+	// All API paths must be prefixed with /api
+	apiPath := path
+	if len(path) > 0 && path[0] == '/' && !strings.HasPrefix(path, "/api") {
+		apiPath = "/api" + path
+	}
+	fullURL := c.baseURL + apiPath
+	debugLog("--> %s %s", method, fullURL)
+	if body != nil {
+		debugLog("    body: %s", string(body))
+	}
+
+	req, err := http.NewRequest(method, fullURL, bodyReader)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +55,15 @@ func (c *Client) DoRequest(method, path string, body []byte) (*http.Response, er
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	return c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		debugLog("<-- error: %v", err)
+		return nil, err
+	}
+
+	debugLog("<-- %d %s", resp.StatusCode, resp.Status)
+	debugLog("    realm: %q, url: %q", c.realm, c.baseURL)
+	return resp, nil
 }
 
 func (c *Client) DoGet(path string, params map[string]string) (*http.Response, error) {
