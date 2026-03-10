@@ -209,6 +209,59 @@ func TestAuthMiddleware(t *testing.T) {
 		tc.status_is(http.StatusInternalServerError)
 		tc.next_handler_was_not_called()
 	})
+
+	t.Run("resolves realm name to realm ID", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.request_with_bearer_token(tc.rawKey)
+		tc.request_has_realm_header("my-realm-name") // using name instead of ID
+		tc.projection_store_has_account_with_roles("acct-1", "alice", "active", map[string]string{"realm-1": "admin"})
+		tc.projection_store_has_realm("realm-1", "my-realm-name", "active")
+
+		// When
+		tc.middleware_is_invoked()
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.next_handler_was_called()
+		tc.context_has_realm_id("realm-1") // resolved to ID
+		tc.context_has_account_id("acct-1")
+		tc.context_has_role("admin")
+	})
+
+	t.Run("returns 403 when realm name exists but user has no access", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.request_with_bearer_token(tc.rawKey)
+		tc.request_has_realm_header("other-realm")
+		tc.projection_store_has_account_with_roles("acct-1", "alice", "active", map[string]string{"realm-1": "admin"})
+		tc.projection_store_has_realm("realm-2", "other-realm", "active")
+
+		// When
+		tc.middleware_is_invoked()
+
+		// Then
+		tc.status_is(http.StatusForbidden)
+		tc.next_handler_was_not_called()
+	})
+
+	t.Run("returns 403 when realm name not found", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.request_with_bearer_token(tc.rawKey)
+		tc.request_has_realm_header("nonexistent-realm")
+		tc.projection_store_has_account_with_roles("acct-1", "alice", "active", map[string]string{"realm-1": "admin"})
+
+		// When
+		tc.middleware_is_invoked()
+
+		// Then
+		tc.status_is(http.StatusForbidden)
+		tc.next_handler_was_not_called()
+	})
 }
 
 func TestRequireRealm(t *testing.T) {
@@ -636,6 +689,17 @@ func (tc *testContext) projection_store_has_account_with_roles(accountID, userna
 func (tc *testContext) projection_store_returns_error() {
 	tc.t.Helper()
 	tc.store.forceError = true
+}
+
+func (tc *testContext) projection_store_has_realm(realmID, name, status string) {
+	tc.t.Helper()
+	entry := map[string]any{
+		"realm_id":   realmID,
+		"name":       name,
+		"status":     status,
+		"created_at": "2026-01-01T00:00:00Z",
+	}
+	tc.store.put("_admin", "realm_list", realmID, entry)
 }
 
 func (tc *testContext) context_with_realm_id(realmID string) {

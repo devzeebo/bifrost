@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -247,15 +248,21 @@ func authenticateViaBearerToken(ctx context.Context, token string, realmID strin
 		return nil, ErrForbidden("Account suspended")
 	}
 
+	// Resolve realm ID (handles both realm IDs and realm names)
+	resolvedRealmID, err := resolveRealmID(ctx, realmID, entry.Roles, entry.Realms, projectionStore)
+	if err != nil {
+		return nil, err
+	}
+
 	// Extract role for the requested realm
 	var role string
 	if entry.Roles != nil {
-		role = entry.Roles[realmID]
+		role = entry.Roles[resolvedRealmID]
 	}
 	if role == "" {
 		// Fallback to Realms slice for legacy data
 		for _, realm := range entry.Realms {
-			if realm == realmID {
+			if realm == resolvedRealmID {
 				role = "member"
 				break
 			}
@@ -267,9 +274,57 @@ func authenticateViaBearerToken(ctx context.Context, token string, realmID strin
 	}
 
 	ctx = context.WithValue(ctx, accountIDKey, entry.AccountID)
-	ctx = context.WithValue(ctx, realmIDKey, realmID)
+	ctx = context.WithValue(ctx, realmIDKey, resolvedRealmID)
 	ctx = context.WithValue(ctx, roleKey, role)
 	return ctx, nil
+}
+
+// resolveRealmID resolves a realm identifier (ID or name) to a realm ID.
+// Returns an AuthError if the realm cannot be found or accessed.
+func resolveRealmID(ctx context.Context, realmIdent string, roles map[string]string, realms []string, projectionStore core.ProjectionStore) (string, error) {
+	// First, check if it's already a valid realm ID (exists in roles or realms)
+	if roles != nil {
+		if _, ok := roles[realmIdent]; ok {
+			return realmIdent, nil
+		}
+	}
+	for _, r := range realms {
+		if r == realmIdent {
+			return realmIdent, nil
+		}
+	}
+
+	// Not found as ID, try to resolve as a realm name
+	// Look up realm_list in _admin realm
+	entries, err := projectionStore.List(ctx, "_admin", "realm_list")
+	if err != nil {
+		return "", ErrInternal("Internal server error")
+	}
+
+	for _, raw := range entries {
+		var realm projectors.RealmListEntry
+		if err := json.Unmarshal(raw, &realm); err != nil {
+			continue
+		}
+		if realm.Name == realmIdent {
+			// Found by name, check if user has access
+			if roles != nil {
+				if _, ok := roles[realm.RealmID]; ok {
+					return realm.RealmID, nil
+				}
+			}
+			for _, r := range realms {
+				if r == realm.RealmID {
+					return realm.RealmID, nil
+				}
+			}
+			// Found realm but user doesn't have access
+			return "", ErrForbidden("No access to realm")
+		}
+	}
+
+	// Realm not found by ID or name
+	return "", ErrForbidden("No access to realm")
 }
 
 // AuthError represents an authentication/authorization error with HTTP status
