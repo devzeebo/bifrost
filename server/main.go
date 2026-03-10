@@ -14,10 +14,12 @@ import (
 	"time"
 
 	_ "modernc.org/sqlite"
+	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/devzeebo/bifrost/core"
 	"github.com/devzeebo/bifrost/domain/projectors"
 	"github.com/devzeebo/bifrost/providers/sqlite"
+	"github.com/devzeebo/bifrost/providers/postgres"
 	"github.com/devzeebo/bifrost/server/admin"
 )
 
@@ -31,25 +33,48 @@ func Run(ctx context.Context, cfg *Config) error {
 		if err != nil {
 			return fmt.Errorf("open database: %w", err)
 		}
+	case "postgres":
+		db, err = sql.Open("pgx", cfg.DBPath)
+		if err != nil {
+			return fmt.Errorf("open database: %w", err)
+		}
 	default:
 		return fmt.Errorf("unsupported DB driver: %q", cfg.DBDriver)
 	}
 	defer db.Close()
 
 	// 2. Create stores
-	eventStore, err := sqlite.NewEventStore(db)
-	if err != nil {
-		return fmt.Errorf("create event store: %w", err)
-	}
+	var eventStore core.EventStore
+	var projectionStore core.ProjectionStore
+	var checkpointStore core.CheckpointStore
 
-	projectionStore, err := sqlite.NewProjectionStore(db)
-	if err != nil {
-		return fmt.Errorf("create projection store: %w", err)
-	}
-
-	checkpointStore, err := sqlite.NewCheckpointStore(db)
-	if err != nil {
-		return fmt.Errorf("create checkpoint store: %w", err)
+	switch cfg.DBDriver {
+	case "sqlite":
+		eventStore, err = sqlite.NewEventStore(db)
+		if err != nil {
+			return fmt.Errorf("create event store: %w", err)
+		}
+		projectionStore, err = sqlite.NewProjectionStore(db)
+		if err != nil {
+			return fmt.Errorf("create projection store: %w", err)
+		}
+		checkpointStore, err = sqlite.NewCheckpointStore(db)
+		if err != nil {
+			return fmt.Errorf("create checkpoint store: %w", err)
+		}
+	case "postgres":
+		eventStore, err = postgres.NewEventStore(db)
+		if err != nil {
+			return fmt.Errorf("create event store: %w", err)
+		}
+		projectionStore, err = postgres.NewProjectionStore(db)
+		if err != nil {
+			return fmt.Errorf("create projection store: %w", err)
+		}
+		checkpointStore, err = postgres.NewCheckpointStore(db)
+		if err != nil {
+			return fmt.Errorf("create checkpoint store: %w", err)
+		}
 	}
 
 	// 3. Create projection engine and register projectors
@@ -108,7 +133,7 @@ func Run(ctx context.Context, cfg *Config) error {
 		AuthConfig:       adminAuthConfig,
 		ProjectionStore:  projectionStore,
 		EventStore:       eventStore,
-		StaticPath:       cfg.AdminUIStaticPath,
+		UIProxyURL:       cfg.UIProxyURL,
 		ViteDevServerURL: cfg.ViteDevServerURL,
 	})
 	if err != nil {

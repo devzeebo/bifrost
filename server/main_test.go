@@ -45,7 +45,7 @@ func TestRun(t *testing.T) {
 		tc := newRunTestContext(t)
 
 		// Given
-		tc.config_with_db_driver("postgres")
+		tc.config_with_db_driver("mysql")
 
 		// When
 		tc.run_server_sync()

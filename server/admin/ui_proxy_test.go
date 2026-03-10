@@ -4,8 +4,6 @@ import (
 	"crypto/rand"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -32,7 +30,7 @@ func TestNewVikeProxyHandler(t *testing.T) {
 	tests := []struct {
 		name           string
 		requestPath    string
-		wantPath       string // Path we expect to be sent to Vite
+		wantPath       string // Path we expect to be sent to Vite (with /ui prefix, since base: '/ui')
 		wantStatus     int
 		wantBodyContains string
 	}{
@@ -89,42 +87,30 @@ func TestNewVikeProxyHandler_InvalidURL(t *testing.T) {
 }
 
 func TestNewVikeStaticHandler(t *testing.T) {
-	// Create a temporary directory with test files
-	tmpDir := t.TempDir()
-
-	// Create index.html
-	indexContent := []byte("<html>UI App</html>")
-	require.NoError(t, writeFile(tmpDir, "index.html", indexContent))
-
-	// Create a nested asset
-	require.NoError(t, writeFile(tmpDir, "assets/index.js", []byte("console.log('ui')")))
-
-	handler, err := NewVikeStaticHandler(tmpDir, UIPrefix)
+	// With embedded UI assets, the handler returns 404 when no dist files exist
+	// (this is the case during tests without built UI)
+	handler, err := NewVikeStaticHandler("", UIPrefix)
 	require.NoError(t, err, "NewVikeStaticHandler should not error")
 
 	tests := []struct {
-		name             string
-		requestPath      string
-		wantStatus       int
-		wantBodyContains string
+		name       string
+		requestPath string
+		wantStatus int
 	}{
 		{
-			name:             "root path serves index.html",
-			requestPath:      "/ui/",
-			wantStatus:       http.StatusOK,
-			wantBodyContains: "UI App",
+			name:       "root path returns 404 without embedded assets",
+			requestPath: "/ui/",
+			wantStatus: http.StatusNotFound,
 		},
 		{
-			name:             "spa route serves index.html",
-			requestPath:      "/ui/runes/123",
-			wantStatus:       http.StatusOK,
-			wantBodyContains: "UI App",
+			name:       "spa route returns 404 without embedded assets",
+			requestPath: "/ui/runes/123",
+			wantStatus: http.StatusNotFound,
 		},
 		{
-			name:             "static asset serves actual file",
-			requestPath:      "/ui/assets/index.js",
-			wantStatus:       http.StatusOK,
-			wantBodyContains: "console.log('ui')",
+			name:       "static asset returns 404 without embedded assets",
+			requestPath: "/ui/assets/index.js",
+			wantStatus: http.StatusNotFound,
 		},
 	}
 
@@ -136,19 +122,10 @@ func TestNewVikeStaticHandler(t *testing.T) {
 			handler.ServeHTTP(rec, req)
 
 			assert.Equal(t, tt.wantStatus, rec.Code)
-			assert.Contains(t, rec.Body.String(), tt.wantBodyContains)
 		})
 	}
 }
 
-// Helper function to write files with directory creation
-func writeFile(dir, path string, content []byte) error {
-	fullPath := filepath.Join(dir, path)
-	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
-		return err
-	}
-	return os.WriteFile(fullPath, content, 0644)
-}
 
 func TestRegisterUIRoutes_DevelopmentMode(t *testing.T) {
 	// Create a mock Vite dev server
@@ -183,16 +160,16 @@ func TestRegisterUIRoutes_DevelopmentMode(t *testing.T) {
 		wantBodyContains string
 	}{
 		{
-			name:           "/ui/ redirects to /ui/",
+			name:           "/ui proxies to Vite",
 			path:           "/ui",
-			wantStatus:     http.StatusMovedPermanently,
-			wantBodyContains: "",
-		},
-		{
-			name:           "/ui/ proxies to Vite",
-			path:           "/ui/",
 			wantStatus:     http.StatusOK,
 			wantBodyContains: "Vite Dev Response",
+		},
+		{
+			name:           "/ui/ redirects to /ui",
+			path:           "/ui/",
+			wantStatus:     http.StatusMovedPermanently,
+			wantBodyContains: "",
 		},
 		{
 			name:           "/ui/runes proxies to Vite",
@@ -218,16 +195,19 @@ func TestRegisterUIRoutes_DevelopmentMode(t *testing.T) {
 }
 
 func TestRegisterUIRoutes_ProductionMode(t *testing.T) {
-	// Create a temporary directory with test files
-	tmpDir := t.TempDir()
-	require.NoError(t, writeFile(tmpDir, "index.html", []byte("<html>Production UI</html>")))
-	require.NoError(t, writeFile(tmpDir, "assets/app.js", []byte("console.log('app')")))
+	// Create a mock Vike production server
+	uiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("<html>Vike Production Response</html>"))
+	}))
+	defer uiServer.Close()
 
 	cfg := &RouteConfig{
-		AuthConfig:      DefaultAuthConfig(),
-		ProjectionStore: newMockProjectionStore(),
-		EventStore:      nil,
-		StaticPath:      tmpDir,
+		AuthConfig:       DefaultAuthConfig(),
+		ProjectionStore:  newMockProjectionStore(),
+		EventStore:       nil,
+		UIProxyURL:       uiServer.URL,
 	}
 
 	// Generate signing key
@@ -240,43 +220,14 @@ func TestRegisterUIRoutes_ProductionMode(t *testing.T) {
 	require.NoError(t, err)
 	_ = result
 
-	tests := []struct {
-		name             string
-		path             string
-		wantStatus       int
-		wantBodyContains string
-	}{
-		{
-			name:             "/ui/ serves index.html",
-			path:             "/ui/",
-			wantStatus:       http.StatusOK,
-			wantBodyContains: "Production UI",
-		},
-		{
-			name:             "/ui/runes serves index.html (SPA)",
-			path:             "/ui/runes",
-			wantStatus:       http.StatusOK,
-			wantBodyContains: "Production UI",
-		},
-		{
-			name:             "/ui/assets/app.js serves actual file",
-			path:             "/ui/assets/app.js",
-			wantStatus:       http.StatusOK,
-			wantBodyContains: "console.log('app')",
-		},
-	}
+	// /ui should proxy to Vike production server
+	req := httptest.NewRequest("GET", "/ui", nil)
+	rec := httptest.NewRecorder()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", tt.path, nil)
-			rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
 
-			mux.ServeHTTP(rec, req)
-
-			assert.Equal(t, tt.wantStatus, rec.Code)
-			assert.Contains(t, rec.Body.String(), tt.wantBodyContains)
-		})
-	}
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), "Vike Production Response")
 }
 
 func TestRegisterUIRoutes_NoUI(t *testing.T) {

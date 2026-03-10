@@ -9,15 +9,10 @@ import (
 	"strings"
 )
 
-// BetaAdminPrefix is the URL path prefix for the Vike beta admin UI (deprecated).
-const BetaAdminPrefix = "/beta/admin"
-
 // UIPrefix is the URL path prefix for the new Vike/React admin UI.
 const UIPrefix = "/ui"
 
-// NewVikeProxyHandler creates a reverse proxy to the Vite dev server for development.
-// It forwards all requests to the target URL while preserving the request path.
-// The prefix parameter is accepted for API consistency with NewVikeStaticHandler but is not needed for proxying.
+// NewVikeProxyHandler creates a reverse proxy to the Vite/Vike server.
 func NewVikeProxyHandler(viteURL, _ string) (http.Handler, error) {
 	target, err := url.Parse(viteURL)
 	if err != nil {
@@ -25,7 +20,6 @@ func NewVikeProxyHandler(viteURL, _ string) (http.Handler, error) {
 	}
 
 	proxy := httputil.NewSingleHostReverseProxy(target)
-
 	return proxy, nil
 }
 

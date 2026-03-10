@@ -3,6 +3,7 @@ module github.com/devzeebo/bifrost/server
 go 1.25.7
 
 require (
+	github.com/jackc/pgx/v5 v5.7.2
 	github.com/stretchr/testify v1.11.1
 	modernc.org/sqlite v1.37.1
 )

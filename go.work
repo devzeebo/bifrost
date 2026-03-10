@@ -6,6 +6,7 @@ use (
 	./domain
 	./domain/integration
 	./providers/sqlite
+	./providers/postgres
 	./server
 	./tools
 )

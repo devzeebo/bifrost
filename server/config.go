@@ -8,12 +8,12 @@ import (
 )
 
 type Config struct {
-	DBDriver          string
-	DBPath            string
-	Port              int
-	CatchUpInterval   time.Duration
-	AdminUIStaticPath string // Path to built Vike assets (production mode)
-	ViteDevServerURL  string // URL of Vite dev server (development mode, e.g., "http://localhost:3000")
+	DBDriver         string
+	DBPath           string
+	Port             int
+	CatchUpInterval  time.Duration
+	ViteDevServerURL string // URL of Vite dev server (development mode, e.g., "http://localhost:3000")
+	UIProxyURL       string // URL of Vike production server (e.g., "http://ui:3000")
 }
 
 func LoadConfig() (*Config, error) {
@@ -22,9 +22,23 @@ func LoadConfig() (*Config, error) {
 		dbDriver = "sqlite"
 	}
 
+	// Validate DB driver
+	if dbDriver != "sqlite" && dbDriver != "postgres" && dbDriver != "psql" {
+		return nil, fmt.Errorf("unsupported DB driver: %q (must be 'sqlite', 'postgres', or 'psql')", dbDriver)
+	}
+
+	// Normalize postgres driver names
+	if dbDriver == "psql" {
+		dbDriver = "postgres"
+	}
+
 	dbPath := os.Getenv("BIFROST_DB_PATH")
 	if dbPath == "" {
-		dbPath = "./bifrost.db"
+		if dbDriver == "postgres" {
+			dbPath = "postgres://localhost/bifrost?sslmode=disable"
+		} else {
+			dbPath = "./bifrost.db"
+		}
 	}
 
 	port := 8080
@@ -49,11 +63,11 @@ func LoadConfig() (*Config, error) {
 	}
 
 	return &Config{
-		DBDriver:          dbDriver,
-		DBPath:            dbPath,
-		Port:              port,
-		CatchUpInterval:   catchUpInterval,
-		AdminUIStaticPath: os.Getenv("BIFROST_ADMIN_UI_STATIC_PATH"),
-		ViteDevServerURL:  os.Getenv("BIFROST_VITE_DEV_SERVER_URL"),
+		DBDriver:         dbDriver,
+		DBPath:           dbPath,
+		Port:             port,
+		CatchUpInterval:  catchUpInterval,
+		ViteDevServerURL: os.Getenv("BIFROST_VITE_DEV_SERVER_URL"),
+		UIProxyURL:       os.Getenv("BIFROST_UI_PROXY_URL"),
 	}, nil
 }

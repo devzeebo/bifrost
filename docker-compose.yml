@@ -1,0 +1,54 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: bifrost-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bifrost
+      POSTGRES_USER: bifrost
+      POSTGRES_PASSWORD: bifrost123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bifrost -d bifrost"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    container_name: bifrost-ui
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      ALLOWED_HOSTS: ui,localhost,bifrost-server,127.0.0.1
+    expose:
+      - "3000"
+
+  bifrost:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bifrost-server
+    restart: unless-stopped
+    environment:
+      BIFROST_DB_DRIVER: postgres
+      BIFROST_DB_PATH: postgres://bifrost:bifrost123@postgres:5432/bifrost?sslmode=disable
+      BIFROST_PORT: 8080
+      ADMIN_JWT_SIGNING_KEY: changeme
+      BIFROST_UI_PROXY_URL: http://ui:3000
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ui:
+        condition: service_started
+
+volumes:
+  postgres_data:
+    driver: local

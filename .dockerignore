@@ -1,0 +1,3 @@
+# Ignore the admin dist directory - it's built during Docker build
+server/admin/dist/
+ui/node_modules/

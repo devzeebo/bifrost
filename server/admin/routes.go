@@ -9,13 +9,11 @@ import (
 
 // RouteConfig holds the configuration for registering admin routes.
 type RouteConfig struct {
-	AuthConfig      *AuthConfig
-	ProjectionStore core.ProjectionStore
-	EventStore      core.EventStore
-	// Vike UI configuration (production only)
-	StaticPath string // Path to built Vike assets (production mode)
-	// Vike UI configuration (development only)
-	ViteDevServerURL string // URL of Vite dev server (development mode)
+	AuthConfig       *AuthConfig
+	ProjectionStore  core.ProjectionStore
+	EventStore       core.EventStore
+	ViteDevServerURL string // URL of Vite dev server (development mode, e.g., "http://localhost:3000")
+	UIProxyURL       string // URL of Vike production server (e.g., "http://ui:3000")
 }
 
 // RegisterRoutesResult contains the result of registering admin routes.
@@ -54,20 +52,31 @@ func registerUIRoutes(mux *http.ServeMux, cfg *RouteConfig) error {
 		if err != nil {
 			return fmt.Errorf("failed to create Vike proxy handler: %w", err)
 		}
-	case cfg.StaticPath != "":
-		// Production mode: serve static files
-		handler, err = NewVikeStaticHandler(cfg.StaticPath, UIPrefix)
+	case cfg.UIProxyURL != "":
+		// Production mode: proxy to Vike production server
+		handler, err = NewVikeProxyHandler(cfg.UIProxyURL, UIPrefix)
 		if err != nil {
-			return fmt.Errorf("failed to create Vike static handler: %w", err)
+			return fmt.Errorf("failed to create Vike proxy handler: %w", err)
 		}
 	default:
-		// No UI configured, nothing to register
+		// No UI configured
 		return nil
 	}
 
-	// Catch-all: serve everything under /ui/
-	mux.Handle(UIPrefix+"/", handler)
-	mux.Handle(UIPrefix, http.RedirectHandler(UIPrefix+"/", http.StatusMovedPermanently))
+	// Handle /ui and /ui/* paths - proxy to Vike server
+	// Note: Vike expects /ui without trailing slash (base: '/ui' in vite.config.ts)
+	// Redirect /ui/ to /ui to match Vike's expectation
+	mux.Handle(UIPrefix+"/", http.StripPrefix(UIPrefix, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// If the path is just "/", redirect to /ui (no trailing slash)
+		if r.URL.Path == "/" {
+			http.Redirect(w, r, UIPrefix, http.StatusMovedPermanently)
+			return
+		}
+		// Otherwise, prepend /ui to the path and proxy
+		r.URL.Path = UIPrefix + r.URL.Path
+		handler.ServeHTTP(w, r)
+	})))
+	mux.Handle(UIPrefix, handler)
 
 	return nil
 }
