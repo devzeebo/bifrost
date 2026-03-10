@@ -73,10 +73,11 @@ func (s *EventStore) Append(ctx context.Context, realmID string, streamID string
 			metadataVal = string(metadata)
 		}
 
-		res, err := tx.ExecContext(ctx,
-			`INSERT INTO events (realm_id, stream_id, version, event_type, _data, _metadata, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		var globalPosition int64
+		err = tx.QueryRowContext(ctx,
+			`INSERT INTO events (realm_id, stream_id, version, event_type, _data, _metadata, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING global_position`,
 			realmID, streamID, version, ed.EventType, string(data), metadataVal, now,
-		)
+		).Scan(&globalPosition)
 		if err != nil {
 			if isPostgresConcurrencyError(err) {
 				return nil, &core.ConcurrencyError{
@@ -85,11 +86,6 @@ func (s *EventStore) Append(ctx context.Context, realmID string, streamID string
 					ActualVersion:   expectedVersion,
 				}
 			}
-			return nil, err
-		}
-
-		globalPosition, err := res.LastInsertId()
-		if err != nil {
 			return nil, err
 		}
 

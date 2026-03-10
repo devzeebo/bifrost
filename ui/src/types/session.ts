@@ -7,7 +7,6 @@ export interface SessionInfo {
   realm_names?: Record<string, string>;
 }
 
-
 export interface LoginRequest {
   pat: string;
   remember_me?: boolean;
@@ -20,6 +19,8 @@ export type OnboardingCheckResponse = {
 export type CreateAdminRequest = {
   username: string;
   realm_name: string;
+  create_sysadmin?: boolean;
+  create_realm?: boolean;
 };
 
 export type CreateAdminResponse = {

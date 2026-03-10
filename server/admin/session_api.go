@@ -93,14 +93,14 @@ func handleUILogin(cfg *RouteConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req LoginRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "invalid JSON")
 			return
 		}
 
 		// Validate PAT is not empty
 		pat := strings.TrimSpace(req.PAT)
 		if pat == "" {
-			http.Error(w, "PAT is required", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "PAT is required")
 			return
 		}
 
@@ -108,14 +108,14 @@ func handleUILogin(cfg *RouteConfig) http.HandlerFunc {
 		entry, patID, err := ValidatePAT(r.Context(), cfg.ProjectionStore, pat)
 		if err != nil {
 			if errors.Is(err, ErrInvalidToken) || errors.Is(err, ErrPATRevoked) {
-				http.Error(w, "invalid or revoked PAT", http.StatusUnauthorized)
+				writeError(w, http.StatusUnauthorized, "invalid or revoked PAT")
 				return
 			}
 			if errors.Is(err, ErrAccountSuspended) {
-				http.Error(w, "account suspended", http.StatusUnauthorized)
+				writeError(w, http.StatusUnauthorized, "account suspended")
 				return
 			}
-			http.Error(w, "authentication failed", http.StatusUnauthorized)
+			writeError(w, http.StatusUnauthorized, "authentication failed")
 			return
 		}
 
@@ -124,7 +124,7 @@ func handleUILogin(cfg *RouteConfig) http.HandlerFunc {
 		// Generate JWT
 		token, err := GenerateJWTWithExpiry(cfg.AuthConfig, entry.AccountID, patID, sessionTTL)
 		if err != nil {
-			http.Error(w, "failed to create session", http.StatusInternalServerError)
+			writeError(w, http.StatusInternalServerError, "failed to create session")
 			return
 		}
 
@@ -190,21 +190,21 @@ func handleUISession(cfg *RouteConfig) http.HandlerFunc {
 		// Get session cookie
 		cookie, err := r.Cookie(cfg.AuthConfig.CookieName)
 		if err != nil {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			writeError(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
 
 		// Validate JWT
 		claims, err := ValidateJWT(cfg.AuthConfig, cookie.Value)
 		if err != nil {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			writeError(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
 
 		// Check PAT status
 		entry, err := CheckPATStatus(r.Context(), cfg.ProjectionStore, claims.PATID)
 		if err != nil {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			writeError(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
 
@@ -333,29 +333,29 @@ func handleCreateAdmin(cfg *RouteConfig) http.HandlerFunc {
 		// Parse request
 		var req CreateAdminRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "invalid JSON")
 			return
 		}
 
 		// Validate request against what's actually needed
 		if req.CreateSysAdmin && !needsSysAdmin {
-			http.Error(w, "sysadmin already exists", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "sysadmin already exists")
 			return
 		}
 		if req.CreateRealm && !needsRealm {
-			http.Error(w, "realm already exists", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "realm already exists")
 			return
 		}
 		if !req.CreateSysAdmin && !req.CreateRealm {
-			http.Error(w, "must specify at least one of create_sysadmin or create_realm", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "must specify at least one of create_sysadmin or create_realm")
 			return
 		}
 		if req.CreateSysAdmin && strings.TrimSpace(req.Username) == "" {
-			http.Error(w, "username is required when creating sysadmin", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "username is required when creating sysadmin")
 			return
 		}
 		if req.CreateRealm && strings.TrimSpace(req.RealmName) == "" {
-			http.Error(w, "realm_name is required when creating realm", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "realm_name is required when creating realm")
 			return
 		}
 
@@ -367,7 +367,7 @@ func handleCreateAdmin(cfg *RouteConfig) http.HandlerFunc {
 				Name: strings.TrimSpace(req.RealmName),
 			}, cfg.EventStore)
 			if err != nil {
-				http.Error(w, "failed to create realm", http.StatusInternalServerError)
+				handleDomainError(w, err)
 				return
 			}
 			resp.RealmID = realmResult.RealmID
@@ -379,7 +379,7 @@ func handleCreateAdmin(cfg *RouteConfig) http.HandlerFunc {
 				Username: strings.TrimSpace(req.Username),
 			}, cfg.EventStore, cfg.ProjectionStore)
 			if err != nil {
-				http.Error(w, "failed to create account", http.StatusInternalServerError)
+				handleDomainError(w, err)
 				return
 			}
 
@@ -390,7 +390,7 @@ func handleCreateAdmin(cfg *RouteConfig) http.HandlerFunc {
 				Role:      "admin",
 			}, cfg.EventStore)
 			if err != nil {
-				http.Error(w, "failed to assign admin role", http.StatusInternalServerError)
+				handleDomainError(w, err)
 				return
 			}
 
@@ -402,7 +402,7 @@ func handleCreateAdmin(cfg *RouteConfig) http.HandlerFunc {
 					Role:      "owner",
 				}, cfg.EventStore)
 				if err != nil {
-					http.Error(w, "failed to assign realm role", http.StatusInternalServerError)
+					handleDomainError(w, err)
 					return
 				}
 			}

@@ -135,7 +135,7 @@ func handleGetAccounts(cfg *RouteConfig) http.HandlerFunc {
 			rawAccounts, err := cfg.ProjectionStore.List(r.Context(), domain.AdminRealmID, "account_list")
 			if err != nil {
 				log.Printf("handleGetAccounts: failed to list accounts: %v", err)
-				http.Error(w, "failed to list accounts", http.StatusInternalServerError)
+				writeError(w, http.StatusInternalServerError, "failed to list accounts")
 				return
 			}
 			accounts = make([]AccountListEntry, 0, len(rawAccounts))
@@ -167,12 +167,12 @@ func handleGetAccount(cfg *RouteConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		accountID := r.URL.Query().Get("id")
 		if accountID == "" {
-			http.Error(w, "id parameter required", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "id parameter required")
 			return
 		}
 
 		if !canManageAccount(r.Context(), accountID) {
-			http.Error(w, "forbidden", http.StatusForbidden)
+			writeError(w, http.StatusForbidden, "forbidden")
 			return
 		}
 
@@ -181,7 +181,7 @@ func handleGetAccount(cfg *RouteConfig) http.HandlerFunc {
 		if cfg.ProjectionStore != nil {
 			err := cfg.ProjectionStore.Get(r.Context(), domain.AdminRealmID, "account_list", accountID, &account)
 			if err != nil {
-				http.Error(w, "account not found", http.StatusNotFound)
+				writeError(w, http.StatusNotFound, "account not found")
 				return
 			}
 		}
@@ -207,13 +207,13 @@ func handleCreateAccount(cfg *RouteConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req CreateAccountRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "invalid JSON")
 			return
 		}
 
 		username := strings.TrimSpace(req.Username)
 		if username == "" {
-			http.Error(w, "username is required", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "username is required")
 			return
 		}
 
@@ -223,11 +223,11 @@ func handleCreateAccount(cfg *RouteConfig) http.HandlerFunc {
 		}, cfg.EventStore, cfg.ProjectionStore)
 		if err != nil {
 			if strings.Contains(err.Error(), "already exists") {
-				http.Error(w, "username already exists", http.StatusConflict)
+				writeError(w, http.StatusConflict, "username already exists")
 				return
 			}
 			log.Printf("handleCreateAccount: failed to create account: %v", err)
-			http.Error(w, "failed to create account", http.StatusInternalServerError)
+			handleDomainError(w, err)
 			return
 		}
 
@@ -249,17 +249,17 @@ func handleSuspendAccount(cfg *RouteConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req SuspendAccountRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "invalid JSON")
 			return
 		}
 
 		if req.ID == "" {
-			http.Error(w, "id is required", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "id is required")
 			return
 		}
 
 		if !canManageAccount(r.Context(), req.ID) {
-			http.Error(w, "forbidden", http.StatusForbidden)
+			writeError(w, http.StatusForbidden, "forbidden")
 			return
 		}
 
@@ -277,7 +277,7 @@ func handleSuspendAccount(cfg *RouteConfig) http.HandlerFunc {
 		}, cfg.EventStore)
 		if err != nil {
 			log.Printf("handleSuspendAccount: failed: %v", err)
-			http.Error(w, "failed to suspend account", http.StatusInternalServerError)
+			handleDomainError(w, err)
 			return
 		}
 
@@ -289,12 +289,12 @@ func handleGrantRealm(cfg *RouteConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req GrantRealmRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "invalid JSON")
 			return
 		}
 
 		if req.AccountID == "" || req.RealmID == "" || req.Role == "" {
-			http.Error(w, "account_id, realm_id, and role are required", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "account_id, realm_id, and role are required")
 			return
 		}
 
@@ -306,7 +306,7 @@ func handleGrantRealm(cfg *RouteConfig) http.HandlerFunc {
 		}, cfg.EventStore)
 		if err != nil {
 			log.Printf("handleGrantRealm: failed: %v", err)
-			http.Error(w, "failed to grant realm access", http.StatusInternalServerError)
+			handleDomainError(w, err)
 			return
 		}
 
@@ -318,12 +318,12 @@ func handleRevokeRealm(cfg *RouteConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req RevokeRealmRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "invalid JSON")
 			return
 		}
 
 		if req.AccountID == "" || req.RealmID == "" {
-			http.Error(w, "account_id and realm_id are required", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "account_id and realm_id are required")
 			return
 		}
 
@@ -334,7 +334,7 @@ func handleRevokeRealm(cfg *RouteConfig) http.HandlerFunc {
 		}, cfg.EventStore)
 		if err != nil {
 			log.Printf("handleRevokeRealm: failed: %v", err)
-			http.Error(w, "failed to revoke realm access", http.StatusInternalServerError)
+			handleDomainError(w, err)
 			return
 		}
 
@@ -346,17 +346,17 @@ func handleCreatePat(cfg *RouteConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req CreatePatRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "invalid JSON")
 			return
 		}
 
 		if req.AccountID == "" {
-			http.Error(w, "account_id is required", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "account_id is required")
 			return
 		}
 
 		if !canManageAccount(r.Context(), req.AccountID) {
-			http.Error(w, "forbidden", http.StatusForbidden)
+			writeError(w, http.StatusForbidden, "forbidden")
 			return
 		}
 
@@ -372,7 +372,7 @@ func handleCreatePat(cfg *RouteConfig) http.HandlerFunc {
 		}, cfg.EventStore)
 		if err != nil {
 			log.Printf("handleCreatePat: failed: %v", err)
-			http.Error(w, "failed to create PAT", http.StatusInternalServerError)
+			handleDomainError(w, err)
 			return
 		}
 
@@ -394,30 +394,30 @@ func handleRevokePat(cfg *RouteConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req RevokePatRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "invalid JSON")
 			return
 		}
 
 		if req.AccountID == "" || req.PatID == "" {
-			http.Error(w, "account_id and pat_id are required", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "account_id and pat_id are required")
 			return
 		}
 
 		if !canManageAccount(r.Context(), req.AccountID) {
-			http.Error(w, "forbidden", http.StatusForbidden)
+			writeError(w, http.StatusForbidden, "forbidden")
 			return
 		}
 
 		var keyHashes []string
 		if cfg.ProjectionStore != nil {
 			if err := cfg.ProjectionStore.Get(r.Context(), domain.AdminRealmID, "account_lookup", "account:"+req.AccountID, &keyHashes); err != nil {
-				http.Error(w, "account not found", http.StatusNotFound)
+				writeError(w, http.StatusNotFound, "account not found")
 				return
 			}
 		}
 
 		if len(keyHashes) <= 1 {
-			http.Error(w, "cannot revoke the last PAT", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "cannot revoke the last PAT")
 			return
 		}
 
@@ -428,7 +428,7 @@ func handleRevokePat(cfg *RouteConfig) http.HandlerFunc {
 		}, cfg.EventStore)
 		if err != nil {
 			log.Printf("handleRevokePat: failed: %v", err)
-			http.Error(w, "failed to revoke PAT", http.StatusInternalServerError)
+			handleDomainError(w, err)
 			return
 		}
 
@@ -441,12 +441,12 @@ func handleGetPats(cfg *RouteConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		accountID := r.URL.Query().Get("account_id")
 		if accountID == "" {
-			http.Error(w, "account_id parameter required", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "account_id parameter required")
 			return
 		}
 
 		if !canManageAccount(r.Context(), accountID) {
-			http.Error(w, "forbidden", http.StatusForbidden)
+			writeError(w, http.StatusForbidden, "forbidden")
 			return
 		}
 
@@ -455,7 +455,7 @@ func handleGetPats(cfg *RouteConfig) http.HandlerFunc {
 		if cfg.ProjectionStore != nil {
 			err := cfg.ProjectionStore.Get(r.Context(), domain.AdminRealmID, "account_list", accountID, &account)
 			if err != nil {
-				http.Error(w, "account not found", http.StatusNotFound)
+				writeError(w, http.StatusNotFound, "account not found")
 				return
 			}
 		}

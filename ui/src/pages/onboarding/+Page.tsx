@@ -1,18 +1,18 @@
-"use client";
+'use client';
 
-import { useState, useCallback } from "react";
-import { Button } from "@base-ui/react/button";
-import { Input } from "@base-ui/react/input";
-import { navigate } from "@/lib/router";
-import { useToast } from "../../lib/toast";
-import { api } from "../../lib/api";
-import type { CreateAdminResponse } from "../../types/session";
+import { useState, useCallback } from 'react';
+import { Button } from '@base-ui/react/button';
+import { Input } from '@base-ui/react/input';
+import { navigate } from '@/lib/router';
+import { useToast } from '../../lib/toast';
+import { api } from '../../lib/api';
+import type { CreateAdminResponse } from '../../types/session';
 
 export { Page };
 
 function Page() {
-  const [username, setUsername] = useState("");
-  const [realmName, setRealmName] = useState("");
+  const [username, setUsername] = useState('');
+  const [realmName, setRealmName] = useState('');
   const [adminResponse, setAdminResponse] = useState<CreateAdminResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -20,12 +20,12 @@ function Page() {
 
   const handleCreateAdmin = useCallback(async () => {
     if (!username.trim()) {
-      showToast("Error", "Username is required", "error");
+      showToast('Error', 'Username is required', 'error');
       return false;
     }
 
     if (!realmName.trim()) {
-      showToast("Error", "Realm name is required", "error");
+      showToast('Error', 'Realm name is required', 'error');
       return false;
     }
 
@@ -34,11 +34,13 @@ function Page() {
       const response = await api.createAdmin({
         username: username.trim(),
         realm_name: realmName.trim(),
+        create_sysadmin: true,
+        create_realm: true,
       });
       setAdminResponse(response);
       return true;
     } catch (_error) {
-      showToast("Error", "Failed to create admin account", "error");
+      showToast('Error', 'Failed to create admin account', 'error');
       return false;
     } finally {
       setIsLoading(false);
@@ -49,30 +51,28 @@ function Page() {
     if (adminResponse?.pat) {
       await navigator.clipboard.writeText(adminResponse.pat);
       setCopied(true);
-      showToast("Copied!", "PAT copied to clipboard", "success");
+      showToast('Copied!', 'PAT copied to clipboard', 'success');
       setTimeout(() => setCopied(false), 2000);
     }
   }, [adminResponse, showToast]);
 
   const handleComplete = useCallback(() => {
-    navigate("/dashboard");
+    navigate('/dashboard');
   }, []);
 
   const stepColors = [
-    "var(--color-red)",
-    "var(--color-blue)",
-    "var(--color-green)",
-    "var(--color-purple)",
+    'var(--color-red)',
+    'var(--color-blue)',
+    'var(--color-green)',
+    'var(--color-purple)',
   ];
 
   const steps = [
     {
-      title: "Admin Account",
+      title: 'Admin Account',
       content: (
         <StepContent color="var(--color-red)">
-          <StepHeader color="var(--color-red)">
-            Create Your Admin Account
-          </StepHeader>
+          <StepHeader color="var(--color-red)">Create Your Admin Account</StepHeader>
           <StepDescription>
             This will be your primary administrator account for managing Bifrost.
           </StepDescription>
@@ -87,12 +87,10 @@ function Page() {
       ),
     },
     {
-      title: "Create Realm",
+      title: 'Create Realm',
       content: (
         <StepContent color="var(--color-blue)">
-          <StepHeader color="var(--color-blue)">
-            Create Your First Realm
-          </StepHeader>
+          <StepHeader color="var(--color-blue)">Create Your First Realm</StepHeader>
           <StepDescription>
             A realm is an isolated workspace for managing runes (issues, tasks, bugs).
           </StepDescription>
@@ -107,21 +105,15 @@ function Page() {
       ),
     },
     {
-      title: "Access Token",
+      title: 'Access Token',
       content: (
         <StepContent color="var(--color-green)">
-          <StepHeader color="var(--color-green)">
-            Your Personal Access Token
-          </StepHeader>
+          <StepHeader color="var(--color-green)">Your Personal Access Token</StepHeader>
           <StepDescription>
             Save this token securely. You'll need it to authenticate with Bifrost.
           </StepDescription>
           {adminResponse ? (
-            <PATDisplay
-              pat={adminResponse.pat}
-              copied={copied}
-              onCopy={handleCopyPAT}
-            />
+            <PATDisplay pat={adminResponse.pat} copied={copied} onCopy={handleCopyPAT} />
           ) : (
             <div className="text-center py-8">
               <p className="text-sm opacity-60">Click Next to generate your token...</p>
@@ -131,12 +123,10 @@ function Page() {
       ),
     },
     {
-      title: "Complete",
+      title: 'Complete',
       content: (
         <StepContent color="var(--color-purple)">
-          <StepHeader color="var(--color-purple)">
-            You're All Set!
-          </StepHeader>
+          <StepHeader color="var(--color-purple)">You're All Set!</StepHeader>
           <StepDescription>
             Your Bifrost instance is ready to use. Start creating and managing runes.
           </StepDescription>
@@ -144,13 +134,17 @@ function Page() {
             <div
               className="inline-block px-6 py-4 text-sm"
               style={{
-                border: "2px solid var(--color-purple)",
-            boxShadow: "var(--shadow-soft)",
+                border: '2px solid var(--color-purple)',
+                boxShadow: 'var(--shadow-soft)',
               }}
             >
               <p className="font-bold mb-2">Setup Summary</p>
-              <p>Admin: <strong>{username}</strong></p>
-              <p>Realm: <strong>{realmName}</strong></p>
+              <p>
+                Admin: <strong>{username}</strong>
+              </p>
+              <p>
+                Realm: <strong>{realmName}</strong>
+              </p>
             </div>
           </div>
         </StepContent>
@@ -158,13 +152,16 @@ function Page() {
     },
   ];
 
-  const handleWizardNext = useCallback(async (currentStep: number) => {
-    // Step 2 (index 2) is the PAT generation step
-    if (currentStep === 2 && !adminResponse) {
-      return handleCreateAdmin();
-    }
-    return true;
-  }, [adminResponse, handleCreateAdmin]);
+  const handleWizardNext = useCallback(
+    async (currentStep: number) => {
+      // Step 2 (index 2) is the PAT generation step
+      if (currentStep === 2 && !adminResponse) {
+        return handleCreateAdmin();
+      }
+      return true;
+    },
+    [adminResponse, handleCreateAdmin]
+  );
 
   return (
     <div className="min-h-[calc(100vh-56px)] flex items-center justify-center p-6">
@@ -174,10 +171,7 @@ function Page() {
           <h1 className="text-4xl font-bold tracking-tight mb-2">
             <span className="bifrost-logo-text">Bifrost</span>
           </h1>
-          <p
-            className="text-sm uppercase tracking-widest"
-            style={{ color: "var(--color-border)" }}
-          >
+          <p className="text-sm uppercase tracking-widest" style={{ color: 'var(--color-border)' }}>
             First-Time Setup
           </p>
         </div>
@@ -186,9 +180,9 @@ function Page() {
         <div
           className="p-8"
           style={{
-            backgroundColor: "var(--color-bg)",
-            border: "2px solid var(--color-border)",
-            boxShadow: "var(--shadow-soft)",
+            backgroundColor: 'var(--color-bg)',
+            border: '2px solid var(--color-border)',
+            boxShadow: 'var(--shadow-soft)',
           }}
         >
           <WizardWithValidation
@@ -202,7 +196,6 @@ function Page() {
     </div>
   );
 }
-
 
 // Custom wizard with validation
 type WizardWithValidationProps = {
@@ -266,24 +259,18 @@ function WizardWithValidation({
               <div
                 className="step-number"
                 style={{
-                  backgroundColor:
-                    isActive || isCompleted ? getStepColor(index) : "#f5f5f5",
-                  borderColor:
-                    isActive || isCompleted ? getStepColor(index) : "#000000",
-                  color: isActive || isCompleted ? "#ffffff" : "#000000",
+                  backgroundColor: isActive || isCompleted ? getStepColor(index) : '#f5f5f5',
+                  borderColor: isActive || isCompleted ? getStepColor(index) : '#000000',
+                  color: isActive || isCompleted ? '#ffffff' : '#000000',
                 }}
               >
-                {isCompleted ? "✓" : index + 1}
+                {isCompleted ? '✓' : index + 1}
               </div>
               <div
                 className="step-title"
                 style={{
-                  color: isActive
-                    ? getStepColor(index)
-                    : isUpcoming
-                      ? "#999999"
-                      : "#000000",
-                  fontWeight: isActive ? "bold" : "normal",
+                  color: isActive ? getStepColor(index) : isUpcoming ? '#999999' : '#000000',
+                  fontWeight: isActive ? 'bold' : 'normal',
                 }}
               >
                 {step.title}
@@ -300,26 +287,18 @@ function WizardWithValidation({
       {/* Navigation Buttons */}
       <div className="wizard-navigation">
         {!isFirstStep && (
-          <Button
-            onClick={handleBack}
-            className="wizard-button wizard-button-back"
-            type="button"
-          >
+          <Button onClick={handleBack} className="wizard-button wizard-button-back" type="button">
             ← Back
           </Button>
         )}
 
         <Button
           onClick={handleNext}
-          className={`wizard-button ${isLastStep ? "wizard-button-done" : "wizard-button-next"}`}
+          className={`wizard-button ${isLastStep ? 'wizard-button-done' : 'wizard-button-next'}`}
           type="button"
           disabled={isValidating}
         >
-          {isValidating
-            ? "Processing..."
-            : isLastStep
-              ? "Go to Dashboard →"
-              : "Next →"}
+          {isValidating ? 'Processing...' : isLastStep ? 'Go to Dashboard →' : 'Next →'}
         </Button>
       </div>
 
@@ -473,10 +452,7 @@ type StepHeaderProps = {
 
 function StepHeader({ children, color }: StepHeaderProps) {
   return (
-    <h2
-      className="text-xl font-bold mb-4 uppercase tracking-wide"
-      style={{ color }}
-    >
+    <h2 className="text-xl font-bold mb-4 uppercase tracking-wide" style={{ color }}>
       {children}
     </h2>
   );
@@ -484,10 +460,7 @@ function StepHeader({ children, color }: StepHeaderProps) {
 
 function StepDescription({ children }: { children: string }) {
   return (
-    <p
-      className="text-sm mb-6 opacity-70"
-      style={{ color: "var(--color-text)" }}
-    >
+    <p className="text-sm mb-6 opacity-70" style={{ color: 'var(--color-text)' }}>
       {children}
     </p>
   );
@@ -501,21 +474,15 @@ type FormFieldProps = {
   disabled: boolean;
 };
 
-function FormField({
-  label,
-  value,
-  onChange,
-  placeholder,
-  disabled,
-}: FormFieldProps) {
-  const fieldId = label.toLowerCase().replace(/\s+/g, "-");
+function FormField({ label, value, onChange, placeholder, disabled }: FormFieldProps) {
+  const fieldId = label.toLowerCase().replace(/\s+/g, '-');
 
   return (
     <div className="mb-6">
       <label
         htmlFor={fieldId}
         className="block text-xs uppercase tracking-wider mb-2 font-semibold"
-        style={{ color: "var(--color-border)" }}
+        style={{ color: 'var(--color-border)' }}
       >
         {label}
       </label>
@@ -528,18 +495,18 @@ function FormField({
         disabled={disabled}
         className="w-full px-4 py-3 text-sm transition-all duration-150"
         style={{
-          backgroundColor: "var(--color-bg)",
-          border: "2px solid var(--color-border)",
-          color: "var(--color-text)",
-            boxShadow: "var(--shadow-soft)",
+          backgroundColor: 'var(--color-bg)',
+          border: '2px solid var(--color-border)',
+          color: 'var(--color-text)',
+          boxShadow: 'var(--shadow-soft)',
         }}
         onFocus={(e) => {
-          e.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
-          e.currentTarget.style.transform = "translate(2px, 2px)";
+          e.currentTarget.style.boxShadow = 'var(--shadow-soft-hover)';
+          e.currentTarget.style.transform = 'translate(2px, 2px)';
         }}
         onBlur={(e) => {
-          e.currentTarget.style.boxShadow = "var(--shadow-soft)";
-          e.currentTarget.style.transform = "translate(0, 0)";
+          e.currentTarget.style.boxShadow = 'var(--shadow-soft)';
+          e.currentTarget.style.transform = 'translate(0, 0)';
         }}
       />
     </div>
@@ -558,9 +525,9 @@ function PATDisplay({ pat, copied, onCopy }: PATDisplayProps) {
       <div
         className="p-4 font-mono text-sm break-all"
         style={{
-          backgroundColor: "var(--color-bg)",
-          border: "2px solid var(--color-green)",
-            boxShadow: "var(--shadow-soft)",
+          backgroundColor: 'var(--color-bg)',
+          border: '2px solid var(--color-green)',
+          boxShadow: 'var(--shadow-soft)',
         }}
       >
         {pat}
@@ -569,28 +536,25 @@ function PATDisplay({ pat, copied, onCopy }: PATDisplayProps) {
         onClick={onCopy}
         className="w-full py-3 px-6 text-sm font-bold uppercase tracking-wider transition-all duration-150"
         style={{
-          backgroundColor: copied ? "var(--color-green)" : "var(--color-bg)",
-          border: "2px solid var(--color-border)",
-          color: copied ? "#ffffff" : "var(--color-text)",
-            boxShadow: "var(--shadow-soft)",
+          backgroundColor: copied ? 'var(--color-green)' : 'var(--color-bg)',
+          border: '2px solid var(--color-border)',
+          color: copied ? '#ffffff' : 'var(--color-text)',
+          boxShadow: 'var(--shadow-soft)',
         }}
         onMouseEnter={(e) => {
           if (!copied) {
-            e.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
-            e.currentTarget.style.transform = "translate(2px, 2px)";
+            e.currentTarget.style.boxShadow = 'var(--shadow-soft-hover)';
+            e.currentTarget.style.transform = 'translate(2px, 2px)';
           }
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.boxShadow = "var(--shadow-soft)";
-          e.currentTarget.style.transform = "translate(0, 0)";
+          e.currentTarget.style.boxShadow = 'var(--shadow-soft)';
+          e.currentTarget.style.transform = 'translate(0, 0)';
         }}
       >
-        {copied ? "✓ Copied!" : "Copy to Clipboard"}
+        {copied ? '✓ Copied!' : 'Copy to Clipboard'}
       </Button>
-      <p
-        className="text-xs text-center opacity-60"
-        style={{ color: "var(--color-text)" }}
-      >
+      <p className="text-xs text-center opacity-60" style={{ color: 'var(--color-text)' }}>
         ⚠️ Store this token securely. It won't be shown again.
       </p>
     </div>
