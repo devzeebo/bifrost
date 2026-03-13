@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Button } from '@base-ui/react/button';
 import { navigate } from '@/lib/router';
 import { useAuth } from '../../lib/auth';
@@ -40,9 +40,9 @@ function Page() {
     }
 
     fetchPATs();
-  }, [authLoading, isAuthenticated]);
+  }, [authLoading, isAuthenticated, fetchPATs]);
 
-  const fetchPATs = async () => {
+  const fetchPATs = useCallback(async () => {
     if (!accountId) return;
 
     setIsLoadingPATs(true);
@@ -54,7 +54,7 @@ function Page() {
     } finally {
       setIsLoadingPATs(false);
     }
-  };
+  }, [accountId, showToast]);
 
   const handleCreatePAT = async () => {
     if (!accountId) return;
