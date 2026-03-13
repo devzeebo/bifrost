@@ -46,6 +46,9 @@ jobs:
           cache: 'npm'
           cache-dependency-path: ui/package-lock.json
 
+      - name: Install dependencies
+        run: make deps
+
       - name: Run tests
         run: make test
 

@@ -1,17 +1,17 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { Button } from "@base-ui/react/button";
-import { Input } from "@base-ui/react/input";
-import { navigate } from "@/lib/router";
-import { useAuth } from "../../lib/auth";
-import { useToast } from "../../lib/toast";
-import { api } from "../../lib/api";
+import { useEffect, useState } from 'react';
+import { Button } from '@base-ui/react/button';
+import { Input } from '@base-ui/react/input';
+import { navigate } from '@/lib/router';
+import { useAuth } from '../../lib/auth';
+import { useToast } from '../../lib/toast';
+import { api } from '../../lib/api';
 
 export { Page };
 
 function Page() {
-  const [pat, setPat] = useState("");
+  const [pat, setPat] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true);
@@ -25,7 +25,7 @@ function Page() {
       try {
         const onboardingStatus = await api.checkOnboarding();
         if (onboardingStatus.needs_onboarding) {
-          navigate("/onboarding");
+          navigate('/onboarding');
         }
       } catch {
         if (isMounted) {
@@ -50,7 +50,7 @@ function Page() {
     e.preventDefault();
 
     if (!pat.trim()) {
-      showToast("Error", "Please enter your PAT", "error");
+      showToast('Error', 'Please enter your PAT', 'error');
       return;
     }
 
@@ -63,12 +63,12 @@ function Page() {
       const onboardingStatus = await api.checkOnboarding();
 
       if (onboardingStatus.needs_onboarding) {
-        navigate("/onboarding");
+        navigate('/onboarding');
       } else {
-        navigate("/dashboard");
+        navigate('/dashboard');
       }
-    } catch (error) {
-      showToast("Login Failed", "Invalid PAT or server error", "error");
+    } catch {
+      showToast('Login Failed', 'Invalid PAT or server error', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -88,14 +88,12 @@ function Page() {
         <div
           className="p-8"
           style={{
-            backgroundColor: "var(--color-bg)",
-            border: "2px solid var(--color-border)",
-            boxShadow: "var(--shadow-soft)",
+            backgroundColor: 'var(--color-bg)',
+            border: '2px solid var(--color-border)',
+            boxShadow: 'var(--shadow-soft)',
           }}
         >
-          <h2 className="text-xl font-bold mb-6 uppercase tracking-wide">
-            Sign In
-          </h2>
+          <h2 className="text-xl font-bold mb-6 uppercase tracking-wide">Sign In</h2>
 
           <form onSubmit={handleSubmit}>
             {/* PAT Input */}
@@ -103,7 +101,7 @@ function Page() {
               <label
                 htmlFor="pat"
                 className="block text-xs uppercase tracking-wider mb-2 font-semibold"
-                style={{ color: "var(--color-border)" }}
+                style={{ color: 'var(--color-border)' }}
               >
                 Personal Access Token
               </label>
@@ -116,18 +114,18 @@ function Page() {
                 disabled={isLoading}
                 className="w-full px-4 py-3 text-sm transition-all duration-150"
                 style={{
-                  backgroundColor: "var(--color-bg)",
-                  border: "2px solid var(--color-border)",
-                  color: "var(--color-text)",
-                  boxShadow: "var(--shadow-soft)",
+                  backgroundColor: 'var(--color-bg)',
+                  border: '2px solid var(--color-border)',
+                  color: 'var(--color-text)',
+                  boxShadow: 'var(--shadow-soft)',
                 }}
                 onFocus={(e) => {
-                  e.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
-                  e.currentTarget.style.transform = "translate(2px, 2px)";
+                  e.currentTarget.style.boxShadow = 'var(--shadow-soft-hover)';
+                  e.currentTarget.style.transform = 'translate(2px, 2px)';
                 }}
                 onBlur={(e) => {
-                  e.currentTarget.style.boxShadow = "var(--shadow-soft)";
-                  e.currentTarget.style.transform = "translate(0, 0)";
+                  e.currentTarget.style.boxShadow = 'var(--shadow-soft)';
+                  e.currentTarget.style.transform = 'translate(0, 0)';
                 }}
               />
             </div>
@@ -140,12 +138,12 @@ function Page() {
                 onChange={(e) => setRememberMe(e.target.checked)}
                 disabled={isLoading || isCheckingOnboarding}
                 className="h-4 w-4"
-                style={{ accentColor: "var(--color-red)" }}
+                style={{ accentColor: 'var(--color-red)' }}
               />
               <label
                 htmlFor="remember-me"
                 className="text-xs uppercase tracking-wider font-semibold"
-                style={{ color: "var(--color-text-muted)" }}
+                style={{ color: 'var(--color-text-muted)' }}
               >
                 Remember me
               </label>
@@ -157,37 +155,33 @@ function Page() {
               disabled={isLoading || isCheckingOnboarding}
               className="w-full py-3 px-6 text-sm font-bold uppercase tracking-wider transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
-                backgroundColor: "var(--color-red)",
-                border: "2px solid var(--color-border)",
-                color: "white",
-                boxShadow: "var(--shadow-soft)",
+                backgroundColor: 'var(--color-red)',
+                border: '2px solid var(--color-border)',
+                color: 'white',
+                boxShadow: 'var(--shadow-soft)',
               }}
               onMouseEnter={(e) => {
                 if (!isLoading) {
-                  e.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
-                  e.currentTarget.style.transform = "translate(2px, 2px)";
+                  e.currentTarget.style.boxShadow = 'var(--shadow-soft-hover)';
+                  e.currentTarget.style.transform = 'translate(2px, 2px)';
                 }
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow = "var(--shadow-soft)";
-                e.currentTarget.style.transform = "translate(0, 0)";
+                e.currentTarget.style.boxShadow = 'var(--shadow-soft)';
+                e.currentTarget.style.transform = 'translate(0, 0)';
               }}
               onMouseDown={(e) => {
                 if (!isLoading) {
-                  e.currentTarget.style.boxShadow = "var(--shadow-soft-active)";
-                  e.currentTarget.style.transform = "translate(4px, 4px)";
+                  e.currentTarget.style.boxShadow = 'var(--shadow-soft-active)';
+                  e.currentTarget.style.transform = 'translate(4px, 4px)';
                 }
               }}
               onMouseUp={(e) => {
-                e.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
-                e.currentTarget.style.transform = "translate(2px, 2px)";
+                e.currentTarget.style.boxShadow = 'var(--shadow-soft-hover)';
+                e.currentTarget.style.transform = 'translate(2px, 2px)';
               }}
             >
-              {isCheckingOnboarding
-                ? "Checking setup..."
-                : isLoading
-                  ? "Signing in..."
-                  : "Sign In"}
+              {isCheckingOnboarding ? 'Checking setup...' : isLoading ? 'Signing in...' : 'Sign In'}
             </Button>
           </form>
         </div>

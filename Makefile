@@ -14,9 +14,17 @@ else
   GO_TARGETS := $(foreach m,$(ALL_MODULES),./$(m)/...)
 endif
 
-.PHONY: build build-server build-cli build-ui ui-dist \
-        test lint vet tidy \
+.PHONY: deps build build-server build-cli build-ui ui-dist \
+        test test-go test-ui \
+        lint lint-go lint-ui \
+        vet tidy \
         dev prod docker clean list help
+
+# ── Dependencies ───────────────────────────────────────────────────────────────
+
+deps:
+	@echo "» installing ui dependencies"
+	cd ui && npm ci
 
 # ── Build ─────────────────────────────────────────────────────────────────────
 
@@ -24,7 +32,7 @@ build: build-server build-cli
 
 ui-dist:
 	@echo "» building ui for production"
-	cd ui && npm ci && npm run build
+	cd ui && npm run build
 	@echo "» copying ui dist to server/admin/ui/"
 	rm -rf server/admin/ui
 	cp -r ui/dist/client server/admin/ui
@@ -48,13 +56,25 @@ build-ui: ui-dist
 
 # ── Quality ───────────────────────────────────────────────────────────────────
 
-test:
+test: test-go test-ui
+
+test-go:
 	@echo "» go test $(ARGS) $(GO_TARGETS)"
 	go test $(ARGS) $(GO_TARGETS)
 
-lint:
+test-ui:
+	@echo "» vitest run"
+	cd ui && npm run test -- --run
+
+lint: lint-go lint-ui
+
+lint-go:
 	@echo "» golangci-lint run $(ARGS) $(GO_TARGETS)"
 	go tool golangci-lint run $(ARGS) $(GO_TARGETS)
+
+lint-ui:
+	@echo "» oxlint"
+	cd ui && npm run lint
 
 vet:
 	@echo "» go vet $(ARGS) $(GO_TARGETS)"
@@ -103,20 +123,25 @@ help:
 	@echo "Usage: make <target> [MODULES=\"mod1 mod2\"] [ARGS=\"-v -count=1\"]"
 	@echo ""
 	@echo "Targets:"
+	@echo "  deps             Install UI dependencies (npm ci)"
 	@echo "  build            Build server + CLI binaries (includes embedded UI)"
 	@echo "  build-server     Build the server binary (includes embedded UI)"
 	@echo "  build-cli        Build the CLI binary"
 	@echo "  build-ui         Build the Vike UI and copy to server/admin/ui/"
 	@echo "  ui-dist          Build UI and copy dist to server/admin/ui/ (alias for build-ui)"
-
-	@echo "  test             Run tests (all modules or MODULES=...)"
-	@echo "  lint             Run golangci-lint (all modules or MODULES=...)"
+	@echo ""
+	@echo "  test             Run all tests (Go + UI)"
+	@echo "  test-go          Run Go tests (all modules or MODULES=...)"
+	@echo "  test-ui          Run UI tests (vitest)"
+	@echo "  lint             Run all linters (Go + UI)"
+	@echo "  lint-go          Run golangci-lint (all modules or MODULES=...)"
+	@echo "  lint-ui          Run oxlint"
 	@echo "  vet              Run go vet (all modules or MODULES=...)"
 	@echo "  tidy             Run go mod tidy (all modules or MODULES=...)"
+	@echo ""
 	@echo "  dev              Start Go server + Vike UI dev server"
-
 	@echo "  prod             Build and start Go server (production mode, embedded UI)"
-
+	@echo ""
 	@echo "  docker           Build Docker image"
 	@echo "  clean            Remove build artifacts"
 	@echo "  list             List available modules"
@@ -124,9 +149,9 @@ help:
 	@echo "Modules: $(ALL_MODULES)"
 	@echo ""
 	@echo "Examples:"
-	@echo "  make test                              # test everything"
-	@echo "  make test MODULES=core                 # test only core"
-	@echo "  make test MODULES=\"core domain\"         # test core and domain"
-	@echo "  make lint MODULES=\"server cli\"           # lint server and cli"
+	@echo "  make deps test lint build        # full CI pipeline"
+	@echo "  make test MODULES=core           # test only core"
+	@echo "  make test MODULES=\"core domain\"  # test core and domain"
+	@echo "  make lint MODULES=\"server cli\"   # lint server and cli"
 	@echo "  make test MODULES=core ARGS=\"-v -count=1\"  # pass extra flags"
-	@echo "  make dev                               # start dev mode"
+	@echo "  make dev                         # start dev mode"

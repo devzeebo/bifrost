@@ -39,7 +39,7 @@ function Page() {
       });
       setAdminResponse(response);
       return true;
-    } catch (_error) {
+    } catch {
       showToast('Error', 'Failed to create admin account', 'error');
       return false;
     } finally {
