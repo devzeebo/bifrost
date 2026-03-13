@@ -1,0 +1,70 @@
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      upload-artifacts:
+        description: 'Upload build artifacts'
+        required: false
+        default: false
+        type: boolean
+    outputs:
+      artifact-x86_64:
+        description: 'x86_64 artifact name'
+        value: binaries-x86_64
+      artifact-aarch64:
+        description: 'aarch64 artifact name'
+        value: binaries-aarch64
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            goos: linux
+            goarch: amd64
+          - arch: aarch64
+            goos: linux
+            goarch: arm64
+    steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.work'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Run tests
+        run: make test
+
+      - name: Run linter
+        run: make lint
+
+      - name: Build binaries
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          make build
+          mkdir -p release
+          tar -czvf release/bifrost-${{ matrix.arch }}.tar.gz -C bin .
+
+      - name: Upload artifacts
+        if: ${{ inputs.upload-artifacts }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.arch }}
+          path: release/

@@ -1,4 +1,4 @@
-name: Build and Publish
+name: Release
 
 on:
   push:
@@ -7,55 +7,9 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - arch: x86_64
-            goos: linux
-            goarch: amd64
-          - arch: aarch64
-            goos: linux
-            goarch: arm64
-    steps:
-      - name: Checkout source repo
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: 'go.work'
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: ui/package-lock.json
-
-      - name: Run tests
-        run: make test
-
-      - name: Run linter
-        run: make lint
-
-      - name: Build binaries
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 0
-        run: |
-          make build
-          mkdir -p release
-          tar -czvf release/bifrost-${{ matrix.arch }}.tar.gz -C bin .
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: binaries-${{ matrix.arch }}
-          path: release/
+    uses: ./.github/workflows/build.yml
+    with:
+      upload-artifacts: true
 
   release:
     needs: build
