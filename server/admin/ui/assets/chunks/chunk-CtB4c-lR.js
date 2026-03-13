@@ -1,0 +1,1 @@
+import{r as f,k as l,h as c}from"./chunk-BYBpLS4n.js";const m=f.forwardRef(function(t,s){const{render:i,className:B,disabled:e=!1,focusableWhenDisabled:n=!1,nativeButton:o=!0,...a}=t,{getButtonProps:r,buttonRef:u}=l({disabled:e,focusableWhenDisabled:n,native:o});return c("button",t,{state:{disabled:e},ref:[s,u],props:[a,r]})});export{m as B};

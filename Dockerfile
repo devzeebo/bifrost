@@ -1,5 +1,5 @@
 # Stage 1: Build UI
-FROM node:22-alpine AS ui-builder
+FROM node:24-alpine AS ui-builder
 WORKDIR /ui
 COPY ui/package.json ui/package-lock.json* ./
 RUN npm ci
@@ -7,7 +7,7 @@ COPY ui/ ./
 RUN npm run build
 
 # Stage 2: Build Go binaries
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26-alpine AS builder
 WORKDIR /src
 COPY go.work go.work
 COPY go.work.sum go.work.sum

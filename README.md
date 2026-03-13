@@ -4,8 +4,8 @@ Event-sourced rune management service for AI agents.
 
 ![CI](https://github.com/devzeebo/bifrost/actions/workflows/ci.yml/badge.svg)
 ![Release](https://github.com/devzeebo/bifrost/actions/workflows/release.yml/badge.svg)
-![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)
-![Node.js](https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white)
+![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-24-339933?logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 
 ## Quickstart
