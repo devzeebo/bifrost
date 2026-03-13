@@ -1,7 +1,7 @@
 package admin
 
 import (
-	"fmt"
+	"io/fs"
 	"net/http"
 
 	"github.com/devzeebo/bifrost/core"
@@ -13,7 +13,6 @@ type RouteConfig struct {
 	ProjectionStore  core.ProjectionStore
 	EventStore       core.EventStore
 	ViteDevServerURL string // URL of Vite dev server (development mode, e.g., "http://localhost:3000")
-	UIProxyURL       string // URL of Vike production server (e.g., "http://ui:3000")
 }
 
 // RegisterRoutesResult contains the result of registering admin routes.
@@ -31,52 +30,47 @@ func RegisterRoutes(mux *http.ServeMux, cfg *RouteConfig) (*RegisterRoutesResult
 	RegisterAccountsAPIRoutes(mux, cfg)
 
 	// Register new /ui/ routes (development or production)
-	if err := registerUIRoutes(mux, cfg); err != nil {
-		return nil, err
-	}
+	registerUIRoutes(mux, cfg)
 
 	return &RegisterRoutesResult{Handler: mux}, nil
 }
 
 // registerUIRoutes registers the new Vike/React admin UI on /ui/*.
 // In development mode, requests are proxied to the Vite dev server.
-// In production mode, requests are served from built static assets.
-func registerUIRoutes(mux *http.ServeMux, cfg *RouteConfig) error {
-	var handler http.Handler
-	var err error
-
-	switch {
-	case cfg.ViteDevServerURL != "":
+// In production mode, requests are served from embedded static assets.
+func registerUIRoutes(mux *http.ServeMux, cfg *RouteConfig) {
+	if cfg.ViteDevServerURL != "" {
 		// Development mode: proxy to Vite dev server
-		handler, err = NewVikeProxyHandler(cfg.ViteDevServerURL, UIPrefix)
+		handler, err := NewVikeProxyHandler(cfg.ViteDevServerURL, UIPrefix)
 		if err != nil {
-			return fmt.Errorf("failed to create Vike proxy handler: %w", err)
-		}
-	case cfg.UIProxyURL != "":
-		// Production mode: proxy to Vike production server
-		handler, err = NewVikeProxyHandler(cfg.UIProxyURL, UIPrefix)
-		if err != nil {
-			return fmt.Errorf("failed to create Vike proxy handler: %w", err)
-		}
-	default:
-		// No UI configured
-		return nil
-	}
-
-	// Handle /ui and /ui/* paths - proxy to Vike server
-	// Note: Vike expects /ui without trailing slash (base: '/ui' in vite.config.ts)
-	// Redirect /ui/ to /ui to match Vike's expectation
-	mux.Handle(UIPrefix+"/", http.StripPrefix(UIPrefix, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// If the path is just "/", redirect to /ui (no trailing slash)
-		if r.URL.Path == "/" {
-			http.Redirect(w, r, UIPrefix, http.StatusMovedPermanently)
 			return
 		}
-		// Otherwise, prepend /ui to the path and proxy
-		r.URL.Path = UIPrefix + r.URL.Path
-		handler.ServeHTTP(w, r)
-	})))
-	mux.Handle(UIPrefix, handler)
 
-	return nil
+		// Handle /ui and /ui/* paths - proxy to Vite server
+		mux.Handle(UIPrefix+"/", http.StripPrefix(UIPrefix, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// If the path is just "/", redirect to /ui (no trailing slash)
+			if r.URL.Path == "/" {
+				http.Redirect(w, r, UIPrefix, http.StatusMovedPermanently)
+				return
+			}
+			// Otherwise, prepend /ui to the path and proxy
+			r.URL.Path = UIPrefix + r.URL.Path
+			handler.ServeHTTP(w, r)
+		})))
+		mux.Handle(UIPrefix, handler)
+		return
+	}
+
+	// Production mode: serve embedded static files
+	uiFS, err := fs.Sub(UIFiles, "ui")
+	if err != nil {
+		return
+	}
+
+	fileServer := http.FileServer(http.FS(uiFS))
+	handler := NewVikeStaticHandlerFS(fileServer, uiFS, UIPrefix)
+
+	// Handle /ui and /ui/* paths - serve static files with SPA fallback
+	mux.Handle(UIPrefix+"/", http.StripPrefix(UIPrefix, handler))
+	mux.Handle(UIPrefix, http.StripPrefix(UIPrefix, handler))
 }

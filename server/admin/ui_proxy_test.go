@@ -195,19 +195,12 @@ func TestRegisterUIRoutes_DevelopmentMode(t *testing.T) {
 }
 
 func TestRegisterUIRoutes_ProductionMode(t *testing.T) {
-	// Create a mock Vike production server
-	uiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("<html>Vike Production Response</html>"))
-	}))
-	defer uiServer.Close()
-
+	// Production mode serves embedded static files
 	cfg := &RouteConfig{
 		AuthConfig:       DefaultAuthConfig(),
 		ProjectionStore:  newMockProjectionStore(),
 		EventStore:       nil,
-		UIProxyURL:       uiServer.URL,
+		// No ViteDevServerURL = production mode (embedded files)
 	}
 
 	// Generate signing key
@@ -220,22 +213,25 @@ func TestRegisterUIRoutes_ProductionMode(t *testing.T) {
 	require.NoError(t, err)
 	_ = result
 
-	// /ui should proxy to Vike production server
+	// /ui should serve index.html from embedded files
 	req := httptest.NewRequest("GET", "/ui", nil)
 	rec := httptest.NewRecorder()
 
 	mux.ServeHTTP(rec, req)
 
+	// With embedded UI files, returns 200 with HTML
 	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.Contains(t, rec.Body.String(), "Vike Production Response")
+	assert.Contains(t, rec.Body.String(), "<!DOCTYPE html>")
 }
 
 func TestRegisterUIRoutes_NoUI(t *testing.T) {
+	// Note: With embedded files, there's always a UI configured
+	// This test now verifies that embedded files are served
 	cfg := &RouteConfig{
 		AuthConfig:      DefaultAuthConfig(),
 		ProjectionStore: newMockProjectionStore(),
 		EventStore:      nil,
-		// No StaticPath or ViteDevServerURL
+		// No ViteDevServerURL = production mode (embedded files)
 	}
 
 	// Generate signing key
@@ -248,11 +244,12 @@ func TestRegisterUIRoutes_NoUI(t *testing.T) {
 	require.NoError(t, err)
 	_ = result
 
-	// /ui/ should return 404 when no UI is configured
-	req := httptest.NewRequest("GET", "/ui/", nil)
+	// /ui should serve embedded index.html
+	req := httptest.NewRequest("GET", "/ui", nil)
 	rec := httptest.NewRecorder()
 
 	mux.ServeHTTP(rec, req)
 
-	assert.Equal(t, http.StatusNotFound, rec.Code)
+	// With embedded UI files, returns 200
+	assert.Equal(t, http.StatusOK, rec.Code)
 }

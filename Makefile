@@ -14,7 +14,7 @@ else
   GO_TARGETS := $(foreach m,$(ALL_MODULES),./$(m)/...)
 endif
 
-.PHONY: build build-server build-cli build-ui \
+.PHONY: build build-server build-cli build-ui ui-dist \
         test lint vet tidy \
         dev prod docker clean list help
 
@@ -22,7 +22,15 @@ endif
 
 build: build-server build-cli
 
-build-server:
+ui-dist:
+	@echo "» building ui for production"
+	cd ui && npm run build
+	@echo "» copying ui dist to server/admin/ui/"
+	rm -rf server/admin/ui
+	cp -r ui/dist/client server/admin/ui
+	@echo "» ui embedded in server binary"
+
+build-server: ui-dist
 	@echo "» building server → $(BINARY_DIR)/$(SERVER_BINARY)"
 	go build -buildvcs=false -o $(BINARY_DIR)/$(SERVER_BINARY) ./server/cmd
 
@@ -36,10 +44,7 @@ build-cli-debug:
 	go build -buildvcs=false -tags debug -o $(BINARY_DIR)/$(CLI_BINARY) ./cli/cmd/bf
 	ln -sf $(CLI_BINARY) $(BINARY_DIR)/bifrost
 
-build-ui:
-	@echo "» building ui for production"
-	cd ui && npm run build
-	@echo "» ui built to ui/dist/"
+build-ui: ui-dist
 
 # ── Quality ───────────────────────────────────────────────────────────────────
 
@@ -78,9 +83,9 @@ dev: build-server
 	kill $$SERVER_PID 2>/dev/null || true; \
 	wait $$SERVER_PID 2>/dev/null || true
 
-prod: build-server build-ui
-	@echo "» starting production mode (Go server on :8080, serving built ui)"
-	BIFROST_UI_STATIC_PATH=ui/dist $(BINARY_DIR)/$(SERVER_BINARY)
+prod: build-server
+	@echo "» starting production mode (Go server on :8080 with embedded UI)"
+	$(BINARY_DIR)/$(SERVER_BINARY)
 
 # ── Misc ──────────────────────────────────────────────────────────────────────
 
@@ -98,10 +103,11 @@ help:
 	@echo "Usage: make <target> [MODULES=\"mod1 mod2\"] [ARGS=\"-v -count=1\"]"
 	@echo ""
 	@echo "Targets:"
-	@echo "  build            Build server + CLI binaries"
-	@echo "  build-server     Build the server binary"
+	@echo "  build            Build server + CLI binaries (includes embedded UI)"
+	@echo "  build-server     Build the server binary (includes embedded UI)"
 	@echo "  build-cli        Build the CLI binary"
-	@echo "  build-ui         Build the Vike UI for production"
+	@echo "  build-ui         Build the Vike UI and copy to server/admin/ui/"
+	@echo "  ui-dist          Build UI and copy dist to server/admin/ui/ (alias for build-ui)"
 
 	@echo "  test             Run tests (all modules or MODULES=...)"
 	@echo "  lint             Run golangci-lint (all modules or MODULES=...)"
@@ -109,7 +115,7 @@ help:
 	@echo "  tidy             Run go mod tidy (all modules or MODULES=...)"
 	@echo "  dev              Start Go server + Vike UI dev server"
 
-	@echo "  prod             Build UI and start Go server (production mode)"
+	@echo "  prod             Build and start Go server (production mode, embedded UI)"
 
 	@echo "  docker           Build Docker image"
 	@echo "  clean            Remove build artifacts"

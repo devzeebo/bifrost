@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"io/fs"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -53,4 +54,26 @@ func NewVikeStaticHandler(staticPath, prefix string) (http.Handler, error) {
 		// Serve the file directly
 		http.ServeFile(w, r, fullPath)
 	}), nil
+}
+
+// NewVikeStaticHandlerFS serves embedded Vike assets with SPA routing.
+// It wraps a file server with fallback to index.html for client-side routing.
+func NewVikeStaticHandlerFS(fileServer http.Handler, fsys fs.FS, _ string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if path == "" || path == "/" {
+			path = "/index.html"
+		} else {
+			// Remove leading slash
+			path = strings.TrimPrefix(path, "/")
+		}
+
+		// Check if file exists in embedded FS
+		if _, err := fs.Stat(fsys, path); os.IsNotExist(err) {
+			// File not found - serve index.html for SPA routing
+			r.URL.Path = "/index.html"
+		}
+
+		fileServer.ServeHTTP(w, r)
+	})
 }

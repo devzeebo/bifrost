@@ -133,7 +133,6 @@ func Run(ctx context.Context, cfg *Config) error {
 		AuthConfig:       adminAuthConfig,
 		ProjectionStore:  projectionStore,
 		EventStore:       eventStore,
-		UIProxyURL:       cfg.UIProxyURL,
 		ViteDevServerURL: cfg.ViteDevServerURL,
 	})
 	if err != nil {

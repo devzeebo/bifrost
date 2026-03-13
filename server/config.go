@@ -13,7 +13,6 @@ type Config struct {
 	Port             int
 	CatchUpInterval  time.Duration
 	ViteDevServerURL string // URL of Vite dev server (development mode, e.g., "http://localhost:3000")
-	UIProxyURL       string // URL of Vike production server (e.g., "http://ui:3000")
 }
 
 func LoadConfig() (*Config, error) {
@@ -68,6 +67,5 @@ func LoadConfig() (*Config, error) {
 		Port:             port,
 		CatchUpInterval:  catchUpInterval,
 		ViteDevServerURL: os.Getenv("BIFROST_VITE_DEV_SERVER_URL"),
-		UIProxyURL:       os.Getenv("BIFROST_UI_PROXY_URL"),
 	}, nil
 }

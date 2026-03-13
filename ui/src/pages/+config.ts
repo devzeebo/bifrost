@@ -3,7 +3,10 @@ import vikeReact from 'vike-react/config';
 
 const config: Config = {
   extends: [vikeReact],
-  ssr: true,
+  ssr: false, // SPA mode - no server-side rendering
+  prerender: {
+    noExtraDir: true, // Generate index.html instead of index/index.html
+  },
   passToClient: ['pageProps'],
 };
 
