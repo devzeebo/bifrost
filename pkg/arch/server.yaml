@@ -1,0 +1,16 @@
+# Bifrost server configuration
+# See https://github.com/devzeebo/bifrost for documentation
+
+# Database driver: sqlite, postgres, or psql
+db_driver: sqlite
+
+# Database path/connection string
+# For sqlite: path to database file
+# For postgres: connection string (e.g., postgres://user:pass@host/db?sslmode=disable)
+db_path: /var/lib/bifrost/bifrost.db
+
+# Port to listen on
+port: 8080
+
+# Projection catch-up poll interval
+catchup_interval: 1s
