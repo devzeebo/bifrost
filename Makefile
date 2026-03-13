@@ -24,6 +24,7 @@ build: build-server build-cli
 
 ui-dist:
 	@echo "» building ui for production"
+	cd ui && [ -d node_modules ] || npm ci
 	cd ui && npm run build
 	@echo "» copying ui dist to server/admin/ui/"
 	rm -rf server/admin/ui
