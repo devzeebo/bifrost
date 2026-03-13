@@ -17,18 +17,6 @@ services:
       timeout: 5s
       retries: 5
 
-  ui:
-    build:
-      context: ./ui
-      dockerfile: Dockerfile
-    container_name: bifrost-ui
-    restart: unless-stopped
-    environment:
-      NODE_ENV: production
-      ALLOWED_HOSTS: ui,localhost,bifrost-server,127.0.0.1
-    expose:
-      - "3000"
-
   bifrost:
     build:
       context: .
@@ -40,14 +28,11 @@ services:
       BIFROST_DB_PATH: postgres://bifrost:bifrost123@postgres:5432/bifrost?sslmode=disable
       BIFROST_PORT: 8080
       ADMIN_JWT_SIGNING_KEY: changeme
-      BIFROST_UI_PROXY_URL: http://ui:3000
     ports:
       - "8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
-      ui:
-        condition: service_started
 
 volumes:
   postgres_data:
