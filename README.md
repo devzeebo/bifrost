@@ -90,6 +90,57 @@ Bifrost uses per-realm role-based access control (RBAC). Each account is assigne
 
 `bf admin grant` assigns the `member` role by default. Use `bf admin assign-role` for a specific role. See **[Developing Bifrost](docs/DEVELOPMENT.md#roles--rbac)** for full details.
 
+## Configuration
+
+The server loads configuration in this order (later sources override earlier):
+
+1. **Defaults** (hardcoded)
+2. **User config**: `~/.config/bifrost/server.yaml`
+3. **System config**: `/etc/bifrost/server.yaml`
+4. **Environment variables**
+
+**Example `server.yaml`:**
+
+```yaml
+db_driver: postgres
+db_path: postgres://user:pass@localhost/bifrost?sslmode=disable
+port: 8080
+catchup_interval: 1s
+```
+
+**Environment variables** (override config file):
+
+| Variable                   | Description                          | Default          |
+|----------------------------|--------------------------------------|------------------|
+| `BIFROST_DB_DRIVER`        | Database driver (`sqlite`, `postgres`) | `sqlite`       |
+| `BIFROST_DB_PATH`          | Database path/connection string      | `./bifrost.db`   |
+| `BIFROST_PORT`             | HTTP listen port                     | `8080`           |
+| `BIFROST_CATCHUP_INTERVAL` | Projection catch-up poll interval    | `1s`             |
+
+## Arch Linux
+
+Bifrost is available in the AUR:
+
+- **[bifrost-go](https://aur.archlinux.org/packages/bifrost-go)** — stable releases
+- **[bifrost-go-git](https://aur.archlinux.org/packages/bifrost-go-git)** — development version
+
+```bash
+# Install
+yay -S bifrost-go
+
+# Configure
+sudoedit /etc/bifrost/server.yaml
+
+# Enable and start
+sudo systemctl enable --now bifrost
+```
+
+The package installs:
+- `/usr/bin/bf` — CLI client
+- `/usr/bin/bifrost-server` — server
+- `/etc/bifrost/server.yaml` — config file (backup on upgrade)
+- `/var/lib/bifrost/` — data directory
+
 ## Glossary
 
 | Term      | Meaning                                        |
