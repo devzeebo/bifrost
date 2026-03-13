@@ -16,7 +16,32 @@ Bifrost is built on event sourcing with a Go workspace monorepo:
 
 ### Server
 
-The server is configured via environment variables:
+The server loads configuration in this order (later sources override earlier):
+
+1. **Defaults** (hardcoded)
+2. **User config**: `~/.config/bifrost/server.yaml`
+3. **System config**: `/etc/bifrost/server.yaml`
+4. **Environment variables**
+
+**YAML config file** (`server.yaml`):
+
+```yaml
+# Database driver: sqlite, postgres, or psql
+db_driver: sqlite
+
+# Database path/connection string
+# For sqlite: path to database file
+# For postgres: connection string (e.g., postgres://user:pass@host/db?sslmode=disable)
+db_path: /var/lib/bifrost/bifrost.db
+
+# HTTP listen port
+port: 8080
+
+# Projection catch-up poll interval
+catchup_interval: 1s
+```
+
+**Environment variables** (override config file):
 
 | Variable                   | Description                          | Default          |
 |----------------------------|--------------------------------------|------------------|
