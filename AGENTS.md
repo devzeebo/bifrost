@@ -89,3 +89,7 @@ Available modules: `core`, `domain`, `domain/integration`, `providers/sqlite`, `
 - **Rune** — a work item (issue, task, bug, etc.)
 - **Saga** — an epic (a collection of related runes)
 - **Realm** — a tenant namespace for organizing runes
+
+# Before completing a task
+
+You MUST ensure that all quality gates are passed before completing a task, including linting, testing, and building.
