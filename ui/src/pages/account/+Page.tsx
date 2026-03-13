@@ -31,17 +31,6 @@ function Page() {
   } = useAuth();
   const { showToast } = useToast();
 
-  useEffect(() => {
-    if (authLoading) return;
-
-    if (!isAuthenticated) {
-      navigate('/login');
-      return;
-    }
-
-    fetchPATs();
-  }, [authLoading, isAuthenticated, fetchPATs]);
-
   const fetchPATs = useCallback(async () => {
     if (!accountId) return;
 
@@ -55,6 +44,17 @@ function Page() {
       setIsLoadingPATs(false);
     }
   }, [accountId, showToast]);
+
+  useEffect(() => {
+    if (authLoading) return;
+
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    fetchPATs();
+  }, [authLoading, isAuthenticated, fetchPATs]);
 
   const handleCreatePAT = async () => {
     if (!accountId) return;
