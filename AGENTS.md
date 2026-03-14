@@ -93,3 +93,4 @@ Available modules: `core`, `domain`, `domain/integration`, `providers/sqlite`, `
 # Before completing a task
 
 You MUST ensure that all quality gates are passed before completing a task, including linting, testing, and building.
+
