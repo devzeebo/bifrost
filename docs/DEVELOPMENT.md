@@ -39,6 +39,10 @@ port: 8080
 
 # Projection catch-up poll interval
 catchup_interval: 1s
+
+# JWT signing key for admin authentication (base64-encoded)
+# Generate with: openssl rand -base64 32
+jwt_signing_key: your_base64_encoded_key_here
 ```
 
 **Environment variables** (override config file):
@@ -49,6 +53,22 @@ catchup_interval: 1s
 | `BIFROST_DB_PATH`          | Path to the database file            | `./bifrost.db`   |
 | `BIFROST_PORT`             | HTTP listen port (1–65535)           | `8080`           |
 | `BIFROST_CATCHUP_INTERVAL` | Projection catch-up poll interval    | `1s`             |
+| `ADMIN_JWT_SIGNING_KEY`    | JWT signing key (base64-encoded)     | generated temp   |
+
+### JWT Authentication
+
+The server uses JWT tokens for admin authentication. Configure the signing key using one of these methods (in priority order):
+
+1. **Environment variable**: `ADMIN_JWT_SIGNING_KEY=your_base64_key`
+2. **YAML config**: `jwt_signing_key: your_base64_key` in `server.yaml`
+3. **Auto-generation**: Server generates a temporary key (sessions invalidate on restart)
+
+Generate a secure key:
+```bash
+openssl rand -base64 32
+```
+
+**Key configuration priority**: Environment variables override YAML config. If neither is set, the server generates a temporary key for development (sessions will invalidate on restart).
 
 ### CLI
 

@@ -14,3 +14,12 @@ port: 8080
 
 # Projection catch-up poll interval
 catchup_interval: 1s
+
+# JWT signing key configuration
+# Set this to a base64-encoded 256-bit (32-byte) key for JWT signing
+# Generate a secure key with: openssl rand -base64 32
+# Example: jwt_signing_key: your_base64_encoded_key_here
+# jwt_signing_key: 
+
+# For development: you can omit this and set ADMIN_JWT_SIGNING_KEY environment variable
+# or let the server generate a temporary key (sessions will invalidate on restart)

@@ -100,15 +100,23 @@ func Run(ctx context.Context, cfg *Config) error {
 
 	// 5. Set up admin auth config (used by both API and UI routes)
 	adminAuthConfig := admin.DefaultAuthConfig()
+	
+	// Priority: 1. Environment variable, 2. YAML config, 3. Generate temporary
 	if keyStr := os.Getenv("ADMIN_JWT_SIGNING_KEY"); keyStr != "" {
 		key, err := base64.RawURLEncoding.DecodeString(keyStr)
 		if err != nil {
 			return fmt.Errorf("decode ADMIN_JWT_SIGNING_KEY: %w", err)
 		}
 		adminAuthConfig.SigningKey = key
+	} else if cfg.JWTSigningKey != "" {
+		key, err := base64.RawURLEncoding.DecodeString(cfg.JWTSigningKey)
+		if err != nil {
+			return fmt.Errorf("decode jwt_signing_key from config: %w", err)
+		}
+		adminAuthConfig.SigningKey = key
 	} else {
 		// Generate a temporary key for development (will change on restart)
-		log.Println("Warning: ADMIN_JWT_SIGNING_KEY not set, generating temporary key (sessions will invalidate on restart)")
+		log.Println("Warning: ADMIN_JWT_SIGNING_KEY not set and jwt_signing_key not configured, generating temporary key (sessions will invalidate on restart)")
 		key, err := admin.GenerateSigningKey()
 		if err != nil {
 			return fmt.Errorf("generate signing key: %w", err)

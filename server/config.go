@@ -16,6 +16,7 @@ type Config struct {
 	Port             int           `yaml:"port"`
 	CatchUpInterval  time.Duration `yaml:"catchup_interval"`
 	ViteDevServerURL string        `yaml:"vite_dev_server_url"`
+	JWTSigningKey    string       `yaml:"jwt_signing_key"`
 }
 
 type configFile struct {
@@ -23,9 +24,17 @@ type configFile struct {
 	DBPath          string `yaml:"db_path"`
 	Port            int    `yaml:"port"`
 	CatchUpInterval string `yaml:"catchup_interval"`
+	JWTSigningKey   string `yaml:"jwt_signing_key"`
 }
 
 func LoadConfig() (*Config, error) {
+	return LoadConfigWithPaths([]string{
+		filepath.Join(os.Getenv("HOME"), ".config", "bifrost", "server.yaml"),
+		"/etc/bifrost/server.yaml",
+	})
+}
+
+func LoadConfigWithPaths(configPaths []string) (*Config, error) {
 	// Start with defaults
 	cfg := &Config{
 		DBDriver:        "sqlite",
@@ -35,7 +44,7 @@ func LoadConfig() (*Config, error) {
 	}
 
 	// Load from config file first
-	if err := loadConfigFile(cfg); err != nil {
+	if err := loadConfigFile(cfg, configPaths); err != nil {
 		return nil, fmt.Errorf("load config file: %w", err)
 	}
 
@@ -47,12 +56,7 @@ func LoadConfig() (*Config, error) {
 	return cfg, nil
 }
 
-func loadConfigFile(cfg *Config) error {
-	// Check for config file in order of precedence
-	configPaths := []string{
-		filepath.Join(os.Getenv("HOME"), ".config", "bifrost", "server.yaml"),
-		"/etc/bifrost/server.yaml",
-	}
+func loadConfigFile(cfg *Config, configPaths []string) error {
 
 	var configData []byte
 	var configPath string
@@ -90,6 +94,9 @@ func loadConfigFile(cfg *Config) error {
 			return fmt.Errorf("parse catchup_interval: %w", err)
 		}
 		cfg.CatchUpInterval = d
+	}
+	if cf.JWTSigningKey != "" {
+		cfg.JWTSigningKey = cf.JWTSigningKey
 	}
 
 	return nil

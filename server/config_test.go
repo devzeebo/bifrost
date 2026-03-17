@@ -143,7 +143,7 @@ func (tc *configTestContext) env_var(key, value string) {
 
 func (tc *configTestContext) load_config() {
 	tc.t.Helper()
-	tc.cfg, tc.err = LoadConfig()
+	tc.cfg, tc.err = LoadConfigWithPaths([]string{}) // Empty array = no config files
 }
 
 // --- Then ---
