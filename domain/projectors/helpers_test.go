@@ -28,6 +28,7 @@ var _ core.Projector = (*UsernameLookupProjector)(nil)
 var _ core.Projector = (*DependencyExistenceProjector)(nil)
 var _ core.Projector = (*SystemStatusProjector)(nil)
 var _ core.Projector = (*DependencyCycleCheckProjector)(nil)
+var _ core.Projector = (*AccountAuthProjector)(nil)
 
 // --- Helpers ---
 
