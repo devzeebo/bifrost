@@ -65,7 +65,7 @@ make list                              # List available modules
 
 Available modules: `core`, `domain`, `domain/integration`, `providers/sqlite`, `server`, `cli`.
 
-**NEVER run `go test`, `go vet`, or `go tool golangci-lint` directly.** Always use `make`.
+**NEVER run `go test`, `go build`, `go vet`, or `go tool golangci-lint` directly.** Always use `make`.
 
 ## Completing a Rune
 
@@ -90,7 +90,10 @@ Available modules: `core`, `domain`, `domain/integration`, `providers/sqlite`, `
 - **Saga** — an epic (a collection of related runes)
 - **Realm** — a tenant namespace for organizing runes
 
+# Before starting a task
+
+Use `make deps` to install all dependencies so you don't get errors for missing libraries
+
 # Before completing a task
 
 You MUST ensure that all quality gates are passed before completing a task, including linting, testing, and building.
-
