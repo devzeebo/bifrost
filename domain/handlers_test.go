@@ -2387,3 +2387,7 @@ func (m *mockProjectionStore) Delete(ctx context.Context, realmID string, table 
 	delete(m.data, compositeKey)
 	return nil
 }
+
+func (m *mockProjectionStore) CreateTable(_ context.Context, _ string) error {
+	return nil
+}

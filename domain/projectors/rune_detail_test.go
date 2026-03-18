@@ -334,6 +334,19 @@ func TestRuneDetailProjector(t *testing.T) {
 		tc.detail_was_deleted("bf-a1b2")
 	})
 
+	t.Run("TableName returns projection_rune_detail", func(t *testing.T) {
+		tc := newRuneDetailTestContext(t)
+
+		// Given
+		tc.a_rune_detail_projector()
+
+		// When
+		tc.table_name_is_called()
+
+		// Then
+		tc.table_name_is("projection_rune_detail")
+	})
+
 	t.Run("ignores unknown event types", func(t *testing.T) {
 		tc := newRuneDetailTestContext(t)
 
@@ -347,6 +360,23 @@ func TestRuneDetailProjector(t *testing.T) {
 
 		// Then
 		tc.no_error()
+	})
+
+	t.Run("handles RuneCreated with type", func(t *testing.T) {
+		tc := newRuneDetailTestContext(t)
+
+		// Given
+		tc.a_rune_detail_projector()
+		tc.a_projection_store()
+		tc.a_rune_created_event_with_type("bf-a1b2", "Fix the bridge", "Needs repair", 1, "", "bug")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.detail_was_stored("bf-a1b2")
+		tc.stored_detail_has_type("bug")
 	})
 }
 
@@ -399,6 +429,13 @@ func (tc *runeDetailTestContext) a_rune_created_event_with_branch(id, title, des
 	tc.t.Helper()
 	tc.event = makeEventWithTimestamp(domain.EventRuneCreated, domain.RuneCreated{
 		ID: id, Title: title, Description: description, Priority: priority, ParentID: parentID, Branch: branch,
+	}, time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC))
+}
+
+func (tc *runeDetailTestContext) a_rune_created_event_with_type(id, title, description string, priority int, parentID, runeType string) {
+	tc.t.Helper()
+	tc.event = makeEventWithTimestamp(domain.EventRuneCreated, domain.RuneCreated{
+		ID: id, Title: title, Description: description, Priority: priority, ParentID: parentID, Type: runeType,
 	}, time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC))
 }
 
@@ -547,6 +584,11 @@ func (tc *runeDetailTestContext) name_is_called() {
 	tc.nameResult = tc.projector.Name()
 }
 
+func (tc *runeDetailTestContext) table_name_is_called() {
+	tc.t.Helper()
+	tc.nameResult = tc.projector.TableName()
+}
+
 func (tc *runeDetailTestContext) handle_is_called() {
 	tc.t.Helper()
 	tc.err = tc.projector.Handle(tc.ctx, tc.event, tc.store)
@@ -556,6 +598,11 @@ func (tc *runeDetailTestContext) handle_is_called() {
 // --- Then ---
 
 func (tc *runeDetailTestContext) name_is(expected string) {
+	tc.t.Helper()
+	assert.Equal(tc.t, expected, tc.nameResult)
+}
+
+func (tc *runeDetailTestContext) table_name_is(expected string) {
 	tc.t.Helper()
 	assert.Equal(tc.t, expected, tc.nameResult)
 }
@@ -648,6 +695,12 @@ func (tc *runeDetailTestContext) stored_detail_has_branch(expected string) {
 	tc.t.Helper()
 	require.NotNil(tc.t, tc.storedDetail)
 	assert.Equal(tc.t, expected, tc.storedDetail.Branch)
+}
+
+func (tc *runeDetailTestContext) stored_detail_has_type(expected string) {
+	tc.t.Helper()
+	require.NotNil(tc.t, tc.storedDetail)
+	assert.Equal(tc.t, expected, tc.storedDetail.Type)
 }
 
 func (tc *runeDetailTestContext) detail_was_deleted(id string) {
