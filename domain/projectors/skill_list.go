@@ -24,7 +24,7 @@ func (p *SkillListProjector) Name() string {
 }
 
 func (p *SkillListProjector) TableName() string {
-	return "skill_list"
+	return "projection_skill_list"
 }
 
 func (p *SkillListProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -47,7 +47,7 @@ func (p *SkillListProjector) handleCreated(ctx context.Context, event core.Event
 
 	// Check if skill already exists for idempotency
 	var existing SkillListEntry
-	if err := store.Get(ctx, event.RealmID, "skill_list", data.SkillID, &existing); err == nil {
+	if err := store.Get(ctx, event.RealmID, "projection_skill_list", data.SkillID, &existing); err == nil {
 		// Skill already exists, idempotent
 		return nil
 	}
@@ -56,7 +56,7 @@ func (p *SkillListProjector) handleCreated(ctx context.Context, event core.Event
 		ID:   data.SkillID,
 		Name: data.Name,
 	}
-	return store.Put(ctx, event.RealmID, "skill_list", data.SkillID, entry)
+	return store.Put(ctx, event.RealmID, "projection_skill_list", data.SkillID, entry)
 }
 
 func (p *SkillListProjector) handleUpdated(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -65,13 +65,13 @@ func (p *SkillListProjector) handleUpdated(ctx context.Context, event core.Event
 		return err
 	}
 	var entry SkillListEntry
-	if err := store.Get(ctx, event.RealmID, "skill_list", data.SkillID, &entry); err != nil {
+	if err := store.Get(ctx, event.RealmID, "projection_skill_list", data.SkillID, &entry); err != nil {
 		return err
 	}
 	if data.Name != nil {
 		entry.Name = *data.Name
 	}
-	return store.Put(ctx, event.RealmID, "skill_list", data.SkillID, entry)
+	return store.Put(ctx, event.RealmID, "projection_skill_list", data.SkillID, entry)
 }
 
 func (p *SkillListProjector) handleDeleted(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -79,5 +79,5 @@ func (p *SkillListProjector) handleDeleted(ctx context.Context, event core.Event
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	return store.Delete(ctx, event.RealmID, "skill_list", data.SkillID)
+	return store.Delete(ctx, event.RealmID, "projection_skill_list", data.SkillID)
 }

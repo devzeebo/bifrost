@@ -26,6 +26,19 @@ func TestSkillListProjector(t *testing.T) {
 		tc.name_is("skill_list")
 	})
 
+	t.Run("TableName returns projection_skill_list", func(t *testing.T) {
+		tc := newSkillListTestContext(t)
+
+		// Given
+		tc.a_skill_list_projector()
+
+		// When
+		tc.table_name_is_called()
+
+		// Then
+		tc.table_name_is("projection_skill_list")
+	})
+
 	t.Run("handles SkillCreated by putting entry with id and name", func(t *testing.T) {
 		tc := newSkillListTestContext(t)
 
@@ -115,12 +128,13 @@ func TestSkillListProjector(t *testing.T) {
 type skillListTestContext struct {
 	t *testing.T
 
-	projector  *SkillListProjector
-	store      *mockProjectionStore
-	event      core.Event
-	ctx        context.Context
-	nameResult string
-	err        error
+	projector       *SkillListProjector
+	store           *mockProjectionStore
+	event           core.Event
+	ctx             context.Context
+	nameResult      string
+	tableNameResult string
+	err             error
 }
 
 func newSkillListTestContext(t *testing.T) *skillListTestContext {
@@ -181,7 +195,7 @@ func (tc *skillListTestContext) existing_skill_entry(skillID, name string) {
 		ID:   skillID,
 		Name: name,
 	}
-	tc.store.put("realm-1", "skill_list", skillID, entry)
+	tc.store.put("realm-1", "projection_skill_list", skillID, entry)
 }
 
 // --- When ---
@@ -203,6 +217,16 @@ func (tc *skillListTestContext) name_is(expected string) {
 	assert.Equal(tc.t, expected, tc.nameResult)
 }
 
+func (tc *skillListTestContext) table_name_is_called() {
+	tc.t.Helper()
+	tc.tableNameResult = tc.projector.TableName()
+}
+
+func (tc *skillListTestContext) table_name_is(expected string) {
+	tc.t.Helper()
+	assert.Equal(tc.t, expected, tc.tableNameResult)
+}
+
 func (tc *skillListTestContext) no_error() {
 	tc.t.Helper()
 	assert.NoError(tc.t, tc.err)
@@ -211,21 +235,21 @@ func (tc *skillListTestContext) no_error() {
 func (tc *skillListTestContext) skill_entry_exists(skillID string) {
 	tc.t.Helper()
 	var entry SkillListEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "skill_list", skillID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "projection_skill_list", skillID, &entry)
 	require.NoError(tc.t, err, "expected skill list entry for %s", skillID)
 }
 
 func (tc *skillListTestContext) skill_entry_does_not_exist(skillID string) {
 	tc.t.Helper()
 	var entry SkillListEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "skill_list", skillID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "projection_skill_list", skillID, &entry)
 	require.Error(tc.t, err, "expected skill list entry for %s to not exist", skillID)
 }
 
 func (tc *skillListTestContext) skill_entry_has_name(skillID, expected string) {
 	tc.t.Helper()
 	var entry SkillListEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "skill_list", skillID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "projection_skill_list", skillID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, entry.Name)
 }
