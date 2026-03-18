@@ -33,6 +33,10 @@ func (p *AccountLookupProjector) Name() string {
 	return "account_lookup"
 }
 
+func (p *AccountLookupProjector) TableName() string {
+	return "account_lookup"
+}
+
 func (p *AccountLookupProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
 	switch event.EventType {
 	case domain.EventAccountCreated:

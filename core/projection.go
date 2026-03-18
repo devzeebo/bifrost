@@ -4,6 +4,7 @@ import "context"
 
 type Projector interface {
 	Name() string
+	TableName() string
 	Handle(ctx context.Context, event Event, store ProjectionStore) error
 }
 

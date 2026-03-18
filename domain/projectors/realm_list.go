@@ -26,6 +26,10 @@ func (p *RealmListProjector) Name() string {
 	return "realm_list"
 }
 
+func (p *RealmListProjector) TableName() string {
+	return "realm_list"
+}
+
 func (p *RealmListProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
 	switch event.EventType {
 	case domain.EventRealmCreated:

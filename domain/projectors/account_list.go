@@ -29,6 +29,10 @@ func (p *AccountListProjector) Name() string {
 	return "account_list"
 }
 
+func (p *AccountListProjector) TableName() string {
+	return "account_list"
+}
+
 func (p *AccountListProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
 	switch event.EventType {
 	case domain.EventAccountCreated:

@@ -34,6 +34,10 @@ func (p *DependencyGraphProjector) Name() string {
 	return "dependency_graph"
 }
 
+func (p *DependencyGraphProjector) TableName() string {
+	return "dependency_graph"
+}
+
 func (p *DependencyGraphProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
 	switch event.EventType {
 	case domain.EventDependencyAdded:

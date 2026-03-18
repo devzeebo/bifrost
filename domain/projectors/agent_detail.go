@@ -27,6 +27,10 @@ func (p *AgentDetailProjector) Name() string {
 	return "agent_detail"
 }
 
+func (p *AgentDetailProjector) TableName() string {
+	return "agent_detail"
+}
+
 func (p *AgentDetailProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
 	switch event.EventType {
 	case domain.EventAgentCreated:

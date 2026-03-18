@@ -33,6 +33,10 @@ func (p *RuneListProjector) Name() string {
 	return "rune_list"
 }
 
+func (p *RuneListProjector) TableName() string {
+	return "rune_list"
+}
+
 func (p *RuneListProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
 	switch event.EventType {
 	case domain.EventRuneCreated:

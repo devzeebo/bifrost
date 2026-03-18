@@ -19,6 +19,10 @@ func (p *RuneChildCountProjector) Name() string {
 	return "RuneChildCount"
 }
 
+func (p *RuneChildCountProjector) TableName() string {
+	return "RuneChildCount"
+}
+
 func (p *RuneChildCountProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
 	if event.EventType != domain.EventRuneCreated {
 		return nil

@@ -289,6 +289,10 @@ func (r *recordingProjector) Name() string {
 	return r.name
 }
 
+func (r *recordingProjector) TableName() string {
+	return r.name + "_table"
+}
+
 func (r *recordingProjector) Handle(_ context.Context, event Event, _ ProjectionStore) error {
 	r.handledEvents = append(r.handledEvents, event)
 	return nil
@@ -300,6 +304,10 @@ type failingProjector struct {
 
 func (f *failingProjector) Name() string {
 	return f.name
+}
+
+func (f *failingProjector) TableName() string {
+	return f.name + "_table"
 }
 
 func (f *failingProjector) Handle(_ context.Context, _ Event, _ ProjectionStore) error {
@@ -804,6 +812,10 @@ type slowProjector struct {
 
 func (s *slowProjector) Name() string {
 	return s.name
+}
+
+func (s *slowProjector) TableName() string {
+	return s.name + "_table"
 }
 
 func (s *slowProjector) Handle(_ context.Context, _ Event, _ ProjectionStore) error {
