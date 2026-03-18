@@ -921,7 +921,7 @@ func (tc *accountHandlerTestContext) username_is_available(username string) {
 func (tc *accountHandlerTestContext) username_is_taken(username string) {
 	tc.t.Helper()
 	tc.a_projection_store()
-	tc.projectionStore.data["account_lookup:username:"+username] = "acct-existing"
+	tc.projectionStore.data["username_lookup:"+username] = map[string]any{"username": username, "account_id": "acct-existing"}
 }
 
 func (tc *accountHandlerTestContext) a_create_account_command(username string) {

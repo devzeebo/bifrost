@@ -394,8 +394,8 @@ func HandleAddDependency(ctx context.Context, realmID string, cmd AddDependency,
 
 	if cmd.Relationship == RelBlocks {
 		var hasCycle bool
-		cycleKey := "cycle:" + cmd.RuneID + ":" + cmd.TargetID
-		err := projStore.Get(ctx, realmID, "dependency_graph", cycleKey, &hasCycle)
+		cycleKey := cmd.RuneID + ":" + cmd.TargetID
+		err := projStore.Get(ctx, realmID, "projection_dependency_cycle_check", cycleKey, &hasCycle)
 		if err == nil && hasCycle {
 			return fmt.Errorf("adding blocks dependency from %q to %q would create a cycle", cmd.RuneID, cmd.TargetID)
 		}
@@ -468,9 +468,9 @@ func HandleRemoveDependency(ctx context.Context, realmID string, cmd RemoveDepen
 		return err
 	}
 
-	depKey := "dep:" + cmd.RuneID + ":" + cmd.TargetID + ":" + cmd.Relationship
+	depKey := cmd.RuneID + ":" + cmd.TargetID + ":" + cmd.Relationship
 	var exists bool
-	err = projStore.Get(ctx, realmID, "dependency_graph", depKey, &exists)
+	err = projStore.Get(ctx, realmID, "projection_dependency_existence", depKey, &exists)
 	if err != nil {
 		if isNotFoundError(err) {
 			return &core.NotFoundError{Entity: "dependency", ID: cmd.RuneID}
@@ -598,7 +598,7 @@ func hasActiveReference(ctx context.Context, realmID string, runeID string, proj
 	}
 
 	var entry graphEntry
-	err := projStore.Get(ctx, realmID, "dependency_graph", runeID, &entry)
+	err := projStore.Get(ctx, realmID, "projection_rune_dependency_graph", runeID, &entry)
 	if err == nil {
 		for _, dep := range entry.Dependents {
 			if isActiveRuneInProjection(ctx, realmID, dep.SourceID, projStore) {

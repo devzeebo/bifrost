@@ -45,7 +45,9 @@ func newTestStack(t *testing.T) *testStack {
 		Projectors: []core.Projector{
 			projectors.NewRuneSummaryProjector(),
 			projectors.NewRuneDetailProjector(),
-			projectors.NewDependencyGraphProjector(),
+			projectors.NewRuneDependencyGraphProjector(),
+			projectors.NewDependencyExistenceProjector(),
+			projectors.NewDependencyCycleCheckProjector(),
 			projectors.NewRuneChildCountProjector(),
 		},
 	}

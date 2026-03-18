@@ -1808,15 +1808,15 @@ func (tc *handlerTestContext) dependency_graph_has_no_cycle(sourceID, targetID s
 func (tc *handlerTestContext) dependency_graph_has_cycle(sourceID, targetID string) {
 	tc.t.Helper()
 	tc.a_projection_store()
-	key := "dependency_graph:cycle:" + sourceID + ":" + targetID
-	tc.projectionStore.data[key] = true
+	key := sourceID + ":" + targetID
+	tc.projectionStore.data["projection_dependency_cycle_check:"+key] = true
 }
 
 func (tc *handlerTestContext) dependency_exists_in_graph(sourceID, targetID, rel string) {
 	tc.t.Helper()
 	tc.a_projection_store()
-	key := "dependency_graph:dep:" + sourceID + ":" + targetID + ":" + rel
-	tc.projectionStore.data[key] = true
+	key := sourceID + ":" + targetID + ":" + rel
+	tc.projectionStore.data["projection_dependency_existence:"+key] = true
 }
 
 func (tc *handlerTestContext) dependency_not_in_graph(sourceID, targetID, rel string) {
@@ -1933,7 +1933,7 @@ func (tc *handlerTestContext) dependency_graph_has_dependents(runeID string, dep
 	for i, id := range dependentIDs {
 		deps[i] = dep{SourceID: id}
 	}
-	tc.projectionStore.data["dependency_graph:"+runeID] = map[string]any{"dependents": deps}
+	tc.projectionStore.data["projection_rune_dependency_graph:"+runeID] = map[string]any{"dependents": deps}
 }
 
 func (tc *handlerTestContext) rune_has_children(runeID string, count int) {
