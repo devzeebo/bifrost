@@ -23,6 +23,7 @@ var _ core.Projector = (*WorkflowListProjector)(nil)
 var _ core.Projector = (*RunnerSettingsProjector)(nil)
 var _ core.Projector = (*AccountDirectoryProjector)(nil)
 var _ core.Projector = (*PATIDProjector)(nil)
+var _ core.Projector = (*RealmNameLookupProjector)(nil)
 
 // --- Helpers ---
 
