@@ -524,7 +524,7 @@ func (tc *runeDetailTestContext) existing_detail(id, title, description, status 
 		Dependencies: []DependencyRef{},
 		Notes:        []NoteEntry{},
 	}
-	tc.store.put(tc.realmID, "rune_detail", id, detail)
+	tc.store.put(tc.realmID, "projection_rune_detail", id, detail)
 }
 
 func (tc *runeDetailTestContext) existing_detail_with_branch(id, title, description, status string, priority int, claimant, parentID, branch string) {
@@ -542,7 +542,7 @@ func (tc *runeDetailTestContext) existing_detail_with_branch(id, title, descript
 		Dependencies: []DependencyRef{},
 		Notes:        []NoteEntry{},
 	}
-	tc.store.put(tc.realmID, "rune_detail", id, detail)
+	tc.store.put(tc.realmID, "projection_rune_detail", id, detail)
 }
 
 func (tc *runeDetailTestContext) existing_detail_with_dependency(id, targetID, relationship string) {
@@ -558,7 +558,7 @@ func (tc *runeDetailTestContext) existing_detail_with_dependency(id, targetID, r
 		},
 		Notes: []NoteEntry{},
 	}
-	tc.store.put(tc.realmID, "rune_detail", id, detail)
+	tc.store.put(tc.realmID, "projection_rune_detail", id, detail)
 }
 
 func (tc *runeDetailTestContext) existing_detail_with_note(id, noteText string) {
@@ -574,7 +574,7 @@ func (tc *runeDetailTestContext) existing_detail_with_note(id, noteText string) 
 			{Text: noteText, CreatedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
 		},
 	}
-	tc.store.put(tc.realmID, "rune_detail", id, detail)
+	tc.store.put(tc.realmID, "projection_rune_detail", id, detail)
 }
 
 // --- When ---
@@ -706,7 +706,7 @@ func (tc *runeDetailTestContext) stored_detail_has_type(expected string) {
 func (tc *runeDetailTestContext) detail_was_deleted(id string) {
 	tc.t.Helper()
 	var detail RuneDetail
-	err := tc.store.Get(tc.ctx, tc.realmID, "rune_detail", id, &detail)
+	err := tc.store.Get(tc.ctx, tc.realmID, "projection_rune_detail", id, &detail)
 	assert.Error(tc.t, err, "expected detail for %s to be deleted", id)
 }
 

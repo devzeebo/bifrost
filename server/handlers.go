@@ -310,10 +310,8 @@ func (h *Handlers) AssignRole(w http.ResponseWriter, r *http.Request) {
 	accountID, _ := AccountIDFromContext(r.Context())
 	isSysAdmin := false
 	if accountID != "" {
-		var accountEntry struct {
-			Roles map[string]string `json:"roles"`
-		}
-		if err := h.projectionStore.Get(r.Context(), "_admin", "account_list", accountID, &accountEntry); err == nil {
+		var accountEntry projectors.AccountAuthEntry
+		if err := h.projectionStore.Get(r.Context(), "_admin", "projection_account_auth", accountID, &accountEntry); err == nil {
 			isSysAdmin = accountEntry.Roles["_admin"] == "admin" || accountEntry.Roles["_admin"] == "owner"
 		}
 	}
@@ -371,10 +369,8 @@ func (h *Handlers) RevokeRole(w http.ResponseWriter, r *http.Request) {
 	accountID, _ := AccountIDFromContext(r.Context())
 	isSysAdmin := false
 	if accountID != "" {
-		var accountEntry struct {
-			Roles map[string]string `json:"roles"`
-		}
-		if err := h.projectionStore.Get(r.Context(), "_admin", "account_list", accountID, &accountEntry); err == nil {
+		var accountEntry projectors.AccountAuthEntry
+		if err := h.projectionStore.Get(r.Context(), "_admin", "projection_account_auth", accountID, &accountEntry); err == nil {
 			isSysAdmin = accountEntry.Roles["_admin"] == "admin" || accountEntry.Roles["_admin"] == "owner"
 		}
 	}
@@ -591,7 +587,7 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 			}
 			runeID := fmt.Sprintf("%v", item["id"])
 			var detail projectors.RuneDetail
-			err := h.projectionStore.Get(r.Context(), realmID, "rune_detail", runeID, &detail)
+			err := h.projectionStore.Get(r.Context(), realmID, "projection_rune_detail", runeID, &detail)
 			if err != nil {
 				if isNotFound(err) {
 					unblocked = append(unblocked, raw)
@@ -651,10 +647,10 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		var graph projectors.GraphEntry
+		var graph projectors.RuneDependencyGraphEntry
 		depCount := 0
 		dependentCount := 0
-		if err := h.projectionStore.Get(r.Context(), realmID, "dependency_graph", runeID, &graph); err == nil {
+		if err := h.projectionStore.Get(r.Context(), realmID, "projection_rune_dependency_graph", runeID, &graph); err == nil {
 			for _, dep := range graph.Dependencies {
 				if isActiveStatus(allStatuses[dep.TargetID]) {
 					depCount++
@@ -671,11 +667,10 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 		item["dependents_count"] = dependentCount
 		claimant, _ := item["claimant"].(string)
 		if claimant != "" {
-			var accountInfo map[string]any
-			lookupKey := "accountinfo:" + claimant
-			if err := h.projectionStore.Get(r.Context(), domain.AdminRealmID, "account_lookup", lookupKey, &accountInfo); err == nil {
-				if username, ok := accountInfo["username"].(string); ok && username != "" {
-					item["claimant_username"] = username
+			var accountEntry projectors.AccountAuthEntry
+			if err := h.projectionStore.Get(r.Context(), domain.AdminRealmID, "projection_account_auth", claimant, &accountEntry); err == nil {
+				if accountEntry.Username != "" {
+					item["claimant_username"] = accountEntry.Username
 				} else {
 					item["claimant_username"] = claimant
 				}
@@ -726,8 +721,8 @@ func (h *Handlers) GetRune(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "id query parameter is required")
 		return
 	}
-	var detail any
-	err := h.projectionStore.Get(r.Context(), realmID, "rune_detail", runeID, &detail)
+	var detail projectors.RuneDetail
+	err := h.projectionStore.Get(r.Context(), realmID, "projection_rune_detail", runeID, &detail)
 	if err != nil {
 		if isNotFound(err) {
 			writeError(w, http.StatusNotFound, "rune not found")
@@ -740,7 +735,7 @@ func (h *Handlers) GetRune(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) ListRealms(w http.ResponseWriter, r *http.Request) {
-	realms, err := h.projectionStore.List(r.Context(), "_admin", "realm_list")
+	realms, err := h.projectionStore.List(r.Context(), "_admin", "realm_directory")
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list realms")
 		return
@@ -749,10 +744,8 @@ func (h *Handlers) ListRealms(w http.ResponseWriter, r *http.Request) {
 	// Filter realms based on user's access
 	accountID, hasAccountID := AccountIDFromContext(r.Context())
 	if hasAccountID && accountID != "" {
-		var accountEntry struct {
-			Roles map[string]string `json:"roles"`
-		}
-		if err := h.projectionStore.Get(r.Context(), "_admin", "account_list", accountID, &accountEntry); err == nil {
+		var accountEntry projectors.AccountAuthEntry
+		if err := h.projectionStore.Get(r.Context(), "_admin", "projection_account_auth", accountID, &accountEntry); err == nil {
 			// System admins (admin/owner in _admin realm) can see all realms
 			isSysAdmin := accountEntry.Roles["_admin"] == "admin" || accountEntry.Roles["_admin"] == "owner"
 			if !isSysAdmin {
@@ -804,10 +797,8 @@ func (h *Handlers) GetRealm(w http.ResponseWriter, r *http.Request) {
 	accountID, hasAccountID := AccountIDFromContext(r.Context())
 	if hasAccountID && accountID != "" {
 		// Look up user's roles to check access
-		var accountEntry struct {
-			Roles map[string]string `json:"roles"`
-		}
-		if err := h.projectionStore.Get(r.Context(), "_admin", "account_list", accountID, &accountEntry); err == nil {
+		var accountEntry projectors.AccountAuthEntry
+		if err := h.projectionStore.Get(r.Context(), "_admin", "projection_account_auth", accountID, &accountEntry); err == nil {
 			// System admins (admin/owner in _admin realm) can view any realm
 			isAdminRealmRole := accountEntry.Roles["_admin"] == "admin" || accountEntry.Roles["_admin"] == "owner"
 			// Regular users can only view realms they're a member of
@@ -820,22 +811,16 @@ func (h *Handlers) GetRealm(w http.ResponseWriter, r *http.Request) {
 	}
 
 
-	// Get realm info using Get method
-	// Get realm info using Get method
-	var realmInfo struct {
-		RealmID   string    `json:"realm_id"`
-		Name      string    `json:"name"`
-		Status    string    `json:"status"`
-		CreatedAt time.Time `json:"created_at"`
-	}
-	err := h.projectionStore.Get(r.Context(), "_admin", "realm_list", realmID, &realmInfo)
+	// Get realm info from realm_directory
+	var realmInfo projectors.RealmDirectoryEntry
+	err := h.projectionStore.Get(r.Context(), "_admin", "realm_directory", realmID, &realmInfo)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "realm not found")
 		return
 	}
 
-	// Get members by scanning account list
-	rawAccounts, err := h.projectionStore.List(r.Context(), "_admin", "account_list")
+	// Get members by scanning account_directory
+	rawAccounts, err := h.projectionStore.List(r.Context(), "_admin", "account_directory")
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to get members")
 		return
@@ -843,11 +828,7 @@ func (h *Handlers) GetRealm(w http.ResponseWriter, r *http.Request) {
 
 	var members []RealmMember
 	for _, raw := range rawAccounts {
-		var account struct {
-			AccountID string            `json:"account_id"`
-			Username  string            `json:"username"`
-			Roles     map[string]string `json:"roles"`
-		}
+		var account projectors.AccountDirectoryEntry
 		if err := json.Unmarshal(raw, &account); err != nil {
 			continue
 		}
