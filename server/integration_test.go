@@ -322,7 +322,11 @@ func (tc *e2eTestContext) server_is_running() {
 			projectors.NewRuneListProjector(),
 			projectors.NewRuneDetailProjector(),
 			projectors.NewDependencyGraphProjector(),
-			projectors.NewAccountLookupProjector(),
+			// New projectors for authentication
+			projectors.NewPATKeyHashProjector(),
+			projectors.NewPATIDProjector(),
+			projectors.NewAccountAuthProjector(),
+			projectors.NewRealmNameLookupProjector(),
 		},
 	}
 	tc.engine = engine

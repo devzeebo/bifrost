@@ -600,18 +600,28 @@ func newMockProjectionStoreWithAccount() *mockProjectionStore {
 	h := sha256.Sum256(rawKey)
 	keyHash := base64.RawURLEncoding.EncodeToString(h[:])
 
-	// Set up the account lookup entry using projectors.AccountLookupEntry
-	store.data[compositeKey("_admin", "account_lookup", keyHash)] = projectors.AccountLookupEntry{
+	// Set up PAT by keyhash lookup (projection_pat_by_keyhash)
+	store.data[compositeKey("_admin", "projection_pat_by_keyhash", keyHash)] = projectors.PATKeyHashEntry{
+		KeyHash:   keyHash,
+		PATID:     "pat-test-123",
+		AccountID: "account-test-123",
+	}
+
+	// Set up PAT by ID lookup (projection_pat_by_id)
+	store.data[compositeKey("_admin", "projection_pat_by_id", "pat-test-123")] = projectors.PATIDEntry{
+		PATID:     "pat-test-123",
+		KeyHash:   keyHash,
+		AccountID: "account-test-123",
+	}
+
+	// Set up account auth info (projection_account_auth)
+	store.data[compositeKey("_admin", "projection_account_auth", "account-test-123")] = projectors.AccountAuthEntry{
 		AccountID: "account-test-123",
 		Username:  "testuser",
 		Status:    "active",
 		Realms:    []string{"realm-1"},
 		Roles:     map[string]string{"realm-1": "admin", "_admin": "admin"},
 	}
-
-	// Set up PAT reverse lookup
-	store.data[compositeKey("_admin", "account_lookup", "pat:pat-test-123")] = keyHash
-	store.data[compositeKey("_admin", "account_lookup", "keyhash_pat:"+keyHash)] = "pat-test-123"
 
 	// Store the valid token for tests to use
 	store.validToken = token

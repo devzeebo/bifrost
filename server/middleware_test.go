@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/devzeebo/bifrost/core"
+	"github.com/devzeebo/bifrost/domain/projectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -661,13 +662,20 @@ func (tc *testContext) projection_store_has_no_entries() {
 
 func (tc *testContext) projection_store_has_account(accountID, username, status string, realms []string) {
 	tc.t.Helper()
-	entry := accountLookupEntry{
+	// Set up PAT keyhash lookup (key_hash -> account_id)
+	tc.store.put("_admin", "projection_pat_by_keyhash", tc.keyHash, projectors.PATKeyHashEntry{
+		KeyHash:   tc.keyHash,
+		PATID:     "pat-test",
+		AccountID: accountID,
+	})
+	// Set up account auth (account_id -> auth info)
+	tc.store.put("_admin", "projection_account_auth", accountID, projectors.AccountAuthEntry{
 		AccountID: accountID,
 		Username:  username,
 		Status:    status,
 		Realms:    realms,
-	}
-	tc.store.put("_admin", "account_lookup", tc.keyHash, entry)
+		Roles:     map[string]string{},
+	})
 }
 
 func (tc *testContext) projection_store_has_account_with_roles(accountID, username, status string, roles map[string]string) {
@@ -676,14 +684,20 @@ func (tc *testContext) projection_store_has_account_with_roles(accountID, userna
 	for r := range roles {
 		realms = append(realms, r)
 	}
-	entry := accountLookupEntry{
+	// Set up PAT keyhash lookup (key_hash -> account_id)
+	tc.store.put("_admin", "projection_pat_by_keyhash", tc.keyHash, projectors.PATKeyHashEntry{
+		KeyHash:   tc.keyHash,
+		PATID:     "pat-test",
+		AccountID: accountID,
+	})
+	// Set up account auth (account_id -> auth info)
+	tc.store.put("_admin", "projection_account_auth", accountID, projectors.AccountAuthEntry{
 		AccountID: accountID,
 		Username:  username,
 		Status:    status,
 		Realms:    realms,
 		Roles:     roles,
-	}
-	tc.store.put("_admin", "account_lookup", tc.keyHash, entry)
+	})
 }
 
 func (tc *testContext) projection_store_returns_error() {
@@ -693,13 +707,11 @@ func (tc *testContext) projection_store_returns_error() {
 
 func (tc *testContext) projection_store_has_realm(realmID, name, status string) {
 	tc.t.Helper()
-	entry := map[string]any{
-		"realm_id":   realmID,
-		"name":       name,
-		"status":     status,
-		"created_at": "2026-01-01T00:00:00Z",
-	}
-	tc.store.put("_admin", "realm_list", realmID, entry)
+	// Set up realm name lookup (name -> realm_id) for O(1) resolution
+	tc.store.put("_admin", "projection_realm_name_lookup", name, projectors.RealmNameLookupEntry{
+		Name:    name,
+		RealmID: realmID,
+	})
 }
 
 func (tc *testContext) context_with_realm_id(realmID string) {
