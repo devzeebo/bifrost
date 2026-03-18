@@ -95,10 +95,7 @@ func (m *mockProjectionStore) Delete(_ context.Context, realmID string, table st
 	return nil
 }
 
-<<<<<<< HEAD
-func (m *mockProjectionStore) CreateTable(_ context.Context, _ string) error {
-=======
 func (m *mockProjectionStore) CreateTable(_ context.Context, table string) error {
->>>>>>> c240686 (feat(projectors): add RealmDirectoryProjector)
 	return nil
 }
+
