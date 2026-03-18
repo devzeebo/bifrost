@@ -13,6 +13,7 @@ var _ core.Projector = (*RuneListProjector)(nil)
 var _ core.Projector = (*RuneDetailProjector)(nil)
 var _ core.Projector = (*DependencyGraphProjector)(nil)
 var _ core.Projector = (*RealmListProjector)(nil)
+var _ core.Projector = (*RealmDirectoryProjector)(nil)
 var _ core.Projector = (*AccountListProjector)(nil)
 var _ core.Projector = (*AccountLookupProjector)(nil)
 var _ core.Projector = (*RuneChildCountProjector)(nil)
@@ -94,6 +95,10 @@ func (m *mockProjectionStore) Delete(_ context.Context, realmID string, table st
 	return nil
 }
 
+<<<<<<< HEAD
 func (m *mockProjectionStore) CreateTable(_ context.Context, _ string) error {
+=======
+func (m *mockProjectionStore) CreateTable(_ context.Context, table string) error {
+>>>>>>> c240686 (feat(projectors): add RealmDirectoryProjector)
 	return nil
 }
