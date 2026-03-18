@@ -26,6 +26,19 @@ func TestWorkflowListProjector(t *testing.T) {
 		tc.name_is("workflow_list")
 	})
 
+	t.Run("TableName returns projection_workflow_list", func(t *testing.T) {
+		tc := newWorkflowListTestContext(t)
+
+		// Given
+		tc.a_workflow_list_projector()
+
+		// When
+		tc.table_name_is_called()
+
+		// Then
+		tc.table_name_is("projection_workflow_list")
+	})
+
 	t.Run("handles WorkflowCreated by putting entry with id and name", func(t *testing.T) {
 		tc := newWorkflowListTestContext(t)
 
@@ -115,12 +128,13 @@ func TestWorkflowListProjector(t *testing.T) {
 type workflowListTestContext struct {
 	t *testing.T
 
-	projector  *WorkflowListProjector
-	store      *mockProjectionStore
-	event      core.Event
-	ctx        context.Context
-	nameResult string
-	err        error
+	projector      *WorkflowListProjector
+	store          *mockProjectionStore
+	event          core.Event
+	ctx            context.Context
+	nameResult     string
+	tableNameResult string
+	err            error
 }
 
 func newWorkflowListTestContext(t *testing.T) *workflowListTestContext {
@@ -181,7 +195,7 @@ func (tc *workflowListTestContext) existing_workflow_entry(workflowID, name stri
 		ID:   workflowID,
 		Name: name,
 	}
-	tc.store.put("realm-1", "workflow_list", workflowID, entry)
+	tc.store.put("realm-1", "projection_workflow_list", workflowID, entry)
 }
 
 // --- When ---
@@ -189,6 +203,11 @@ func (tc *workflowListTestContext) existing_workflow_entry(workflowID, name stri
 func (tc *workflowListTestContext) name_is_called() {
 	tc.t.Helper()
 	tc.nameResult = tc.projector.Name()
+}
+
+func (tc *workflowListTestContext) table_name_is_called() {
+	tc.t.Helper()
+	tc.tableNameResult = tc.projector.TableName()
 }
 
 func (tc *workflowListTestContext) handle_is_called() {
@@ -203,6 +222,11 @@ func (tc *workflowListTestContext) name_is(expected string) {
 	assert.Equal(tc.t, expected, tc.nameResult)
 }
 
+func (tc *workflowListTestContext) table_name_is(expected string) {
+	tc.t.Helper()
+	assert.Equal(tc.t, expected, tc.tableNameResult)
+}
+
 func (tc *workflowListTestContext) no_error() {
 	tc.t.Helper()
 	assert.NoError(tc.t, tc.err)
@@ -211,21 +235,21 @@ func (tc *workflowListTestContext) no_error() {
 func (tc *workflowListTestContext) workflow_entry_exists(workflowID string) {
 	tc.t.Helper()
 	var entry WorkflowListEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "workflow_list", workflowID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "projection_workflow_list", workflowID, &entry)
 	require.NoError(tc.t, err, "expected workflow list entry for %s", workflowID)
 }
 
 func (tc *workflowListTestContext) workflow_entry_does_not_exist(workflowID string) {
 	tc.t.Helper()
 	var entry WorkflowListEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "workflow_list", workflowID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "projection_workflow_list", workflowID, &entry)
 	require.Error(tc.t, err, "expected workflow list entry for %s to not exist", workflowID)
 }
 
 func (tc *workflowListTestContext) workflow_entry_has_name(workflowID, expected string) {
 	tc.t.Helper()
 	var entry WorkflowListEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "workflow_list", workflowID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "projection_workflow_list", workflowID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, entry.Name)
 }
