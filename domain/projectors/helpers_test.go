@@ -26,6 +26,7 @@ var _ core.Projector = (*PATIDProjector)(nil)
 var _ core.Projector = (*RealmNameLookupProjector)(nil)
 var _ core.Projector = (*UsernameLookupProjector)(nil)
 var _ core.Projector = (*DependencyExistenceProjector)(nil)
+var _ core.Projector = (*SystemStatusProjector)(nil)
 
 // --- Helpers ---
 
