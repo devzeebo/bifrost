@@ -370,20 +370,20 @@ func (tc *adminAccountTestContext) admin_cmd_with_mock_stores() {
 
 func (tc *adminAccountTestContext) projection_store_has_accounts() {
 	tc.t.Helper()
-	entry := projectors.AccountListEntry{
+	entry := projectors.AccountDirectoryEntry{
 		AccountID: "acct-1234",
 		Username:  "alice",
 		Status:    "active",
 		Realms:    []string{},
-		PATCount:  1,
+		PATs:      []projectors.PATEntry{{PATID: "pat-1"}},
 	}
 	data, _ := json.Marshal(entry)
-	tc.projectionStore.listData["_admin|account_list"] = []json.RawMessage{data}
+	tc.projectionStore.listData["_admin|account_directory"] = []json.RawMessage{data}
 }
 
 func (tc *adminAccountTestContext) account_exists(username, accountID string) {
 	tc.t.Helper()
-	tc.projectionStore.data["_admin|account_lookup|username:"+username] = accountID
+	tc.projectionStore.data["_admin|username_lookup|"+username] = accountID
 
 	accountCreated := map[string]interface{}{
 		"account_id": accountID,

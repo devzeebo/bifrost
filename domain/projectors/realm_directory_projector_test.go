@@ -27,7 +27,7 @@ func TestRealmDirectoryProjector(t *testing.T) {
 		tc.name_is("realm_directory")
 	})
 
-	t.Run("TableName returns projection_realm_directory", func(t *testing.T) {
+	t.Run("TableName returns realm_directory", func(t *testing.T) {
 		tc := newRealmDirectoryTestContext(t)
 
 		// Given
@@ -37,7 +37,7 @@ func TestRealmDirectoryProjector(t *testing.T) {
 		tc.table_name_is_called()
 
 		// Then
-		tc.table_name_is("projection_realm_directory")
+		tc.table_name_is("realm_directory")
 	})
 
 	t.Run("handles RealmCreated by putting entry with status active", func(t *testing.T) {
@@ -164,7 +164,7 @@ func (tc *realmDirectoryTestContext) existing_realm_entry(realmID, name, status 
 		Status:    status,
 		CreatedAt: time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC),
 	}
-	tc.store.put("realm-1", "projection_realm_directory", realmID, entry)
+	tc.store.put("realm-1", "realm_directory", realmID, entry)
 }
 
 // --- When ---
@@ -204,14 +204,14 @@ func (tc *realmDirectoryTestContext) no_error() {
 func (tc *realmDirectoryTestContext) realm_entry_exists(realmID string) {
 	tc.t.Helper()
 	var entry RealmDirectoryEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_realm_directory", realmID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "realm_directory", realmID, &entry)
 	require.NoError(tc.t, err, "expected realm directory entry for %s", realmID)
 }
 
 func (tc *realmDirectoryTestContext) realm_entry_has_name(realmID, expected string) {
 	tc.t.Helper()
 	var entry RealmDirectoryEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_realm_directory", realmID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "realm_directory", realmID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, entry.Name)
 }
@@ -219,7 +219,7 @@ func (tc *realmDirectoryTestContext) realm_entry_has_name(realmID, expected stri
 func (tc *realmDirectoryTestContext) realm_entry_has_status(realmID, expected string) {
 	tc.t.Helper()
 	var entry RealmDirectoryEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_realm_directory", realmID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "realm_directory", realmID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, entry.Status)
 }
@@ -227,7 +227,7 @@ func (tc *realmDirectoryTestContext) realm_entry_has_status(realmID, expected st
 func (tc *realmDirectoryTestContext) realm_entry_has_created_at(realmID string) {
 	tc.t.Helper()
 	var entry RealmDirectoryEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_realm_directory", realmID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "realm_directory", realmID, &entry)
 	require.NoError(tc.t, err)
 	assert.False(tc.t, entry.CreatedAt.IsZero(), "expected CreatedAt to be set")
 }

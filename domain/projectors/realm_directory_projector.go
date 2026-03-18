@@ -27,7 +27,7 @@ func (p *RealmDirectoryProjector) Name() string {
 }
 
 func (p *RealmDirectoryProjector) TableName() string {
-	return "projection_realm_directory"
+	return "realm_directory"
 }
 
 func (p *RealmDirectoryProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -51,7 +51,7 @@ func (p *RealmDirectoryProjector) handleCreated(ctx context.Context, event core.
 		Status:    "active",
 		CreatedAt: data.CreatedAt,
 	}
-	return store.Put(ctx, event.RealmID, "projection_realm_directory", data.RealmID, entry)
+	return store.Put(ctx, event.RealmID, "realm_directory", data.RealmID, entry)
 }
 
 func (p *RealmDirectoryProjector) handleSuspended(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -60,9 +60,9 @@ func (p *RealmDirectoryProjector) handleSuspended(ctx context.Context, event cor
 		return err
 	}
 	var entry RealmDirectoryEntry
-	if err := store.Get(ctx, event.RealmID, "projection_realm_directory", data.RealmID, &entry); err != nil {
+	if err := store.Get(ctx, event.RealmID, "realm_directory", data.RealmID, &entry); err != nil {
 		return err
 	}
 	entry.Status = "suspended"
-	return store.Put(ctx, event.RealmID, "projection_realm_directory", data.RealmID, entry)
+	return store.Put(ctx, event.RealmID, "realm_directory", data.RealmID, entry)
 }

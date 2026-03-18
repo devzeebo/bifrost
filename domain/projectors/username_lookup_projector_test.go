@@ -27,7 +27,7 @@ func TestUsernameLookupProjector(t *testing.T) {
 		tc.name_is("username_lookup")
 	})
 
-	t.Run("TableName returns projection_username_lookup", func(t *testing.T) {
+	t.Run("TableName returns username_lookup", func(t *testing.T) {
 		tc := newUsernameLookupTestContext(t)
 
 		// Given
@@ -37,7 +37,7 @@ func TestUsernameLookupProjector(t *testing.T) {
 		tc.table_name_is_called()
 
 		// Then
-		tc.table_name_is("projection_username_lookup")
+		tc.table_name_is("username_lookup")
 	})
 
 	t.Run("handles AccountCreated by putting username to account_id mapping", func(t *testing.T) {
@@ -147,7 +147,7 @@ func (tc *usernameLookupTestContext) existing_lookup_entry(username, accountID s
 		Username:  username,
 		AccountID: accountID,
 	}
-	tc.store.put("_admin", "projection_username_lookup", username, entry)
+	tc.store.put("_admin", "username_lookup", username, entry)
 }
 
 // --- When ---
@@ -187,14 +187,14 @@ func (tc *usernameLookupTestContext) no_error() {
 func (tc *usernameLookupTestContext) lookup_entry_exists(username string) {
 	tc.t.Helper()
 	var entry UsernameLookupEntry
-	err := tc.store.Get(tc.ctx, "_admin", "projection_username_lookup", username, &entry)
+	err := tc.store.Get(tc.ctx, "_admin", "username_lookup", username, &entry)
 	require.NoError(tc.t, err, "expected lookup entry for username %s", username)
 }
 
 func (tc *usernameLookupTestContext) lookup_entry_has_account_id(username, expected string) {
 	tc.t.Helper()
 	var entry UsernameLookupEntry
-	err := tc.store.Get(tc.ctx, "_admin", "projection_username_lookup", username, &entry)
+	err := tc.store.Get(tc.ctx, "_admin", "username_lookup", username, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, entry.AccountID)
 }
@@ -202,7 +202,7 @@ func (tc *usernameLookupTestContext) lookup_entry_has_account_id(username, expec
 func (tc *usernameLookupTestContext) lookup_entry_has_username(username, expected string) {
 	tc.t.Helper()
 	var entry UsernameLookupEntry
-	err := tc.store.Get(tc.ctx, "_admin", "projection_username_lookup", username, &entry)
+	err := tc.store.Get(tc.ctx, "_admin", "username_lookup", username, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, entry.Username)
 }

@@ -26,7 +26,7 @@ func (p *UsernameLookupProjector) Name() string {
 }
 
 func (p *UsernameLookupProjector) TableName() string {
-	return "projection_username_lookup"
+	return "username_lookup"
 }
 
 func (p *UsernameLookupProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -45,7 +45,7 @@ func (p *UsernameLookupProjector) handleAccountCreated(ctx context.Context, even
 
 	// Check if entry already exists for idempotency
 	var existing UsernameLookupEntry
-	if err := store.Get(ctx, "_admin", "projection_username_lookup", data.Username, &existing); err == nil {
+	if err := store.Get(ctx, "_admin", "username_lookup", data.Username, &existing); err == nil {
 		// Entry already exists, idempotent - don't overwrite
 		return nil
 	}
@@ -54,5 +54,5 @@ func (p *UsernameLookupProjector) handleAccountCreated(ctx context.Context, even
 		Username:  data.Username,
 		AccountID: data.AccountID,
 	}
-	return store.Put(ctx, "_admin", "projection_username_lookup", data.Username, entry)
+	return store.Put(ctx, "_admin", "username_lookup", data.Username, entry)
 }

@@ -72,6 +72,9 @@ func NewAdminCmd() *AdminCmd {
 			engine.Register(projectors.NewDependencyGraphProjector())
 			engine.Register(projectors.NewAccountLookupProjector())
 			engine.Register(projectors.NewAccountListProjector())
+			engine.Register(projectors.NewUsernameLookupProjector())
+			engine.Register(projectors.NewAccountDirectoryProjector())
+			engine.Register(projectors.NewRealmDirectoryProjector())
 
 			admin.Ctx.EventStore = eventStore
 			admin.Ctx.ProjectionStore = projectionStore
@@ -101,7 +104,7 @@ func NewAdminCmd() *AdminCmd {
 
 func resolveUsername(ctx context.Context, projectionStore core.ProjectionStore, username string) (string, error) {
 	var accountID string
-	err := projectionStore.Get(ctx, "_admin", "account_lookup", "username:"+username, &accountID)
+	err := projectionStore.Get(ctx, "_admin", "username_lookup", username, &accountID)
 	if err != nil {
 		var nfe *core.NotFoundError
 		if errors.As(err, &nfe) {

@@ -158,13 +158,13 @@ func (tc *adminRealmTestContext) admin_cmd_with_mock_stores() {
 
 func (tc *adminRealmTestContext) projection_store_has_realms() {
 	tc.t.Helper()
-	entry := projectors.RealmListEntry{
+	entry := projectors.RealmDirectoryEntry{
 		RealmID: "bf-1234",
 		Name:    "test-realm",
 		Status:  "active",
 	}
 	data, _ := json.Marshal(entry)
-	tc.projectionStore.listData["_admin|realm_list"] = []json.RawMessage{data}
+	tc.projectionStore.listData["_admin|realm_directory"] = []json.RawMessage{data}
 }
 
 func (tc *adminRealmTestContext) realm_exists(realmID, name string) {

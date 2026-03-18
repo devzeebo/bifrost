@@ -204,7 +204,7 @@ func (tc *adminPATTestContext) admin_cmd_with_mock_stores() {
 
 func (tc *adminPATTestContext) account_exists(username, accountID string) {
 	tc.t.Helper()
-	tc.projectionStore.data["_admin|account_lookup|username:"+username] = accountID
+	tc.projectionStore.data["_admin|username_lookup|"+username] = accountID
 
 	accountCreated := map[string]interface{}{
 		"account_id": accountID,
