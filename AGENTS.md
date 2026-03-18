@@ -97,3 +97,7 @@ Use `make deps` to install all dependencies so you don't get errors for missing 
 # Before completing a task
 
 You MUST ensure that all quality gates are passed before completing a task, including linting, testing, and building.
+
+# NEVER USE FORCE PUSH
+
+You are NEVER allowed to use --force or --force-with-lease. If there is a conflict on the remote, you must pull and rebase and fix it.
