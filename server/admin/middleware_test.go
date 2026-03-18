@@ -682,6 +682,12 @@ func (m *mockProjectionStore) Get(ctx context.Context, realm, projection, key st
 			return fmt.Errorf("mockProjectionStore.Get: type assertion failed for key %s: expected AccountListEntry, got %T", ckey, val)
 		}
 		*d = e
+	case *projectors.AccountDirectoryEntry:
+		e, ok := val.(projectors.AccountDirectoryEntry)
+		if !ok {
+			return fmt.Errorf("mockProjectionStore.Get: type assertion failed for key %s: expected AccountDirectoryEntry, got %T", ckey, val)
+		}
+		*d = e
 	default:
 		return fmt.Errorf("mockProjectionStore.Get: unhandled dest type %T", dest)
 	}
