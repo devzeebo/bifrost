@@ -1084,7 +1084,7 @@ func (tc *integrationTestContext) rune_list_entry_has_claimant(runeID, expected 
 func (tc *integrationTestContext) rune_detail_has_entry(runeID string) {
 	tc.t.Helper()
 	var detail projectors.RuneDetail
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_detail", runeID, &detail)
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "projection_rune_detail", runeID, &detail)
 	require.NoError(tc.t, err, "expected rune_detail entry for %s", runeID)
 	assert.Equal(tc.t, runeID, detail.ID)
 }
@@ -1092,7 +1092,7 @@ func (tc *integrationTestContext) rune_detail_has_entry(runeID string) {
 func (tc *integrationTestContext) rune_detail_entry_has_title(runeID, expected string) {
 	tc.t.Helper()
 	var detail projectors.RuneDetail
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_detail", runeID, &detail)
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "projection_rune_detail", runeID, &detail)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, detail.Title)
 }
@@ -1100,7 +1100,7 @@ func (tc *integrationTestContext) rune_detail_entry_has_title(runeID, expected s
 func (tc *integrationTestContext) rune_detail_entry_has_description(runeID, expected string) {
 	tc.t.Helper()
 	var detail projectors.RuneDetail
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_detail", runeID, &detail)
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "projection_rune_detail", runeID, &detail)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, detail.Description)
 }
@@ -1108,7 +1108,7 @@ func (tc *integrationTestContext) rune_detail_entry_has_description(runeID, expe
 func (tc *integrationTestContext) rune_detail_entry_has_status(runeID, expected string) {
 	tc.t.Helper()
 	var detail projectors.RuneDetail
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_detail", runeID, &detail)
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "projection_rune_detail", runeID, &detail)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, detail.Status)
 }
@@ -1116,7 +1116,7 @@ func (tc *integrationTestContext) rune_detail_entry_has_status(runeID, expected 
 func (tc *integrationTestContext) rune_detail_entry_has_priority(runeID string, expected int) {
 	tc.t.Helper()
 	var detail projectors.RuneDetail
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_detail", runeID, &detail)
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "projection_rune_detail", runeID, &detail)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, detail.Priority)
 }
@@ -1124,7 +1124,7 @@ func (tc *integrationTestContext) rune_detail_entry_has_priority(runeID string, 
 func (tc *integrationTestContext) rune_detail_entry_has_claimant(runeID, expected string) {
 	tc.t.Helper()
 	var detail projectors.RuneDetail
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_detail", runeID, &detail)
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "projection_rune_detail", runeID, &detail)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, detail.Claimant)
 }
@@ -1132,7 +1132,7 @@ func (tc *integrationTestContext) rune_detail_entry_has_claimant(runeID, expecte
 func (tc *integrationTestContext) rune_detail_entry_has_empty_dependencies(runeID string) {
 	tc.t.Helper()
 	var detail projectors.RuneDetail
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_detail", runeID, &detail)
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "projection_rune_detail", runeID, &detail)
 	require.NoError(tc.t, err)
 	assert.Empty(tc.t, detail.Dependencies)
 }
@@ -1140,7 +1140,7 @@ func (tc *integrationTestContext) rune_detail_entry_has_empty_dependencies(runeI
 func (tc *integrationTestContext) rune_detail_entry_has_empty_notes(runeID string) {
 	tc.t.Helper()
 	var detail projectors.RuneDetail
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_detail", runeID, &detail)
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "projection_rune_detail", runeID, &detail)
 	require.NoError(tc.t, err)
 	assert.Empty(tc.t, detail.Notes)
 }
@@ -1148,7 +1148,7 @@ func (tc *integrationTestContext) rune_detail_entry_has_empty_notes(runeID strin
 func (tc *integrationTestContext) rune_detail_entry_has_note_count(runeID string, expected int) {
 	tc.t.Helper()
 	var detail projectors.RuneDetail
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_detail", runeID, &detail)
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "projection_rune_detail", runeID, &detail)
 	require.NoError(tc.t, err)
 	assert.Len(tc.t, detail.Notes, expected)
 }
@@ -1156,7 +1156,7 @@ func (tc *integrationTestContext) rune_detail_entry_has_note_count(runeID string
 func (tc *integrationTestContext) rune_detail_entry_has_note_text(runeID string, index int, expected string) {
 	tc.t.Helper()
 	var detail projectors.RuneDetail
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_detail", runeID, &detail)
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "projection_rune_detail", runeID, &detail)
 	require.NoError(tc.t, err)
 	require.Greater(tc.t, len(detail.Notes), index)
 	assert.Equal(tc.t, expected, detail.Notes[index].Text)
@@ -1260,7 +1260,7 @@ func (tc *integrationTestContext) rune_has_no_blockers(runeID string) {
 func (tc *integrationTestContext) rune_detail_has_dependency(runeID, targetID, relationship string) {
 	tc.t.Helper()
 	var detail projectors.RuneDetail
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_detail", runeID, &detail)
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "projection_rune_detail", runeID, &detail)
 	require.NoError(tc.t, err, "expected rune_detail entry for %s", runeID)
 	found := false
 	for _, dep := range detail.Dependencies {
@@ -1275,7 +1275,7 @@ func (tc *integrationTestContext) rune_detail_has_dependency(runeID, targetID, r
 func (tc *integrationTestContext) rune_detail_has_no_dependencies(runeID string) {
 	tc.t.Helper()
 	var detail projectors.RuneDetail
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_detail", runeID, &detail)
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "projection_rune_detail", runeID, &detail)
 	require.NoError(tc.t, err, "expected rune_detail entry for %s", runeID)
 	assert.Empty(tc.t, detail.Dependencies, "expected rune_detail for %s to have no dependencies", runeID)
 }

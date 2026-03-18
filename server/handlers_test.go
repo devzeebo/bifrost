@@ -1475,12 +1475,12 @@ func (tc *handlerTestContext) projection_has_child_count(realmID, runeID string,
 func (tc *handlerTestContext) projection_has_rune_detail_with_dependencies(realmID, runeID string, deps []projectors.DependencyRef) {
 	tc.t.Helper()
 	detail := projectors.RuneDetail{ID: runeID, Dependencies: deps}
-	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_detail", runeID, detail)
+	_ = tc.projectionStore.Put(context.Background(), realmID, "projection_rune_detail", runeID, detail)
 }
 
 func (tc *handlerTestContext) projection_has_realm_list() {
 	tc.t.Helper()
-	_ = tc.projectionStore.Put(context.Background(), "_admin", "realm_list", "realm-1", map[string]string{
+	_ = tc.projectionStore.Put(context.Background(), "_admin", "realm_directory", "realm-1", map[string]string{
 		"realm_id": "realm-1", "name": "Test Realm", "status": "active",
 	})
 }
@@ -1520,7 +1520,7 @@ func (tc *handlerTestContext) projection_has_runes_with_branches(realmID string)
 
 func (tc *handlerTestContext) projection_has_rune_detail(realmID, runeID string) {
 	tc.t.Helper()
-	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_detail", runeID, map[string]any{
+	_ = tc.projectionStore.Put(context.Background(), realmID, "projection_rune_detail", runeID, map[string]any{
 		"id":     runeID,
 		"title":  "Test Rune",
 		"status": "open",
