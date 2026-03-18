@@ -160,33 +160,33 @@ func (tc *projectionStoreTestContext) new_projection_store_is_created() {
 	tc.store, tc.err = NewProjectionStore(tc.db)
 }
 
-func (tc *projectionStoreTestContext) put_is_called(realmID, projectionName, key string, value any) {
+func (tc *projectionStoreTestContext) put_is_called(realmID, table, key string, value any) {
 	tc.t.Helper()
-	tc.err = tc.store.Put(context.Background(), realmID, projectionName, key, value)
+	tc.err = tc.store.Put(context.Background(), realmID, table, key, value)
 }
 
-func (tc *projectionStoreTestContext) get_is_called(realmID, projectionName, key string) {
+func (tc *projectionStoreTestContext) get_is_called(realmID, table, key string) {
 	tc.t.Helper()
 	var dest map[string]string
-	tc.err = tc.store.Get(context.Background(), realmID, projectionName, key, &dest)
+	tc.err = tc.store.Get(context.Background(), realmID, table, key, &dest)
 	if tc.err == nil {
 		tc.retrievedData = dest
 	}
 }
 
-func (tc *projectionStoreTestContext) list_is_called(realmID, projectionName string) {
+func (tc *projectionStoreTestContext) list_is_called(realmID, table string) {
 	tc.t.Helper()
 	// For simplicity, we'll just count the results
-	results, err := tc.store.List(context.Background(), realmID, projectionName)
+	results, err := tc.store.List(context.Background(), realmID, table)
 	tc.err = err
 	if err == nil {
 		tc.retrievedData = len(results)
 	}
 }
 
-func (tc *projectionStoreTestContext) delete_is_called(realmID, projectionName, key string) {
+func (tc *projectionStoreTestContext) delete_is_called(realmID, table, key string) {
 	tc.t.Helper()
-	tc.err = tc.store.Delete(context.Background(), realmID, projectionName, key)
+	tc.err = tc.store.Delete(context.Background(), realmID, table, key)
 }
 
 // --- Then ---

@@ -13,10 +13,10 @@ type EventStore interface {
 }
 
 type ProjectionStore interface {
-	Get(ctx context.Context, realmID string, projectionName string, key string, dest any) error
-	List(ctx context.Context, realmID string, projectionName string) ([]json.RawMessage, error)
-	Put(ctx context.Context, realmID string, projectionName string, key string, value any) error
-	Delete(ctx context.Context, realmID string, projectionName string, key string) error
+	Get(ctx context.Context, realmID string, table string, key string, dest any) error
+	List(ctx context.Context, realmID string, table string) ([]json.RawMessage, error)
+	Put(ctx context.Context, realmID string, table string, key string, value any) error
+	Delete(ctx context.Context, realmID string, table string, key string) error
 }
 
 type CheckpointStore interface {

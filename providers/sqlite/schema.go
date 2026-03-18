@@ -18,13 +18,6 @@ func EnsureSchema(db *sql.DB) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_events_realm_stream ON events(realm_id, stream_id, version)`,
 		`CREATE INDEX IF NOT EXISTS idx_events_realm_global ON events(realm_id, global_position)`,
-		`CREATE TABLE IF NOT EXISTS projections (
-			realm_id TEXT NOT NULL,
-			projection_name TEXT NOT NULL,
-			key TEXT NOT NULL,
-			value TEXT,
-			PRIMARY KEY(realm_id, projection_name, key)
-		)`,
 		`CREATE TABLE IF NOT EXISTS checkpoints (
 			realm_id TEXT NOT NULL,
 			projector_name TEXT NOT NULL,

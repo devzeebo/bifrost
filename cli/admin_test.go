@@ -270,11 +270,11 @@ type mockProjectionStore struct {
 	listData map[string][]json.RawMessage
 }
 
-func (m *mockProjectionStore) Get(ctx context.Context, realmID string, projectionName string, key string, dest any) error {
-	compositeKey := realmID + "|" + projectionName + "|" + key
+func (m *mockProjectionStore) Get(ctx context.Context, realmID string, table string, key string, dest any) error {
+	compositeKey := realmID + "|" + table + "|" + key
 	val, ok := m.data[compositeKey]
 	if !ok {
-		return &core.NotFoundError{Entity: projectionName, ID: key}
+		return &core.NotFoundError{Entity: table, ID: key}
 	}
 	b, err := json.Marshal(val)
 	if err != nil {
@@ -283,8 +283,8 @@ func (m *mockProjectionStore) Get(ctx context.Context, realmID string, projectio
 	return json.Unmarshal(b, dest)
 }
 
-func (m *mockProjectionStore) List(ctx context.Context, realmID string, projectionName string) ([]json.RawMessage, error) {
-	compositeKey := realmID + "|" + projectionName
+func (m *mockProjectionStore) List(ctx context.Context, realmID string, table string) ([]json.RawMessage, error) {
+	compositeKey := realmID + "|" + table
 	if m.listData != nil {
 		if rows, ok := m.listData[compositeKey]; ok {
 			return rows, nil
@@ -293,14 +293,14 @@ func (m *mockProjectionStore) List(ctx context.Context, realmID string, projecti
 	return []json.RawMessage{}, nil
 }
 
-func (m *mockProjectionStore) Put(ctx context.Context, realmID string, projectionName string, key string, value any) error {
-	compositeKey := realmID + "|" + projectionName + "|" + key
+func (m *mockProjectionStore) Put(ctx context.Context, realmID string, table string, key string, value any) error {
+	compositeKey := realmID + "|" + table + "|" + key
 	m.data[compositeKey] = value
 	return nil
 }
 
-func (m *mockProjectionStore) Delete(ctx context.Context, realmID string, projectionName string, key string) error {
-	compositeKey := realmID + "|" + projectionName + "|" + key
+func (m *mockProjectionStore) Delete(ctx context.Context, realmID string, table string, key string) error {
+	compositeKey := realmID + "|" + table + "|" + key
 	delete(m.data, compositeKey)
 	return nil
 }

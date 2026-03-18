@@ -820,19 +820,19 @@ func newMockProjectionStore() *mockProjectionStore {
 	}
 }
 
-func (m *mockProjectionStore) put(realmID, projectionName, key string, value any) {
-	compositeKey := realmID + ":" + projectionName + ":" + key
+func (m *mockProjectionStore) put(realmID, table, key string, value any) {
+	compositeKey := realmID + ":" + table + ":" + key
 	m.data[compositeKey] = value
 }
 
-func (m *mockProjectionStore) Get(_ context.Context, realmID string, projectionName string, key string, dest any) error {
+func (m *mockProjectionStore) Get(_ context.Context, realmID string, table string, key string, dest any) error {
 	if m.forceError {
 		return fmt.Errorf("forced store error")
 	}
-	compositeKey := realmID + ":" + projectionName + ":" + key
+	compositeKey := realmID + ":" + table + ":" + key
 	val, ok := m.data[compositeKey]
 	if !ok {
-		return &core.NotFoundError{Entity: projectionName, ID: key}
+		return &core.NotFoundError{Entity: table, ID: key}
 	}
 	dataBytes, err := json.Marshal(val)
 	if err != nil {
@@ -841,14 +841,14 @@ func (m *mockProjectionStore) Get(_ context.Context, realmID string, projectionN
 	return json.Unmarshal(dataBytes, dest)
 }
 
-func (m *mockProjectionStore) Put(_ context.Context, realmID string, projectionName string, key string, value any) error {
-	compositeKey := realmID + ":" + projectionName + ":" + key
+func (m *mockProjectionStore) Put(_ context.Context, realmID string, table string, key string, value any) error {
+	compositeKey := realmID + ":" + table + ":" + key
 	m.data[compositeKey] = value
 	return nil
 }
 
-func (m *mockProjectionStore) List(_ context.Context, realmID string, projectionName string) ([]json.RawMessage, error) {
-	prefix := realmID + ":" + projectionName + ":"
+func (m *mockProjectionStore) List(_ context.Context, realmID string, table string) ([]json.RawMessage, error) {
+	prefix := realmID + ":" + table + ":"
 	var results []json.RawMessage
 	for k, v := range m.data {
 		if len(k) > len(prefix) && k[:len(prefix)] == prefix {
@@ -862,8 +862,8 @@ func (m *mockProjectionStore) List(_ context.Context, realmID string, projection
 	return results, nil
 }
 
-func (m *mockProjectionStore) Delete(_ context.Context, realmID string, projectionName string, key string) error {
-	compositeKey := realmID + ":" + projectionName + ":" + key
+func (m *mockProjectionStore) Delete(_ context.Context, realmID string, table string, key string) error {
+	compositeKey := realmID + ":" + table + ":" + key
 	delete(m.data, compositeKey)
 	return nil
 }

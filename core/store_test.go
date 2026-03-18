@@ -57,7 +57,7 @@ func TestEventStore(t *testing.T) {
 }
 
 func TestProjectionStore(t *testing.T) {
-	t.Run("Get accepts context, realmID, projectionName, key, and dest", func(t *testing.T) {
+	t.Run("Get accepts context, realmID, table, key, and dest", func(t *testing.T) {
 		tc := newStoreTestContext(t)
 
 		// Given
@@ -70,7 +70,7 @@ func TestProjectionStore(t *testing.T) {
 		tc.get_returns_error()
 	})
 
-	t.Run("Put accepts context, realmID, projectionName, key, and value", func(t *testing.T) {
+	t.Run("Put accepts context, realmID, table, key, and value", func(t *testing.T) {
 		tc := newStoreTestContext(t)
 
 		// Given
@@ -83,7 +83,7 @@ func TestProjectionStore(t *testing.T) {
 		tc.put_returns_error()
 	})
 
-	t.Run("Delete accepts context, realmID, projectionName, and key", func(t *testing.T) {
+	t.Run("Delete accepts context, realmID, table, and key", func(t *testing.T) {
 		tc := newStoreTestContext(t)
 
 		// Given

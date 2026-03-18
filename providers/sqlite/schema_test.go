@@ -24,7 +24,6 @@ func TestEnsureSchema(t *testing.T) {
 		// Then
 		tc.no_error_occurred()
 		tc.events_table_exists()
-		tc.projections_table_exists()
 		tc.checkpoints_table_exists()
 	})
 
@@ -119,11 +118,6 @@ func (tc *schemaTestContext) no_error_occurred() {
 func (tc *schemaTestContext) events_table_exists() {
 	tc.t.Helper()
 	tc.table_exists("events")
-}
-
-func (tc *schemaTestContext) projections_table_exists() {
-	tc.t.Helper()
-	tc.table_exists("projections")
 }
 
 func (tc *schemaTestContext) checkpoints_table_exists() {

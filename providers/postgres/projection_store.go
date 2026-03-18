@@ -21,17 +21,17 @@ func NewProjectionStore(db *sql.DB) (*ProjectionStore, error) {
 	return &ProjectionStore{db: db}, nil
 }
 
-// Get retrieves a projection value by realm, projection name, and key.
+// Get retrieves a projection value by realm, table, and key.
 // Returns core.NotFoundError if no row is found.
-func (s *ProjectionStore) Get(ctx context.Context, realmID string, projectionName string, key string, dest any) error {
+func (s *ProjectionStore) Get(ctx context.Context, realmID string, table string, key string, dest any) error {
 	var value []byte
 	err := s.db.QueryRowContext(ctx,
-		`SELECT value FROM projections WHERE realm_id = $1 AND projection_name = $2 AND key = $3`,
-		realmID, projectionName, key,
+		`SELECT value FROM projection_`+table+` WHERE realm_id = $1 AND key = $2`,
+		realmID, key,
 	).Scan(&value)
 
 	if err == sql.ErrNoRows {
-		return &core.NotFoundError{Entity: projectionName, ID: key}
+		return &core.NotFoundError{Entity: table, ID: key}
 	}
 	if err != nil {
 		return err
@@ -39,11 +39,11 @@ func (s *ProjectionStore) Get(ctx context.Context, realmID string, projectionNam
 	return json.Unmarshal(value, dest)
 }
 
-// List returns all projection values for the given realm and projection name.
-func (s *ProjectionStore) List(ctx context.Context, realmID string, projectionName string) ([]json.RawMessage, error) {
+// List returns all projection values for the given realm and table.
+func (s *ProjectionStore) List(ctx context.Context, realmID string, table string) ([]json.RawMessage, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT value FROM projections WHERE realm_id = $1 AND projection_name = $2`,
-		realmID, projectionName,
+		`SELECT value FROM projection_`+table+` WHERE realm_id = $1`,
+		realmID,
 	)
 	if err != nil {
 		return nil, err
@@ -61,25 +61,41 @@ func (s *ProjectionStore) List(ctx context.Context, realmID string, projectionNa
 	return results, rows.Err()
 }
 
-// Put upserts a projection value for the given realm, projection name, and key.
-func (s *ProjectionStore) Put(ctx context.Context, realmID string, projectionName string, key string, value any) error {
+// ensureTable creates the projection table if it doesn't exist.
+func (s *ProjectionStore) ensureTable(ctx context.Context, table string) error {
+	_, err := s.db.ExecContext(ctx,
+		`CREATE TABLE IF NOT EXISTS projection_`+table+` (
+			realm_id TEXT NOT NULL,
+			key TEXT NOT NULL,
+			value TEXT,
+			PRIMARY KEY(realm_id, key)
+		)`,
+	)
+	return err
+}
+
+// Put upserts a projection value for the given realm, table, and key.
+func (s *ProjectionStore) Put(ctx context.Context, realmID string, table string, key string, value any) error {
+	if err := s.ensureTable(ctx, table); err != nil {
+		return err
+	}
 	data, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}
 	_, err = s.db.ExecContext(ctx,
-		`INSERT INTO projections (realm_id, projection_name, key, value) VALUES ($1, $2, $3, $4)
-		 ON CONFLICT (realm_id, projection_name, key) DO UPDATE SET value = EXCLUDED.value`,
-		realmID, projectionName, key, string(data),
+		`INSERT INTO projection_`+table+` (realm_id, key, value) VALUES ($1, $2, $3)
+		 ON CONFLICT (realm_id, key) DO UPDATE SET value = EXCLUDED.value`,
+		realmID, key, string(data),
 	)
 	return err
 }
 
 // Delete removes a projection entry. Deleting a non-existent key is not an error.
-func (s *ProjectionStore) Delete(ctx context.Context, realmID string, projectionName string, key string) error {
+func (s *ProjectionStore) Delete(ctx context.Context, realmID string, table string, key string) error {
 	_, err := s.db.ExecContext(ctx,
-		`DELETE FROM projections WHERE realm_id = $1 AND projection_name = $2 AND key = $3`,
-		realmID, projectionName, key,
+		`DELETE FROM projection_`+table+` WHERE realm_id = $1 AND key = $2`,
+		realmID, key,
 	)
 	return err
 }
