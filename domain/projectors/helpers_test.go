@@ -11,10 +11,7 @@ import (
 // Compile-time interface satisfaction checks
 var _ core.Projector = (*RuneDetailProjector)(nil)
 var _ core.Projector = (*DependencyGraphProjector)(nil)
-var _ core.Projector = (*RealmListProjector)(nil)
 var _ core.Projector = (*RealmDirectoryProjector)(nil)
-var _ core.Projector = (*AccountListProjector)(nil)
-var _ core.Projector = (*AccountLookupProjector)(nil)
 var _ core.Projector = (*RuneChildCountProjector)(nil)
 var _ core.Projector = (*AgentDetailProjector)(nil)
 var _ core.Projector = (*SkillListProjector)(nil)

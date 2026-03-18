@@ -661,13 +661,23 @@ func (tc *testContext) projection_store_has_no_entries() {
 
 func (tc *testContext) projection_store_has_account(accountID, username, status string, realms []string) {
 	tc.t.Helper()
-	entry := accountLookupEntry{
-		AccountID: accountID,
-		Username:  username,
-		Status:    status,
-		Realms:    realms,
+	// Set up the PAT ID lookup
+	tc.store.put("_admin", "projection_pat_id", tc.keyHash, "pat-test-123")
+	// Set up the PAT entry
+	patEntry := map[string]any{
+		"pat_id":     "pat-test-123",
+		"key_hash":   tc.keyHash,
+		"account_id": accountID,
 	}
-	tc.store.put("_admin", "account_lookup", tc.keyHash, entry)
+	tc.store.put("_admin", "projection_pat_by_id", "pat-test-123", patEntry)
+	// Set up the account auth entry
+	entry := map[string]any{
+		"account_id": accountID,
+		"username":   username,
+		"status":     status,
+		"realms":     realms,
+	}
+	tc.store.put("_admin", "projection_account_auth", accountID, entry)
 }
 
 func (tc *testContext) projection_store_has_account_with_roles(accountID, username, status string, roles map[string]string) {
@@ -676,14 +686,24 @@ func (tc *testContext) projection_store_has_account_with_roles(accountID, userna
 	for r := range roles {
 		realms = append(realms, r)
 	}
-	entry := accountLookupEntry{
-		AccountID: accountID,
-		Username:  username,
-		Status:    status,
-		Realms:    realms,
-		Roles:     roles,
+	// Set up the PAT ID lookup
+	tc.store.put("_admin", "projection_pat_id", tc.keyHash, "pat-test-123")
+	// Set up the PAT entry
+	patEntry := map[string]any{
+		"pat_id":     "pat-test-123",
+		"key_hash":   tc.keyHash,
+		"account_id": accountID,
 	}
-	tc.store.put("_admin", "account_lookup", tc.keyHash, entry)
+	tc.store.put("_admin", "projection_pat_by_id", "pat-test-123", patEntry)
+	// Set up the account auth entry
+	entry := map[string]any{
+		"account_id": accountID,
+		"username":   username,
+		"status":     status,
+		"realms":     realms,
+		"roles":      roles,
+	}
+	tc.store.put("_admin", "projection_account_auth", accountID, entry)
 }
 
 func (tc *testContext) projection_store_returns_error() {
@@ -699,7 +719,7 @@ func (tc *testContext) projection_store_has_realm(realmID, name, status string) 
 		"status":     status,
 		"created_at": "2026-01-01T00:00:00Z",
 	}
-	tc.store.put("_admin", "realm_list", realmID, entry)
+	tc.store.put("_admin", "realm_directory", realmID, entry)
 }
 
 func (tc *testContext) context_with_realm_id(realmID string) {

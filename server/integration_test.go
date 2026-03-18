@@ -318,11 +318,17 @@ func (tc *e2eTestContext) server_is_running() {
 		eventStore:      es,
 		projectionStore: ps,
 		projectors: []core.Projector{
-			projectors.NewRealmListProjector(),
 			projectors.NewRuneSummaryProjector(),
 			projectors.NewRuneDetailProjector(),
 			projectors.NewDependencyGraphProjector(),
-			projectors.NewAccountLookupProjector(),
+			projectors.NewRuneChildCountProjector(),
+			projectors.NewAccountAuthProjector(),
+			projectors.NewAccountDirectoryProjector(),
+			projectors.NewRealmDirectoryProjector(),
+			projectors.NewUsernameLookupProjector(),
+			projectors.NewRealmNameLookupProjector(),
+			projectors.NewPATIDProjector(),
+			projectors.NewPATKeyhashProjector(),
 		},
 	}
 	tc.engine = engine

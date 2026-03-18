@@ -66,15 +66,17 @@ func NewAdminCmd() *AdminCmd {
 			}
 
 			engine := core.NewProjectionEngine(eventStore, projectionStore, checkpointStore)
-			engine.Register(projectors.NewRealmListProjector())
 			engine.Register(projectors.NewRuneSummaryProjector())
 			engine.Register(projectors.NewRuneDetailProjector())
 			engine.Register(projectors.NewDependencyGraphProjector())
-			engine.Register(projectors.NewAccountLookupProjector())
-			engine.Register(projectors.NewAccountListProjector())
-			engine.Register(projectors.NewUsernameLookupProjector())
+			engine.Register(projectors.NewRuneChildCountProjector())
+			engine.Register(projectors.NewAccountAuthProjector())
 			engine.Register(projectors.NewAccountDirectoryProjector())
 			engine.Register(projectors.NewRealmDirectoryProjector())
+			engine.Register(projectors.NewUsernameLookupProjector())
+			engine.Register(projectors.NewRealmNameLookupProjector())
+			engine.Register(projectors.NewPATIDProjector())
+			engine.Register(projectors.NewPATKeyhashProjector())
 
 			admin.Ctx.EventStore = eventStore
 			admin.Ctx.ProjectionStore = projectionStore

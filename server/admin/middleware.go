@@ -136,20 +136,20 @@ func ValidateJWT(cfg *AuthConfig, tokenString string) (*AdminClaims, error) {
 
 // CheckPATStatus verifies that a PAT is still active by looking it up in the projection store.
 // It uses the same lookup mechanism as the API's PAT authentication.
-func CheckPATStatus(ctx context.Context, projectionStore core.ProjectionStore, patID string) (*projectors.AccountLookupEntry, error) {
-	// Look up the key hash from PAT ID reverse lookup
-	var keyHash string
-	if err := projectionStore.Get(ctx, "_admin", "account_lookup", "pat:"+patID, &keyHash); err != nil {
+func CheckPATStatus(ctx context.Context, projectionStore core.ProjectionStore, patID string) (*projectors.AccountAuthEntry, error) {
+	// Look up the PAT entry from PAT ID reverse lookup
+	var patEntry projectors.PATIDEntry
+	if err := projectionStore.Get(ctx, "_admin", "projection_pat_by_id", patID, &patEntry); err != nil {
 		var nfe *core.NotFoundError
 		if errors.As(err, &nfe) {
 			return nil, ErrPATRevoked
 		}
-		return nil, fmt.Errorf("checking PAT status for %s: lookup key hash: %w", patID, err)
+		return nil, fmt.Errorf("checking PAT status for %s: lookup PAT entry: %w", patID, err)
 	}
 
-	// Look up the account entry by key hash
-	var entry projectors.AccountLookupEntry
-	if err := projectionStore.Get(ctx, "_admin", "account_lookup", keyHash, &entry); err != nil {
+	// Look up the account auth entry by account ID
+	var entry projectors.AccountAuthEntry
+	if err := projectionStore.Get(ctx, "_admin", "projection_account_auth", patEntry.AccountID, &entry); err != nil {
 		var nfe *core.NotFoundError
 		if errors.As(err, &nfe) {
 			return nil, ErrPATRevoked
@@ -255,7 +255,7 @@ func ClearAuthCookie(w http.ResponseWriter, cfg *AuthConfig) {
 
 // ValidatePAT validates a PAT string and returns the associated account entry and PAT ID.
 // This is used during login to validate the PAT before generating a JWT.
-func ValidatePAT(ctx context.Context, projectionStore core.ProjectionStore, token string) (*projectors.AccountLookupEntry, string, error) {
+func ValidatePAT(ctx context.Context, projectionStore core.ProjectionStore, token string) (*projectors.AccountAuthEntry, string, error) {
 	// Decode the raw key from base64url
 	rawBytes, err := base64.RawURLEncoding.DecodeString(token)
 	if err != nil {
@@ -266,10 +266,29 @@ func ValidatePAT(ctx context.Context, projectionStore core.ProjectionStore, toke
 	h := sha256.Sum256(rawBytes)
 	keyHash := base64.RawURLEncoding.EncodeToString(h[:])
 
-	// Look up in account_lookup projection
-	var entry projectors.AccountLookupEntry
-	err = projectionStore.Get(ctx, "_admin", "account_lookup", keyHash, &entry)
-	if err != nil {
+	// Look up PAT ID from keyHash reverse lookup
+	var patID string
+	if err := projectionStore.Get(ctx, "_admin", "projection_pat_id", keyHash, &patID); err != nil {
+		var nfe *core.NotFoundError
+		if errors.As(err, &nfe) {
+			return nil, "", ErrInvalidToken
+		}
+		return nil, "", fmt.Errorf("validate PAT: lookup PAT ID: %w", err)
+	}
+
+	// Look up PAT entry to get account ID
+	var patEntry projectors.PATIDEntry
+	if err := projectionStore.Get(ctx, "_admin", "projection_pat_by_id", patID, &patEntry); err != nil {
+		var nfe *core.NotFoundError
+		if errors.As(err, &nfe) {
+			return nil, "", ErrInvalidToken
+		}
+		return nil, "", fmt.Errorf("validate PAT: lookup PAT entry: %w", err)
+	}
+
+	// Look up account auth entry
+	var entry projectors.AccountAuthEntry
+	if err := projectionStore.Get(ctx, "_admin", "projection_account_auth", patEntry.AccountID, &entry); err != nil {
 		var nfe *core.NotFoundError
 		if errors.As(err, &nfe) {
 			return nil, "", ErrInvalidToken
@@ -279,16 +298,6 @@ func ValidatePAT(ctx context.Context, projectionStore core.ProjectionStore, toke
 
 	if entry.Status == "suspended" {
 		return nil, "", ErrAccountSuspended
-	}
-
-	// Look up PAT ID from keyHash reverse lookup
-	var patID string
-	if err := projectionStore.Get(ctx, "_admin", "account_lookup", "keyhash_pat:"+keyHash, &patID); err != nil {
-		var nfe *core.NotFoundError
-		if errors.As(err, &nfe) {
-			return nil, "", ErrInvalidToken
-		}
-		return nil, "", fmt.Errorf("validate PAT: lookup PAT ID: %w", err)
 	}
 
 	return &entry, patID, nil
@@ -335,7 +344,7 @@ func BuildAvailableRealms(ctx context.Context, projectionStore core.ProjectionSt
 		return nil
 	}
 
-	rawRealms, err := projectionStore.List(ctx, "_admin", "realm_list")
+	rawRealms, err := projectionStore.List(ctx, "_admin", "realm_directory")
 	if err != nil {
 		return nil
 	}
@@ -348,7 +357,7 @@ func BuildAvailableRealms(ctx context.Context, projectionStore core.ProjectionSt
 
 	realms := make([]RealmInfo, 0, len(roles))
 	for _, raw := range rawRealms {
-		var realm projectors.RealmListEntry
+		var realm projectors.RealmDirectoryEntry
 		if err := json.Unmarshal(raw, &realm); err != nil {
 			continue
 		}

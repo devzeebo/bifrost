@@ -128,8 +128,12 @@ func TestCheckPATStatus(t *testing.T) {
 
 	t.Run("active PAT", func(t *testing.T) {
 		store := newMockProjectionStore()
-		store.data[compositeKey("_admin", "account_lookup", "pat:pat-123")] = "keyhash-abc"
-		store.data[compositeKey("_admin", "account_lookup", "keyhash-abc")] = projectors.AccountLookupEntry{
+		store.data[compositeKey("_admin", "projection_pat_by_id", "pat-123")] = projectors.PATIDEntry{
+			PATID:     "pat-123",
+			KeyHash:   "keyhash-abc",
+			AccountID: "account-456",
+		}
+		store.data[compositeKey("_admin", "projection_account_auth", "account-456")] = projectors.AccountAuthEntry{
 			AccountID: "account-456",
 			Username:  "testuser",
 			Status:    "active",
@@ -152,8 +156,7 @@ func TestCheckPATStatus(t *testing.T) {
 
 	t.Run("revoked PAT - entry deleted", func(t *testing.T) {
 		store := newMockProjectionStore()
-		store.data[compositeKey("_admin", "account_lookup", "pat:pat-123")] = "keyhash-abc"
-		// keyhash-abc entry doesn't exist (deleted on revocation)
+		// PAT entry doesn't exist (deleted on revocation)
 
 		_, err := CheckPATStatus(ctx, store, "pat-123")
 		assert.ErrorIs(t, err, ErrPATRevoked)
@@ -161,8 +164,12 @@ func TestCheckPATStatus(t *testing.T) {
 
 	t.Run("suspended account", func(t *testing.T) {
 		store := newMockProjectionStore()
-		store.data[compositeKey("_admin", "account_lookup", "pat:pat-123")] = "keyhash-abc"
-		store.data[compositeKey("_admin", "account_lookup", "keyhash-abc")] = projectors.AccountLookupEntry{
+		store.data[compositeKey("_admin", "projection_pat_by_id", "pat-123")] = projectors.PATIDEntry{
+			PATID:     "pat-123",
+			KeyHash:   "keyhash-abc",
+			AccountID: "account-456",
+		}
+		store.data[compositeKey("_admin", "projection_account_auth", "account-456")] = projectors.AccountAuthEntry{
 			AccountID: "account-456",
 			Username:  "testuser",
 			Status:    "suspended",
@@ -199,13 +206,18 @@ func TestValidatePAT(t *testing.T) {
 	t.Run("valid PAT", func(t *testing.T) {
 		store := newMockProjectionStore()
 		token, keyHash := createPATToken(t)
-		store.data[compositeKey("_admin", "account_lookup", keyHash)] = projectors.AccountLookupEntry{
+		store.data[compositeKey("_admin", "projection_pat_id", keyHash)] = "pat-789"
+		store.data[compositeKey("_admin", "projection_pat_by_id", "pat-789")] = projectors.PATIDEntry{
+			PATID:     "pat-789",
+			KeyHash:   keyHash,
+			AccountID: "account-456",
+		}
+		store.data[compositeKey("_admin", "projection_account_auth", "account-456")] = projectors.AccountAuthEntry{
 			AccountID: "account-456",
 			Username:  "testuser",
 			Status:    "active",
 			Roles:     map[string]string{"realm-1": "member"},
 		}
-		store.data[compositeKey("_admin", "account_lookup", "keyhash_pat:"+keyHash)] = "pat-789"
 
 		entry, patID, err := ValidatePAT(ctx, store, token)
 		require.NoError(t, err)
@@ -231,7 +243,13 @@ func TestValidatePAT(t *testing.T) {
 	t.Run("suspended account", func(t *testing.T) {
 		store := newMockProjectionStore()
 		token, keyHash := createPATToken(t)
-		store.data[compositeKey("_admin", "account_lookup", keyHash)] = projectors.AccountLookupEntry{
+		store.data[compositeKey("_admin", "projection_pat_id", keyHash)] = "pat-789"
+		store.data[compositeKey("_admin", "projection_pat_by_id", "pat-789")] = projectors.PATIDEntry{
+			PATID:     "pat-789",
+			KeyHash:   keyHash,
+			AccountID: "account-456",
+		}
+		store.data[compositeKey("_admin", "projection_account_auth", "account-456")] = projectors.AccountAuthEntry{
 			AccountID: "account-456",
 			Username:  "testuser",
 			Status:    "suspended",
@@ -243,13 +261,8 @@ func TestValidatePAT(t *testing.T) {
 
 	t.Run("PAT ID reverse lookup missing", func(t *testing.T) {
 		store := newMockProjectionStore()
-		token, keyHash := createPATToken(t)
-		store.data[compositeKey("_admin", "account_lookup", keyHash)] = projectors.AccountLookupEntry{
-			AccountID: "account-456",
-			Username:  "testuser",
-			Status:    "active",
-		}
-		// Missing "keyhash_pat:"+keyHash entry
+		token, _ := createPATToken(t)
+		// Missing projection_pat_id entry
 
 		_, _, err := ValidatePAT(ctx, store, token)
 		assert.ErrorIs(t, err, ErrInvalidToken)
@@ -280,8 +293,12 @@ func TestAuthMiddleware(t *testing.T) {
 
 	t.Run("valid JWT with active PAT", func(t *testing.T) {
 		store := newMockProjectionStore()
-		store.data[compositeKey("_admin", "account_lookup", "pat:pat-123")] = "keyhash-abc"
-		store.data[compositeKey("_admin", "account_lookup", "keyhash-abc")] = projectors.AccountLookupEntry{
+		store.data[compositeKey("_admin", "projection_pat_by_id", "pat-123")] = projectors.PATIDEntry{
+			PATID:     "pat-123",
+			KeyHash:   "keyhash-abc",
+			AccountID: "account-456",
+		}
+		store.data[compositeKey("_admin", "projection_account_auth", "account-456")] = projectors.AccountAuthEntry{
 			AccountID: "account-456",
 			Username:  "testuser",
 			Status:    "active",
@@ -385,8 +402,12 @@ func TestAuthMiddleware(t *testing.T) {
 
 	t.Run("suspended account redirects to login", func(t *testing.T) {
 		store := newMockProjectionStore()
-		store.data[compositeKey("_admin", "account_lookup", "pat:pat-123")] = "keyhash-abc"
-		store.data[compositeKey("_admin", "account_lookup", "keyhash-abc")] = projectors.AccountLookupEntry{
+		store.data[compositeKey("_admin", "projection_pat_by_id", "pat-123")] = projectors.PATIDEntry{
+			PATID:     "pat-123",
+			KeyHash:   "keyhash-abc",
+			AccountID: "account-456",
+		}
+		store.data[compositeKey("_admin", "projection_account_auth", "account-456")] = projectors.AccountAuthEntry{
 			AccountID: "account-456",
 			Username:  "testuser",
 			Status:    "suspended",
@@ -539,7 +560,7 @@ func TestBuildAvailableRealms(t *testing.T) {
 
 	t.Run("regular user sees only their realms", func(t *testing.T) {
 		store := newMockProjectionStore()
-		store.listData["realm_list"] = []json.RawMessage{
+		store.listData["realm_directory"] = []json.RawMessage{
 			json.RawMessage(`{"realm_id":"realm-1","name":"Realm 1"}`),
 			json.RawMessage(`{"realm_id":"realm-2","name":"Realm 2"}`),
 			json.RawMessage(`{"realm_id":"realm-3","name":"Realm 3"}`),
@@ -560,7 +581,7 @@ func TestBuildAvailableRealms(t *testing.T) {
 
 	t.Run("system admin sees all realms", func(t *testing.T) {
 		store := newMockProjectionStore()
-		store.listData["realm_list"] = []json.RawMessage{
+		store.listData["realm_directory"] = []json.RawMessage{
 			json.RawMessage(`{"realm_id":"realm-1","name":"Realm 1"}`),
 			json.RawMessage(`{"realm_id":"realm-2","name":"Realm 2"}`),
 			json.RawMessage(`{"realm_id":"realm-3","name":"Realm 3"}`),
@@ -574,7 +595,7 @@ func TestBuildAvailableRealms(t *testing.T) {
 
 	t.Run("system owner sees all realms", func(t *testing.T) {
 		store := newMockProjectionStore()
-		store.listData["realm_list"] = []json.RawMessage{
+		store.listData["realm_directory"] = []json.RawMessage{
 			json.RawMessage(`{"realm_id":"realm-1","name":"Realm 1"}`),
 			json.RawMessage(`{"realm_id":"realm-2","name":"Realm 2"}`),
 		}
@@ -587,7 +608,7 @@ func TestBuildAvailableRealms(t *testing.T) {
 
 	t.Run("admin realm is excluded from list", func(t *testing.T) {
 		store := newMockProjectionStore()
-		store.listData["realm_list"] = []json.RawMessage{
+		store.listData["realm_directory"] = []json.RawMessage{
 			json.RawMessage(`{"realm_id":"realm-1","name":"Realm 1"}`),
 			json.RawMessage(`{"realm_id":"_admin","name":"Admin Realm"}`),
 		}
@@ -646,10 +667,16 @@ func (m *mockProjectionStore) Get(ctx context.Context, realm, projection, key st
 			return fmt.Errorf("mockProjectionStore.Get: type assertion failed for key %s: expected string, got %T", ckey, val)
 		}
 		*d = s
-	case *projectors.AccountLookupEntry:
-		e, ok := val.(projectors.AccountLookupEntry)
+	case *projectors.AccountAuthEntry:
+		e, ok := val.(projectors.AccountAuthEntry)
 		if !ok {
-			return fmt.Errorf("mockProjectionStore.Get: type assertion failed for key %s: expected AccountLookupEntry, got %T", ckey, val)
+			return fmt.Errorf("mockProjectionStore.Get: type assertion failed for key %s: expected AccountAuthEntry, got %T", ckey, val)
+		}
+		*d = e
+	case *projectors.PATIDEntry:
+		e, ok := val.(projectors.PATIDEntry)
+		if !ok {
+			return fmt.Errorf("mockProjectionStore.Get: type assertion failed for key %s: expected PATIDEntry, got %T", ckey, val)
 		}
 		*d = e
 	case *[]string:
@@ -670,16 +697,10 @@ func (m *mockProjectionStore) Get(ctx context.Context, realm, projection, key st
 			return fmt.Errorf("mockProjectionStore.Get: type assertion failed for key %s: expected RuneSummary, got %T", ckey, val)
 		}
 		*d = e
-	case *projectors.RealmListEntry:
-		e, ok := val.(projectors.RealmListEntry)
+	case *projectors.RealmDirectoryEntry:
+		e, ok := val.(projectors.RealmDirectoryEntry)
 		if !ok {
-			return fmt.Errorf("mockProjectionStore.Get: type assertion failed for key %s: expected RealmListEntry, got %T", ckey, val)
-		}
-		*d = e
-	case *projectors.AccountListEntry:
-		e, ok := val.(projectors.AccountListEntry)
-		if !ok {
-			return fmt.Errorf("mockProjectionStore.Get: type assertion failed for key %s: expected AccountListEntry, got %T", ckey, val)
+			return fmt.Errorf("mockProjectionStore.Get: type assertion failed for key %s: expected RealmDirectoryEntry, got %T", ckey, val)
 		}
 		*d = e
 	case *projectors.AccountDirectoryEntry:
@@ -692,12 +713,6 @@ func (m *mockProjectionStore) Get(ctx context.Context, realm, projection, key st
 		e, ok := val.(projectors.SystemStatusEntry)
 		if !ok {
 			return fmt.Errorf("mockProjectionStore.Get: type assertion failed for key %s: expected SystemStatusEntry, got %T", ckey, val)
-		}
-		*d = e
-	case *projectors.RealmDirectoryEntry:
-		e, ok := val.(projectors.RealmDirectoryEntry)
-		if !ok {
-			return fmt.Errorf("mockProjectionStore.Get: type assertion failed for key %s: expected RealmDirectoryEntry, got %T", ckey, val)
 		}
 		*d = e
 	default:

@@ -600,18 +600,24 @@ func newMockProjectionStoreWithAccount() *mockProjectionStore {
 	h := sha256.Sum256(rawKey)
 	keyHash := base64.RawURLEncoding.EncodeToString(h[:])
 
-	// Set up the account lookup entry using projectors.AccountLookupEntry
-	store.data[compositeKey("_admin", "account_lookup", keyHash)] = projectors.AccountLookupEntry{
+	// Set up the PAT ID lookup
+	store.data[compositeKey("_admin", "projection_pat_id", keyHash)] = "pat-test-123"
+
+	// Set up the PAT entry
+	store.data[compositeKey("_admin", "projection_pat_by_id", "pat-test-123")] = projectors.PATIDEntry{
+		PATID:     "pat-test-123",
+		KeyHash:   keyHash,
+		AccountID: "account-test-123",
+	}
+
+	// Set up the account auth entry
+	store.data[compositeKey("_admin", "projection_account_auth", "account-test-123")] = projectors.AccountAuthEntry{
 		AccountID: "account-test-123",
 		Username:  "testuser",
 		Status:    "active",
 		Realms:    []string{"realm-1"},
 		Roles:     map[string]string{"realm-1": "admin", "_admin": "admin"},
 	}
-
-	// Set up PAT reverse lookup
-	store.data[compositeKey("_admin", "account_lookup", "pat:pat-test-123")] = keyHash
-	store.data[compositeKey("_admin", "account_lookup", "keyhash_pat:"+keyHash)] = "pat-test-123"
 
 	// Store the valid token for tests to use
 	store.validToken = token
@@ -623,8 +629,8 @@ func newMockProjectionStoreWithAccount() *mockProjectionStore {
 		RealmIDs:        []string{"realm-1"},
 	}
 
-	// Set up projection_realm_directory for realm name lookup
-	store.data[compositeKey("realm-1", "projection_realm_directory", "realm-1")] = projectors.RealmDirectoryEntry{
+	// Set up realm_directory for realm name lookup
+	store.data[compositeKey("_admin", "realm_directory", "realm-1")] = projectors.RealmDirectoryEntry{
 		RealmID:   "realm-1",
 		Name:      "Test Realm",
 		Status:    "active",

@@ -85,13 +85,17 @@ func Run(ctx context.Context, cfg *Config) error {
 		core.WithPollInterval(cfg.CatchUpInterval),
 	)
 
-	engine.Register(projectors.NewRealmListProjector())
 	engine.Register(projectors.NewRuneSummaryProjector())
 	engine.Register(projectors.NewRuneDetailProjector())
 	engine.Register(projectors.NewDependencyGraphProjector())
-	engine.Register(projectors.NewAccountLookupProjector())
-	engine.Register(projectors.NewAccountListProjector())
 	engine.Register(projectors.NewRuneChildCountProjector())
+	engine.Register(projectors.NewAccountAuthProjector())
+	engine.Register(projectors.NewAccountDirectoryProjector())
+	engine.Register(projectors.NewRealmDirectoryProjector())
+	engine.Register(projectors.NewUsernameLookupProjector())
+	engine.Register(projectors.NewRealmNameLookupProjector())
+	engine.Register(projectors.NewPATIDProjector())
+	engine.Register(projectors.NewPATKeyhashProjector())
 
 	// 4. Start catch-up in background
 	if err := engine.StartCatchUp(ctx); err != nil {
