@@ -1919,8 +1919,8 @@ func (tc *handlerTestContext) rune_in_rune_list(runeID, status string) {
 	tc.t.Helper()
 	tc.a_projection_store()
 	entry, _ := json.Marshal(map[string]string{"id": runeID, "status": status})
-	tc.projectionStore.listData["rune_list"] = append(tc.projectionStore.listData["rune_list"], entry)
-	tc.projectionStore.data["rune_list:"+runeID] = map[string]string{"id": runeID, "status": status}
+	tc.projectionStore.listData["projection_rune_summary"] = append(tc.projectionStore.listData["projection_rune_summary"], entry)
+	tc.projectionStore.data["projection_rune_summary:"+runeID] = map[string]string{"id": runeID, "status": status}
 }
 
 func (tc *handlerTestContext) dependency_graph_has_dependents(runeID string, dependentIDs ...string) {

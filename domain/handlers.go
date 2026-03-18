@@ -552,7 +552,7 @@ func HandleShatterRune(ctx context.Context, realmID string, cmd ShatterRune, sto
 }
 
 func HandleSweepRunes(ctx context.Context, realmID string, store core.EventStore, projStore core.ProjectionStore) ([]string, error) {
-	rawEntries, err := projStore.List(ctx, realmID, "rune_list")
+	rawEntries, err := projStore.List(ctx, realmID, "projection_rune_summary")
 	if err != nil {
 		return nil, err
 	}
@@ -633,7 +633,7 @@ func isActiveRuneInProjection(ctx context.Context, realmID string, runeID string
 		Status string `json:"status"`
 	}
 	var s statusEntry
-	err := projStore.Get(ctx, realmID, "rune_list", runeID, &s)
+	err := projStore.Get(ctx, realmID, "projection_rune_summary", runeID, &s)
 	if isNotFoundError(err) {
 		return false
 	}

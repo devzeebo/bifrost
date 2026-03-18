@@ -1044,15 +1044,15 @@ func (tc *integrationTestContext) rebuilt_state_has_claimant(expected string) {
 func (tc *integrationTestContext) rune_list_has_entry(runeID string) {
 	tc.t.Helper()
 	var summary projectors.RuneSummary
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_list", runeID, &summary)
-	require.NoError(tc.t, err, "expected rune_list entry for %s", runeID)
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "projection_rune_summary", runeID, &summary)
+	require.NoError(tc.t, err, "expected projection_rune_summary entry for %s", runeID)
 	assert.Equal(tc.t, runeID, summary.ID)
 }
 
 func (tc *integrationTestContext) rune_list_entry_has_title(runeID, expected string) {
 	tc.t.Helper()
 	var summary projectors.RuneSummary
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_list", runeID, &summary)
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "projection_rune_summary", runeID, &summary)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, summary.Title)
 }
@@ -1060,7 +1060,7 @@ func (tc *integrationTestContext) rune_list_entry_has_title(runeID, expected str
 func (tc *integrationTestContext) rune_list_entry_has_status(runeID, expected string) {
 	tc.t.Helper()
 	var summary projectors.RuneSummary
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_list", runeID, &summary)
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "projection_rune_summary", runeID, &summary)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, summary.Status)
 }
@@ -1068,7 +1068,7 @@ func (tc *integrationTestContext) rune_list_entry_has_status(runeID, expected st
 func (tc *integrationTestContext) rune_list_entry_has_priority(runeID string, expected int) {
 	tc.t.Helper()
 	var summary projectors.RuneSummary
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_list", runeID, &summary)
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "projection_rune_summary", runeID, &summary)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, summary.Priority)
 }
@@ -1076,7 +1076,7 @@ func (tc *integrationTestContext) rune_list_entry_has_priority(runeID string, ex
 func (tc *integrationTestContext) rune_list_entry_has_claimant(runeID, expected string) {
 	tc.t.Helper()
 	var summary projectors.RuneSummary
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_list", runeID, &summary)
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "projection_rune_summary", runeID, &summary)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, summary.Claimant)
 }

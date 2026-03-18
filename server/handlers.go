@@ -531,7 +531,7 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "realm ID required")
 		return
 	}
-	runes, err := h.projectionStore.List(r.Context(), realmID, "rune_list")
+	runes, err := h.projectionStore.List(r.Context(), realmID, "projection_rune_summary")
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list runes")
 		return
@@ -603,7 +603,7 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 			for _, dep := range detail.Dependencies {
 				if dep.Relationship == domain.RelBlockedBy {
 					var summary projectors.RuneSummary
-					err := h.projectionStore.Get(r.Context(), realmID, "rune_list", dep.TargetID, &summary)
+					err := h.projectionStore.Get(r.Context(), realmID, "projection_rune_summary", dep.TargetID, &summary)
 					if err != nil {
 						isBlocked = true
 						break

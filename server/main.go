@@ -86,7 +86,7 @@ func Run(ctx context.Context, cfg *Config) error {
 	)
 
 	engine.Register(projectors.NewRealmListProjector())
-	engine.Register(projectors.NewRuneListProjector())
+	engine.Register(projectors.NewRuneSummaryProjector())
 	engine.Register(projectors.NewRuneDetailProjector())
 	engine.Register(projectors.NewDependencyGraphProjector())
 	engine.Register(projectors.NewAccountLookupProjector())

@@ -319,7 +319,7 @@ func (tc *e2eTestContext) server_is_running() {
 		projectionStore: ps,
 		projectors: []core.Projector{
 			projectors.NewRealmListProjector(),
-			projectors.NewRuneListProjector(),
+			projectors.NewRuneSummaryProjector(),
 			projectors.NewRuneDetailProjector(),
 			projectors.NewDependencyGraphProjector(),
 			projectors.NewAccountLookupProjector(),

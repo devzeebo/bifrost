@@ -9,7 +9,6 @@ import (
 )
 
 // Compile-time interface satisfaction checks
-var _ core.Projector = (*RuneListProjector)(nil)
 var _ core.Projector = (*RuneDetailProjector)(nil)
 var _ core.Projector = (*DependencyGraphProjector)(nil)
 var _ core.Projector = (*RealmListProjector)(nil)
@@ -29,6 +28,7 @@ var _ core.Projector = (*DependencyExistenceProjector)(nil)
 var _ core.Projector = (*SystemStatusProjector)(nil)
 var _ core.Projector = (*DependencyCycleCheckProjector)(nil)
 var _ core.Projector = (*AccountAuthProjector)(nil)
+var _ core.Projector = (*RuneSummaryProjector)(nil)
 
 // --- Helpers ---
 

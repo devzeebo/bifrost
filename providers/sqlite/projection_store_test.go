@@ -131,13 +131,13 @@ func TestProjectionStore_List(t *testing.T) {
 		// Given
 		tc.a_database_with_schema()
 		tc.new_projection_store_is_created()
-		tc.projection_has_entries("realm-1", "rune_list", map[string]string{
+		tc.projection_has_entries("realm-1", "projection_rune_summary", map[string]string{
 			"rune-1": `{"id":"rune-1","title":"First"}`,
 			"rune-2": `{"id":"rune-2","title":"Second"}`,
 		})
 
 		// When
-		tc.list_is_called("realm-1", "rune_list")
+		tc.list_is_called("realm-1", "projection_rune_summary")
 
 		// Then
 		tc.no_error_occurred()
@@ -152,7 +152,7 @@ func TestProjectionStore_List(t *testing.T) {
 		tc.new_projection_store_is_created()
 
 		// When
-		tc.list_is_called("realm-1", "rune_list")
+		tc.list_is_called("realm-1", "projection_rune_summary")
 
 		// Then
 		tc.no_error_occurred()
@@ -165,16 +165,16 @@ func TestProjectionStore_List(t *testing.T) {
 		// Given
 		tc.a_database_with_schema()
 		tc.new_projection_store_is_created()
-		tc.projection_has_entries("realm-1", "rune_list", map[string]string{
+		tc.projection_has_entries("realm-1", "projection_rune_summary", map[string]string{
 			"rune-1": `{"id":"rune-1"}`,
 			"rune-2": `{"id":"rune-2"}`,
 		})
-		tc.projection_has_entries("realm-2", "rune_list", map[string]string{
+		tc.projection_has_entries("realm-2", "projection_rune_summary", map[string]string{
 			"rune-3": `{"id":"rune-3"}`,
 		})
 
 		// When
-		tc.list_is_called("realm-1", "rune_list")
+		tc.list_is_called("realm-1", "projection_rune_summary")
 
 		// Then
 		tc.no_error_occurred()
@@ -187,7 +187,7 @@ func TestProjectionStore_List(t *testing.T) {
 		// Given
 		tc.a_database_with_schema()
 		tc.new_projection_store_is_created()
-		tc.projection_has_entries("realm-1", "rune_list", map[string]string{
+		tc.projection_has_entries("realm-1", "projection_rune_summary", map[string]string{
 			"rune-1": `{"id":"rune-1"}`,
 		})
 		tc.projection_has_entries("realm-1", "realm_list", map[string]string{
@@ -196,7 +196,7 @@ func TestProjectionStore_List(t *testing.T) {
 		})
 
 		// When
-		tc.list_is_called("realm-1", "rune_list")
+		tc.list_is_called("realm-1", "projection_rune_summary")
 
 		// Then
 		tc.no_error_occurred()

@@ -1463,7 +1463,7 @@ func (tc *handlerTestContext) account_has_role_in_event_store(accountID, realmID
 func (tc *handlerTestContext) projection_has_rune_summary(realmID, runeID, status string) {
 	tc.t.Helper()
 	summary := projectors.RuneSummary{ID: runeID, Status: status}
-	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", runeID, summary)
+	_ = tc.projectionStore.Put(context.Background(), realmID, "projection_rune_summary", runeID, summary)
 }
 
 func (tc *handlerTestContext) projection_has_child_count(realmID, runeID string, count int) {
@@ -1487,33 +1487,33 @@ func (tc *handlerTestContext) projection_has_realm_list() {
 
 func (tc *handlerTestContext) projection_has_rune_list(realmID string) {
 	tc.t.Helper()
-	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", "bf-0001", map[string]string{
+	_ = tc.projectionStore.Put(context.Background(), realmID, "projection_rune_summary", "bf-0001", map[string]string{
 		"id": "bf-0001", "title": "Test Rune", "status": "open",
 	})
 }
 
 func (tc *handlerTestContext) projection_has_mixed_runes(realmID string) {
 	tc.t.Helper()
-	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", "bf-0001", map[string]any{
+	_ = tc.projectionStore.Put(context.Background(), realmID, "projection_rune_summary", "bf-0001", map[string]any{
 		"id": "bf-0001", "title": "Open Rune", "status": "open", "priority": float64(0), "assignee": "",
 	})
-	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", "bf-0002", map[string]any{
+	_ = tc.projectionStore.Put(context.Background(), realmID, "projection_rune_summary", "bf-0002", map[string]any{
 		"id": "bf-0002", "title": "Sealed Rune", "status": "sealed", "priority": float64(1), "assignee": "alice",
 	})
-	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", "bf-0003", map[string]any{
+	_ = tc.projectionStore.Put(context.Background(), realmID, "projection_rune_summary", "bf-0003", map[string]any{
 		"id": "bf-0003", "title": "Claimed Rune", "status": "claimed", "priority": float64(0), "assignee": "bob",
 	})
 }
 
 func (tc *handlerTestContext) projection_has_runes_with_branches(realmID string) {
 	tc.t.Helper()
-	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", "bf-0001", map[string]any{
+	_ = tc.projectionStore.Put(context.Background(), realmID, "projection_rune_summary", "bf-0001", map[string]any{
 		"id": "bf-0001", "title": "Main Rune", "status": "open", "priority": float64(0), "assignee": "", "branch": "main",
 	})
-	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", "bf-0002", map[string]any{
+	_ = tc.projectionStore.Put(context.Background(), realmID, "projection_rune_summary", "bf-0002", map[string]any{
 		"id": "bf-0002", "title": "Feature Rune", "status": "open", "priority": float64(1), "assignee": "alice", "branch": "feature/xyz",
 	})
-	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", "bf-0003", map[string]any{
+	_ = tc.projectionStore.Put(context.Background(), realmID, "projection_rune_summary", "bf-0003", map[string]any{
 		"id": "bf-0003", "title": "Another Main Rune", "status": "claimed", "priority": float64(0), "assignee": "bob", "branch": "main",
 	})
 }

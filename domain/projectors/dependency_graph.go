@@ -3,10 +3,16 @@ package projectors
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/devzeebo/bifrost/core"
 	"github.com/devzeebo/bifrost/domain"
 )
+
+func isNotFoundError(err error) bool {
+	var nfe *core.NotFoundError
+	return errors.As(err, &nfe)
+}
 
 type GraphDependency struct {
 	TargetID     string `json:"target_id"`
