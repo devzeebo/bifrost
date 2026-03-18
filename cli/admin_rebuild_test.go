@@ -75,7 +75,7 @@ func newRebuildTestContext(t *testing.T) *rebuildTestContext {
 
 func (tc *rebuildTestContext) admin_context_with_registered_tables() {
 	tc.t.Helper()
-	tc.registeredTables = []string{"realm_list", "projection_rune_summary", "rune_detail", "dependency_graph", "account_lookup", "account_list"}
+	tc.registeredTables = []string{"realm_directory", "projection_rune_summary", "projection_rune_detail", "dependency_graph", "projection_username_lookup", "account_directory"}
 	tc.mockEng.tables = tc.registeredTables
 
 	tc.admin = &AdminCmd{
