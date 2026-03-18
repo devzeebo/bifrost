@@ -383,7 +383,7 @@ func (tc *adminAccountTestContext) projection_store_has_accounts() {
 
 func (tc *adminAccountTestContext) account_exists(username, accountID string) {
 	tc.t.Helper()
-	tc.projectionStore.data["_admin|username_lookup|"+username] = accountID
+	tc.projectionStore.data["_admin|projection_username_lookup|"+username] = accountID
 
 	accountCreated := map[string]interface{}{
 		"account_id": accountID,
