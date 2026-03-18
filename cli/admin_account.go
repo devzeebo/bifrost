@@ -70,14 +70,14 @@ func newAdminListAccountsCmd(admin *AdminCmd) *cobra.Command {
 			jsonMode, _ := cmd.Flags().GetBool("json")
 			ctx := cmd.Context()
 
-			rows, err := admin.Ctx.ProjectionStore.List(ctx, "_admin", "account_list")
+			rows, err := admin.Ctx.ProjectionStore.List(ctx, "_admin", "account_directory")
 			if err != nil {
 				return err
 			}
 
-			var entries []projectors.AccountListEntry
+			var entries []projectors.AccountDirectoryEntry
 			for _, raw := range rows {
-				var entry projectors.AccountListEntry
+				var entry projectors.AccountDirectoryEntry
 				if err := json.Unmarshal(raw, &entry); err != nil {
 					return err
 				}
@@ -95,7 +95,7 @@ func newAdminListAccountsCmd(admin *AdminCmd) *cobra.Command {
 			fmt.Fprintln(w, "--\t--------\t------\t------\t----")
 			for _, e := range entries {
 				realms := fmt.Sprintf("%d", len(e.Realms))
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\n", e.AccountID, e.Username, e.Status, realms, e.PATCount)
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\n", e.AccountID, e.Username, e.Status, realms, e.PATCount())
 			}
 			w.Flush()
 			return nil

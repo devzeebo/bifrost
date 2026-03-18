@@ -158,7 +158,7 @@ func (tc *adminTestContext) projection_store_has_username(username, accountID st
 	tc.t.Helper()
 	tc.projectionStore = &mockProjectionStore{
 		data: map[string]any{
-			"_admin|account_lookup|username:" + username: accountID,
+			"_admin|username_lookup|" + username: accountID,
 		},
 	}
 }

@@ -63,14 +63,14 @@ func newAdminListRealmsCmd(admin *AdminCmd) *cobra.Command {
 			jsonMode, _ := cmd.Flags().GetBool("json")
 			ctx := cmd.Context()
 
-			rows, err := admin.Ctx.ProjectionStore.List(ctx, "_admin", "realm_list")
+			rows, err := admin.Ctx.ProjectionStore.List(ctx, "_admin", "realm_directory")
 			if err != nil {
 				return err
 			}
 
-			var entries []projectors.RealmListEntry
+			var entries []projectors.RealmDirectoryEntry
 			for _, raw := range rows {
-				var entry projectors.RealmListEntry
+				var entry projectors.RealmDirectoryEntry
 				if err := json.Unmarshal(raw, &entry); err != nil {
 					return err
 				}
