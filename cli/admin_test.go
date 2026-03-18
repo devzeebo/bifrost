@@ -305,6 +305,10 @@ func (m *mockProjectionStore) Delete(ctx context.Context, realmID string, table 
 	return nil
 }
 
+func (m *mockProjectionStore) CreateTable(ctx context.Context, table string) error {
+	return nil
+}
+
 type mockEventStore struct {
 	streams map[string][]core.Event
 	nextPos int64
@@ -390,6 +394,7 @@ func (m *mockEventStore) ListRealmIDs(ctx context.Context) ([]string, error) {
 type mockEngine struct{}
 
 func (m *mockEngine) Register(projector core.Projector)                     {}
+func (m *mockEngine) RegisteredTables() []string                            { return nil }
 func (m *mockEngine) RunSync(ctx context.Context, events []core.Event) error { return nil }
 func (m *mockEngine) RunCatchUpOnce(ctx context.Context)                     {}
 func (m *mockEngine) StartCatchUp(ctx context.Context) error                 { return nil }

@@ -18,28 +18,33 @@ This is useful when projector logic has been fixed and you need to
 reconstruct the projection state from the event store.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := context.Background()
-
-			// Clear projections
-			_, err := admin.Ctx.DB.ExecContext(ctx, `DELETE FROM projections`)
-			if err != nil {
-				return fmt.Errorf("clear projections: %w", err)
-			}
-			fmt.Println("Cleared projections table")
-
-			// Clear checkpoints
-			_, err = admin.Ctx.DB.ExecContext(ctx, `DELETE FROM checkpoints`)
-			if err != nil {
-				return fmt.Errorf("clear checkpoints: %w", err)
-			}
-			fmt.Println("Cleared checkpoints table")
-
-			// Run catch-up to rebuild
-			admin.Ctx.Engine.RunCatchUpOnce(ctx)
-			fmt.Println("Rebuilt projections from event history")
-
-			return nil
+			return rebuildProjections(ctx, admin.Ctx)
 		},
 	}
 
 	admin.Command.AddCommand(cmd)
+}
+
+func rebuildProjections(ctx context.Context, adminCtx *AdminContext) error {
+	// Clear all registered projection tables
+	for _, table := range adminCtx.Engine.RegisteredTables() {
+		_, err := adminCtx.DB.ExecContext(ctx, fmt.Sprintf("DELETE FROM %s", table))
+		if err != nil {
+			return fmt.Errorf("clear table %s: %w", table, err)
+		}
+		fmt.Printf("Cleared table: %s\n", table)
+	}
+
+	// Clear checkpoints
+	_, err := adminCtx.DB.ExecContext(ctx, `DELETE FROM checkpoints`)
+	if err != nil {
+		return fmt.Errorf("clear checkpoints: %w", err)
+	}
+	fmt.Println("Cleared checkpoints table")
+
+	// Run catch-up to rebuild
+	adminCtx.Engine.RunCatchUpOnce(ctx)
+	fmt.Println("Rebuilt projections from event history")
+
+	return nil
 }

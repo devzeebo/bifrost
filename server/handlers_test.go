@@ -1801,11 +1801,19 @@ type mockProjectionEngine struct {
 	runSyncCalled bool
 }
 
+func (m *mockProjectionEngine) Register(projector core.Projector) {}
+
+func (m *mockProjectionEngine) RegisteredTables() []string { return nil }
+
 func (m *mockProjectionEngine) RunSync(ctx context.Context, events []core.Event) error {
 	m.runSyncCalled = true
 	return nil
 }
 
 func (m *mockProjectionEngine) RunCatchUpOnce(ctx context.Context) {}
+
+func (m *mockProjectionEngine) StartCatchUp(ctx context.Context) error { return nil }
+
+func (m *mockProjectionEngine) Stop() error { return nil }
 
 func strPtr(s string) *string { return &s }

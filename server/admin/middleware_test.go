@@ -710,3 +710,7 @@ func (m *mockProjectionStore) List(ctx context.Context, realm, projection string
 	}
 	return []json.RawMessage{}, nil
 }
+
+func (m *mockProjectionStore) CreateTable(ctx context.Context, table string) error {
+	return nil
+}
