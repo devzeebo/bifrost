@@ -313,6 +313,10 @@ func (m *mockProjectionStore) Delete(_ context.Context, _ string, _ string, _ st
 	return nil
 }
 
+func (m *mockProjectionStore) CreateTable(_ context.Context, _ string) error {
+	return nil
+}
+
 type mockCheckpointStore struct{}
 
 func (m *mockCheckpointStore) GetCheckpoint(_ context.Context, _ string, _ string) (int64, error) {

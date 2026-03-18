@@ -16,6 +16,8 @@ type projectionEngine struct {
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
+
+	registeredTables []string
 }
 
 type EngineOption func(*projectionEngine)
@@ -41,6 +43,18 @@ func NewProjectionEngine(eventStore EventStore, projectionStore ProjectionStore,
 
 func (e *projectionEngine) Register(projector Projector) {
 	e.projectors = append(e.projectors, projector)
+
+	// Auto-create the projection table
+	tableName := projector.TableName()
+	if err := e.projectionStore.CreateTable(context.Background(), tableName); err != nil {
+		log.Printf("failed to create table %q: %v", tableName, err)
+	}
+
+	e.registeredTables = append(e.registeredTables, tableName)
+}
+
+func (e *projectionEngine) RegisteredTables() []string {
+	return e.registeredTables
 }
 
 func (e *projectionEngine) RunSync(ctx context.Context, events []Event) error {

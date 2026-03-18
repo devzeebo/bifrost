@@ -84,6 +84,12 @@ func (s *ProjectionStore) ensureTable(ctx context.Context, table string) error {
 	return err
 }
 
+// CreateTable creates the projection table if it doesn't exist.
+// This is the public method implementing the ProjectionStore interface.
+func (s *ProjectionStore) CreateTable(ctx context.Context, table string) error {
+	return s.ensureTable(ctx, table)
+}
+
 // Put upserts a projection value for the given realm, table, and key.
 func (s *ProjectionStore) Put(ctx context.Context, realmID string, table string, key string, value any) error {
 	if err := s.ensureTable(ctx, table); err != nil {

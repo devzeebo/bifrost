@@ -242,6 +242,10 @@ type mockProjectionEngine struct{}
 
 func (m *mockProjectionEngine) Register(_ Projector) {}
 
+func (m *mockProjectionEngine) RegisteredTables() []string {
+	return nil
+}
+
 func (m *mockProjectionEngine) RunSync(_ context.Context, _ []Event) error {
 	return nil
 }
