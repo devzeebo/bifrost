@@ -129,15 +129,17 @@ func HandleCreateRune(ctx context.Context, realmID string, cmd CreateRune, store
 			branch = parentState.Branch
 		}
 
-		var childCount int
-		err = projStore.Get(ctx, realmID, "RuneChildCount", cmd.ParentID, &childCount)
+		var entry struct {
+			Count int `json:"count"`
+		}
+		err = projStore.Get(ctx, realmID, "projection_rune_child_count", cmd.ParentID, &entry)
 		if err != nil {
 			if !isNotFoundError(err) {
 				return RuneCreated{}, err
 			}
-			childCount = 0
+			entry.Count = 0
 		}
-		runeID = fmt.Sprintf("%s.%d", cmd.ParentID, childCount+1)
+		runeID = fmt.Sprintf("%s.%d", cmd.ParentID, entry.Count+1)
 	} else {
 		if cmd.Branch == nil {
 			return RuneCreated{}, fmt.Errorf("branch is required for top-level runes")
@@ -284,15 +286,17 @@ func HandleForgeRune(ctx context.Context, realmID string, cmd ForgeRune, store c
 		return err
 	}
 
-	var childCount int
-	err = projStore.Get(ctx, realmID, "RuneChildCount", cmd.ID, &childCount)
+	var entry struct {
+		Count int `json:"count"`
+	}
+	err = projStore.Get(ctx, realmID, "projection_rune_child_count", cmd.ID, &entry)
 	if err != nil {
 		if !isNotFoundError(err) {
 			return err
 		}
-		childCount = 0
+		entry.Count = 0
 	}
-	for i := 1; i <= childCount; i++ {
+	for i := 1; i <= entry.Count; i++ {
 		childID := fmt.Sprintf("%s.%d", cmd.ID, i)
 		if err := HandleForgeRune(ctx, realmID, ForgeRune{ID: childID}, store, projStore); err != nil {
 			return err
@@ -603,16 +607,18 @@ func hasActiveReference(ctx context.Context, realmID string, runeID string, proj
 		}
 	}
 
-	var childCount int
-	err = projStore.Get(ctx, realmID, "RuneChildCount", runeID, &childCount)
+	var entry2 struct {
+		Count int `json:"count"`
+	}
+	err = projStore.Get(ctx, realmID, "projection_rune_child_count", runeID, &entry2)
 	if err != nil {
 		if isNotFoundError(err) {
-			childCount = 0
+			entry2.Count = 0
 		} else {
 			return true
 		}
 	}
-	for i := 1; i <= childCount; i++ {
+	for i := 1; i <= entry2.Count; i++ {
 		childID := fmt.Sprintf("%s.%d", runeID, i)
 		if isActiveRuneInProjection(ctx, realmID, childID, projStore) {
 			return true

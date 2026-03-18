@@ -1796,7 +1796,7 @@ func (tc *handlerTestContext) with_branch_on_update_command(branch string) {
 func (tc *handlerTestContext) projection_returns_child_count(parentID string, count int) {
 	tc.t.Helper()
 	tc.a_projection_store()
-	tc.projectionStore.data["RuneChildCount:"+parentID] = count
+	tc.projectionStore.data["projection_rune_child_count:"+parentID] = map[string]any{"parent_rune_id": parentID, "count": count}
 }
 
 func (tc *handlerTestContext) dependency_graph_has_no_cycle(sourceID, targetID string) {
@@ -1939,7 +1939,7 @@ func (tc *handlerTestContext) dependency_graph_has_dependents(runeID string, dep
 func (tc *handlerTestContext) rune_has_children(runeID string, count int) {
 	tc.t.Helper()
 	tc.a_projection_store()
-	tc.projectionStore.data["RuneChildCount:"+runeID] = count
+	tc.projectionStore.data["projection_rune_child_count:"+runeID] = map[string]any{"parent_rune_id": runeID, "count": count}
 }
 
 // --- When ---

@@ -695,16 +695,16 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 			if runeID == "" {
 				continue
 			}
-			var count int
-			err := h.projectionStore.Get(r.Context(), realmID, "RuneChildCount", runeID, &count)
+			var entry projectors.RuneChildCountEntry
+			err := h.projectionStore.Get(r.Context(), realmID, "projection_rune_child_count", runeID, &entry)
 			if err != nil {
 				if isNotFound(err) {
-					count = 0
+					entry.Count = 0
 				} else {
 					continue
 				}
 			}
-			isSaga := count > 0
+			isSaga := entry.Count > 0
 			if isSaga == wantSaga {
 				filtered = append(filtered, item)
 			}

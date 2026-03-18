@@ -682,12 +682,12 @@ func (m *mockProjectionStore) Get(ctx context.Context, realm, projection, key st
 			return fmt.Errorf("mockProjectionStore.Get: type assertion failed for key %s: expected AccountListEntry, got %T", ckey, val)
 		}
 		*d = e
-<<<<<<< HEAD
 	case *projectors.AccountDirectoryEntry:
 		e, ok := val.(projectors.AccountDirectoryEntry)
 		if !ok {
 			return fmt.Errorf("mockProjectionStore.Get: type assertion failed for key %s: expected AccountDirectoryEntry, got %T", ckey, val)
-=======
+		}
+		*d = e
 	case *projectors.SystemStatusEntry:
 		e, ok := val.(projectors.SystemStatusEntry)
 		if !ok {
@@ -698,7 +698,6 @@ func (m *mockProjectionStore) Get(ctx context.Context, realm, projection, key st
 		e, ok := val.(projectors.RealmDirectoryEntry)
 		if !ok {
 			return fmt.Errorf("mockProjectionStore.Get: type assertion failed for key %s: expected RealmDirectoryEntry, got %T", ckey, val)
->>>>>>> 099cd1a (rune work)
 		}
 		*d = e
 	default:

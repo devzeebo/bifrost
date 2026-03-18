@@ -1468,7 +1468,8 @@ func (tc *handlerTestContext) projection_has_rune_summary(realmID, runeID, statu
 
 func (tc *handlerTestContext) projection_has_child_count(realmID, runeID string, count int) {
 	tc.t.Helper()
-	_ = tc.projectionStore.Put(context.Background(), realmID, "RuneChildCount", runeID, count)
+	entry := projectors.RuneChildCountEntry{ParentRuneID: runeID, Count: count}
+	_ = tc.projectionStore.Put(context.Background(), realmID, "projection_rune_child_count", runeID, entry)
 }
 
 func (tc *handlerTestContext) projection_has_rune_detail_with_dependencies(realmID, runeID string, deps []projectors.DependencyRef) {
