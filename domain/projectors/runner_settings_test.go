@@ -26,6 +26,19 @@ func TestRunnerSettingsProjector(t *testing.T) {
 		tc.name_is("runner_settings")
 	})
 
+	t.Run("TableName returns projection_runner_settings", func(t *testing.T) {
+		tc := newRunnerSettingsTestContext(t)
+
+		// Given
+		tc.a_runner_settings_projector()
+
+		// When
+		tc.table_name_is_called()
+
+		// Then
+		tc.table_name_is("projection_runner_settings")
+	})
+
 	t.Run("handles RunnerSettingsCreated by putting entry with id, runner_type, and name", func(t *testing.T) {
 		tc := newRunnerSettingsTestContext(t)
 
@@ -153,12 +166,13 @@ func TestRunnerSettingsProjector(t *testing.T) {
 type runnerSettingsTestContext struct {
 	t *testing.T
 
-	projector  *RunnerSettingsProjector
-	store      *mockProjectionStore
-	event      core.Event
-	ctx        context.Context
-	nameResult string
-	err        error
+	projector      *RunnerSettingsProjector
+	store          *mockProjectionStore
+	event          core.Event
+	ctx            context.Context
+	nameResult     string
+	tableNameResult string
+	err            error
 }
 
 func newRunnerSettingsTestContext(t *testing.T) *runnerSettingsTestContext {
@@ -230,7 +244,7 @@ func (tc *runnerSettingsTestContext) existing_runner_settings_entry(runnerSettin
 		Name:       name,
 		Fields:     map[string]string{},
 	}
-	tc.store.put("realm-1", "runner_settings", runnerSettingsID, entry)
+	tc.store.put("realm-1", "projection_runner_settings", runnerSettingsID, entry)
 }
 
 func (tc *runnerSettingsTestContext) existing_runner_settings_entry_with_fields(runnerSettingsID, runnerType, name string, fields map[string]string) {
@@ -244,7 +258,7 @@ func (tc *runnerSettingsTestContext) existing_runner_settings_entry_with_fields(
 		Name:       name,
 		Fields:     fields,
 	}
-	tc.store.put("realm-1", "runner_settings", runnerSettingsID, entry)
+	tc.store.put("realm-1", "projection_runner_settings", runnerSettingsID, entry)
 }
 
 // --- When ---
@@ -252,6 +266,11 @@ func (tc *runnerSettingsTestContext) existing_runner_settings_entry_with_fields(
 func (tc *runnerSettingsTestContext) name_is_called() {
 	tc.t.Helper()
 	tc.nameResult = tc.projector.Name()
+}
+
+func (tc *runnerSettingsTestContext) table_name_is_called() {
+	tc.t.Helper()
+	tc.tableNameResult = tc.projector.TableName()
 }
 
 func (tc *runnerSettingsTestContext) handle_is_called() {
@@ -266,6 +285,11 @@ func (tc *runnerSettingsTestContext) name_is(expected string) {
 	assert.Equal(tc.t, expected, tc.nameResult)
 }
 
+func (tc *runnerSettingsTestContext) table_name_is(expected string) {
+	tc.t.Helper()
+	assert.Equal(tc.t, expected, tc.tableNameResult)
+}
+
 func (tc *runnerSettingsTestContext) no_error() {
 	tc.t.Helper()
 	assert.NoError(tc.t, tc.err)
@@ -274,21 +298,21 @@ func (tc *runnerSettingsTestContext) no_error() {
 func (tc *runnerSettingsTestContext) runner_settings_entry_exists(runnerSettingsID string) {
 	tc.t.Helper()
 	var entry RunnerSettingsEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "runner_settings", runnerSettingsID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "projection_runner_settings", runnerSettingsID, &entry)
 	require.NoError(tc.t, err, "expected runner settings entry for %s", runnerSettingsID)
 }
 
 func (tc *runnerSettingsTestContext) runner_settings_entry_does_not_exist(runnerSettingsID string) {
 	tc.t.Helper()
 	var entry RunnerSettingsEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "runner_settings", runnerSettingsID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "projection_runner_settings", runnerSettingsID, &entry)
 	require.Error(tc.t, err, "expected runner settings entry for %s to not exist", runnerSettingsID)
 }
 
 func (tc *runnerSettingsTestContext) runner_settings_entry_has_runner_type(runnerSettingsID, expected string) {
 	tc.t.Helper()
 	var entry RunnerSettingsEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "runner_settings", runnerSettingsID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "projection_runner_settings", runnerSettingsID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, entry.RunnerType)
 }
@@ -296,7 +320,7 @@ func (tc *runnerSettingsTestContext) runner_settings_entry_has_runner_type(runne
 func (tc *runnerSettingsTestContext) runner_settings_entry_has_name(runnerSettingsID, expected string) {
 	tc.t.Helper()
 	var entry RunnerSettingsEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "runner_settings", runnerSettingsID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "projection_runner_settings", runnerSettingsID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, entry.Name)
 }
@@ -304,7 +328,7 @@ func (tc *runnerSettingsTestContext) runner_settings_entry_has_name(runnerSettin
 func (tc *runnerSettingsTestContext) runner_settings_entry_has_empty_fields(runnerSettingsID string) {
 	tc.t.Helper()
 	var entry RunnerSettingsEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "runner_settings", runnerSettingsID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "projection_runner_settings", runnerSettingsID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, map[string]string{}, entry.Fields)
 }
@@ -312,7 +336,7 @@ func (tc *runnerSettingsTestContext) runner_settings_entry_has_empty_fields(runn
 func (tc *runnerSettingsTestContext) runner_settings_entry_has_field(runnerSettingsID, key, expectedValue string) {
 	tc.t.Helper()
 	var entry RunnerSettingsEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "runner_settings", runnerSettingsID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "projection_runner_settings", runnerSettingsID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expectedValue, entry.Fields[key])
 }
@@ -320,7 +344,7 @@ func (tc *runnerSettingsTestContext) runner_settings_entry_has_field(runnerSetti
 func (tc *runnerSettingsTestContext) runner_settings_entry_does_not_have_field(runnerSettingsID, key string) {
 	tc.t.Helper()
 	var entry RunnerSettingsEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "runner_settings", runnerSettingsID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "projection_runner_settings", runnerSettingsID, &entry)
 	require.NoError(tc.t, err)
 	_, exists := entry.Fields[key]
 	assert.False(tc.t, exists, "expected field %s to not exist", key)
