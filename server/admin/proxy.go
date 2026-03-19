@@ -74,7 +74,17 @@ func NewVikeStaticHandlerFS(fileServer http.Handler, fsys fs.FS, _ string) http.
 		// Check if file exists in embedded FS and is a file (not directory)
 		info, err := fs.Stat(fsys, path)
 		if errors.Is(err, fs.ErrNotExist) || (err == nil && info.IsDir()) {
-			// File not found or is a directory - serve index.html for SPA routing
+			// File not found or is a directory - check for .html version
+			htmlPath := path + ".html"
+			htmlInfo, htmlErr := fs.Stat(fsys, htmlPath)
+			if htmlErr == nil && !htmlInfo.IsDir() {
+				// .html file exists, serve it via file server with modified path
+				r.URL.Path = "/" + htmlPath
+				fileServer.ServeHTTP(w, r)
+				return
+			}
+
+			// No .html file - serve index.html for SPA routing
 			content, err := fs.ReadFile(fsys, "index.html")
 			if err != nil {
 				http.NotFound(w, r)
