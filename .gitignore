@@ -6,3 +6,5 @@ node_modules
 .windsurf/
 ui/dist
 .worktrees/
+
+server/admin/ui

@@ -213,15 +213,43 @@ func TestRegisterUIRoutes_ProductionMode(t *testing.T) {
 	require.NoError(t, err)
 	_ = result
 
-	// /ui should serve index.html from embedded files
-	req := httptest.NewRequest("GET", "/ui", nil)
-	rec := httptest.NewRecorder()
+	tests := []struct {
+		name             string
+		path             string
+		wantStatus       int
+		wantBodyContains string
+	}{
+		{
+			name:             "/ui should serve index.html",
+			path:             "/ui",
+			wantStatus:       http.StatusOK,
+			wantBodyContains: "<!DOCTYPE html>",
+		},
+		{
+			name:             "/ui/runes should fallback to index.html (SPA routing)",
+			path:             "/ui/runes",
+			wantStatus:       http.StatusOK,
+			wantBodyContains: "<!DOCTYPE html>",
+		},
+		{
+			name:             "/ui/admin/accounts should fallback to index.html",
+			path:             "/ui/admin/accounts",
+			wantStatus:       http.StatusOK,
+			wantBodyContains: "<!DOCTYPE html>",
+		},
+	}
 
-	mux.ServeHTTP(rec, req)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", tt.path, nil)
+			rec := httptest.NewRecorder()
 
-	// With embedded UI files, returns 200 with HTML
-	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.Contains(t, rec.Body.String(), "<!DOCTYPE html>")
+			mux.ServeHTTP(rec, req)
+
+			assert.Equal(t, tt.wantStatus, rec.Code)
+			assert.Contains(t, rec.Body.String(), tt.wantBodyContains)
+		})
+	}
 }
 
 func TestRegisterUIRoutes_NoUI(t *testing.T) {
