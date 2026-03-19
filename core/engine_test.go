@@ -419,6 +419,10 @@ func (m *trackingProjectionStore) CreateTable(_ context.Context, table string) e
 	return nil
 }
 
+func (m *trackingProjectionStore) ClearTable(_ context.Context, _ string) error {
+	return nil
+}
+
 // =============================================================================
 // Catch-Up Tests
 // =============================================================================

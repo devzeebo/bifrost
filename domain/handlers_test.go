@@ -2393,3 +2393,7 @@ func (m *mockProjectionStore) CreateTable(_ context.Context, table string) error
 	return nil
 }
 
+func (m *mockProjectionStore) ClearTable(_ context.Context, _ string) error {
+	return nil
+}
+

@@ -248,7 +248,9 @@ func writeUnauthorized(w http.ResponseWriter, err error) {
 	if err != nil {
 		msg = err.Error()
 	}
-	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+	if encodeErr := json.NewEncoder(w).Encode(map[string]string{"error": msg}); encodeErr != nil {
+		http.Error(w, encodeErr.Error(), http.StatusInternalServerError)
+	}
 }
 
 // redirectToLogin clears the auth cookie and redirects to the login page.
