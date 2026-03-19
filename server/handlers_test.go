@@ -907,6 +907,7 @@ func TestAssignRoleHandler(t *testing.T) {
 		tc.request_has_realm_id("realm-1")
 		tc.request_has_role("admin")
 		tc.account_exists_in_event_store("acct-target")
+		tc.realm_exists_in_directory("realm-1", "Test Realm")
 
 		// When
 		tc.post("/assign-role", domain.AssignRole{
@@ -967,6 +968,7 @@ func TestAssignRoleHandler(t *testing.T) {
 		tc.request_has_realm_id("realm-1")
 		tc.request_has_role("owner")
 		tc.account_exists_in_event_store("acct-target")
+		tc.realm_exists_in_directory("realm-1", "Test Realm")
 
 		// When
 		tc.post("/assign-role", domain.AssignRole{
@@ -1311,6 +1313,7 @@ func TestRoleBasedRouting(t *testing.T) {
 		tc.request_has_realm_id("realm-1")
 		tc.request_has_role("admin")
 		tc.account_exists_in_event_store("acct-target")
+		tc.realm_exists_in_directory("realm-1", "Test Realm")
 		tc.routes_are_registered()
 
 		// When
@@ -1351,11 +1354,13 @@ type handlerTestContext struct {
 
 func newHandlerTestContext(t *testing.T) *handlerTestContext {
 	t.Helper()
+	es := newMockEventStore()
+	ps := newMockProjectionStore()
 	return &handlerTestContext{
 		t:               t,
-		eventStore:      newMockEventStore(),
-		projectionStore: newMockProjectionStore(),
-		engine:          &mockProjectionEngine{},
+		eventStore:      es,
+		projectionStore: ps,
+		engine:          &mockProjectionEngine{store: ps, eventStore: es},
 		recorder:        httptest.NewRecorder(),
 	}
 }
@@ -1482,6 +1487,13 @@ func (tc *handlerTestContext) has_realm_list() {
 	tc.t.Helper()
 	_ = tc.projectionStore.Put(context.Background(), "_admin", "realm_directory", "realm-1", map[string]string{
 		"realm_id": "realm-1", "name": "Test Realm", "status": "active",
+	})
+}
+
+func (tc *handlerTestContext) realm_exists_in_directory(realmID, name string) {
+	tc.t.Helper()
+	_ = tc.projectionStore.Put(context.Background(), realmID, "realm_directory", realmID, map[string]string{
+		"realm_id": realmID, "name": name, "status": "active",
 	})
 }
 
@@ -1800,6 +1812,8 @@ func (m *mockEventStore) ListRealmIDs(_ context.Context) ([]string, error) {
 
 type mockProjectionEngine struct {
 	runSyncCalled bool
+	store         *mockProjectionStore
+	eventStore    *mockEventStore
 }
 
 func (m *mockProjectionEngine) Register(projector core.Projector) {}
@@ -1808,10 +1822,38 @@ func (m *mockProjectionEngine) RegisteredTables() []string { return nil }
 
 func (m *mockProjectionEngine) RunSync(ctx context.Context, events []core.Event) error {
 	m.runSyncCalled = true
+	// Simulate processing RealmCreated events into realm_directory projection
+	if m.store != nil {
+		for _, evt := range events {
+			if evt.EventType == domain.EventRealmCreated {
+				var created domain.RealmCreated
+				_ = json.Unmarshal(evt.Data, &created)
+				_ = m.store.Put(ctx, created.RealmID, "realm_directory", created.RealmID, map[string]string{
+					"realm_id": created.RealmID, "name": created.Name, "status": "active",
+				})
+			}
+		}
+	}
 	return nil
 }
 
-func (m *mockProjectionEngine) RunCatchUpOnce(ctx context.Context) {}
+func (m *mockProjectionEngine) RunCatchUpOnce(ctx context.Context) {
+	m.runSyncCalled = true
+	// Simulate processing all RealmCreated events from event store into projection
+	if m.store != nil && m.eventStore != nil {
+		for _, events := range m.eventStore.streams {
+			for _, evt := range events {
+				if evt.EventType == domain.EventRealmCreated {
+					var created domain.RealmCreated
+					_ = json.Unmarshal(evt.Data, &created)
+					_ = m.store.Put(ctx, created.RealmID, "realm_directory", created.RealmID, map[string]string{
+						"realm_id": created.RealmID, "name": created.Name, "status": "active",
+					})
+				}
+			}
+		}
+	}
+}
 
 func (m *mockProjectionEngine) StartCatchUp(ctx context.Context) error { return nil }
 

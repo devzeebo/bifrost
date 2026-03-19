@@ -303,7 +303,7 @@ func handleGrantRealm(cfg *RouteConfig) http.HandlerFunc {
 			AccountID: req.AccountID,
 			RealmID:   req.RealmID,
 			Role:      req.Role,
-		}, cfg.EventStore)
+		}, cfg.EventStore, cfg.ProjectionStore)
 		if err != nil {
 			log.Printf("handleGrantRealm: failed: %v", err)
 			handleDomainError(w, err)

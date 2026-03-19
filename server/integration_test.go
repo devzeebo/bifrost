@@ -345,7 +345,7 @@ func (tc *e2eTestContext) server_is_running() {
 	acctResult, err := domain.HandleCreateAccount(ctx, domain.CreateAccount{Username: "admin"}, es, ps)
 	require.NoError(tc.t, err)
 	_ = engine.RunSync(ctx, nil)
-	err = domain.HandleAssignRole(ctx, domain.AssignRole{AccountID: acctResult.AccountID, RealmID: "_admin", Role: "admin"}, es)
+	err = domain.HandleAssignRole(ctx, domain.AssignRole{AccountID: acctResult.AccountID, RealmID: "_admin", Role: "admin"}, es, ps)
 	require.NoError(tc.t, err)
 	_ = engine.RunSync(ctx, nil)
 	tc.adminKey = acctResult.RawToken
@@ -371,12 +371,15 @@ func (tc *e2eTestContext) a_realm_exists(name string) {
 	require.Equal(tc.t, http.StatusCreated, tc.resp.StatusCode, "failed to create realm: %s", string(tc.respBody))
 	tc.realmID = tc.respJSON["realm_id"].(string)
 
+	// Run engine to update projections (realm_directory) before granting
+	_ = tc.engine.RunSync(context.Background(), nil)
+
 	// Create an account with PAT and grant it access to this realm
 	ctx := context.Background()
 	acctResult, err := domain.HandleCreateAccount(ctx, domain.CreateAccount{Username: name + "-user"}, tc.eventStore, tc.projectionStore)
 	require.NoError(tc.t, err)
 	_ = tc.engine.RunSync(ctx, nil)
-	err = domain.HandleGrantRealm(ctx, domain.GrantRealm{AccountID: acctResult.AccountID, RealmID: tc.realmID}, tc.eventStore)
+	err = domain.HandleGrantRealm(ctx, domain.GrantRealm{AccountID: acctResult.AccountID, RealmID: tc.realmID}, tc.eventStore, tc.projectionStore)
 	require.NoError(tc.t, err)
 	_ = tc.engine.RunSync(ctx, nil)
 	tc.realmPATToken = acctResult.RawToken

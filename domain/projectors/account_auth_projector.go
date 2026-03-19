@@ -91,6 +91,15 @@ func (p *AccountAuthProjector) handleRealmGranted(ctx context.Context, event cor
 		return err
 	}
 
+	// Skip if realm doesn't exist in directory (except _admin)
+	if data.RealmID != "_admin" {
+		var realmEntry RealmDirectoryEntry
+		if err := store.Get(ctx, data.RealmID, "realm_directory", data.RealmID, &realmEntry); err != nil {
+			// Realm doesn't exist, skip this event
+			return nil
+		}
+	}
+
 	var entry AccountAuthEntry
 	if err := store.Get(ctx, event.RealmID, "account_auth", data.AccountID, &entry); err != nil {
 		return err
@@ -132,6 +141,15 @@ func (p *AccountAuthProjector) handleRoleAssigned(ctx context.Context, event cor
 	var data domain.RoleAssigned
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
+	}
+
+	// Skip if realm doesn't exist in directory (except _admin)
+	if data.RealmID != "_admin" {
+		var realmEntry RealmDirectoryEntry
+		if err := store.Get(ctx, data.RealmID, "realm_directory", data.RealmID, &realmEntry); err != nil {
+			// Realm doesn't exist, skip this event
+			return nil
+		}
 	}
 
 	var entry AccountAuthEntry

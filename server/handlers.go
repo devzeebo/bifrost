@@ -340,7 +340,7 @@ func (h *Handlers) AssignRole(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := domain.HandleAssignRole(r.Context(), cmd, h.eventStore); err != nil {
+	if err := domain.HandleAssignRole(r.Context(), cmd, h.eventStore, h.projectionStore); err != nil {
 		handleDomainError(w, err)
 		return
 	}
@@ -485,19 +485,22 @@ func (h *Handlers) CreateRealm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Run sync to update projections (realm_directory) before assigning role
+	h.runSyncQuietly(r)
+
 	if accountID, ok := AccountIDFromContext(r.Context()); ok && accountID != "" {
 		err = domain.HandleAssignRole(r.Context(), domain.AssignRole{
 			AccountID: accountID,
 			RealmID:   result.RealmID,
 			Role:      domain.RoleOwner,
-		}, h.eventStore)
+		}, h.eventStore, h.projectionStore)
 		if err != nil {
 			handleDomainError(w, err)
 			return
 		}
+		h.runSyncQuietly(r)
 	}
 
-	h.runSyncQuietly(r)
 	writeJSON(w, http.StatusCreated, map[string]string{
 		"realm_id": result.RealmID,
 	})

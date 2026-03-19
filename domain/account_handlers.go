@@ -138,6 +138,20 @@ func requireActiveAccount(state AccountState, accountID string) error {
 	return nil
 }
 
+func requireRealmExists(ctx context.Context, realmID string, projectionStore core.ProjectionStore) error {
+	type realmDirectoryEntry struct {
+		RealmID string `json:"realm_id"`
+		Name    string `json:"name"`
+		Status  string `json:"status"`
+	}
+	var entry realmDirectoryEntry
+	err := projectionStore.Get(ctx, realmID, "realm_directory", realmID, &entry)
+	if err != nil {
+		return &core.NotFoundError{Entity: "realm", ID: realmID}
+	}
+	return nil
+}
+
 func HandleCreateAccount(ctx context.Context, cmd CreateAccount, store core.EventStore, projectionStore core.ProjectionStore) (CreateAccountResult, error) {
 	// Check username uniqueness via projection
 	type usernameEntry struct {
@@ -215,13 +229,20 @@ func HandleSuspendAccount(ctx context.Context, cmd SuspendAccount, store core.Ev
 	return err
 }
 
-func HandleGrantRealm(ctx context.Context, cmd GrantRealm, store core.EventStore) error {
+func HandleGrantRealm(ctx context.Context, cmd GrantRealm, store core.EventStore, projectionStore core.ProjectionStore) error {
 	state, events, err := readAndRebuildAccountState(ctx, cmd.AccountID, store)
 	if err != nil {
 		return err
 	}
 	if err := requireActiveAccount(state, cmd.AccountID); err != nil {
 		return err
+	}
+
+	// Validate realm exists (skip for _admin realm)
+	if cmd.RealmID != AdminRealmID {
+		if err := requireRealmExists(ctx, cmd.RealmID, projectionStore); err != nil {
+			return err
+		}
 	}
 
 	// Idempotent: if already granted, return nil
@@ -260,7 +281,7 @@ func HandleRevokeRealm(ctx context.Context, cmd RevokeRealm, store core.EventSto
 	return err
 }
 
-func HandleAssignRole(ctx context.Context, cmd AssignRole, store core.EventStore) error {
+func HandleAssignRole(ctx context.Context, cmd AssignRole, store core.EventStore, projectionStore core.ProjectionStore) error {
 	if !IsValidRole(cmd.Role) {
 		return fmt.Errorf("invalid role %q", cmd.Role)
 	}
@@ -271,6 +292,13 @@ func HandleAssignRole(ctx context.Context, cmd AssignRole, store core.EventStore
 	}
 	if err := requireActiveAccount(state, cmd.AccountID); err != nil {
 		return err
+	}
+
+	// Validate realm exists (skip for _admin realm)
+	if cmd.RealmID != AdminRealmID {
+		if err := requireRealmExists(ctx, cmd.RealmID, projectionStore); err != nil {
+			return err
+		}
 	}
 
 	// Idempotent: if same role already assigned, return nil

@@ -168,6 +168,7 @@ func handleUILogout(cfg *RouteConfig) http.HandlerFunc {
 
 // getRealmNames fetches realm names for the given realm IDs.
 // Uses realm_directory for realm name lookup.
+// Realms without a directory entry are silently skipped.
 func getRealmNames(ctx context.Context, projectionStore core.ProjectionStore, realmIDs []string) map[string]string {
 	names := make(map[string]string)
 	for _, realmID := range realmIDs {
@@ -178,9 +179,8 @@ func getRealmNames(ctx context.Context, projectionStore core.ProjectionStore, re
 		var realm projectors.RealmDirectoryEntry
 		if err := projectionStore.Get(ctx, realmID, "realm_directory", realmID, &realm); err == nil {
 			names[realmID] = realm.Name
-		} else {
-			names[realmID] = realmID // Fallback to ID
 		}
+		// Skip realms without a directory entry (orphaned/phantom realms)
 	}
 	return names
 }
@@ -338,7 +338,7 @@ func handleCreateAdmin(cfg *RouteConfig) http.HandlerFunc {
 				AccountID: result.AccountID,
 				RealmID:   "_admin",
 				Role:      "admin",
-			}, cfg.EventStore)
+			}, cfg.EventStore, cfg.ProjectionStore)
 			if err != nil {
 				handleDomainError(w, err)
 				return
@@ -350,7 +350,7 @@ func handleCreateAdmin(cfg *RouteConfig) http.HandlerFunc {
 					AccountID: result.AccountID,
 					RealmID:   resp.RealmID,
 					Role:      "owner",
-				}, cfg.EventStore)
+				}, cfg.EventStore, cfg.ProjectionStore)
 				if err != nil {
 					handleDomainError(w, err)
 					return
