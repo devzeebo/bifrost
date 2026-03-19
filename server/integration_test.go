@@ -484,6 +484,12 @@ func (e *syncProjectionEngine) RunCatchUpOnce(ctx context.Context) {
 	_ = e.RunSync(ctx, nil)
 }
 
+func (e *syncProjectionEngine) RebuildProjections(ctx context.Context) error {
+	// Reset positions and reprocess all events
+	e.lastPositions = make(map[string]int64)
+	return e.RunSync(ctx, nil)
+}
+
 func (e *syncProjectionEngine) RunSync(ctx context.Context, _ []core.Event) error {
 	if e.lastPositions == nil {
 		e.lastPositions = make(map[string]int64)

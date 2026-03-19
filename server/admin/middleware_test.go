@@ -747,3 +747,7 @@ func (m *mockProjectionStore) List(ctx context.Context, realm, projection string
 func (m *mockProjectionStore) CreateTable(ctx context.Context, table string) error {
 	return nil
 }
+
+func (m *mockProjectionStore) ClearTable(ctx context.Context, table string) error {
+	return nil
+}

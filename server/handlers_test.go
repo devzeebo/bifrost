@@ -1817,4 +1817,6 @@ func (m *mockProjectionEngine) StartCatchUp(ctx context.Context) error { return 
 
 func (m *mockProjectionEngine) Stop() error { return nil }
 
+func (m *mockProjectionEngine) RebuildProjections(ctx context.Context) error { return nil }
+
 func strPtr(s string) *string { return &s }

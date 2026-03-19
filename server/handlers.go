@@ -537,8 +537,8 @@ func (h *Handlers) ResolveUsername(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var accountID string
-	if err := h.projectionStore.Get(r.Context(), "_admin", "username_lookup", username, &accountID); err != nil {
+	var entry projectors.UsernameLookupEntry
+	if err := h.projectionStore.Get(r.Context(), "_admin", "username_lookup", username, &entry); err != nil {
 		if isNotFound(err) {
 			writeError(w, http.StatusNotFound, "username not found")
 			return
@@ -547,7 +547,7 @@ func (h *Handlers) ResolveUsername(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"account_id": accountID})
+	writeJSON(w, http.StatusOK, map[string]string{"account_id": entry.AccountID})
 }
 
 // --- Query Handlers ---
