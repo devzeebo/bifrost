@@ -154,8 +154,8 @@ function Page() {
 
   const handleWizardNext = useCallback(
     async (currentStep: number) => {
-      // Step 2 (index 2) is the PAT generation step
-      if (currentStep === 2 && !adminResponse) {
+      // Step 2 (index 1) is Create Realm - generate PAT when advancing to step 3
+      if (currentStep === 1 && !adminResponse) {
         return handleCreateAdmin();
       }
       return true;
