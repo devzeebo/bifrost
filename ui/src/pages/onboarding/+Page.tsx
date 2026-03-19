@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@base-ui/react/button';
 import { Input } from '@base-ui/react/input';
 import { navigate } from '@/lib/router';
@@ -303,7 +303,14 @@ function WizardWithValidation({
       </div>
 
       {/* Step Content */}
-      <div className="wizard-content">{steps[currentStep]?.content}</div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleNext();
+        }}
+      >
+        <div className="wizard-content">{steps[currentStep]?.content}</div>
+      </form>
 
       {/* Navigation Buttons */}
       <div className="wizard-navigation">
@@ -503,6 +510,12 @@ type FormFieldProps = {
 
 function FormField({ label, value, onChange, placeholder, disabled }: FormFieldProps) {
   const fieldId = label.toLowerCase().replace(/\s+/g, '-');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Auto-focus the input when the component mounts
+    inputRef.current?.focus();
+  }, []);
 
   return (
     <div className="mb-6">
@@ -514,6 +527,7 @@ function FormField({ label, value, onChange, placeholder, disabled }: FormFieldP
         {label}
       </label>
       <Input
+        ref={inputRef}
         id={fieldId}
         type="text"
         value={value}
