@@ -10,7 +10,7 @@ import (
 
 // Compile-time interface satisfaction checks
 var _ core.Projector = (*RuneDetailProjector)(nil)
-var _ core.Projector = (*DependencyGraphProjector)(nil)
+var _ core.Projector = (*RuneDependencyGraphProjector)(nil)
 var _ core.Projector = (*RealmDirectoryProjector)(nil)
 var _ core.Projector = (*RuneChildCountProjector)(nil)
 var _ core.Projector = (*AgentDetailProjector)(nil)
@@ -19,6 +19,7 @@ var _ core.Projector = (*WorkflowListProjector)(nil)
 var _ core.Projector = (*RunnerSettingsProjector)(nil)
 var _ core.Projector = (*AccountDirectoryProjector)(nil)
 var _ core.Projector = (*PATIDProjector)(nil)
+var _ core.Projector = (*PATKeyhashProjector)(nil)
 var _ core.Projector = (*RealmNameLookupProjector)(nil)
 var _ core.Projector = (*UsernameLookupProjector)(nil)
 var _ core.Projector = (*DependencyExistenceProjector)(nil)

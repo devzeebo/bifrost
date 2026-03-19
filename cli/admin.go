@@ -66,17 +66,33 @@ func NewAdminCmd() *AdminCmd {
 			}
 
 			engine := core.NewProjectionEngine(eventStore, projectionStore, checkpointStore)
-			engine.Register(projectors.NewRuneSummaryProjector())
-			engine.Register(projectors.NewRuneDetailProjector())
-			engine.Register(projectors.NewDependencyGraphProjector())
-			engine.Register(projectors.NewRuneChildCountProjector())
+			// Account projections (realm: _admin)
 			engine.Register(projectors.NewAccountAuthProjector())
 			engine.Register(projectors.NewAccountDirectoryProjector())
-			engine.Register(projectors.NewRealmDirectoryProjector())
 			engine.Register(projectors.NewUsernameLookupProjector())
-			engine.Register(projectors.NewRealmNameLookupProjector())
 			engine.Register(projectors.NewPATIDProjector())
 			engine.Register(projectors.NewPATKeyhashProjector())
+
+			// System projections (realm: _admin)
+			engine.Register(projectors.NewSystemStatusProjector())
+
+			// Realm projections (realm: _admin)
+			engine.Register(projectors.NewRealmDirectoryProjector())
+			engine.Register(projectors.NewRealmNameLookupProjector())
+
+			// Rune projections (realm: per-realm)
+			engine.Register(projectors.NewRuneSummaryProjector())
+			engine.Register(projectors.NewRuneDetailProjector())
+			engine.Register(projectors.NewRuneDependencyGraphProjector())
+			engine.Register(projectors.NewDependencyExistenceProjector())
+			engine.Register(projectors.NewDependencyCycleCheckProjector())
+			engine.Register(projectors.NewRuneChildCountProjector())
+
+			// Agent/Skill/Workflow/Runner projections (realm: per-realm)
+			engine.Register(projectors.NewAgentDetailProjector())
+			engine.Register(projectors.NewSkillListProjector())
+			engine.Register(projectors.NewWorkflowListProjector())
+			engine.Register(projectors.NewRunnerSettingsProjector())
 
 			admin.Ctx.EventStore = eventStore
 			admin.Ctx.ProjectionStore = projectionStore

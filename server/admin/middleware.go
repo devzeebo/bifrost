@@ -268,7 +268,7 @@ func ValidatePAT(ctx context.Context, projectionStore core.ProjectionStore, toke
 
 	// Look up PAT ID from keyHash reverse lookup
 	var patID string
-	if err := projectionStore.Get(ctx, "_admin", "projection_pat_id", keyHash, &patID); err != nil {
+	if err := projectionStore.Get(ctx, "_admin", "projection_pat_by_keyhash", keyHash, &patID); err != nil {
 		var nfe *core.NotFoundError
 		if errors.As(err, &nfe) {
 			return nil, "", ErrInvalidToken

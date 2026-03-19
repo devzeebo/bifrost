@@ -226,7 +226,7 @@ func authenticateViaBearerToken(ctx context.Context, token string, realmID strin
 
 	// Look up PAT ID from keyHash reverse lookup
 	var patID string
-	if err := projectionStore.Get(ctx, "_admin", "projection_pat_id", keyHash, &patID); err != nil {
+	if err := projectionStore.Get(ctx, "_admin", "projection_pat_by_keyhash", keyHash, &patID); err != nil {
 		var notFound *core.NotFoundError
 		if errors.As(err, &notFound) {
 			return nil, ErrUnauthorized("Unauthorized")

@@ -662,7 +662,7 @@ func (tc *testContext) projection_store_has_no_entries() {
 func (tc *testContext) projection_store_has_account(accountID, username, status string, realms []string) {
 	tc.t.Helper()
 	// Set up the PAT ID lookup
-	tc.store.put("_admin", "projection_pat_id", tc.keyHash, "pat-test-123")
+	tc.store.put("_admin", "projection_pat_by_keyhash", tc.keyHash, "pat-test-123")
 	// Set up the PAT entry
 	patEntry := map[string]any{
 		"pat_id":     "pat-test-123",
@@ -687,7 +687,7 @@ func (tc *testContext) projection_store_has_account_with_roles(accountID, userna
 		realms = append(realms, r)
 	}
 	// Set up the PAT ID lookup
-	tc.store.put("_admin", "projection_pat_id", tc.keyHash, "pat-test-123")
+	tc.store.put("_admin", "projection_pat_by_keyhash", tc.keyHash, "pat-test-123")
 	// Set up the PAT entry
 	patEntry := map[string]any{
 		"pat_id":     "pat-test-123",

@@ -206,7 +206,7 @@ func TestValidatePAT(t *testing.T) {
 	t.Run("valid PAT", func(t *testing.T) {
 		store := newMockProjectionStore()
 		token, keyHash := createPATToken(t)
-		store.data[compositeKey("_admin", "projection_pat_id", keyHash)] = "pat-789"
+		store.data[compositeKey("_admin", "projection_pat_by_keyhash", keyHash)] = "pat-789"
 		store.data[compositeKey("_admin", "projection_pat_by_id", "pat-789")] = projectors.PATIDEntry{
 			PATID:     "pat-789",
 			KeyHash:   keyHash,
@@ -243,7 +243,7 @@ func TestValidatePAT(t *testing.T) {
 	t.Run("suspended account", func(t *testing.T) {
 		store := newMockProjectionStore()
 		token, keyHash := createPATToken(t)
-		store.data[compositeKey("_admin", "projection_pat_id", keyHash)] = "pat-789"
+		store.data[compositeKey("_admin", "projection_pat_by_keyhash", keyHash)] = "pat-789"
 		store.data[compositeKey("_admin", "projection_pat_by_id", "pat-789")] = projectors.PATIDEntry{
 			PATID:     "pat-789",
 			KeyHash:   keyHash,

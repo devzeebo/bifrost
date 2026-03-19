@@ -23,7 +23,7 @@ func (p *PATKeyhashProjector) Name() string {
 
 // TableName returns the projection table name.
 func (p *PATKeyhashProjector) TableName() string {
-	return "projection_pat_id"
+	return "projection_pat_by_keyhash"
 }
 
 // Handle processes events and updates the projection.
@@ -43,7 +43,7 @@ func (p *PATKeyhashProjector) handlePATCreated(ctx context.Context, event core.E
 		return err
 	}
 	// Store PAT ID keyed by keyhash for token validation lookup
-	return store.Put(ctx, event.RealmID, "projection_pat_id", data.KeyHash, data.PATID)
+	return store.Put(ctx, event.RealmID, "projection_pat_by_keyhash", data.KeyHash, data.PATID)
 }
 
 func (p *PATKeyhashProjector) handlePATRevoked(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -57,5 +57,5 @@ func (p *PATKeyhashProjector) handlePATRevoked(ctx context.Context, event core.E
 		// If the PAT entry doesn't exist, nothing to delete
 		return nil
 	}
-	return store.Delete(ctx, event.RealmID, "projection_pat_id", patEntry.KeyHash)
+	return store.Delete(ctx, event.RealmID, "projection_pat_by_keyhash", patEntry.KeyHash)
 }

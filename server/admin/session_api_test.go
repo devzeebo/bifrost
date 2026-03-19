@@ -601,7 +601,7 @@ func newMockProjectionStoreWithAccount() *mockProjectionStore {
 	keyHash := base64.RawURLEncoding.EncodeToString(h[:])
 
 	// Set up the PAT ID lookup
-	store.data[compositeKey("_admin", "projection_pat_id", keyHash)] = "pat-test-123"
+	store.data[compositeKey("_admin", "projection_pat_by_keyhash", keyHash)] = "pat-test-123"
 
 	// Set up the PAT entry
 	store.data[compositeKey("_admin", "projection_pat_by_id", "pat-test-123")] = projectors.PATIDEntry{
