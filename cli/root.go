@@ -49,7 +49,7 @@ func NewRootCmd() *RootCmd {
 			}
 
 			root.Cfg = cfg
-			root.Client = NewClient(cfg)
+			root.Client = NewClient(cfg.URL, cfg.APIKey, cfg.Realm)
 			return nil
 		},
 	}

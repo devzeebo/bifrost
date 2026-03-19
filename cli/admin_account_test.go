@@ -2,10 +2,9 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
-	"github.com/devzeebo/bifrost/core"
-	"github.com/devzeebo/bifrost/domain/projectors"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,7 +17,8 @@ func TestAdminCreateAccount(t *testing.T) {
 		tc := newAdminAccountTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_create_account("acct-1234", "pat-token-xyz")
 
 		// When
 		tc.run_create_account("alice")
@@ -34,7 +34,8 @@ func TestAdminCreateAccount(t *testing.T) {
 		tc := newAdminAccountTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_create_account("acct-1234", "pat-token-xyz")
 
 		// When
 		tc.run_create_account_json("alice")
@@ -43,7 +44,7 @@ func TestAdminCreateAccount(t *testing.T) {
 		tc.command_has_no_error()
 		tc.output_is_valid_json()
 		tc.json_output_has_key("account_id")
-		tc.json_output_has_key("token")
+		tc.json_output_has_key("pat")
 	})
 }
 
@@ -52,8 +53,8 @@ func TestAdminListAccounts(t *testing.T) {
 		tc := newAdminAccountTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
-		tc.store_has_accounts()
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_accounts_list()
 
 		// When
 		tc.run_list_accounts()
@@ -71,8 +72,8 @@ func TestAdminListAccounts(t *testing.T) {
 		tc := newAdminAccountTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
-		tc.store_has_accounts()
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_accounts_list()
 
 		// When
 		tc.run_list_accounts_json()
@@ -88,8 +89,9 @@ func TestAdminSuspendAccount(t *testing.T) {
 		tc := newAdminAccountTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
-		tc.account_exists("alice", "acct-1234")
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_resolve_username("acct-1234")
+		tc.api_returns_success()
 
 		// When
 		tc.run_suspend_account("alice")
@@ -103,8 +105,9 @@ func TestAdminSuspendAccount(t *testing.T) {
 		tc := newAdminAccountTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
-		tc.account_exists("alice", "acct-1234")
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_resolve_username("acct-1234")
+		tc.api_returns_success()
 
 		// When
 		tc.run_suspend_account_json("alice")
@@ -119,7 +122,8 @@ func TestAdminSuspendAccount(t *testing.T) {
 		tc := newAdminAccountTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_error("username not found")
 
 		// When
 		tc.run_suspend_account("unknown")
@@ -134,8 +138,9 @@ func TestAdminGrant(t *testing.T) {
 		tc := newAdminAccountTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
-		tc.account_exists("alice", "acct-1234")
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_resolve_username("acct-1234")
+		tc.api_returns_success()
 
 		// When
 		tc.run_grant("alice", "bf-realm1")
@@ -151,8 +156,9 @@ func TestAdminGrant(t *testing.T) {
 		tc := newAdminAccountTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
-		tc.account_exists("alice", "acct-1234")
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_resolve_username("acct-1234")
+		tc.api_returns_success()
 
 		// When
 		tc.run_grant_json("alice", "bf-realm1")
@@ -167,7 +173,8 @@ func TestAdminGrant(t *testing.T) {
 		tc := newAdminAccountTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_error("username not found")
 
 		// When
 		tc.run_grant("unknown", "bf-realm1")
@@ -182,8 +189,9 @@ func TestAdminRevoke(t *testing.T) {
 		tc := newAdminAccountTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
-		tc.account_with_role("alice", "acct-1234", "bf-realm1", "member")
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_resolve_username("acct-1234")
+		tc.api_returns_success()
 
 		// When
 		tc.run_revoke("alice", "bf-realm1")
@@ -199,8 +207,9 @@ func TestAdminRevoke(t *testing.T) {
 		tc := newAdminAccountTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
-		tc.account_with_role("alice", "acct-1234", "bf-realm1", "member")
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_resolve_username("acct-1234")
+		tc.api_returns_success()
 
 		// When
 		tc.run_revoke_json("alice", "bf-realm1")
@@ -215,7 +224,8 @@ func TestAdminRevoke(t *testing.T) {
 		tc := newAdminAccountTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_error("username not found")
 
 		// When
 		tc.run_revoke("unknown", "bf-realm1")
@@ -230,8 +240,9 @@ func TestAdminAssignRole(t *testing.T) {
 		tc := newAdminAccountTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
-		tc.account_exists("alice", "acct-1234")
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_resolve_username("acct-1234")
+		tc.api_returns_success()
 
 		// When
 		tc.run_assign_role("alice", "bf-realm1", "admin")
@@ -248,8 +259,9 @@ func TestAdminAssignRole(t *testing.T) {
 		tc := newAdminAccountTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
-		tc.account_exists("alice", "acct-1234")
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_resolve_username("acct-1234")
+		tc.api_returns_success()
 
 		// When
 		tc.run_assign_role_json("alice", "bf-realm1", "admin")
@@ -261,26 +273,12 @@ func TestAdminAssignRole(t *testing.T) {
 		tc.json_output_has_value("role", "admin")
 	})
 
-	t.Run("returns error for invalid role", func(t *testing.T) {
-		tc := newAdminAccountTestContext(t)
-
-		// Given
-		tc.admin_cmd_with_mock_stores()
-		tc.account_exists("alice", "acct-1234")
-
-		// When
-		tc.run_assign_role("alice", "bf-realm1", "superuser")
-
-		// Then
-		tc.error_occurred()
-		tc.error_message_contains("invalid role")
-	})
-
 	t.Run("returns error for unknown username", func(t *testing.T) {
 		tc := newAdminAccountTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_error("username not found")
 
 		// When
 		tc.run_assign_role("unknown", "bf-realm1", "admin")
@@ -295,8 +293,9 @@ func TestAdminRevokeRole(t *testing.T) {
 		tc := newAdminAccountTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
-		tc.account_with_role("alice", "acct-1234", "bf-realm1", "admin")
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_resolve_username("acct-1234")
+		tc.api_returns_success()
 
 		// When
 		tc.run_revoke_role("alice", "bf-realm1")
@@ -312,8 +311,9 @@ func TestAdminRevokeRole(t *testing.T) {
 		tc := newAdminAccountTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
-		tc.account_with_role("alice", "acct-1234", "bf-realm1", "admin")
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_resolve_username("acct-1234")
+		tc.api_returns_success()
 
 		// When
 		tc.run_revoke_role_json("alice", "bf-realm1")
@@ -328,7 +328,8 @@ func TestAdminRevokeRole(t *testing.T) {
 		tc := newAdminAccountTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_error("username not found")
 
 		// When
 		tc.run_revoke_role("unknown", "bf-realm1")
@@ -343,12 +344,11 @@ func TestAdminRevokeRole(t *testing.T) {
 type adminAccountTestContext struct {
 	t *testing.T
 
-	cmd             *cobra.Command
-	eventStore      *mockEventStore
-	projectionStore *mockProjectionStore
-	output          string
-	err             error
-	jsonOutput      map[string]interface{}
+	mock    *mockClient
+	cmd     *cobra.Command
+	output  string
+	err     error
+	jsonOutput map[string]interface{}
 }
 
 func newAdminAccountTestContext(t *testing.T) *adminAccountTestContext {
@@ -358,72 +358,49 @@ func newAdminAccountTestContext(t *testing.T) *adminAccountTestContext {
 
 // --- Given ---
 
-func (tc *adminAccountTestContext) admin_cmd_with_mock_stores() {
+func (tc *adminAccountTestContext) admin_cmd_with_mock_client() {
 	tc.t.Helper()
-	tc.eventStore = newMockEventStore()
-	tc.projectionStore = &mockProjectionStore{
-		data:     make(map[string]any),
-		listData: make(map[string][]json.RawMessage),
-	}
-	tc.cmd = newAdminCmdForTest(tc.eventStore, tc.projectionStore)
+	tc.mock = &mockClient{}
+	tc.cmd = newAdminCmdWithMockClient(tc.mock)
 }
 
-func (tc *adminAccountTestContext) store_has_accounts() {
+func (tc *adminAccountTestContext) api_returns_create_account(accountID, pat string) {
 	tc.t.Helper()
-	entry := projectors.AccountDirectoryEntry{
-		AccountID: "acct-1234",
-		Username:  "alice",
-		Status:    "active",
-		Realms:    []string{},
-		PATs:      []projectors.PATEntry{{PATID: "pat-1"}},
-	}
-	data, _ := json.Marshal(entry)
-	tc.projectionStore.listData["_admin|account_directory"] = []json.RawMessage{data}
-}
-
-func (tc *adminAccountTestContext) account_exists(username, accountID string) {
-	tc.t.Helper()
-	tc.projectionStore.data["_admin|username_lookup|"+username] = accountID
-
-	accountCreated := map[string]interface{}{
+	tc.mock.postResponse = mustMarshal(map[string]string{
 		"account_id": accountID,
-		"username":   username,
-		"created_at": "2024-01-01T00:00:00Z",
-	}
-	data, _ := json.Marshal(accountCreated)
-	tc.eventStore.streams["_admin|account-"+accountID] = []core.Event{
+		"pat":        pat,
+	})
+}
+
+func (tc *adminAccountTestContext) api_returns_accounts_list() {
+	tc.t.Helper()
+	tc.mock.getResponses = append(tc.mock.getResponses, mustMarshal([]map[string]interface{}{
 		{
-			RealmID:        "_admin",
-			StreamID:       "account-" + accountID,
-			Version:        0,
-			EventType:      "AccountCreated",
-			Data:           data,
-			GlobalPosition: 1,
+			"account_id": "acct-1234",
+			"username":   "alice",
+			"status":     "active",
+			"realms":     []string{},
+			"pat_count":  1,
 		},
-	}
+	}))
 }
 
-func (tc *adminAccountTestContext) account_with_role(username, accountID, realmID, role string) {
+func (tc *adminAccountTestContext) api_returns_resolve_username(accountID string) {
 	tc.t.Helper()
-	tc.account_exists(username, accountID)
-
-	roleAssigned := map[string]interface{}{
+	tc.mock.getResponses = append(tc.mock.getResponses, mustMarshal(map[string]string{
 		"account_id": accountID,
-		"realm_id":   realmID,
-		"role":       role,
-	}
-	data, _ := json.Marshal(roleAssigned)
-	tc.eventStore.streams["_admin|account-"+accountID] = append(
-		tc.eventStore.streams["_admin|account-"+accountID],
-		core.Event{
-			RealmID:        "_admin",
-			StreamID:       "account-" + accountID,
-			Version:        1,
-			EventType:      "RoleAssigned",
-			Data:           data,
-			GlobalPosition: 2,
-		},
-	)
+	}))
+}
+
+func (tc *adminAccountTestContext) api_returns_success() {
+	tc.t.Helper()
+	tc.mock.postResponse = mustMarshal(map[string]string{"status": "ok"})
+}
+
+func (tc *adminAccountTestContext) api_returns_error(msg string) {
+	tc.t.Helper()
+	tc.mock.getError = fmt.Errorf("%s", msg)
+	tc.mock.postError = fmt.Errorf("%s", msg)
 }
 
 // --- When ---
@@ -542,10 +519,4 @@ func (tc *adminAccountTestContext) json_output_has_value(key, expected string) {
 	val, ok := tc.jsonOutput[key]
 	require.True(tc.t, ok, "expected key %q in JSON output", key)
 	assert.Equal(tc.t, expected, val)
-}
-
-func (tc *adminAccountTestContext) error_message_contains(substr string) {
-	tc.t.Helper()
-	require.Error(tc.t, tc.err)
-	assert.Contains(tc.t, tc.err.Error(), substr)
 }

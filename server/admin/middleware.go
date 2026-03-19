@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/devzeebo/bifrost/core"
@@ -173,39 +174,81 @@ var (
 	ErrAccountSuspended = errors.New("account is suspended")
 )
 
-// AuthMiddleware returns HTTP middleware that authenticates admin UI requests via JWT cookie.
+// AuthMiddleware returns HTTP middleware that authenticates admin requests.
+// It supports two authentication methods:
+// 1. JWT cookie (for web UI sessions)
+// 2. Bearer token in Authorization header (for CLI/API clients)
 func AuthMiddleware(cfg *AuthConfig, projectionStore core.ProjectionStore) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			cookie, err := r.Cookie(cfg.CookieName)
-			if err != nil {
-				redirectToLogin(w, r, cfg)
-				return
+			// Try JWT cookie auth first (for web UI)
+			if cookie, err := r.Cookie(cfg.CookieName); err == nil {
+				claims, err := ValidateJWT(cfg, cookie.Value)
+				if err == nil {
+					// Check that the PAT is still active
+					entry, err := CheckPATStatus(r.Context(), projectionStore, claims.PATID)
+					if err == nil {
+						ctx := r.Context()
+						ctx = context.WithValue(ctx, accountIDKey, claims.AccountID)
+						ctx = context.WithValue(ctx, patIDKey, claims.PATID)
+						ctx = context.WithValue(ctx, usernameKey, entry.Username)
+						ctx = context.WithValue(ctx, rolesKey, entry.Roles)
+						next.ServeHTTP(w, r.WithContext(ctx))
+						return
+					}
+				}
 			}
 
-			claims, err := ValidateJWT(cfg, cookie.Value)
-			if err != nil {
-				redirectToLogin(w, r, cfg)
-				return
+			// Fall back to Bearer token auth (for CLI/API clients)
+			authHeader := r.Header.Get("Authorization")
+			if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
+				token := strings.TrimPrefix(authHeader, "Bearer ")
+				if token != "" {
+					entry, patID, err := ValidatePAT(r.Context(), projectionStore, token)
+					if err == nil {
+						ctx := r.Context()
+						ctx = context.WithValue(ctx, accountIDKey, entry.AccountID)
+						ctx = context.WithValue(ctx, patIDKey, patID)
+						ctx = context.WithValue(ctx, usernameKey, entry.Username)
+						ctx = context.WithValue(ctx, rolesKey, entry.Roles)
+						next.ServeHTTP(w, r.WithContext(ctx))
+						return
+					}
+					// Bearer token was provided but invalid - return 401 JSON
+					writeUnauthorized(w, err)
+					return
+				}
 			}
 
-			// Check that the PAT is still active
-			entry, err := CheckPATStatus(r.Context(), projectionStore, claims.PATID)
-			if err != nil {
-				redirectToLogin(w, r, cfg)
+			// No valid auth found - redirect for UI, 401 for API
+			if isAPIRequest(r) {
+				writeUnauthorized(w, ErrNoToken)
 				return
 			}
-
-			// Set values in context for downstream handlers
-			ctx := r.Context()
-			ctx = context.WithValue(ctx, accountIDKey, claims.AccountID)
-			ctx = context.WithValue(ctx, patIDKey, claims.PATID)
-			ctx = context.WithValue(ctx, usernameKey, entry.Username)
-			ctx = context.WithValue(ctx, rolesKey, entry.Roles)
-
-			next.ServeHTTP(w, r.WithContext(ctx))
+			redirectToLogin(w, r, cfg)
 		})
 	}
+}
+
+// isAPIRequest returns true if the request expects a JSON response.
+func isAPIRequest(r *http.Request) bool {
+	// Check Accept header
+	if accept := r.Header.Get("Accept"); strings.Contains(accept, "application/json") {
+		return true
+	}
+	// Check if path starts with /api/
+	return strings.HasPrefix(r.URL.Path, "/api/")
+}
+
+// writeUnauthorized writes a 401 Unauthorized JSON response.
+func writeUnauthorized(w http.ResponseWriter, err error) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusUnauthorized)
+	msg := "unauthorized"
+	if err != nil {
+		msg = err.Error()
+	}
+	json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
 
 // redirectToLogin clears the auth cookie and redirects to the login page.

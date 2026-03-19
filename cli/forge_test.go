@@ -111,10 +111,7 @@ func (tc *forgeTestContext) server_that_returns_error(status int, message string
 
 func (tc *forgeTestContext) client_configured() {
 	tc.t.Helper()
-	tc.client = NewClient(&Config{
-		URL:    tc.server.URL,
-		APIKey: "test-key",
-	})
+	tc.client = NewClient(tc.server.URL, "test-key", "test-realm")
 }
 
 // --- When ---
@@ -123,6 +120,7 @@ func (tc *forgeTestContext) execute_forge(id string) {
 	tc.t.Helper()
 	cmd := NewForgeCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{id})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 
@@ -130,6 +128,7 @@ func (tc *forgeTestContext) execute_forge_with_human(id string) {
 	tc.t.Helper()
 	cmd := NewForgeCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{id, "--human"})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 

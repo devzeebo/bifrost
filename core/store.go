@@ -18,6 +18,7 @@ type ProjectionStore interface {
 	Put(ctx context.Context, realmID string, table string, key string, value any) error
 	Delete(ctx context.Context, realmID string, table string, key string) error
 	CreateTable(ctx context.Context, table string) error
+	ClearTable(ctx context.Context, table string) error
 }
 
 type CheckpointStore interface {

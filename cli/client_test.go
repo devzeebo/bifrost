@@ -36,7 +36,7 @@ func TestDoRequest(t *testing.T) {
 		tc.client_with_api_key("key")
 
 		// When
-		tc.do_post("/test", []byte(`{"foo":"bar"}`))
+		tc.do_post("/test", map[string]string{"foo": "bar"})
 
 		// Then
 		tc.request_has_no_error()
@@ -82,11 +82,11 @@ func TestDoRequest(t *testing.T) {
 		tc.client_with_api_key("key")
 
 		// When
-		tc.do_post("/create", []byte(`{"name":"test"}`))
+		tc.do_post("/create", map[string]string{"name": "test"})
 
 		// Then
 		tc.request_has_no_error()
-		tc.response_body_contains(`{"name":"test"}`)
+		tc.response_body_contains(`"name":"test"`)
 	})
 
 	t.Run("sends X-Bifrost-Realm header on every request", func(t *testing.T) {
@@ -112,7 +112,7 @@ func TestDoRequest(t *testing.T) {
 		tc.client_with_config("key", "post-realm")
 
 		// When
-		tc.do_post("/test", []byte(`{}`))
+		tc.do_post("/test", map[string]string{})
 
 		// Then
 		tc.request_has_no_error()
@@ -129,7 +129,6 @@ type clientTestContext struct {
 	client         *Client
 	receivedHeader http.Header
 
-	resp     *http.Response
 	respBody string
 	err      error
 }
@@ -173,40 +172,35 @@ func (tc *clientTestContext) server_that_echoes_body() {
 
 func (tc *clientTestContext) client_with_api_key(apiKey string) {
 	tc.t.Helper()
-	tc.client = NewClient(&Config{
-		URL:    tc.server.URL,
-		APIKey: apiKey,
-	})
+	tc.client = NewClient(tc.server.URL, apiKey, "test-realm")
 }
 
 func (tc *clientTestContext) client_with_config(apiKey, realm string) {
 	tc.t.Helper()
-	tc.client = NewClient(&Config{
-		URL:    tc.server.URL,
-		APIKey: apiKey,
-		Realm:  realm,
-	})
+	tc.client = NewClient(tc.server.URL, apiKey, realm)
 }
 
 // --- When ---
 
 func (tc *clientTestContext) do_get(path string, params map[string]string) {
 	tc.t.Helper()
-	tc.resp, tc.err = tc.client.DoGet(path, params)
-	if tc.resp != nil {
-		body, _ := io.ReadAll(tc.resp.Body)
-		tc.resp.Body.Close()
-		tc.respBody = string(body)
+	var resp []byte
+	if params != nil {
+		resp, tc.err = tc.client.DoGetWithParams(path, params)
+	} else {
+		resp, tc.err = tc.client.DoGet(path)
+	}
+	if resp != nil {
+		tc.respBody = string(resp)
 	}
 }
 
-func (tc *clientTestContext) do_post(path string, body []byte) {
+func (tc *clientTestContext) do_post(path string, body interface{}) {
 	tc.t.Helper()
-	tc.resp, tc.err = tc.client.DoPost(path, body)
-	if tc.resp != nil {
-		respBody, _ := io.ReadAll(tc.resp.Body)
-		tc.resp.Body.Close()
-		tc.respBody = string(respBody)
+	var resp []byte
+	resp, tc.err = tc.client.DoPost(path, body)
+	if resp != nil {
+		tc.respBody = string(resp)
 	}
 }
 
@@ -215,7 +209,6 @@ func (tc *clientTestContext) do_post(path string, body []byte) {
 func (tc *clientTestContext) request_has_no_error() {
 	tc.t.Helper()
 	require.NoError(tc.t, tc.err)
-	require.NotNil(tc.t, tc.resp)
 }
 
 func (tc *clientTestContext) request_header_was(key, expected string) {

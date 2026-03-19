@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"text/tabwriter"
 
-	"github.com/devzeebo/bifrost/domain"
-	"github.com/devzeebo/bifrost/domain/projectors"
 	"github.com/spf13/cobra"
 )
 
@@ -23,32 +21,23 @@ func newAdminCreateRealmCmd(admin *AdminCmd) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			ctx := cmd.Context()
 
-			result, err := domain.HandleCreateRealm(ctx, domain.CreateRealm{
-				Name: args[0],
-			}, admin.Ctx.EventStore)
+			req := map[string]string{"name": args[0]}
+			resp, err := admin.Client.DoPost("/api/create-realm", req)
 			if err != nil {
-				return err
-			}
-
-			events, err := admin.Ctx.EventStore.ReadStream(ctx, "_admin", "realm-"+result.RealmID, 0)
-			if err != nil {
-				return err
-			}
-			if err := syncProjections(ctx, admin.Ctx, events); err != nil {
 				return err
 			}
 
 			if jsonMode {
-				out, _ := json.Marshal(map[string]string{
-					"realm_id": result.RealmID,
-				})
-				fmt.Fprintln(cmd.OutOrStdout(), string(out))
+				fmt.Fprintln(cmd.OutOrStdout(), string(resp))
 				return nil
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Realm ID: %s\n", result.RealmID)
+			var result map[string]string
+			if err := json.Unmarshal(resp, &result); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Realm ID: %s\n", result["realm_id"])
 			return nil
 		},
 	}
@@ -61,26 +50,24 @@ func newAdminListRealmsCmd(admin *AdminCmd) *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			ctx := cmd.Context()
 
-			rows, err := admin.Ctx.ProjectionStore.List(ctx, "_admin", "realm_directory")
+			resp, err := admin.Client.DoGet("/api/realms")
 			if err != nil {
 				return err
 			}
 
-			var entries []projectors.RealmDirectoryEntry
-			for _, raw := range rows {
-				var entry projectors.RealmDirectoryEntry
-				if err := json.Unmarshal(raw, &entry); err != nil {
-					return err
-				}
-				entries = append(entries, entry)
+			if jsonMode {
+				fmt.Fprintln(cmd.OutOrStdout(), string(resp))
+				return nil
 			}
 
-			if jsonMode {
-				out, _ := json.Marshal(entries)
-				fmt.Fprintln(cmd.OutOrStdout(), string(out))
-				return nil
+			var entries []struct {
+				RealmID string `json:"realm_id"`
+				Name    string `json:"name"`
+				Status  string `json:"status"`
+			}
+			if err := json.Unmarshal(resp, &entries); err != nil {
+				return err
 			}
 
 			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
@@ -102,28 +89,15 @@ func newAdminSuspendRealmCmd(admin *AdminCmd) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			ctx := cmd.Context()
 
-			err := domain.HandleSuspendRealm(ctx, domain.SuspendRealm{
-				RealmID: args[0],
-				Reason:  "suspended via admin CLI",
-			}, admin.Ctx.EventStore)
+			req := map[string]string{"realm_id": args[0]}
+			_, err := admin.Client.DoPost("/api/suspend-realm", req)
 			if err != nil {
-				return err
-			}
-
-			events, err := admin.Ctx.EventStore.ReadStream(ctx, "_admin", "realm-"+args[0], 0)
-			if err != nil {
-				return err
-			}
-			if err := syncProjections(ctx, admin.Ctx, events); err != nil {
 				return err
 			}
 
 			if jsonMode {
-				out, _ := json.Marshal(map[string]string{
-					"status": "suspended",
-				})
+				out, _ := json.Marshal(map[string]string{"status": "suspended"})
 				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			}

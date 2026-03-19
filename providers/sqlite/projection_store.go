@@ -119,6 +119,16 @@ func (s *ProjectionStore) Delete(ctx context.Context, realmID string, table stri
 	return err
 }
 
+// ClearTable removes all entries from a projection table.
+// If the table doesn't exist, it's not an error.
+func (s *ProjectionStore) ClearTable(ctx context.Context, table string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM projection_`+table)
+	if err != nil && isTableNotExistError(err) {
+		return nil
+	}
+	return err
+}
+
 // isTableNotExistError checks if the error indicates the table doesn't exist.
 func isTableNotExistError(err error) bool {
 	if err == nil {

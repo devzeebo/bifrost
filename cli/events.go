@@ -2,9 +2,6 @@ package cli
 
 import (
 	"bytes"
-	"encoding/json"
-	"fmt"
-	"io"
 
 	"github.com/spf13/cobra"
 )
@@ -23,26 +20,9 @@ func NewEventsCmd(clientFn func() *Client, out *bytes.Buffer) *EventsCmd {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 
-			resp, err := clientFn().DoGet("/events", map[string]string{"runeId": id})
+			respBody, err := clientFn().DoGetWithParams("/events", map[string]string{"runeId": id})
 			if err != nil {
 				return err
-			}
-			defer resp.Body.Close()
-
-			respBody, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-
-			if resp.StatusCode >= 400 {
-				var errResp map[string]string
-				if json.Unmarshal(respBody, &errResp) == nil {
-					if msg, ok := errResp["error"]; ok {
-						out.WriteString(msg)
-						return fmt.Errorf("%s", msg)
-					}
-				}
-				return fmt.Errorf("server error: %s", string(respBody))
 			}
 
 			_, err = out.Write(respBody)

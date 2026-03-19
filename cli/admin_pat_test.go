@@ -2,9 +2,9 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
-	"github.com/devzeebo/bifrost/core"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,8 +17,9 @@ func TestAdminCreatePAT(t *testing.T) {
 		tc := newAdminPATTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
-		tc.account_exists("alice", "acct-1234")
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_resolve_username("acct-1234")
+		tc.api_returns_create_pat("pat-5678", "pat-token-xyz")
 
 		// When
 		tc.run_create_pat("alice")
@@ -34,8 +35,9 @@ func TestAdminCreatePAT(t *testing.T) {
 		tc := newAdminPATTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
-		tc.account_exists("alice", "acct-1234")
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_resolve_username("acct-1234")
+		tc.api_returns_create_pat("pat-5678", "pat-token-xyz")
 
 		// When
 		tc.run_create_pat_with_label("alice", "ci-token")
@@ -50,8 +52,9 @@ func TestAdminCreatePAT(t *testing.T) {
 		tc := newAdminPATTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
-		tc.account_exists("alice", "acct-1234")
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_resolve_username("acct-1234")
+		tc.api_returns_create_pat("pat-5678", "pat-token-xyz")
 
 		// When
 		tc.run_create_pat_json("alice")
@@ -67,7 +70,8 @@ func TestAdminCreatePAT(t *testing.T) {
 		tc := newAdminPATTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_error("username not found")
 
 		// When
 		tc.run_create_pat("unknown")
@@ -82,8 +86,9 @@ func TestAdminListPATs(t *testing.T) {
 		tc := newAdminPATTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
-		tc.account_with_pat("alice", "acct-1234", "pat-5678", "my-token")
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_resolve_username("acct-1234")
+		tc.api_returns_pats_list()
 
 		// When
 		tc.run_list_pats("alice")
@@ -92,7 +97,7 @@ func TestAdminListPATs(t *testing.T) {
 		tc.command_has_no_error()
 		tc.output_contains("PAT ID")
 		tc.output_contains("Label")
-		tc.output_contains("Revoked")
+		tc.output_contains("Created")
 		tc.output_contains("pat-5678")
 		tc.output_contains("my-token")
 	})
@@ -101,8 +106,9 @@ func TestAdminListPATs(t *testing.T) {
 		tc := newAdminPATTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
-		tc.account_with_pat("alice", "acct-1234", "pat-5678", "my-token")
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_resolve_username("acct-1234")
+		tc.api_returns_pats_list()
 
 		// When
 		tc.run_list_pats_json("alice")
@@ -116,7 +122,8 @@ func TestAdminListPATs(t *testing.T) {
 		tc := newAdminPATTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_error("username not found")
 
 		// When
 		tc.run_list_pats("unknown")
@@ -131,8 +138,9 @@ func TestAdminRevokePAT(t *testing.T) {
 		tc := newAdminPATTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
-		tc.account_with_pat("alice", "acct-1234", "pat-5678", "my-token")
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_resolve_username("acct-1234")
+		tc.api_returns_success()
 
 		// When
 		tc.run_revoke_pat("alice", "pat-5678")
@@ -146,8 +154,9 @@ func TestAdminRevokePAT(t *testing.T) {
 		tc := newAdminPATTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
-		tc.account_with_pat("alice", "acct-1234", "pat-5678", "my-token")
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_resolve_username("acct-1234")
+		tc.api_returns_success()
 
 		// When
 		tc.run_revoke_pat_json("alice", "pat-5678")
@@ -162,7 +171,8 @@ func TestAdminRevokePAT(t *testing.T) {
 		tc := newAdminPATTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_error("username not found")
 
 		// When
 		tc.run_revoke_pat("unknown", "pat-5678")
@@ -177,12 +187,11 @@ func TestAdminRevokePAT(t *testing.T) {
 type adminPATTestContext struct {
 	t *testing.T
 
-	cmd             *cobra.Command
-	eventStore      *mockEventStore
-	projectionStore *mockProjectionStore
-	output          string
-	err             error
-	jsonOutput      map[string]interface{}
+	mock       *mockClient
+	cmd        *cobra.Command
+	output     string
+	err        error
+	jsonOutput map[string]interface{}
 }
 
 func newAdminPATTestContext(t *testing.T) *adminPATTestContext {
@@ -192,61 +201,47 @@ func newAdminPATTestContext(t *testing.T) *adminPATTestContext {
 
 // --- Given ---
 
-func (tc *adminPATTestContext) admin_cmd_with_mock_stores() {
+func (tc *adminPATTestContext) admin_cmd_with_mock_client() {
 	tc.t.Helper()
-	tc.eventStore = newMockEventStore()
-	tc.projectionStore = &mockProjectionStore{
-		data:     make(map[string]any),
-		listData: make(map[string][]json.RawMessage),
-	}
-	tc.cmd = newAdminCmdForTest(tc.eventStore, tc.projectionStore)
+	tc.mock = &mockClient{}
+	tc.cmd = newAdminCmdWithMockClient(tc.mock)
 }
 
-func (tc *adminPATTestContext) account_exists(username, accountID string) {
+func (tc *adminPATTestContext) api_returns_resolve_username(accountID string) {
 	tc.t.Helper()
-	tc.projectionStore.data["_admin|username_lookup|"+username] = accountID
-
-	accountCreated := map[string]interface{}{
+	tc.mock.getResponses = append(tc.mock.getResponses, mustMarshal(map[string]string{
 		"account_id": accountID,
-		"username":   username,
-		"created_at": "2024-01-01T00:00:00Z",
-	}
-	data, _ := json.Marshal(accountCreated)
-	tc.eventStore.streams["_admin|account-"+accountID] = []core.Event{
+	}))
+}
+
+func (tc *adminPATTestContext) api_returns_create_pat(patID, token string) {
+	tc.t.Helper()
+	tc.mock.postResponse = mustMarshal(map[string]string{
+		"pat_id": patID,
+		"token":  token,
+	})
+}
+
+func (tc *adminPATTestContext) api_returns_pats_list() {
+	tc.t.Helper()
+	tc.mock.getResponses = append(tc.mock.getResponses, mustMarshal([]map[string]interface{}{
 		{
-			RealmID:        "_admin",
-			StreamID:       "account-" + accountID,
-			Version:        0,
-			EventType:      "AccountCreated",
-			Data:           data,
-			GlobalPosition: 1,
+			"id":         "pat-5678",
+			"label":      "my-token",
+			"created_at": "2024-01-01T00:00:00Z",
 		},
-	}
+	}))
 }
 
-func (tc *adminPATTestContext) account_with_pat(username, accountID, patID, label string) {
+func (tc *adminPATTestContext) api_returns_success() {
 	tc.t.Helper()
-	tc.account_exists(username, accountID)
+	tc.mock.postResponse = mustMarshal(map[string]string{"status": "ok"})
+}
 
-	patCreated := map[string]interface{}{
-		"account_id": accountID,
-		"pat_id":     patID,
-		"key_hash":   "fakehash",
-		"label":      label,
-		"created_at": "2024-01-01T00:00:00Z",
-	}
-	data, _ := json.Marshal(patCreated)
-	tc.eventStore.streams["_admin|account-"+accountID] = append(
-		tc.eventStore.streams["_admin|account-"+accountID],
-		core.Event{
-			RealmID:        "_admin",
-			StreamID:       "account-" + accountID,
-			Version:        1,
-			EventType:      "PATCreated",
-			Data:           data,
-			GlobalPosition: 2,
-		},
-	)
+func (tc *adminPATTestContext) api_returns_error(msg string) {
+	tc.t.Helper()
+	tc.mock.getError = fmt.Errorf("%s", msg)
+	tc.mock.postError = fmt.Errorf("%s", msg)
 }
 
 // --- When ---

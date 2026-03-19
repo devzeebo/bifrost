@@ -18,6 +18,7 @@ import (
 type ProjectionEngine interface {
 	RunSync(ctx context.Context, events []core.Event) error
 	RunCatchUpOnce(ctx context.Context)
+	RebuildProjections(ctx context.Context) error
 }
 
 // Handlers holds dependencies for HTTP route handlers.
@@ -113,6 +114,8 @@ func (h *Handlers) RegisterRoutes(mux *http.ServeMux, realmMiddleware, adminMidd
 	mux.Handle("POST /api/suspend-realm", adminMiddleware(http.HandlerFunc(h.SuspendRealm)))
 	mux.Handle("GET /api/realms", adminAuth(http.HandlerFunc(h.ListRealms)))
 	mux.Handle("GET /api/realm", viewerAuth(http.HandlerFunc(h.GetRealm)))
+	mux.Handle("POST /api/rebuild-projections", adminAuth(http.HandlerFunc(h.RebuildProjections)))
+	mux.Handle("GET /api/resolve-username", adminAuth(http.HandlerFunc(h.ResolveUsername)))
 }
 
 // --- Command Handlers ---
@@ -517,6 +520,34 @@ func (h *Handlers) SuspendRealm(w http.ResponseWriter, r *http.Request) {
 	}
 	h.runSyncQuietly(r)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) RebuildProjections(w http.ResponseWriter, r *http.Request) {
+	if err := h.engine.RebuildProjections(r.Context()); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (h *Handlers) ResolveUsername(w http.ResponseWriter, r *http.Request) {
+	username := r.URL.Query().Get("username")
+	if username == "" {
+		writeError(w, http.StatusBadRequest, "username query parameter is required")
+		return
+	}
+
+	var accountID string
+	if err := h.projectionStore.Get(r.Context(), "_admin", "username_lookup", username, &accountID); err != nil {
+		if isNotFound(err) {
+			writeError(w, http.StatusNotFound, "username not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to resolve username")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"account_id": accountID})
 }
 
 // --- Query Handlers ---

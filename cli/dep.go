@@ -3,7 +3,6 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -61,24 +60,15 @@ func newDepAddCmd(root *RootCmd) *cobra.Command {
 
 			relType, sourceID, targetID := normalizeRelationship(relType, args[0], args[2])
 
-			body, err := json.Marshal(map[string]string{
+			body := map[string]string{
 				"rune_id":      sourceID,
 				"target_id":    targetID,
 				"relationship": relType,
-			})
-			if err != nil {
-				return fmt.Errorf("marshaling request: %w", err)
 			}
 
-			resp, err := root.Client.DoPost("/add-dependency", body)
+			respBody, err := root.Client.DoPost("/add-dependency", body)
 			if err != nil {
 				return fmt.Errorf("adding dependency: %w", err)
-			}
-			defer resp.Body.Close()
-
-			respBody, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return fmt.Errorf("reading response: %w", err)
 			}
 
 			cmd.Print(string(respBody))
@@ -102,24 +92,15 @@ func newDepRemoveCmd(root *RootCmd) *cobra.Command {
 
 			relType, sourceID, targetID := normalizeRelationship(relType, args[0], args[2])
 
-			body, err := json.Marshal(map[string]string{
+			body := map[string]string{
 				"rune_id":      sourceID,
 				"target_id":    targetID,
 				"relationship": relType,
-			})
-			if err != nil {
-				return fmt.Errorf("marshaling request: %w", err)
 			}
 
-			resp, err := root.Client.DoPost("/remove-dependency", body)
+			respBody, err := root.Client.DoPost("/remove-dependency", body)
 			if err != nil {
 				return fmt.Errorf("removing dependency: %w", err)
-			}
-			defer resp.Body.Close()
-
-			respBody, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return fmt.Errorf("reading response: %w", err)
 			}
 
 			cmd.Print(string(respBody))
@@ -142,15 +123,9 @@ func newDepListCmd(root *RootCmd) *cobra.Command {
 				"id": args[0],
 			}
 
-			resp, err := root.Client.DoGet("/rune", params)
+			respBody, err := root.Client.DoGetWithParams("/rune", params)
 			if err != nil {
 				return fmt.Errorf("listing dependencies: %w", err)
-			}
-			defer resp.Body.Close()
-
-			respBody, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return fmt.Errorf("reading response: %w", err)
 			}
 
 			var runeDetail map[string]interface{}

@@ -3,7 +3,6 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -29,22 +28,13 @@ func newRealmCreateCmd(root *RootCmd) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			humanMode, _ := cmd.Flags().GetBool("human")
 
-			body, err := json.Marshal(map[string]string{
+			body := map[string]string{
 				"name": args[0],
-			})
-			if err != nil {
-				return fmt.Errorf("marshaling request: %w", err)
 			}
 
-			resp, err := root.Client.DoPost("/create-realm", body)
+			respBody, err := root.Client.DoPost("/create-realm", body)
 			if err != nil {
 				return fmt.Errorf("creating realm: %w", err)
-			}
-			defer resp.Body.Close()
-
-			respBody, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return fmt.Errorf("reading response: %w", err)
 			}
 
 			if humanMode {
@@ -72,15 +62,9 @@ func newRealmListCmd(root *RootCmd) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			humanMode, _ := cmd.Flags().GetBool("human")
 
-			resp, err := root.Client.DoGet("/realms", nil)
+			respBody, err := root.Client.DoGet("/realms")
 			if err != nil {
 				return fmt.Errorf("listing realms: %w", err)
-			}
-			defer resp.Body.Close()
-
-			respBody, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return fmt.Errorf("reading response: %w", err)
 			}
 
 			if humanMode {

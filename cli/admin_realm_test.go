@@ -2,10 +2,9 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
-	"github.com/devzeebo/bifrost/core"
-	"github.com/devzeebo/bifrost/domain/projectors"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,7 +17,8 @@ func TestAdminCreateRealm(t *testing.T) {
 		tc := newAdminRealmTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_create_realm("bf-1234")
 
 		// When
 		tc.run_create_realm("my-realm")
@@ -32,7 +32,8 @@ func TestAdminCreateRealm(t *testing.T) {
 		tc := newAdminRealmTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_create_realm("bf-1234")
 
 		// When
 		tc.run_create_realm_json("my-realm")
@@ -49,8 +50,8 @@ func TestAdminListRealms(t *testing.T) {
 		tc := newAdminRealmTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
-		tc.store_has_realms()
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_realms_list()
 
 		// When
 		tc.run_list_realms()
@@ -68,8 +69,8 @@ func TestAdminListRealms(t *testing.T) {
 		tc := newAdminRealmTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
-		tc.store_has_realms()
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_realms_list()
 
 		// When
 		tc.run_list_realms_json()
@@ -85,8 +86,8 @@ func TestAdminSuspendRealm(t *testing.T) {
 		tc := newAdminRealmTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
-		tc.realm_exists("bf-1234", "test-realm")
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_success()
 
 		// When
 		tc.run_suspend_realm("bf-1234")
@@ -100,8 +101,8 @@ func TestAdminSuspendRealm(t *testing.T) {
 		tc := newAdminRealmTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
-		tc.realm_exists("bf-1234", "test-realm")
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_success()
 
 		// When
 		tc.run_suspend_realm_json("bf-1234")
@@ -116,7 +117,8 @@ func TestAdminSuspendRealm(t *testing.T) {
 		tc := newAdminRealmTestContext(t)
 
 		// Given
-		tc.admin_cmd_with_mock_stores()
+		tc.admin_cmd_with_mock_client()
+		tc.api_returns_error("realm not found")
 
 		// When
 		tc.run_suspend_realm("bf-nonexistent")
@@ -131,12 +133,11 @@ func TestAdminSuspendRealm(t *testing.T) {
 type adminRealmTestContext struct {
 	t *testing.T
 
-	cmd             *cobra.Command
-	eventStore      *mockEventStore
-	projectionStore *mockProjectionStore
-	output          string
-	err             error
-	jsonOutput      map[string]interface{}
+	mock       *mockClient
+	cmd        *cobra.Command
+	output     string
+	err        error
+	jsonOutput map[string]interface{}
 }
 
 func newAdminRealmTestContext(t *testing.T) *adminRealmTestContext {
@@ -146,46 +147,39 @@ func newAdminRealmTestContext(t *testing.T) *adminRealmTestContext {
 
 // --- Given ---
 
-func (tc *adminRealmTestContext) admin_cmd_with_mock_stores() {
+func (tc *adminRealmTestContext) admin_cmd_with_mock_client() {
 	tc.t.Helper()
-	tc.eventStore = newMockEventStore()
-	tc.projectionStore = &mockProjectionStore{
-		data:     make(map[string]any),
-		listData: make(map[string][]json.RawMessage),
-	}
-	tc.cmd = newAdminCmdForTest(tc.eventStore, tc.projectionStore)
+	tc.mock = &mockClient{}
+	tc.cmd = newAdminCmdWithMockClient(tc.mock)
 }
 
-func (tc *adminRealmTestContext) store_has_realms() {
+func (tc *adminRealmTestContext) api_returns_create_realm(realmID string) {
 	tc.t.Helper()
-	entry := projectors.RealmDirectoryEntry{
-		RealmID: "bf-1234",
-		Name:    "test-realm",
-		Status:  "active",
-	}
-	data, _ := json.Marshal(entry)
-	tc.projectionStore.listData["_admin|realm_directory"] = []json.RawMessage{data}
+	tc.mock.postResponse = mustMarshal(map[string]string{
+		"realm_id": realmID,
+	})
 }
 
-func (tc *adminRealmTestContext) realm_exists(realmID, name string) {
+func (tc *adminRealmTestContext) api_returns_realms_list() {
 	tc.t.Helper()
-	realmCreated := map[string]interface{}{
-		"realm_id":   realmID,
-		"name":       name,
-		"key_hash":   "fakehash",
-		"created_at": "2024-01-01T00:00:00Z",
-	}
-	data, _ := json.Marshal(realmCreated)
-	tc.eventStore.streams["_admin|realm-"+realmID] = []core.Event{
+	tc.mock.getResponses = append(tc.mock.getResponses, mustMarshal([]map[string]interface{}{
 		{
-			RealmID:        "_admin",
-			StreamID:       "realm-" + realmID,
-			Version:        0,
-			EventType:      "RealmCreated",
-			Data:           data,
-			GlobalPosition: 1,
+			"realm_id": "bf-1234",
+			"name":     "test-realm",
+			"status":   "active",
 		},
-	}
+	}))
+}
+
+func (tc *adminRealmTestContext) api_returns_success() {
+	tc.t.Helper()
+	tc.mock.postResponse = mustMarshal(map[string]string{"status": "ok"})
+}
+
+func (tc *adminRealmTestContext) api_returns_error(msg string) {
+	tc.t.Helper()
+	tc.mock.getError = fmt.Errorf("%s", msg)
+	tc.mock.postError = fmt.Errorf("%s", msg)
 }
 
 // --- When ---

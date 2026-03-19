@@ -143,3 +143,31 @@ func (e *projectionEngine) Stop() error {
 	e.wg.Wait()
 	return nil
 }
+
+// RebuildProjections clears all projection tables and checkpoints, then replays all events.
+// This is useful when projector logic has been fixed and projections need to be reconstructed.
+func (e *projectionEngine) RebuildProjections(ctx context.Context) error {
+	// Clear all registered projection tables
+	for _, table := range e.registeredTables {
+		if err := e.projectionStore.ClearTable(ctx, table); err != nil {
+			log.Printf("rebuild: could not clear table %s: %v", table, err)
+		}
+	}
+
+	// Clear checkpoints by resetting them to 0 for all realm/projector combinations
+	realmIDs, err := e.eventStore.ListRealmIDs(ctx)
+	if err != nil {
+		return err
+	}
+	for _, realmID := range realmIDs {
+		for _, projector := range e.projectors {
+			if err := e.checkpointStore.SetCheckpoint(ctx, realmID, projector.Name(), 0); err != nil {
+				log.Printf("rebuild: could not reset checkpoint for %s/%s: %v", realmID, projector.Name(), err)
+			}
+		}
+	}
+
+	// Run catch-up to rebuild from events
+	e.runCatchUpCycle(ctx)
+	return nil
+}

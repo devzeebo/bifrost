@@ -105,3 +105,9 @@ func (s *ProjectionStore) Delete(ctx context.Context, realmID string, table stri
 	)
 	return err
 }
+
+// ClearTable removes all entries from a projection table.
+func (s *ProjectionStore) ClearTable(ctx context.Context, table string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM projection_` + table)
+	return err
+}
