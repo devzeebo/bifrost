@@ -7,4 +7,6 @@ node_modules
 ui/dist
 .worktrees/
 
-server/admin/ui
+# Ignore embedded UI dist artifacts but keep the folder
+server/admin/ui/*
+!server/admin/ui/.gitkeep
