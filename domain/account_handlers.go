@@ -144,7 +144,7 @@ func HandleCreateAccount(ctx context.Context, cmd CreateAccount, store core.Even
 		AccountID string `json:"account_id"`
 	}
 	var existing usernameEntry
-	err := projectionStore.Get(ctx, AdminRealmID, "projection_username_lookup", cmd.Username, &existing)
+	err := projectionStore.Get(ctx, AdminRealmID, "username_lookup", cmd.Username, &existing)
 	if err == nil {
 		return CreateAccountResult{}, fmt.Errorf("username %q already exists", cmd.Username)
 	}

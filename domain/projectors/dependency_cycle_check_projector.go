@@ -17,7 +17,7 @@ type DependencyCycleCheckDoc struct {
 
 // DependencyCycleCheckProjector maintains a table where each row represents
 // a potential cycle edge. Row existence is the answer to "would adding this edge create a cycle?".
-// Table: projection_dependency_cycle_check
+// Table: dependency_cycle_check
 // Key: {source_id}:{target_id}
 // Events: DependencyAdded (insert), DependencyRemoved (delete)
 type DependencyCycleCheckProjector struct{}
@@ -31,7 +31,7 @@ func (p *DependencyCycleCheckProjector) Name() string {
 }
 
 func (p *DependencyCycleCheckProjector) TableName() string {
-	return "projection_dependency_cycle_check"
+	return "dependency_cycle_check"
 }
 
 func (p *DependencyCycleCheckProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {

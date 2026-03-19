@@ -26,7 +26,7 @@ func (p *RunnerSettingsProjector) Name() string {
 }
 
 func (p *RunnerSettingsProjector) TableName() string {
-	return "projection_runner_settings"
+	return "runner_settings"
 }
 
 func (p *RunnerSettingsProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -51,7 +51,7 @@ func (p *RunnerSettingsProjector) handleCreated(ctx context.Context, event core.
 
 	// Check if runner settings already exists for idempotency
 	var existing RunnerSettingsEntry
-	if err := store.Get(ctx, event.RealmID, "projection_runner_settings", data.RunnerSettingsID, &existing); err == nil {
+	if err := store.Get(ctx, event.RealmID, "runner_settings", data.RunnerSettingsID, &existing); err == nil {
 		// Runner settings already exists, idempotent
 		return nil
 	}
@@ -62,7 +62,7 @@ func (p *RunnerSettingsProjector) handleCreated(ctx context.Context, event core.
 		Name:       data.Name,
 		Fields:     map[string]string{},
 	}
-	return store.Put(ctx, event.RealmID, "projection_runner_settings", data.RunnerSettingsID, entry)
+	return store.Put(ctx, event.RealmID, "runner_settings", data.RunnerSettingsID, entry)
 }
 
 func (p *RunnerSettingsProjector) handleFieldSet(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -71,14 +71,14 @@ func (p *RunnerSettingsProjector) handleFieldSet(ctx context.Context, event core
 		return err
 	}
 	var entry RunnerSettingsEntry
-	if err := store.Get(ctx, event.RealmID, "projection_runner_settings", data.RunnerSettingsID, &entry); err != nil {
+	if err := store.Get(ctx, event.RealmID, "runner_settings", data.RunnerSettingsID, &entry); err != nil {
 		return err
 	}
 	if entry.Fields == nil {
 		entry.Fields = make(map[string]string)
 	}
 	entry.Fields[data.Key] = data.Value
-	return store.Put(ctx, event.RealmID, "projection_runner_settings", data.RunnerSettingsID, entry)
+	return store.Put(ctx, event.RealmID, "runner_settings", data.RunnerSettingsID, entry)
 }
 
 func (p *RunnerSettingsProjector) handleFieldDeleted(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -87,11 +87,11 @@ func (p *RunnerSettingsProjector) handleFieldDeleted(ctx context.Context, event 
 		return err
 	}
 	var entry RunnerSettingsEntry
-	if err := store.Get(ctx, event.RealmID, "projection_runner_settings", data.RunnerSettingsID, &entry); err != nil {
+	if err := store.Get(ctx, event.RealmID, "runner_settings", data.RunnerSettingsID, &entry); err != nil {
 		return err
 	}
 	delete(entry.Fields, data.Key)
-	return store.Put(ctx, event.RealmID, "projection_runner_settings", data.RunnerSettingsID, entry)
+	return store.Put(ctx, event.RealmID, "runner_settings", data.RunnerSettingsID, entry)
 }
 
 func (p *RunnerSettingsProjector) handleDeleted(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -99,5 +99,5 @@ func (p *RunnerSettingsProjector) handleDeleted(ctx context.Context, event core.
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	return store.Delete(ctx, event.RealmID, "projection_runner_settings", data.RunnerSettingsID)
+	return store.Delete(ctx, event.RealmID, "runner_settings", data.RunnerSettingsID)
 }

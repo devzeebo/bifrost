@@ -59,7 +59,7 @@ func TestProjectionEngine(t *testing.T) {
 		tc := newProjectionTestContext(t)
 
 		// Given
-		tc.a_mock_projection_engine()
+		tc.a_mock_engine()
 		tc.a_mock_projector()
 
 		// When
@@ -73,7 +73,7 @@ func TestProjectionEngine(t *testing.T) {
 		tc := newProjectionTestContext(t)
 
 		// Given
-		tc.a_mock_projection_engine()
+		tc.a_mock_engine()
 
 		// When
 		tc.run_sync_is_called()
@@ -86,7 +86,7 @@ func TestProjectionEngine(t *testing.T) {
 		tc := newProjectionTestContext(t)
 
 		// Given
-		tc.a_mock_projection_engine()
+		tc.a_mock_engine()
 
 		// When
 		tc.start_catch_up_is_called()
@@ -99,7 +99,7 @@ func TestProjectionEngine(t *testing.T) {
 		tc := newProjectionTestContext(t)
 
 		// Given
-		tc.a_mock_projection_engine()
+		tc.a_mock_engine()
 
 		// When
 		tc.stop_is_called()
@@ -138,7 +138,7 @@ func (tc *projectionTestContext) a_mock_projector() {
 	tc.projector = &mockProjector{}
 }
 
-func (tc *projectionTestContext) a_mock_projection_engine() {
+func (tc *projectionTestContext) a_mock_engine() {
 	tc.t.Helper()
 	tc.projectionEngine = &mockProjectionEngine{}
 }

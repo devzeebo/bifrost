@@ -27,7 +27,7 @@ func TestPATIDProjector(t *testing.T) {
 		tc.name_is("pat_id")
 	})
 
-	t.Run("TableName returns projection_pat_by_id", func(t *testing.T) {
+	t.Run("TableName returns pat_by_id", func(t *testing.T) {
 		tc := newPATIDTestContext(t)
 
 		// Given
@@ -37,7 +37,7 @@ func TestPATIDProjector(t *testing.T) {
 		tc.table_name_is_called()
 
 		// Then
-		tc.table_name_is("projection_pat_by_id")
+		tc.table_name_is("pat_by_id")
 	})
 
 	t.Run("handles PATCreated by inserting entry keyed by pat_id", func(t *testing.T) {
@@ -45,7 +45,7 @@ func TestPATIDProjector(t *testing.T) {
 
 		// Given
 		tc.a_pat_id_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_pat_created_event("pat-1", "hash-abc123", "acct-1")
 
 		// When
@@ -64,7 +64,7 @@ func TestPATIDProjector(t *testing.T) {
 
 		// Given
 		tc.a_pat_id_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_pat_entry("pat-1", "hash-xyz", "acct-2")
 		tc.a_pat_revoked_event("pat-1")
 
@@ -81,7 +81,7 @@ func TestPATIDProjector(t *testing.T) {
 
 		// Given
 		tc.a_pat_id_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_unknown_event()
 
 		// When
@@ -96,7 +96,7 @@ func TestPATIDProjector(t *testing.T) {
 
 		// Given
 		tc.a_pat_id_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_pat_entry("pat-1", "old-hash", "acct-old")
 		tc.a_pat_created_event("pat-1", "new-hash", "acct-new")
 
@@ -115,7 +115,7 @@ func TestPATIDProjector(t *testing.T) {
 
 		// Given
 		tc.a_pat_id_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_pat_revoked_event("pat-nonexistent")
 
 		// When
@@ -155,7 +155,7 @@ func (tc *patIDTestContext) a_pat_id_projector() {
 	tc.projector = NewPATIDProjector()
 }
 
-func (tc *patIDTestContext) a_projection_store() {
+func (tc *patIDTestContext) a_store() {
 	tc.t.Helper()
 	tc.store = newMockProjectionStore()
 }
@@ -193,7 +193,7 @@ func (tc *patIDTestContext) existing_pat_entry(patID, keyHash, accountID string)
 		KeyHash:   keyHash,
 		AccountID: accountID,
 	}
-	tc.store.put("realm-1", "projection_pat_by_id", patID, entry)
+	tc.store.put("realm-1", "pat_by_id", patID, entry)
 }
 
 // --- When ---
@@ -233,21 +233,21 @@ func (tc *patIDTestContext) no_error() {
 func (tc *patIDTestContext) entry_exists(patID string) {
 	tc.t.Helper()
 	var entry PATIDEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_pat_by_id", patID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "pat_by_id", patID, &entry)
 	require.NoError(tc.t, err, "expected entry for pat_id %s", patID)
 }
 
 func (tc *patIDTestContext) entry_does_not_exist(patID string) {
 	tc.t.Helper()
 	var entry PATIDEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_pat_by_id", patID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "pat_by_id", patID, &entry)
 	require.Error(tc.t, err, "expected no entry for pat_id %s", patID)
 }
 
 func (tc *patIDTestContext) entry_has_pat_id(patID, expected string) {
 	tc.t.Helper()
 	var entry PATIDEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_pat_by_id", patID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "pat_by_id", patID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, entry.PATID)
 }
@@ -255,7 +255,7 @@ func (tc *patIDTestContext) entry_has_pat_id(patID, expected string) {
 func (tc *patIDTestContext) entry_has_key_hash(patID, expected string) {
 	tc.t.Helper()
 	var entry PATIDEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_pat_by_id", patID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "pat_by_id", patID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, entry.KeyHash)
 }
@@ -263,7 +263,7 @@ func (tc *patIDTestContext) entry_has_key_hash(patID, expected string) {
 func (tc *patIDTestContext) entry_has_account_id(patID, expected string) {
 	tc.t.Helper()
 	var entry PATIDEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_pat_by_id", patID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "pat_by_id", patID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, entry.AccountID)
 }

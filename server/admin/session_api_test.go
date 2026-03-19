@@ -238,9 +238,9 @@ func TestUISessionAPI_GetSession(t *testing.T) {
 		assert.NotEmpty(t, session.Realms)
 	})
 
-	t.Run("uses projection_realm_directory for realm names", func(t *testing.T) {
-		// Set up projection_realm_directory entry
-		store.data[compositeKey("realm-1", "projection_realm_directory", "realm-1")] = projectors.RealmDirectoryEntry{
+	t.Run("uses realm_directory for realm names", func(t *testing.T) {
+		// Set up realm_directory entry
+		store.data[compositeKey("realm-1", "realm_directory", "realm-1")] = projectors.RealmDirectoryEntry{
 			RealmID:   "realm-1",
 			Name:      "My Test Realm",
 			Status:    "active",
@@ -283,8 +283,8 @@ func TestUISessionAPI_GetSession(t *testing.T) {
 		var session SessionInfo
 		err = json.Unmarshal(rec.Body.Bytes(), &session)
 		require.NoError(t, err)
-		// Realm name should come from projection_realm_directory
-		assert.Equal(t, "My Test Realm", session.RealmNames["realm-1"], "realm name should come from projection_realm_directory")
+		// Realm name should come from realm_directory
+		assert.Equal(t, "My Test Realm", session.RealmNames["realm-1"], "realm name should come from realm_directory")
 	})
 }
 
@@ -345,8 +345,8 @@ func TestUISessionAPI_CheckOnboarding(t *testing.T) {
 		assert.False(t, resp.NeedsOnboarding)
 	})
 
-	t.Run("uses projection_system_status for onboarding check", func(t *testing.T) {
-		// This test verifies that the API uses projection_system_status table
+	t.Run("uses system_status for onboarding check", func(t *testing.T) {
+		// This test verifies that the API uses system_status table
 		// instead of listing account_list and realm_list
 		store := newMockProjectionStore()
 		cfg := &RouteConfig{
@@ -359,8 +359,8 @@ func TestUISessionAPI_CheckOnboarding(t *testing.T) {
 		_, err := rand.Read(cfg.AuthConfig.SigningKey)
 		require.NoError(t, err, "failed to generate signing key")
 
-		// Set up projection_system_status with admin account and realm
-		store.data[compositeKey("_admin", "projection_system_status", "status")] = projectors.SystemStatusEntry{
+		// Set up system_status with admin account and realm
+		store.data[compositeKey("_admin", "system_status", "status")] = projectors.SystemStatusEntry{
 			AdminAccountIDs: []string{"admin-1"},
 			RealmIDs:        []string{"realm-1"},
 		}
@@ -378,13 +378,13 @@ func TestUISessionAPI_CheckOnboarding(t *testing.T) {
 		var resp OnboardingCheckResponse
 		err = json.Unmarshal(rec.Body.Bytes(), &resp)
 		require.NoError(t, err)
-		// Should NOT need onboarding because projection_system_status has admin and realm
-		assert.False(t, resp.NeedsSysAdmin, "should not need sysadmin (admin exists in projection_system_status)")
-		assert.False(t, resp.NeedsRealm, "should not need realm (realm exists in projection_system_status)")
+		// Should NOT need onboarding because system_status has admin and realm
+		assert.False(t, resp.NeedsSysAdmin, "should not need sysadmin (admin exists in system_status)")
+		assert.False(t, resp.NeedsRealm, "should not need realm (realm exists in system_status)")
 		assert.False(t, resp.NeedsOnboarding, "should not need onboarding")
 	})
 
-	t.Run("projection_system_status shows needs_sysadmin when no admin accounts", func(t *testing.T) {
+	t.Run("system_status shows needs_sysadmin when no admin accounts", func(t *testing.T) {
 		store := newMockProjectionStore()
 		cfg := &RouteConfig{
 			AuthConfig:      DefaultAuthConfig(),
@@ -396,8 +396,8 @@ func TestUISessionAPI_CheckOnboarding(t *testing.T) {
 		_, err := rand.Read(cfg.AuthConfig.SigningKey)
 		require.NoError(t, err, "failed to generate signing key")
 
-		// Set up projection_system_status with realm but no admin accounts
-		store.data[compositeKey("_admin", "projection_system_status", "status")] = projectors.SystemStatusEntry{
+		// Set up system_status with realm but no admin accounts
+		store.data[compositeKey("_admin", "system_status", "status")] = projectors.SystemStatusEntry{
 			AdminAccountIDs: []string{}, // No admins
 			RealmIDs:        []string{"realm-1"},
 		}
@@ -415,12 +415,12 @@ func TestUISessionAPI_CheckOnboarding(t *testing.T) {
 		var resp OnboardingCheckResponse
 		err = json.Unmarshal(rec.Body.Bytes(), &resp)
 		require.NoError(t, err)
-		assert.True(t, resp.NeedsSysAdmin, "should need sysadmin (no admin in projection_system_status)")
+		assert.True(t, resp.NeedsSysAdmin, "should need sysadmin (no admin in system_status)")
 		assert.False(t, resp.NeedsRealm, "should not need realm")
 		assert.True(t, resp.NeedsOnboarding, "should need onboarding")
 	})
 
-	t.Run("projection_system_status shows needs_realm when no realms", func(t *testing.T) {
+	t.Run("system_status shows needs_realm when no realms", func(t *testing.T) {
 		store := newMockProjectionStore()
 		cfg := &RouteConfig{
 			AuthConfig:      DefaultAuthConfig(),
@@ -432,8 +432,8 @@ func TestUISessionAPI_CheckOnboarding(t *testing.T) {
 		_, err := rand.Read(cfg.AuthConfig.SigningKey)
 		require.NoError(t, err, "failed to generate signing key")
 
-		// Set up projection_system_status with admin but no realms
-		store.data[compositeKey("_admin", "projection_system_status", "status")] = projectors.SystemStatusEntry{
+		// Set up system_status with admin but no realms
+		store.data[compositeKey("_admin", "system_status", "status")] = projectors.SystemStatusEntry{
 			AdminAccountIDs: []string{"admin-1"},
 			RealmIDs:        []string{}, // No realms
 		}
@@ -452,7 +452,7 @@ func TestUISessionAPI_CheckOnboarding(t *testing.T) {
 		err = json.Unmarshal(rec.Body.Bytes(), &resp)
 		require.NoError(t, err)
 		assert.False(t, resp.NeedsSysAdmin, "should not need sysadmin")
-		assert.True(t, resp.NeedsRealm, "should need realm (no realms in projection_system_status)")
+		assert.True(t, resp.NeedsRealm, "should need realm (no realms in system_status)")
 		assert.True(t, resp.NeedsOnboarding, "should need onboarding")
 	})
 }
@@ -519,7 +519,7 @@ func TestUISessionAPI_CreateAdmin(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, rec.Code)
 	})
 
-	t.Run("uses projection_system_status to check if sysadmin exists", func(t *testing.T) {
+	t.Run("uses system_status to check if sysadmin exists", func(t *testing.T) {
 		store := newMockProjectionStore()
 		cfg := &RouteConfig{
 			AuthConfig:      DefaultAuthConfig(),
@@ -531,8 +531,8 @@ func TestUISessionAPI_CreateAdmin(t *testing.T) {
 		_, err := rand.Read(cfg.AuthConfig.SigningKey)
 		require.NoError(t, err, "failed to generate signing key")
 
-		// Set up projection_system_status with existing admin
-		store.data[compositeKey("_admin", "projection_system_status", "status")] = projectors.SystemStatusEntry{
+		// Set up system_status with existing admin
+		store.data[compositeKey("_admin", "system_status", "status")] = projectors.SystemStatusEntry{
 			AdminAccountIDs: []string{"existing-admin"},
 			RealmIDs:        []string{},
 		}
@@ -550,11 +550,11 @@ func TestUISessionAPI_CreateAdmin(t *testing.T) {
 
 		mux.ServeHTTP(rec, req)
 
-		// Should fail because sysadmin already exists (per projection_system_status)
+		// Should fail because sysadmin already exists (per system_status)
 		assert.Equal(t, http.StatusBadRequest, rec.Code)
 	})
 
-	t.Run("uses projection_system_status to check if realm exists", func(t *testing.T) {
+	t.Run("uses system_status to check if realm exists", func(t *testing.T) {
 		store := newMockProjectionStore()
 		cfg := &RouteConfig{
 			AuthConfig:      DefaultAuthConfig(),
@@ -566,8 +566,8 @@ func TestUISessionAPI_CreateAdmin(t *testing.T) {
 		_, err := rand.Read(cfg.AuthConfig.SigningKey)
 		require.NoError(t, err, "failed to generate signing key")
 
-		// Set up projection_system_status with existing realm
-		store.data[compositeKey("_admin", "projection_system_status", "status")] = projectors.SystemStatusEntry{
+		// Set up system_status with existing realm
+		store.data[compositeKey("_admin", "system_status", "status")] = projectors.SystemStatusEntry{
 			AdminAccountIDs: []string{},
 			RealmIDs:        []string{"existing-realm"},
 		}
@@ -585,7 +585,7 @@ func TestUISessionAPI_CreateAdmin(t *testing.T) {
 
 		mux.ServeHTTP(rec, req)
 
-		// Should fail because realm already exists (per projection_system_status)
+		// Should fail because realm already exists (per system_status)
 		assert.Equal(t, http.StatusBadRequest, rec.Code)
 	})
 }
@@ -601,17 +601,17 @@ func newMockProjectionStoreWithAccount() *mockProjectionStore {
 	keyHash := base64.RawURLEncoding.EncodeToString(h[:])
 
 	// Set up the PAT ID lookup
-	store.data[compositeKey("_admin", "projection_pat_by_keyhash", keyHash)] = "pat-test-123"
+	store.data[compositeKey("_admin", "pat_by_keyhash", keyHash)] = "pat-test-123"
 
 	// Set up the PAT entry
-	store.data[compositeKey("_admin", "projection_pat_by_id", "pat-test-123")] = projectors.PATIDEntry{
+	store.data[compositeKey("_admin", "pat_by_id", "pat-test-123")] = projectors.PATIDEntry{
 		PATID:     "pat-test-123",
 		KeyHash:   keyHash,
 		AccountID: "account-test-123",
 	}
 
 	// Set up the account auth entry
-	store.data[compositeKey("_admin", "projection_account_auth", "account-test-123")] = projectors.AccountAuthEntry{
+	store.data[compositeKey("_admin", "account_auth", "account-test-123")] = projectors.AccountAuthEntry{
 		AccountID: "account-test-123",
 		Username:  "testuser",
 		Status:    "active",
@@ -622,9 +622,9 @@ func newMockProjectionStoreWithAccount() *mockProjectionStore {
 	// Store the valid token for tests to use
 	store.validToken = token
 
-	// Set up projection_system_status for onboarding check
+	// Set up system_status for onboarding check
 	// This indicates we have admin accounts and realms
-	store.data[compositeKey("_admin", "projection_system_status", "status")] = projectors.SystemStatusEntry{
+	store.data[compositeKey("_admin", "system_status", "status")] = projectors.SystemStatusEntry{
 		AdminAccountIDs: []string{"account-test-123"},
 		RealmIDs:        []string{"realm-1"},
 	}

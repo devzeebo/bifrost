@@ -61,7 +61,7 @@ func TestProjectionStore(t *testing.T) {
 		tc := newStoreTestContext(t)
 
 		// Given
-		tc.a_mock_projection_store()
+		tc.a_mock_store()
 
 		// When
 		tc.get_is_called()
@@ -74,7 +74,7 @@ func TestProjectionStore(t *testing.T) {
 		tc := newStoreTestContext(t)
 
 		// Given
-		tc.a_mock_projection_store()
+		tc.a_mock_store()
 
 		// When
 		tc.put_is_called()
@@ -87,7 +87,7 @@ func TestProjectionStore(t *testing.T) {
 		tc := newStoreTestContext(t)
 
 		// Given
-		tc.a_mock_projection_store()
+		tc.a_mock_store()
 
 		// When
 		tc.delete_is_called()
@@ -160,7 +160,7 @@ func (tc *storeTestContext) a_mock_event_store() {
 	tc.eventStore = &mockEventStore{}
 }
 
-func (tc *storeTestContext) a_mock_projection_store() {
+func (tc *storeTestContext) a_mock_store() {
 	tc.t.Helper()
 	tc.projectionStore = &mockProjectionStore{}
 }

@@ -29,7 +29,7 @@ func TestRuneChildCountProjector(t *testing.T) {
 		tc.name_is("rune_child_count")
 	})
 
-	t.Run("TableName returns projection_rune_child_count", func(t *testing.T) {
+	t.Run("TableName returns rune_child_count", func(t *testing.T) {
 		tc := newRuneChildCountTestContext(t)
 
 		// Given
@@ -39,7 +39,7 @@ func TestRuneChildCountProjector(t *testing.T) {
 		tc.table_name_is_called()
 
 		// Then
-		tc.table_name_is("projection_rune_child_count")
+		tc.table_name_is("rune_child_count")
 	})
 
 	t.Run("RuneCreated with ParentID creates entry with count 1", func(t *testing.T) {
@@ -47,7 +47,7 @@ func TestRuneChildCountProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_child_count_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_rune_created_event_with_parent("bf-a1b2.1", "bf-a1b2")
 
 		// When
@@ -64,7 +64,7 @@ func TestRuneChildCountProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_child_count_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_rune_created_event_without_parent("bf-a1b2")
 
 		// When
@@ -80,7 +80,7 @@ func TestRuneChildCountProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_child_count_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_unknown_event()
 
 		// When
@@ -96,7 +96,7 @@ func TestRuneChildCountProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_child_count_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_entry_with_count("bf-a1b2", 1)
 		tc.a_rune_created_event_with_parent("bf-a1b2.2", "bf-a1b2")
 
@@ -113,7 +113,7 @@ func TestRuneChildCountProjector(t *testing.T) {
 
 		// Given: parent already has count 1 from child bf-a1b2.1
 		tc.a_rune_child_count_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_entry_with_count("bf-a1b2", 1)
 		// Replay the same event (sequence number 1, count is already 1)
 		tc.a_rune_created_event_with_parent("bf-a1b2.1", "bf-a1b2")
@@ -131,7 +131,7 @@ func TestRuneChildCountProjector(t *testing.T) {
 
 		// Given: parent has count 1, but child.3 event arrives (maybe out of order replay)
 		tc.a_rune_child_count_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_entry_with_count("bf-a1b2", 1)
 		tc.a_rune_created_event_with_parent("bf-a1b2.3", "bf-a1b2")
 
@@ -148,7 +148,7 @@ func TestRuneChildCountProjector(t *testing.T) {
 
 		// Given: parent already has count 3, child.2 arrives late
 		tc.a_rune_child_count_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_entry_with_count("bf-a1b2", 3)
 		tc.a_rune_created_event_with_parent("bf-a1b2.2", "bf-a1b2")
 
@@ -165,7 +165,7 @@ func TestRuneChildCountProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_child_count_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_rune_created_event_with_parent("bf-a1b2.1", "bf-a1b2")
 
 		// When
@@ -181,7 +181,7 @@ func TestRuneChildCountProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_child_count_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_rune_created_event_with_parent("bf-a1b2.1", "bf-a1b2")
 
 		// When
@@ -224,7 +224,7 @@ func (tc *runeChildCountTestContext) a_rune_child_count_projector() {
 	tc.projector = NewRuneChildCountProjector()
 }
 
-func (tc *runeChildCountTestContext) a_projection_store() {
+func (tc *runeChildCountTestContext) a_store() {
 	tc.t.Helper()
 	if tc.store == nil {
 		tc.store = newMockProjectionStore()
@@ -247,12 +247,12 @@ func (tc *runeChildCountTestContext) a_rune_created_event_without_parent(id stri
 
 func (tc *runeChildCountTestContext) existing_entry_with_count(parentID string, count int) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	entry := RuneChildCountEntry{
 		ParentRuneID: parentID,
 		Count:        count,
 	}
-	tc.store.put(tc.realmID, "projection_rune_child_count", parentID, entry)
+	tc.store.put(tc.realmID, "rune_child_count", parentID, entry)
 }
 
 func (tc *runeChildCountTestContext) an_unknown_event() {
@@ -297,14 +297,14 @@ func (tc *runeChildCountTestContext) no_error() {
 func (tc *runeChildCountTestContext) entry_exists_for_parent(parentID string) {
 	tc.t.Helper()
 	var entry RuneChildCountEntry
-	err := tc.store.Get(tc.ctx, tc.realmID, "projection_rune_child_count", parentID, &entry)
+	err := tc.store.Get(tc.ctx, tc.realmID, "rune_child_count", parentID, &entry)
 	require.NoError(tc.t, err, "expected entry for parent %s", parentID)
 }
 
 func (tc *runeChildCountTestContext) count_is(parentID string, expected int) {
 	tc.t.Helper()
 	var entry RuneChildCountEntry
-	err := tc.store.Get(tc.ctx, tc.realmID, "projection_rune_child_count", parentID, &entry)
+	err := tc.store.Get(tc.ctx, tc.realmID, "rune_child_count", parentID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, entry.Count)
 }
@@ -312,7 +312,7 @@ func (tc *runeChildCountTestContext) count_is(parentID string, expected int) {
 func (tc *runeChildCountTestContext) entry_has_parent_rune_id(parentID, expected string) {
 	tc.t.Helper()
 	var entry RuneChildCountEntry
-	err := tc.store.Get(tc.ctx, tc.realmID, "projection_rune_child_count", parentID, &entry)
+	err := tc.store.Get(tc.ctx, tc.realmID, "rune_child_count", parentID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, entry.ParentRuneID)
 }
@@ -320,7 +320,7 @@ func (tc *runeChildCountTestContext) entry_has_parent_rune_id(parentID, expected
 func (tc *runeChildCountTestContext) no_entry_stored() {
 	tc.t.Helper()
 	for key := range tc.store.data {
-		assert.NotContains(tc.t, key, "projection_rune_child_count", "expected no projection_rune_child_count entries in store")
+		assert.NotContains(tc.t, key, "rune_child_count", "expected no rune_child_count entries in store")
 	}
 }
 

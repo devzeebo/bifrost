@@ -139,7 +139,7 @@ func ValidateJWT(cfg *AuthConfig, tokenString string) (*AdminClaims, error) {
 func CheckPATStatus(ctx context.Context, projectionStore core.ProjectionStore, patID string) (*projectors.AccountAuthEntry, error) {
 	// Look up the PAT entry from PAT ID reverse lookup
 	var patEntry projectors.PATIDEntry
-	if err := projectionStore.Get(ctx, "_admin", "projection_pat_by_id", patID, &patEntry); err != nil {
+	if err := projectionStore.Get(ctx, "_admin", "pat_by_id", patID, &patEntry); err != nil {
 		var nfe *core.NotFoundError
 		if errors.As(err, &nfe) {
 			return nil, ErrPATRevoked
@@ -149,7 +149,7 @@ func CheckPATStatus(ctx context.Context, projectionStore core.ProjectionStore, p
 
 	// Look up the account auth entry by account ID
 	var entry projectors.AccountAuthEntry
-	if err := projectionStore.Get(ctx, "_admin", "projection_account_auth", patEntry.AccountID, &entry); err != nil {
+	if err := projectionStore.Get(ctx, "_admin", "account_auth", patEntry.AccountID, &entry); err != nil {
 		var nfe *core.NotFoundError
 		if errors.As(err, &nfe) {
 			return nil, ErrPATRevoked
@@ -268,7 +268,7 @@ func ValidatePAT(ctx context.Context, projectionStore core.ProjectionStore, toke
 
 	// Look up PAT ID from keyHash reverse lookup
 	var patID string
-	if err := projectionStore.Get(ctx, "_admin", "projection_pat_by_keyhash", keyHash, &patID); err != nil {
+	if err := projectionStore.Get(ctx, "_admin", "pat_by_keyhash", keyHash, &patID); err != nil {
 		var nfe *core.NotFoundError
 		if errors.As(err, &nfe) {
 			return nil, "", ErrInvalidToken
@@ -278,7 +278,7 @@ func ValidatePAT(ctx context.Context, projectionStore core.ProjectionStore, toke
 
 	// Look up PAT entry to get account ID
 	var patEntry projectors.PATIDEntry
-	if err := projectionStore.Get(ctx, "_admin", "projection_pat_by_id", patID, &patEntry); err != nil {
+	if err := projectionStore.Get(ctx, "_admin", "pat_by_id", patID, &patEntry); err != nil {
 		var nfe *core.NotFoundError
 		if errors.As(err, &nfe) {
 			return nil, "", ErrInvalidToken
@@ -288,7 +288,7 @@ func ValidatePAT(ctx context.Context, projectionStore core.ProjectionStore, toke
 
 	// Look up account auth entry
 	var entry projectors.AccountAuthEntry
-	if err := projectionStore.Get(ctx, "_admin", "projection_account_auth", patEntry.AccountID, &entry); err != nil {
+	if err := projectionStore.Get(ctx, "_admin", "account_auth", patEntry.AccountID, &entry); err != nil {
 		var nfe *core.NotFoundError
 		if errors.As(err, &nfe) {
 			return nil, "", ErrInvalidToken

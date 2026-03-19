@@ -26,7 +26,7 @@ func TestRuneDependencyGraphProjector(t *testing.T) {
 		tc.name_is("rune_dependency_graph")
 	})
 
-	t.Run("TableName returns projection_rune_dependency_graph", func(t *testing.T) {
+	t.Run("TableName returns rune_dependency_graph", func(t *testing.T) {
 		tc := newRuneDepGraphTestContext(t)
 
 		// Given
@@ -36,7 +36,7 @@ func TestRuneDependencyGraphProjector(t *testing.T) {
 		tc.table_name_is_called()
 
 		// Then
-		tc.table_name_is("projection_rune_dependency_graph")
+		tc.table_name_is("rune_dependency_graph")
 	})
 
 	// --- DependencyAdded ---
@@ -46,7 +46,7 @@ func TestRuneDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_dependency_added_event("bf-a1b2", "bf-c3d4", "blocks")
 
 		// When
@@ -63,7 +63,7 @@ func TestRuneDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_dependency_added_event("bf-a1b2", "bf-c3d4", "blocks")
 
 		// When
@@ -80,7 +80,7 @@ func TestRuneDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_entry_with_dependency("bf-a1b2", "bf-c3d4", "blocks")
 		tc.a_dependency_added_event("bf-a1b2", "bf-e5f6", "relates_to")
 
@@ -99,7 +99,7 @@ func TestRuneDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_entry_with_dependent("bf-c3d4", "bf-a1b2", "blocks")
 		tc.a_dependency_added_event("bf-e5f6", "bf-c3d4", "relates_to")
 
@@ -118,7 +118,7 @@ func TestRuneDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_entry_with_dependency("bf-a1b2", "bf-c3d4", "blocks")
 		tc.existing_entry_with_dependent("bf-c3d4", "bf-a1b2", "blocks")
 		tc.a_dependency_added_event("bf-a1b2", "bf-c3d4", "blocks")
@@ -137,7 +137,7 @@ func TestRuneDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_inverse_dependency_added_event("bf-a1b2", "bf-c3d4", "blocked_by")
 
 		// When
@@ -156,7 +156,7 @@ func TestRuneDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_entry_with_dependency("bf-a1b2", "bf-c3d4", "blocks")
 		tc.a_dependency_removed_event("bf-a1b2", "bf-c3d4", "blocks")
 
@@ -173,7 +173,7 @@ func TestRuneDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_entry_with_dependent("bf-c3d4", "bf-a1b2", "blocks")
 		tc.a_dependency_removed_event("bf-a1b2", "bf-c3d4", "blocks")
 
@@ -190,7 +190,7 @@ func TestRuneDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_dependency_removed_event("bf-nonexistent", "bf-c3d4", "blocks")
 
 		// When
@@ -205,7 +205,7 @@ func TestRuneDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_entry_with_dependency("bf-a1b2", "bf-c3d4", "blocks")
 		tc.existing_entry_with_dependent("bf-c3d4", "bf-a1b2", "blocks")
 		tc.an_inverse_dependency_removed_event("bf-a1b2", "bf-c3d4", "blocked_by")
@@ -226,7 +226,7 @@ func TestRuneDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_full_dependency_graph("bf-a1b2", "bf-c3d4", "blocks", "bf-e5f6", "relates_to")
 		tc.a_rune_shattered_event("bf-a1b2")
 
@@ -245,7 +245,7 @@ func TestRuneDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_graph_where_rune_is_dependent("bf-a1b2", "bf-c3d4", "blocks")
 		tc.a_rune_shattered_event("bf-a1b2")
 
@@ -263,7 +263,7 @@ func TestRuneDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_rune_shattered_event("bf-nonexistent")
 
 		// When
@@ -280,7 +280,7 @@ func TestRuneDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_unknown_event()
 
 		// When
@@ -322,7 +322,7 @@ func (tc *runeDepGraphTestContext) a_rune_dependency_graph_projector() {
 	tc.projector = NewRuneDependencyGraphProjector()
 }
 
-func (tc *runeDepGraphTestContext) a_projection_store() {
+func (tc *runeDepGraphTestContext) a_store() {
 	tc.t.Helper()
 	if tc.store == nil {
 		tc.store = newMockProjectionStore()
@@ -371,7 +371,7 @@ func (tc *runeDepGraphTestContext) an_unknown_event() {
 
 func (tc *runeDepGraphTestContext) existing_entry_with_dependency(runeID, targetID, relationship string) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	entry := RuneDependencyGraphEntry{
 		RuneID: runeID,
 		Dependencies: []RuneDependencyGraphDependency{
@@ -379,12 +379,12 @@ func (tc *runeDepGraphTestContext) existing_entry_with_dependency(runeID, target
 		},
 		Dependents: []RuneDependencyGraphDependent{},
 	}
-	tc.store.put(tc.realmID, "projection_rune_dependency_graph", runeID, entry)
+	tc.store.put(tc.realmID, "rune_dependency_graph", runeID, entry)
 }
 
 func (tc *runeDepGraphTestContext) existing_entry_with_dependent(runeID, sourceID, relationship string) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	entry := RuneDependencyGraphEntry{
 		RuneID:       runeID,
 		Dependencies: []RuneDependencyGraphDependency{},
@@ -392,12 +392,12 @@ func (tc *runeDepGraphTestContext) existing_entry_with_dependent(runeID, sourceI
 			{SourceID: sourceID, Relationship: relationship},
 		},
 	}
-	tc.store.put(tc.realmID, "projection_rune_dependency_graph", runeID, entry)
+	tc.store.put(tc.realmID, "rune_dependency_graph", runeID, entry)
 }
 
 func (tc *runeDepGraphTestContext) a_full_dependency_graph(runeID, target1, rel1, target2, rel2 string) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	// Source rune has two dependencies
 	sourceEntry := RuneDependencyGraphEntry{
 		RuneID: runeID,
@@ -407,7 +407,7 @@ func (tc *runeDepGraphTestContext) a_full_dependency_graph(runeID, target1, rel1
 		},
 		Dependents: []RuneDependencyGraphDependent{},
 	}
-	tc.store.put(tc.realmID, "projection_rune_dependency_graph", runeID, sourceEntry)
+	tc.store.put(tc.realmID, "rune_dependency_graph", runeID, sourceEntry)
 
 	// Target1 has source as dependent
 	target1Entry := RuneDependencyGraphEntry{
@@ -417,7 +417,7 @@ func (tc *runeDepGraphTestContext) a_full_dependency_graph(runeID, target1, rel1
 			{SourceID: runeID, Relationship: rel1},
 		},
 	}
-	tc.store.put(tc.realmID, "projection_rune_dependency_graph", target1, target1Entry)
+	tc.store.put(tc.realmID, "rune_dependency_graph", target1, target1Entry)
 
 	// Target2 has source as dependent
 	target2Entry := RuneDependencyGraphEntry{
@@ -427,12 +427,12 @@ func (tc *runeDepGraphTestContext) a_full_dependency_graph(runeID, target1, rel1
 			{SourceID: runeID, Relationship: rel2},
 		},
 	}
-	tc.store.put(tc.realmID, "projection_rune_dependency_graph", target2, target2Entry)
+	tc.store.put(tc.realmID, "rune_dependency_graph", target2, target2Entry)
 }
 
 func (tc *runeDepGraphTestContext) a_graph_where_rune_is_dependent(runeID, sourceID, relationship string) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	// runeID's entry has sourceID as a dependent (sourceID depends on runeID)
 	runeEntry := RuneDependencyGraphEntry{
 		RuneID:       runeID,
@@ -441,7 +441,7 @@ func (tc *runeDepGraphTestContext) a_graph_where_rune_is_dependent(runeID, sourc
 			{SourceID: sourceID, Relationship: relationship},
 		},
 	}
-	tc.store.put(tc.realmID, "projection_rune_dependency_graph", runeID, runeEntry)
+	tc.store.put(tc.realmID, "rune_dependency_graph", runeID, runeEntry)
 
 	// sourceID has runeID as a dependency
 	sourceEntry := RuneDependencyGraphEntry{
@@ -451,7 +451,7 @@ func (tc *runeDepGraphTestContext) a_graph_where_rune_is_dependent(runeID, sourc
 		},
 		Dependents: []RuneDependencyGraphDependent{},
 	}
-	tc.store.put(tc.realmID, "projection_rune_dependency_graph", sourceID, sourceEntry)
+	tc.store.put(tc.realmID, "rune_dependency_graph", sourceID, sourceEntry)
 }
 
 // --- When ---
@@ -491,7 +491,7 @@ func (tc *runeDepGraphTestContext) no_error() {
 func (tc *runeDepGraphTestContext) source_entry_exists(runeID string) {
 	tc.t.Helper()
 	var entry RuneDependencyGraphEntry
-	err := tc.store.Get(tc.ctx, tc.realmID, "projection_rune_dependency_graph", runeID, &entry)
+	err := tc.store.Get(tc.ctx, tc.realmID, "rune_dependency_graph", runeID, &entry)
 	require.NoError(tc.t, err, "expected graph entry for %s", runeID)
 	assert.Equal(tc.t, runeID, entry.RuneID)
 }
@@ -499,7 +499,7 @@ func (tc *runeDepGraphTestContext) source_entry_exists(runeID string) {
 func (tc *runeDepGraphTestContext) target_entry_exists(runeID string) {
 	tc.t.Helper()
 	var entry RuneDependencyGraphEntry
-	err := tc.store.Get(tc.ctx, tc.realmID, "projection_rune_dependency_graph", runeID, &entry)
+	err := tc.store.Get(tc.ctx, tc.realmID, "rune_dependency_graph", runeID, &entry)
 	require.NoError(tc.t, err, "expected graph entry for %s", runeID)
 	assert.Equal(tc.t, runeID, entry.RuneID)
 }
@@ -507,7 +507,7 @@ func (tc *runeDepGraphTestContext) target_entry_exists(runeID string) {
 func (tc *runeDepGraphTestContext) source_has_dependency(runeID, targetID, relationship string) {
 	tc.t.Helper()
 	var entry RuneDependencyGraphEntry
-	err := tc.store.Get(tc.ctx, tc.realmID, "projection_rune_dependency_graph", runeID, &entry)
+	err := tc.store.Get(tc.ctx, tc.realmID, "rune_dependency_graph", runeID, &entry)
 	require.NoError(tc.t, err)
 	found := false
 	for _, dep := range entry.Dependencies {
@@ -522,7 +522,7 @@ func (tc *runeDepGraphTestContext) source_has_dependency(runeID, targetID, relat
 func (tc *runeDepGraphTestContext) target_has_dependent(runeID, sourceID, relationship string) {
 	tc.t.Helper()
 	var entry RuneDependencyGraphEntry
-	err := tc.store.Get(tc.ctx, tc.realmID, "projection_rune_dependency_graph", runeID, &entry)
+	err := tc.store.Get(tc.ctx, tc.realmID, "rune_dependency_graph", runeID, &entry)
 	require.NoError(tc.t, err)
 	found := false
 	for _, dep := range entry.Dependents {
@@ -537,7 +537,7 @@ func (tc *runeDepGraphTestContext) target_has_dependent(runeID, sourceID, relati
 func (tc *runeDepGraphTestContext) source_has_dependency_count(runeID string, expected int) {
 	tc.t.Helper()
 	var entry RuneDependencyGraphEntry
-	err := tc.store.Get(tc.ctx, tc.realmID, "projection_rune_dependency_graph", runeID, &entry)
+	err := tc.store.Get(tc.ctx, tc.realmID, "rune_dependency_graph", runeID, &entry)
 	require.NoError(tc.t, err)
 	assert.Len(tc.t, entry.Dependencies, expected)
 }
@@ -545,7 +545,7 @@ func (tc *runeDepGraphTestContext) source_has_dependency_count(runeID string, ex
 func (tc *runeDepGraphTestContext) target_has_dependent_count(runeID string, expected int) {
 	tc.t.Helper()
 	var entry RuneDependencyGraphEntry
-	err := tc.store.Get(tc.ctx, tc.realmID, "projection_rune_dependency_graph", runeID, &entry)
+	err := tc.store.Get(tc.ctx, tc.realmID, "rune_dependency_graph", runeID, &entry)
 	require.NoError(tc.t, err)
 	assert.Len(tc.t, entry.Dependents, expected)
 }
@@ -553,14 +553,14 @@ func (tc *runeDepGraphTestContext) target_has_dependent_count(runeID string, exp
 func (tc *runeDepGraphTestContext) no_entry_exists(runeID string) {
 	tc.t.Helper()
 	var entry RuneDependencyGraphEntry
-	err := tc.store.Get(tc.ctx, tc.realmID, "projection_rune_dependency_graph", runeID, &entry)
+	err := tc.store.Get(tc.ctx, tc.realmID, "rune_dependency_graph", runeID, &entry)
 	assert.Error(tc.t, err, "expected no graph entry for %s", runeID)
 }
 
 func (tc *runeDepGraphTestContext) target_has_no_dependent(runeID, sourceID string) {
 	tc.t.Helper()
 	var entry RuneDependencyGraphEntry
-	err := tc.store.Get(tc.ctx, tc.realmID, "projection_rune_dependency_graph", runeID, &entry)
+	err := tc.store.Get(tc.ctx, tc.realmID, "rune_dependency_graph", runeID, &entry)
 	if err != nil {
 		return // entry doesn't exist, so no dependent
 	}
@@ -575,7 +575,7 @@ func (tc *runeDepGraphTestContext) target_has_no_dependent(runeID, sourceID stri
 func (tc *runeDepGraphTestContext) source_has_no_dependency(runeID, targetID string) {
 	tc.t.Helper()
 	var entry RuneDependencyGraphEntry
-	err := tc.store.Get(tc.ctx, tc.realmID, "projection_rune_dependency_graph", runeID, &entry)
+	err := tc.store.Get(tc.ctx, tc.realmID, "rune_dependency_graph", runeID, &entry)
 	if err != nil {
 		return // entry doesn't exist, so no dependency
 	}

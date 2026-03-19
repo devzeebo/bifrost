@@ -28,7 +28,7 @@ func TestRuneSummaryProjector(t *testing.T) {
 		tc.name_is("rune_summary")
 	})
 
-	t.Run("TableName returns projection_rune_summary", func(t *testing.T) {
+	t.Run("TableName returns rune_summary", func(t *testing.T) {
 		tc := newRuneSummaryTestContext(t)
 
 		// Given
@@ -38,7 +38,7 @@ func TestRuneSummaryProjector(t *testing.T) {
 		tc.table_name_is_called()
 
 		// Then
-		tc.table_name_is("projection_rune_summary")
+		tc.table_name_is("rune_summary")
 	})
 
 	t.Run("handles RuneCreated by putting summary with status draft", func(t *testing.T) {
@@ -46,7 +46,7 @@ func TestRuneSummaryProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_summary_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_rune_created_event("bf-a1b2", "Fix the bridge", 1, "")
 
 		// When
@@ -66,7 +66,7 @@ func TestRuneSummaryProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_summary_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_rune_created_event("bf-a1b2.1", "Child task", 2, "bf-a1b2")
 
 		// When
@@ -83,7 +83,7 @@ func TestRuneSummaryProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_summary_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_rune_created_event_with_branch("bf-a1b2", "Fix the bridge", 1, "", "feature/bridge")
 
 		// When
@@ -100,7 +100,7 @@ func TestRuneSummaryProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_summary_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_rune_created_event_with_type("bf-a1b2", "Fix the bridge", 1, "", "bug")
 
 		// When
@@ -117,7 +117,7 @@ func TestRuneSummaryProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_summary_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_summary("bf-a1b2", "Old title", "open", 1, "", "")
 		tc.a_rune_updated_event("bf-a1b2", strPtr("New title"), intPtr(3))
 
@@ -136,7 +136,7 @@ func TestRuneSummaryProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_summary_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_summary("bf-a1b2", "Old title", "open", 1, "", "")
 		tc.a_rune_updated_event("bf-a1b2", nil, intPtr(5))
 
@@ -154,7 +154,7 @@ func TestRuneSummaryProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_summary_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_summary("bf-a1b2", "Old title", "open", 1, "", "")
 		tc.a_rune_updated_event_with_branch("bf-a1b2", nil, nil, strPtr("feature/new-branch"))
 
@@ -171,7 +171,7 @@ func TestRuneSummaryProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_summary_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_summary_with_branch("bf-a1b2", "Old title", "open", 1, "", "", "feature/old")
 		tc.a_rune_updated_event_with_branch("bf-a1b2", strPtr("New title"), nil, nil)
 
@@ -189,7 +189,7 @@ func TestRuneSummaryProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_summary_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_summary("bf-a1b2", "Fix the bridge", "open", 1, "", "")
 		tc.a_rune_claimed_event("bf-a1b2", "odin")
 
@@ -207,7 +207,7 @@ func TestRuneSummaryProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_summary_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_summary("bf-a1b2", "Fix the bridge", "claimed", 1, "odin", "")
 		tc.a_rune_unclaimed_event("bf-a1b2")
 
@@ -225,7 +225,7 @@ func TestRuneSummaryProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_summary_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_summary("bf-a1b2", "Fix the bridge", "draft", 1, "", "")
 		tc.a_rune_forged_event("bf-a1b2")
 
@@ -242,7 +242,7 @@ func TestRuneSummaryProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_summary_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_summary("bf-a1b2", "Fix the bridge", "claimed", 1, "odin", "")
 		tc.a_rune_fulfilled_event("bf-a1b2")
 
@@ -259,7 +259,7 @@ func TestRuneSummaryProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_summary_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_summary("bf-a1b2", "Fix the bridge", "open", 1, "", "")
 		tc.a_rune_sealed_event("bf-a1b2")
 
@@ -276,7 +276,7 @@ func TestRuneSummaryProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_summary_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_summary("bf-a1b2", "Fix the bridge", "open", 1, "", "")
 		tc.a_rune_shattered_event("bf-a1b2")
 
@@ -293,7 +293,7 @@ func TestRuneSummaryProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_summary_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_unknown_event()
 
 		// When
@@ -308,7 +308,7 @@ func TestRuneSummaryProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_summary_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_rune_created_event_with_timestamp("bf-a1b2", "Fix the bridge", 1, "")
 
 		// When
@@ -325,7 +325,7 @@ func TestRuneSummaryProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_summary_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_summary_with_timestamps("bf-a1b2", "Old title", "open", 1)
 		tc.a_rune_updated_event_with_timestamp("bf-a1b2", strPtr("New title"), nil)
 
@@ -342,7 +342,7 @@ func TestRuneSummaryProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_summary_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_summary("bf-a1b2", "Fix the bridge", "open", 1, "", "")
 		tc.a_rune_claimed_event("bf-a1b2", "thor")
 
@@ -388,7 +388,7 @@ func (tc *runeSummaryTestContext) a_rune_summary_projector() {
 	tc.projector = NewRuneSummaryProjector()
 }
 
-func (tc *runeSummaryTestContext) a_projection_store() {
+func (tc *runeSummaryTestContext) a_store() {
 	tc.t.Helper()
 	tc.store = newMockProjectionStore()
 }
@@ -494,7 +494,7 @@ func (tc *runeSummaryTestContext) an_unknown_event() {
 
 func (tc *runeSummaryTestContext) existing_summary(id, title, status string, priority int, claimant, parentID string) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	summary := RuneSummary{
 		ID:       id,
 		Title:    title,
@@ -503,12 +503,12 @@ func (tc *runeSummaryTestContext) existing_summary(id, title, status string, pri
 		Claimant: claimant,
 		ParentID: parentID,
 	}
-	tc.store.put(tc.realmID, "projection_rune_summary", id, summary)
+	tc.store.put(tc.realmID, "rune_summary", id, summary)
 }
 
 func (tc *runeSummaryTestContext) existing_summary_with_branch(id, title, status string, priority int, claimant, parentID, branch string) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	summary := RuneSummary{
 		ID:       id,
 		Title:    title,
@@ -518,12 +518,12 @@ func (tc *runeSummaryTestContext) existing_summary_with_branch(id, title, status
 		ParentID: parentID,
 		Branch:   branch,
 	}
-	tc.store.put(tc.realmID, "projection_rune_summary", id, summary)
+	tc.store.put(tc.realmID, "rune_summary", id, summary)
 }
 
 func (tc *runeSummaryTestContext) existing_summary_with_timestamps(id, title, status string, priority int) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	created := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	tc.originalUpdated = created
 	summary := RuneSummary{
@@ -534,7 +534,7 @@ func (tc *runeSummaryTestContext) existing_summary_with_timestamps(id, title, st
 		CreatedAt: created,
 		UpdatedAt: created,
 	}
-	tc.store.put(tc.realmID, "projection_rune_summary", id, summary)
+	tc.store.put(tc.realmID, "rune_summary", id, summary)
 }
 
 // --- When ---
@@ -635,7 +635,7 @@ func (tc *runeSummaryTestContext) stored_summary_has_updated_at() {
 func (tc *runeSummaryTestContext) summary_was_deleted(id string) {
 	tc.t.Helper()
 	var summary RuneSummary
-	err := tc.store.Get(tc.ctx, tc.realmID, "projection_rune_summary", id, &summary)
+	err := tc.store.Get(tc.ctx, tc.realmID, "rune_summary", id, &summary)
 	assert.Error(tc.t, err, "expected summary for %s to be deleted", id)
 }
 
@@ -712,7 +712,7 @@ func (tc *runeSummaryTestContext) load_stored_summary() {
 	}
 	
 	var summary RuneSummary
-	if err := tc.store.Get(tc.ctx, tc.realmID, "projection_rune_summary", id, &summary); err == nil {
+	if err := tc.store.Get(tc.ctx, tc.realmID, "rune_summary", id, &summary); err == nil {
 		tc.storedSummary = &summary
 	}
 }

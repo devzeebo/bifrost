@@ -45,7 +45,7 @@ func TestRealmDirectoryProjector(t *testing.T) {
 
 		// Given
 		tc.a_realm_directory_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_realm_created_event("realm-1", "My Realm")
 
 		// When
@@ -64,7 +64,7 @@ func TestRealmDirectoryProjector(t *testing.T) {
 
 		// Given
 		tc.a_realm_directory_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_realm_entry("realm-1", "My Realm", "active")
 		tc.a_realm_suspended_event("realm-1", "policy violation")
 
@@ -82,7 +82,7 @@ func TestRealmDirectoryProjector(t *testing.T) {
 
 		// Given
 		tc.a_realm_directory_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_unknown_event()
 
 		// When
@@ -124,7 +124,7 @@ func (tc *realmDirectoryTestContext) a_realm_directory_projector() {
 	tc.projector = NewRealmDirectoryProjector()
 }
 
-func (tc *realmDirectoryTestContext) a_projection_store() {
+func (tc *realmDirectoryTestContext) a_store() {
 	tc.t.Helper()
 	tc.store = newMockProjectionStore()
 }

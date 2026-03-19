@@ -45,7 +45,7 @@ func TestAccountDirectoryProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_directory_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_account_created_event("acct-1", "alice")
 
 		// When
@@ -68,7 +68,7 @@ func TestAccountDirectoryProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_directory_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_account_entry("acct-1", "alice", "active")
 		tc.an_account_suspended_event("acct-1")
 
@@ -86,7 +86,7 @@ func TestAccountDirectoryProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_directory_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_account_entry("acct-1", "alice", "active")
 		tc.a_realm_granted_event("acct-1", "realm-1")
 
@@ -104,7 +104,7 @@ func TestAccountDirectoryProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_directory_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_account_entry_with_realms("acct-1", "alice", "active", []string{"realm-1", "realm-2"}, map[string]string{"realm-1": "member", "realm-2": "admin"})
 		tc.a_realm_revoked_event("acct-1", "realm-1")
 
@@ -122,7 +122,7 @@ func TestAccountDirectoryProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_directory_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_account_entry("acct-1", "alice", "active")
 		tc.a_role_assigned_event("acct-1", "realm-1", "admin")
 
@@ -140,7 +140,7 @@ func TestAccountDirectoryProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_directory_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_account_entry_with_realms("acct-1", "alice", "active", []string{"realm-1"}, map[string]string{"realm-1": "member"})
 		tc.a_role_assigned_event("acct-1", "realm-1", "admin")
 
@@ -158,7 +158,7 @@ func TestAccountDirectoryProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_directory_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_account_entry_with_realms("acct-1", "alice", "active", []string{"realm-1", "realm-2"}, map[string]string{"realm-1": "admin", "realm-2": "member"})
 		tc.a_role_revoked_event("acct-1", "realm-1")
 
@@ -176,7 +176,7 @@ func TestAccountDirectoryProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_directory_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_account_entry("acct-1", "alice", "active")
 		tc.a_pat_created_event("acct-1", "pat-1", "hash-1", "my-pat")
 
@@ -196,7 +196,7 @@ func TestAccountDirectoryProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_directory_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_account_entry_with_pats("acct-1", "alice", "active", []PATEntry{
 			{PATID: "pat-1", KeyHash: "hash-1", Label: "my-pat", CreatedAt: time.Date(2026, 2, 1, 12, 0, 0, 0, time.UTC)},
 		})
@@ -218,7 +218,7 @@ func TestAccountDirectoryProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_directory_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_account_entry_with_pats("acct-1", "alice", "active", []PATEntry{
 			{PATID: "pat-1", KeyHash: "hash-1", Label: "my-pat", CreatedAt: time.Date(2026, 2, 1, 12, 0, 0, 0, time.UTC)},
 			{PATID: "pat-2", KeyHash: "hash-2", Label: "ci-token", CreatedAt: time.Date(2026, 2, 2, 12, 0, 0, 0, time.UTC)},
@@ -241,7 +241,7 @@ func TestAccountDirectoryProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_directory_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_account_entry_with_pats("acct-1", "alice", "active", []PATEntry{
 			{PATID: "pat-2", KeyHash: "hash-2", Label: "ci-token", CreatedAt: time.Date(2026, 2, 2, 12, 0, 0, 0, time.UTC)},
 		})
@@ -260,7 +260,7 @@ func TestAccountDirectoryProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_directory_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_unknown_event()
 
 		// When
@@ -275,7 +275,7 @@ func TestAccountDirectoryProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_directory_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_account_entry_with_pats("acct-1", "alice", "active", []PATEntry{
 			{PATID: "pat-1", KeyHash: "hash-1", Label: "my-pat", CreatedAt: time.Date(2026, 2, 1, 12, 0, 0, 0, time.UTC)},
 		})
@@ -294,7 +294,7 @@ func TestAccountDirectoryProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_directory_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_account_entry_with_realms("acct-1", "alice", "active", []string{"realm-1"}, map[string]string{"realm-1": "member"})
 		tc.a_realm_granted_event("acct-1", "realm-1")
 
@@ -336,7 +336,7 @@ func (tc *accountDirectoryTestContext) an_account_directory_projector() {
 	tc.projector = NewAccountDirectoryProjector()
 }
 
-func (tc *accountDirectoryTestContext) a_projection_store() {
+func (tc *accountDirectoryTestContext) a_store() {
 	tc.t.Helper()
 	tc.store = newMockProjectionStore()
 }

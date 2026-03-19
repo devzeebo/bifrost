@@ -28,7 +28,7 @@ func (p *AgentDetailProjector) Name() string {
 }
 
 func (p *AgentDetailProjector) TableName() string {
-	return "projection_agent_detail"
+	return "agent_detail"
 }
 
 func (p *AgentDetailProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -57,7 +57,7 @@ func (p *AgentDetailProjector) handleCreated(ctx context.Context, event core.Eve
 
 	// Check if agent already exists for idempotency
 	var existing AgentDetailEntry
-	if err := store.Get(ctx, event.RealmID, "projection_agent_detail", data.AgentID, &existing); err == nil {
+	if err := store.Get(ctx, event.RealmID, "agent_detail", data.AgentID, &existing); err == nil {
 		// Agent already exists, idempotent
 		return nil
 	}
@@ -70,7 +70,7 @@ func (p *AgentDetailProjector) handleCreated(ctx context.Context, event core.Eve
 		Workflows:      []string{},
 		Realms:         []string{},
 	}
-	return store.Put(ctx, event.RealmID, "projection_agent_detail", data.AgentID, entry)
+	return store.Put(ctx, event.RealmID, "agent_detail", data.AgentID, entry)
 }
 
 func (p *AgentDetailProjector) handleUpdated(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -79,7 +79,7 @@ func (p *AgentDetailProjector) handleUpdated(ctx context.Context, event core.Eve
 		return err
 	}
 	var entry AgentDetailEntry
-	if err := store.Get(ctx, event.RealmID, "projection_agent_detail", data.AgentID, &entry); err != nil {
+	if err := store.Get(ctx, event.RealmID, "agent_detail", data.AgentID, &entry); err != nil {
 		return err
 	}
 	if data.Name != nil {
@@ -88,7 +88,7 @@ func (p *AgentDetailProjector) handleUpdated(ctx context.Context, event core.Eve
 	if data.MainWorkflowID != nil {
 		entry.MainWorkflowID = *data.MainWorkflowID
 	}
-	return store.Put(ctx, event.RealmID, "projection_agent_detail", data.AgentID, entry)
+	return store.Put(ctx, event.RealmID, "agent_detail", data.AgentID, entry)
 }
 
 func (p *AgentDetailProjector) handleRealmGranted(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -97,7 +97,7 @@ func (p *AgentDetailProjector) handleRealmGranted(ctx context.Context, event cor
 		return err
 	}
 	var entry AgentDetailEntry
-	if err := store.Get(ctx, event.RealmID, "projection_agent_detail", data.AgentID, &entry); err != nil {
+	if err := store.Get(ctx, event.RealmID, "agent_detail", data.AgentID, &entry); err != nil {
 		return err
 	}
 	// Check for duplicate for idempotency
@@ -107,7 +107,7 @@ func (p *AgentDetailProjector) handleRealmGranted(ctx context.Context, event cor
 		}
 	}
 	entry.Realms = append(entry.Realms, data.RealmID)
-	return store.Put(ctx, event.RealmID, "projection_agent_detail", data.AgentID, entry)
+	return store.Put(ctx, event.RealmID, "agent_detail", data.AgentID, entry)
 }
 
 func (p *AgentDetailProjector) handleRealmRevoked(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -116,7 +116,7 @@ func (p *AgentDetailProjector) handleRealmRevoked(ctx context.Context, event cor
 		return err
 	}
 	var entry AgentDetailEntry
-	if err := store.Get(ctx, event.RealmID, "projection_agent_detail", data.AgentID, &entry); err != nil {
+	if err := store.Get(ctx, event.RealmID, "agent_detail", data.AgentID, &entry); err != nil {
 		return err
 	}
 	filtered := make([]string, 0, len(entry.Realms))
@@ -126,7 +126,7 @@ func (p *AgentDetailProjector) handleRealmRevoked(ctx context.Context, event cor
 		}
 	}
 	entry.Realms = filtered
-	return store.Put(ctx, event.RealmID, "projection_agent_detail", data.AgentID, entry)
+	return store.Put(ctx, event.RealmID, "agent_detail", data.AgentID, entry)
 }
 
 func (p *AgentDetailProjector) handleSkillAdded(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -135,7 +135,7 @@ func (p *AgentDetailProjector) handleSkillAdded(ctx context.Context, event core.
 		return err
 	}
 	var entry AgentDetailEntry
-	if err := store.Get(ctx, event.RealmID, "projection_agent_detail", data.AgentID, &entry); err != nil {
+	if err := store.Get(ctx, event.RealmID, "agent_detail", data.AgentID, &entry); err != nil {
 		return err
 	}
 	// Check for duplicate for idempotency
@@ -145,7 +145,7 @@ func (p *AgentDetailProjector) handleSkillAdded(ctx context.Context, event core.
 		}
 	}
 	entry.Skills = append(entry.Skills, data.SkillID)
-	return store.Put(ctx, event.RealmID, "projection_agent_detail", data.AgentID, entry)
+	return store.Put(ctx, event.RealmID, "agent_detail", data.AgentID, entry)
 }
 
 func (p *AgentDetailProjector) handleWorkflowAdded(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -154,7 +154,7 @@ func (p *AgentDetailProjector) handleWorkflowAdded(ctx context.Context, event co
 		return err
 	}
 	var entry AgentDetailEntry
-	if err := store.Get(ctx, event.RealmID, "projection_agent_detail", data.AgentID, &entry); err != nil {
+	if err := store.Get(ctx, event.RealmID, "agent_detail", data.AgentID, &entry); err != nil {
 		return err
 	}
 	// Check for duplicate for idempotency
@@ -164,5 +164,5 @@ func (p *AgentDetailProjector) handleWorkflowAdded(ctx context.Context, event co
 		}
 	}
 	entry.Workflows = append(entry.Workflows, data.WorkflowID)
-	return store.Put(ctx, event.RealmID, "projection_agent_detail", data.AgentID, entry)
+	return store.Put(ctx, event.RealmID, "agent_detail", data.AgentID, entry)
 }

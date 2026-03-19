@@ -28,7 +28,7 @@ func (p *SystemStatusProjector) Name() string {
 }
 
 func (p *SystemStatusProjector) TableName() string {
-	return "projection_system_status"
+	return "system_status"
 }
 
 func (p *SystemStatusProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -53,7 +53,7 @@ func (p *SystemStatusProjector) handleAccountCreated(ctx context.Context, event 
 
 	// Check if status already exists for idempotency
 	var existing SystemStatusEntry
-	if err := store.Get(ctx, "_admin", "projection_system_status", "status", &existing); err == nil {
+	if err := store.Get(ctx, "_admin", "system_status", "status", &existing); err == nil {
 		// Status already exists, idempotent - don't reset accumulated state
 		return nil
 	}
@@ -63,7 +63,7 @@ func (p *SystemStatusProjector) handleAccountCreated(ctx context.Context, event 
 		AdminAccountIDs: []string{},
 		RealmIDs:        []string{},
 	}
-	return store.Put(ctx, "_admin", "projection_system_status", "status", entry)
+	return store.Put(ctx, "_admin", "system_status", "status", entry)
 }
 
 func (p *SystemStatusProjector) handleRoleAssigned(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -78,7 +78,7 @@ func (p *SystemStatusProjector) handleRoleAssigned(ctx context.Context, event co
 	}
 
 	var entry SystemStatusEntry
-	if err := store.Get(ctx, "_admin", "projection_system_status", "status", &entry); err != nil {
+	if err := store.Get(ctx, "_admin", "system_status", "status", &entry); err != nil {
 		return err
 	}
 
@@ -90,7 +90,7 @@ func (p *SystemStatusProjector) handleRoleAssigned(ctx context.Context, event co
 	}
 
 	entry.AdminAccountIDs = append(entry.AdminAccountIDs, data.AccountID)
-	return store.Put(ctx, "_admin", "projection_system_status", "status", entry)
+	return store.Put(ctx, "_admin", "system_status", "status", entry)
 }
 
 func (p *SystemStatusProjector) handleRoleRevoked(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -105,7 +105,7 @@ func (p *SystemStatusProjector) handleRoleRevoked(ctx context.Context, event cor
 	}
 
 	var entry SystemStatusEntry
-	if err := store.Get(ctx, "_admin", "projection_system_status", "status", &entry); err != nil {
+	if err := store.Get(ctx, "_admin", "system_status", "status", &entry); err != nil {
 		return err
 	}
 
@@ -117,7 +117,7 @@ func (p *SystemStatusProjector) handleRoleRevoked(ctx context.Context, event cor
 		}
 	}
 	entry.AdminAccountIDs = filtered
-	return store.Put(ctx, "_admin", "projection_system_status", "status", entry)
+	return store.Put(ctx, "_admin", "system_status", "status", entry)
 }
 
 func (p *SystemStatusProjector) handleRealmCreated(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -127,7 +127,7 @@ func (p *SystemStatusProjector) handleRealmCreated(ctx context.Context, event co
 	}
 
 	var entry SystemStatusEntry
-	if err := store.Get(ctx, "_admin", "projection_system_status", "status", &entry); err != nil {
+	if err := store.Get(ctx, "_admin", "system_status", "status", &entry); err != nil {
 		return err
 	}
 
@@ -139,5 +139,5 @@ func (p *SystemStatusProjector) handleRealmCreated(ctx context.Context, event co
 	}
 
 	entry.RealmIDs = append(entry.RealmIDs, data.RealmID)
-	return store.Put(ctx, "_admin", "projection_system_status", "status", entry)
+	return store.Put(ctx, "_admin", "system_status", "status", entry)
 }

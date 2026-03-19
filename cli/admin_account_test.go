@@ -53,7 +53,7 @@ func TestAdminListAccounts(t *testing.T) {
 
 		// Given
 		tc.admin_cmd_with_mock_stores()
-		tc.projection_store_has_accounts()
+		tc.store_has_accounts()
 
 		// When
 		tc.run_list_accounts()
@@ -72,7 +72,7 @@ func TestAdminListAccounts(t *testing.T) {
 
 		// Given
 		tc.admin_cmd_with_mock_stores()
-		tc.projection_store_has_accounts()
+		tc.store_has_accounts()
 
 		// When
 		tc.run_list_accounts_json()
@@ -368,7 +368,7 @@ func (tc *adminAccountTestContext) admin_cmd_with_mock_stores() {
 	tc.cmd = newAdminCmdForTest(tc.eventStore, tc.projectionStore)
 }
 
-func (tc *adminAccountTestContext) projection_store_has_accounts() {
+func (tc *adminAccountTestContext) store_has_accounts() {
 	tc.t.Helper()
 	entry := projectors.AccountDirectoryEntry{
 		AccountID: "acct-1234",
@@ -383,7 +383,7 @@ func (tc *adminAccountTestContext) projection_store_has_accounts() {
 
 func (tc *adminAccountTestContext) account_exists(username, accountID string) {
 	tc.t.Helper()
-	tc.projectionStore.data["_admin|projection_username_lookup|"+username] = accountID
+	tc.projectionStore.data["_admin|username_lookup|"+username] = accountID
 
 	accountCreated := map[string]interface{}{
 		"account_id": accountID,

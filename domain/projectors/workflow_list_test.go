@@ -26,7 +26,7 @@ func TestWorkflowListProjector(t *testing.T) {
 		tc.name_is("workflow_list")
 	})
 
-	t.Run("TableName returns projection_workflow_list", func(t *testing.T) {
+	t.Run("TableName returns workflow_list", func(t *testing.T) {
 		tc := newWorkflowListTestContext(t)
 
 		// Given
@@ -36,7 +36,7 @@ func TestWorkflowListProjector(t *testing.T) {
 		tc.table_name_is_called()
 
 		// Then
-		tc.table_name_is("projection_workflow_list")
+		tc.table_name_is("workflow_list")
 	})
 
 	t.Run("handles WorkflowCreated by putting entry with id and name", func(t *testing.T) {
@@ -44,7 +44,7 @@ func TestWorkflowListProjector(t *testing.T) {
 
 		// Given
 		tc.a_workflow_list_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_workflow_created_event("workflow-1", "TestWorkflow")
 
 		// When
@@ -61,7 +61,7 @@ func TestWorkflowListProjector(t *testing.T) {
 
 		// Given
 		tc.a_workflow_list_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_workflow_entry("workflow-1", "OldName")
 		tc.a_workflow_updated_event_with_name("workflow-1", "NewName")
 
@@ -78,7 +78,7 @@ func TestWorkflowListProjector(t *testing.T) {
 
 		// Given
 		tc.a_workflow_list_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_workflow_entry("workflow-1", "TestWorkflow")
 		tc.a_workflow_deleted_event("workflow-1")
 
@@ -95,7 +95,7 @@ func TestWorkflowListProjector(t *testing.T) {
 
 		// Given
 		tc.a_workflow_list_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_unknown_event()
 
 		// When
@@ -110,7 +110,7 @@ func TestWorkflowListProjector(t *testing.T) {
 
 		// Given
 		tc.a_workflow_list_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_workflow_entry("workflow-1", "TestWorkflow")
 		tc.a_workflow_created_event("workflow-1", "TestWorkflow")
 
@@ -152,7 +152,7 @@ func (tc *workflowListTestContext) a_workflow_list_projector() {
 	tc.projector = NewWorkflowListProjector()
 }
 
-func (tc *workflowListTestContext) a_projection_store() {
+func (tc *workflowListTestContext) a_store() {
 	tc.t.Helper()
 	tc.store = newMockProjectionStore()
 }
@@ -195,7 +195,7 @@ func (tc *workflowListTestContext) existing_workflow_entry(workflowID, name stri
 		ID:   workflowID,
 		Name: name,
 	}
-	tc.store.put("realm-1", "projection_workflow_list", workflowID, entry)
+	tc.store.put("realm-1", "workflow_list", workflowID, entry)
 }
 
 // --- When ---
@@ -235,21 +235,21 @@ func (tc *workflowListTestContext) no_error() {
 func (tc *workflowListTestContext) workflow_entry_exists(workflowID string) {
 	tc.t.Helper()
 	var entry WorkflowListEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_workflow_list", workflowID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "workflow_list", workflowID, &entry)
 	require.NoError(tc.t, err, "expected workflow list entry for %s", workflowID)
 }
 
 func (tc *workflowListTestContext) workflow_entry_does_not_exist(workflowID string) {
 	tc.t.Helper()
 	var entry WorkflowListEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_workflow_list", workflowID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "workflow_list", workflowID, &entry)
 	require.Error(tc.t, err, "expected workflow list entry for %s to not exist", workflowID)
 }
 
 func (tc *workflowListTestContext) workflow_entry_has_name(workflowID, expected string) {
 	tc.t.Helper()
 	var entry WorkflowListEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_workflow_list", workflowID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "workflow_list", workflowID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, entry.Name)
 }

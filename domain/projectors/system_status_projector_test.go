@@ -28,7 +28,7 @@ func TestSystemStatusProjector(t *testing.T) {
 		tc.name_is("system_status")
 	})
 
-	t.Run("TableName returns projection_system_status", func(t *testing.T) {
+	t.Run("TableName returns system_status", func(t *testing.T) {
 		tc := newSystemStatusTestContext(t)
 
 		// Given
@@ -38,7 +38,7 @@ func TestSystemStatusProjector(t *testing.T) {
 		tc.table_name_is_called()
 
 		// Then
-		tc.table_name_is("projection_system_status")
+		tc.table_name_is("system_status")
 	})
 
 	t.Run("handles AccountCreated by initializing empty admin_account_ids and realm_ids", func(t *testing.T) {
@@ -46,7 +46,7 @@ func TestSystemStatusProjector(t *testing.T) {
 
 		// Given
 		tc.a_system_status_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_account_created_event("acct-1", "alice")
 
 		// When
@@ -64,7 +64,7 @@ func TestSystemStatusProjector(t *testing.T) {
 
 		// Given
 		tc.a_system_status_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_system_status_entry([]string{}, []string{})
 		tc.a_role_assigned_event_in_admin_realm("acct-1", "admin")
 
@@ -81,7 +81,7 @@ func TestSystemStatusProjector(t *testing.T) {
 
 		// Given
 		tc.a_system_status_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_system_status_entry([]string{}, []string{})
 		tc.a_role_assigned_event_in_admin_realm("acct-1", "owner")
 
@@ -98,7 +98,7 @@ func TestSystemStatusProjector(t *testing.T) {
 
 		// Given
 		tc.a_system_status_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_system_status_entry([]string{}, []string{})
 		tc.a_role_assigned_event_in_admin_realm("acct-1", "member")
 
@@ -115,7 +115,7 @@ func TestSystemStatusProjector(t *testing.T) {
 
 		// Given
 		tc.a_system_status_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_system_status_entry([]string{}, []string{})
 		tc.a_role_assigned_event("acct-1", "realm-1", "admin")
 
@@ -132,7 +132,7 @@ func TestSystemStatusProjector(t *testing.T) {
 
 		// Given
 		tc.a_system_status_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_system_status_entry([]string{"acct-1", "acct-2"}, []string{})
 		tc.a_role_revoked_event_in_admin_realm("acct-1")
 
@@ -149,7 +149,7 @@ func TestSystemStatusProjector(t *testing.T) {
 
 		// Given
 		tc.a_system_status_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_system_status_entry([]string{"acct-1"}, []string{})
 		tc.a_role_revoked_event("acct-1", "realm-1")
 
@@ -166,7 +166,7 @@ func TestSystemStatusProjector(t *testing.T) {
 
 		// Given
 		tc.a_system_status_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_system_status_entry([]string{}, []string{})
 		tc.a_realm_created_event("realm-1", "my-realm")
 
@@ -183,7 +183,7 @@ func TestSystemStatusProjector(t *testing.T) {
 
 		// Given
 		tc.a_system_status_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_system_status_entry([]string{}, []string{"realm-1"})
 		tc.a_realm_created_event("realm-2", "other-realm")
 
@@ -200,7 +200,7 @@ func TestSystemStatusProjector(t *testing.T) {
 
 		// Given
 		tc.a_system_status_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_system_status_entry([]string{"acct-1"}, []string{})
 		tc.a_role_assigned_event_in_admin_realm("acct-2", "admin")
 
@@ -217,7 +217,7 @@ func TestSystemStatusProjector(t *testing.T) {
 
 		// Given
 		tc.a_system_status_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_system_status_entry([]string{"acct-1"}, []string{})
 		tc.a_role_assigned_event_in_admin_realm("acct-1", "admin")
 
@@ -234,7 +234,7 @@ func TestSystemStatusProjector(t *testing.T) {
 
 		// Given
 		tc.a_system_status_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_system_status_entry([]string{}, []string{"realm-1"})
 		tc.a_realm_created_event("realm-1", "my-realm")
 
@@ -251,7 +251,7 @@ func TestSystemStatusProjector(t *testing.T) {
 
 		// Given
 		tc.a_system_status_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_system_status_entry([]string{"acct-1"}, []string{})
 		tc.a_role_revoked_event_in_admin_realm("acct-2") // acct-2 not in list
 
@@ -268,7 +268,7 @@ func TestSystemStatusProjector(t *testing.T) {
 
 		// Given
 		tc.a_system_status_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_unknown_event()
 
 		// When
@@ -283,7 +283,7 @@ func TestSystemStatusProjector(t *testing.T) {
 
 		// Given
 		tc.a_system_status_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_system_status_entry([]string{"acct-1"}, []string{"realm-1"})
 		tc.an_account_created_event("acct-2", "bob")
 
@@ -325,7 +325,7 @@ func (tc *systemStatusTestContext) a_system_status_projector() {
 	tc.projector = NewSystemStatusProjector()
 }
 
-func (tc *systemStatusTestContext) a_projection_store() {
+func (tc *systemStatusTestContext) a_store() {
 	tc.t.Helper()
 	tc.store = newMockProjectionStore()
 }
@@ -399,7 +399,7 @@ func (tc *systemStatusTestContext) existing_system_status_entry(adminAccountIDs,
 		AdminAccountIDs: adminAccountIDs,
 		RealmIDs:        realmIDs,
 	}
-	tc.store.put("_admin", "projection_system_status", "status", entry)
+	tc.store.put("_admin", "system_status", "status", entry)
 }
 
 // --- When ---
@@ -439,14 +439,14 @@ func (tc *systemStatusTestContext) no_error() {
 func (tc *systemStatusTestContext) system_status_entry_exists() {
 	tc.t.Helper()
 	var entry SystemStatusEntry
-	err := tc.store.Get(tc.ctx, "_admin", "projection_system_status", "status", &entry)
+	err := tc.store.Get(tc.ctx, "_admin", "system_status", "status", &entry)
 	require.NoError(tc.t, err, "expected system status entry to exist")
 }
 
 func (tc *systemStatusTestContext) system_status_has_admin_account_ids(expected []string) {
 	tc.t.Helper()
 	var entry SystemStatusEntry
-	err := tc.store.Get(tc.ctx, "_admin", "projection_system_status", "status", &entry)
+	err := tc.store.Get(tc.ctx, "_admin", "system_status", "status", &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, entry.AdminAccountIDs)
 }
@@ -454,7 +454,7 @@ func (tc *systemStatusTestContext) system_status_has_admin_account_ids(expected 
 func (tc *systemStatusTestContext) system_status_has_realm_ids(expected []string) {
 	tc.t.Helper()
 	var entry SystemStatusEntry
-	err := tc.store.Get(tc.ctx, "_admin", "projection_system_status", "status", &entry)
+	err := tc.store.Get(tc.ctx, "_admin", "system_status", "status", &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, entry.RealmIDs)
 }

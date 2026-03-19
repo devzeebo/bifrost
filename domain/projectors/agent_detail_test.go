@@ -26,7 +26,7 @@ func TestAgentDetailProjector(t *testing.T) {
 		tc.name_is("agent_detail")
 	})
 
-	t.Run("TableName returns projection_agent_detail", func(t *testing.T) {
+	t.Run("TableName returns agent_detail", func(t *testing.T) {
 		tc := newAgentDetailTestContext(t)
 
 		// Given
@@ -36,7 +36,7 @@ func TestAgentDetailProjector(t *testing.T) {
 		tc.table_name_is_called()
 
 		// Then
-		tc.table_name_is("projection_agent_detail")
+		tc.table_name_is("agent_detail")
 	})
 
 	t.Run("handles AgentCreated by putting entry with name", func(t *testing.T) {
@@ -44,7 +44,7 @@ func TestAgentDetailProjector(t *testing.T) {
 
 		// Given
 		tc.an_agent_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_agent_created_event("agent-1", "TestAgent")
 
 		// When
@@ -58,7 +58,7 @@ func TestAgentDetailProjector(t *testing.T) {
 		tc.agent_entry_has_empty_skills("agent-1")
 		tc.agent_entry_has_empty_workflows("agent-1")
 		tc.agent_entry_has_empty_realms("agent-1")
-		tc.entry_is_stored_in_projection_agent_detail_table("agent-1")
+		tc.entry_is_stored_in_agent_detail_table("agent-1")
 	})
 
 	t.Run("handles AgentUpdated with name change", func(t *testing.T) {
@@ -66,7 +66,7 @@ func TestAgentDetailProjector(t *testing.T) {
 
 		// Given
 		tc.an_agent_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_agent_entry("agent-1", "OldName")
 		tc.an_agent_updated_event_with_name("agent-1", "NewName")
 
@@ -83,7 +83,7 @@ func TestAgentDetailProjector(t *testing.T) {
 
 		// Given
 		tc.an_agent_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_agent_entry("agent-1", "TestAgent")
 		tc.an_agent_updated_event_with_main_workflow_id("agent-1", "workflow-1")
 
@@ -100,7 +100,7 @@ func TestAgentDetailProjector(t *testing.T) {
 
 		// Given
 		tc.an_agent_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_agent_entry("agent-1", "TestAgent")
 		tc.an_agent_realm_granted_event("agent-1", "realm-1")
 
@@ -117,7 +117,7 @@ func TestAgentDetailProjector(t *testing.T) {
 
 		// Given
 		tc.an_agent_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_agent_entry_with_realms("agent-1", "TestAgent", []string{"realm-1", "realm-2"})
 		tc.an_agent_realm_revoked_event("agent-1", "realm-1")
 
@@ -134,7 +134,7 @@ func TestAgentDetailProjector(t *testing.T) {
 
 		// Given
 		tc.an_agent_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_agent_entry("agent-1", "TestAgent")
 		tc.an_agent_skill_added_event("agent-1", "skill-1")
 
@@ -151,7 +151,7 @@ func TestAgentDetailProjector(t *testing.T) {
 
 		// Given
 		tc.an_agent_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_agent_entry("agent-1", "TestAgent")
 		tc.an_agent_workflow_added_event("agent-1", "workflow-1")
 
@@ -168,7 +168,7 @@ func TestAgentDetailProjector(t *testing.T) {
 
 		// Given
 		tc.an_agent_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_unknown_event()
 
 		// When
@@ -183,7 +183,7 @@ func TestAgentDetailProjector(t *testing.T) {
 
 		// Given
 		tc.an_agent_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_agent_entry_with_realms("agent-1", "TestAgent", []string{"realm-1"})
 		tc.an_agent_realm_granted_event("agent-1", "realm-1")
 
@@ -200,7 +200,7 @@ func TestAgentDetailProjector(t *testing.T) {
 
 		// Given
 		tc.an_agent_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_agent_entry_with_skills("agent-1", "TestAgent", []string{"skill-1"})
 		tc.an_agent_skill_added_event("agent-1", "skill-1")
 
@@ -217,7 +217,7 @@ func TestAgentDetailProjector(t *testing.T) {
 
 		// Given
 		tc.an_agent_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_agent_entry_with_workflows("agent-1", "TestAgent", []string{"workflow-1"})
 		tc.an_agent_workflow_added_event("agent-1", "workflow-1")
 
@@ -259,7 +259,7 @@ func (tc *agentDetailTestContext) an_agent_detail_projector() {
 	tc.projector = NewAgentDetailProjector()
 }
 
-func (tc *agentDetailTestContext) a_projection_store() {
+func (tc *agentDetailTestContext) a_store() {
 	tc.t.Helper()
 	tc.store = newMockProjectionStore()
 }
@@ -338,7 +338,7 @@ func (tc *agentDetailTestContext) existing_agent_entry(agentID, name string) {
 		Workflows:      []string{},
 		Realms:         []string{},
 	}
-	tc.store.put("realm-1", "projection_agent_detail", agentID, entry)
+	tc.store.put("realm-1", "agent_detail", agentID, entry)
 }
 
 func (tc *agentDetailTestContext) existing_agent_entry_with_realms(agentID, name string, realms []string) {
@@ -354,7 +354,7 @@ func (tc *agentDetailTestContext) existing_agent_entry_with_realms(agentID, name
 		Workflows:      []string{},
 		Realms:         realms,
 	}
-	tc.store.put("realm-1", "projection_agent_detail", agentID, entry)
+	tc.store.put("realm-1", "agent_detail", agentID, entry)
 }
 
 func (tc *agentDetailTestContext) existing_agent_entry_with_skills(agentID, name string, skills []string) {
@@ -370,7 +370,7 @@ func (tc *agentDetailTestContext) existing_agent_entry_with_skills(agentID, name
 		Workflows:      []string{},
 		Realms:         []string{},
 	}
-	tc.store.put("realm-1", "projection_agent_detail", agentID, entry)
+	tc.store.put("realm-1", "agent_detail", agentID, entry)
 }
 
 func (tc *agentDetailTestContext) existing_agent_entry_with_workflows(agentID, name string, workflows []string) {
@@ -386,7 +386,7 @@ func (tc *agentDetailTestContext) existing_agent_entry_with_workflows(agentID, n
 		Workflows:    workflows,
 		Realms:       []string{},
 	}
-	tc.store.put("realm-1", "projection_agent_detail", agentID, entry)
+	tc.store.put("realm-1", "agent_detail", agentID, entry)
 }
 
 // --- When ---
@@ -426,14 +426,14 @@ func (tc *agentDetailTestContext) no_error() {
 func (tc *agentDetailTestContext) agent_entry_exists(agentID string) {
 	tc.t.Helper()
 	var entry AgentDetailEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_agent_detail", agentID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "agent_detail", agentID, &entry)
 	require.NoError(tc.t, err, "expected agent detail entry for %s", agentID)
 }
 
 func (tc *agentDetailTestContext) agent_entry_has_name(agentID, expected string) {
 	tc.t.Helper()
 	var entry AgentDetailEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_agent_detail", agentID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "agent_detail", agentID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, entry.Name)
 }
@@ -441,7 +441,7 @@ func (tc *agentDetailTestContext) agent_entry_has_name(agentID, expected string)
 func (tc *agentDetailTestContext) agent_entry_has_main_workflow_id(agentID, expected string) {
 	tc.t.Helper()
 	var entry AgentDetailEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_agent_detail", agentID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "agent_detail", agentID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, entry.MainWorkflowID)
 }
@@ -449,7 +449,7 @@ func (tc *agentDetailTestContext) agent_entry_has_main_workflow_id(agentID, expe
 func (tc *agentDetailTestContext) agent_entry_has_empty_main_workflow_id(agentID string) {
 	tc.t.Helper()
 	var entry AgentDetailEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_agent_detail", agentID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "agent_detail", agentID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, "", entry.MainWorkflowID)
 }
@@ -457,7 +457,7 @@ func (tc *agentDetailTestContext) agent_entry_has_empty_main_workflow_id(agentID
 func (tc *agentDetailTestContext) agent_entry_has_skills(agentID string, expected []string) {
 	tc.t.Helper()
 	var entry AgentDetailEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_agent_detail", agentID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "agent_detail", agentID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, entry.Skills)
 }
@@ -465,7 +465,7 @@ func (tc *agentDetailTestContext) agent_entry_has_skills(agentID string, expecte
 func (tc *agentDetailTestContext) agent_entry_has_empty_skills(agentID string) {
 	tc.t.Helper()
 	var entry AgentDetailEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_agent_detail", agentID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "agent_detail", agentID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, []string{}, entry.Skills)
 }
@@ -473,7 +473,7 @@ func (tc *agentDetailTestContext) agent_entry_has_empty_skills(agentID string) {
 func (tc *agentDetailTestContext) agent_entry_has_workflows(agentID string, expected []string) {
 	tc.t.Helper()
 	var entry AgentDetailEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_agent_detail", agentID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "agent_detail", agentID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, entry.Workflows)
 }
@@ -481,7 +481,7 @@ func (tc *agentDetailTestContext) agent_entry_has_workflows(agentID string, expe
 func (tc *agentDetailTestContext) agent_entry_has_empty_workflows(agentID string) {
 	tc.t.Helper()
 	var entry AgentDetailEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_agent_detail", agentID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "agent_detail", agentID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, []string{}, entry.Workflows)
 }
@@ -489,7 +489,7 @@ func (tc *agentDetailTestContext) agent_entry_has_empty_workflows(agentID string
 func (tc *agentDetailTestContext) agent_entry_has_realms(agentID string, expected []string) {
 	tc.t.Helper()
 	var entry AgentDetailEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_agent_detail", agentID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "agent_detail", agentID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, entry.Realms)
 }
@@ -497,14 +497,14 @@ func (tc *agentDetailTestContext) agent_entry_has_realms(agentID string, expecte
 func (tc *agentDetailTestContext) agent_entry_has_empty_realms(agentID string) {
 	tc.t.Helper()
 	var entry AgentDetailEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_agent_detail", agentID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "agent_detail", agentID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, []string{}, entry.Realms)
 }
 
-func (tc *agentDetailTestContext) entry_is_stored_in_projection_agent_detail_table(agentID string) {
+func (tc *agentDetailTestContext) entry_is_stored_in_agent_detail_table(agentID string) {
 	tc.t.Helper()
 	var entry AgentDetailEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_agent_detail", agentID, &entry)
-	require.NoError(tc.t, err, "expected entry to be stored in projection_agent_detail table")
+	err := tc.store.Get(tc.ctx, "realm-1", "agent_detail", agentID, &entry)
+	require.NoError(tc.t, err, "expected entry to be stored in agent_detail table")
 }

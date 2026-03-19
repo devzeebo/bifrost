@@ -26,7 +26,7 @@ func (p *RealmNameLookupProjector) Name() string {
 }
 
 func (p *RealmNameLookupProjector) TableName() string {
-	return "projection_realm_name_lookup"
+	return "realm_name_lookup"
 }
 
 func (p *RealmNameLookupProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -45,7 +45,7 @@ func (p *RealmNameLookupProjector) handleRealmCreated(ctx context.Context, event
 
 	// Check if entry already exists for idempotency
 	var existing RealmNameLookupEntry
-	if err := store.Get(ctx, "_admin", "projection_realm_name_lookup", data.Name, &existing); err == nil {
+	if err := store.Get(ctx, "_admin", "realm_name_lookup", data.Name, &existing); err == nil {
 		// Entry already exists, idempotent - don't overwrite
 		return nil
 	}
@@ -54,5 +54,5 @@ func (p *RealmNameLookupProjector) handleRealmCreated(ctx context.Context, event
 		Name:    data.Name,
 		RealmID: data.RealmID,
 	}
-	return store.Put(ctx, "_admin", "projection_realm_name_lookup", data.Name, entry)
+	return store.Put(ctx, "_admin", "realm_name_lookup", data.Name, entry)
 }

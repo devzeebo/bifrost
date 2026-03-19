@@ -82,7 +82,7 @@ func TestResolveUsername(t *testing.T) {
 		tc := newAdminTestContext(t)
 
 		// Given
-		tc.projection_store_has_username("alice", "acct-1234")
+		tc.store_has_username("alice", "acct-1234")
 
 		// When
 		tc.resolve_username("alice")
@@ -96,7 +96,7 @@ func TestResolveUsername(t *testing.T) {
 		tc := newAdminTestContext(t)
 
 		// Given
-		tc.projection_store_has_no_username("bob")
+		tc.store_has_no_username("bob")
 
 		// When
 		tc.resolve_username("bob")
@@ -154,16 +154,16 @@ func newAdminTestContext(t *testing.T) *adminTestContext {
 
 // --- Given ---
 
-func (tc *adminTestContext) projection_store_has_username(username, accountID string) {
+func (tc *adminTestContext) store_has_username(username, accountID string) {
 	tc.t.Helper()
 	tc.projectionStore = &mockProjectionStore{
 		data: map[string]any{
-			"_admin|projection_username_lookup|" + username: accountID,
+			"_admin|username_lookup|" + username: accountID,
 		},
 	}
 }
 
-func (tc *adminTestContext) projection_store_has_no_username(username string) {
+func (tc *adminTestContext) store_has_no_username(username string) {
 	tc.t.Helper()
 	tc.projectionStore = &mockProjectionStore{
 		data: map[string]any{},

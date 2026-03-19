@@ -160,7 +160,7 @@ func TestHandleCreateAccount(t *testing.T) {
 
 		// Given
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.username_is_available("alice")
 		tc.a_create_account_command("alice")
 
@@ -182,7 +182,7 @@ func TestHandleCreateAccount(t *testing.T) {
 
 		// Given
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.username_is_taken("alice")
 		tc.a_create_account_command("alice")
 
@@ -709,7 +709,7 @@ func (tc *accountHandlerTestContext) an_event_store() {
 	}
 }
 
-func (tc *accountHandlerTestContext) a_projection_store() {
+func (tc *accountHandlerTestContext) a_store() {
 	tc.t.Helper()
 	if tc.projectionStore == nil {
 		tc.projectionStore = newMockProjectionStore()
@@ -914,14 +914,14 @@ func (tc *accountHandlerTestContext) empty_account_stream(accountID string) {
 
 func (tc *accountHandlerTestContext) username_is_available(username string) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	// No entry means username is available (Get returns NotFoundError)
 }
 
 func (tc *accountHandlerTestContext) username_is_taken(username string) {
 	tc.t.Helper()
-	tc.a_projection_store()
-	tc.projectionStore.data["projection_username_lookup:"+username] = map[string]any{"username": username, "account_id": "acct-existing"}
+	tc.a_store()
+	tc.projectionStore.data["username_lookup:"+username] = map[string]any{"username": username, "account_id": "acct-existing"}
 }
 
 func (tc *accountHandlerTestContext) a_create_account_command(username string) {

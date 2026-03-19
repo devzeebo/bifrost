@@ -50,7 +50,7 @@ func TestAdminListRealms(t *testing.T) {
 
 		// Given
 		tc.admin_cmd_with_mock_stores()
-		tc.projection_store_has_realms()
+		tc.store_has_realms()
 
 		// When
 		tc.run_list_realms()
@@ -69,7 +69,7 @@ func TestAdminListRealms(t *testing.T) {
 
 		// Given
 		tc.admin_cmd_with_mock_stores()
-		tc.projection_store_has_realms()
+		tc.store_has_realms()
 
 		// When
 		tc.run_list_realms_json()
@@ -156,7 +156,7 @@ func (tc *adminRealmTestContext) admin_cmd_with_mock_stores() {
 	tc.cmd = newAdminCmdForTest(tc.eventStore, tc.projectionStore)
 }
 
-func (tc *adminRealmTestContext) projection_store_has_realms() {
+func (tc *adminRealmTestContext) store_has_realms() {
 	tc.t.Helper()
 	entry := projectors.RealmDirectoryEntry{
 		RealmID: "bf-1234",

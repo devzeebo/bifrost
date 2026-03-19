@@ -226,7 +226,7 @@ func authenticateViaBearerToken(ctx context.Context, token string, realmID strin
 
 	// Look up PAT ID from keyHash reverse lookup
 	var patID string
-	if err := projectionStore.Get(ctx, "_admin", "projection_pat_by_keyhash", keyHash, &patID); err != nil {
+	if err := projectionStore.Get(ctx, "_admin", "pat_by_keyhash", keyHash, &patID); err != nil {
 		var notFound *core.NotFoundError
 		if errors.As(err, &notFound) {
 			return nil, ErrUnauthorized("Unauthorized")
@@ -236,7 +236,7 @@ func authenticateViaBearerToken(ctx context.Context, token string, realmID strin
 
 	// Look up PAT entry to get account ID
 	var patEntry projectors.PATIDEntry
-	if err := projectionStore.Get(ctx, "_admin", "projection_pat_by_id", patID, &patEntry); err != nil {
+	if err := projectionStore.Get(ctx, "_admin", "pat_by_id", patID, &patEntry); err != nil {
 		var notFound *core.NotFoundError
 		if errors.As(err, &notFound) {
 			return nil, ErrUnauthorized("Unauthorized")
@@ -246,7 +246,7 @@ func authenticateViaBearerToken(ctx context.Context, token string, realmID strin
 
 	// Look up account auth entry
 	var entry projectors.AccountAuthEntry
-	err = projectionStore.Get(ctx, "_admin", "projection_account_auth", patEntry.AccountID, &entry)
+	err = projectionStore.Get(ctx, "_admin", "account_auth", patEntry.AccountID, &entry)
 	if err != nil {
 		// If the error is NotFoundError, it means the token is invalid
 		var notFound *core.NotFoundError

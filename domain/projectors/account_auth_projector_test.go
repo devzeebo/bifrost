@@ -26,7 +26,7 @@ func TestAccountAuthProjector(t *testing.T) {
 		tc.name_is("account_auth")
 	})
 
-	t.Run("TableName returns projection_account_auth", func(t *testing.T) {
+	t.Run("TableName returns account_auth", func(t *testing.T) {
 		tc := newAccountAuthTestContext(t)
 
 		// Given
@@ -36,7 +36,7 @@ func TestAccountAuthProjector(t *testing.T) {
 		tc.table_name_is_called()
 
 		// Then
-		tc.table_name_is("projection_account_auth")
+		tc.table_name_is("account_auth")
 	})
 
 	t.Run("handles AccountCreated by putting entry with username and active status", func(t *testing.T) {
@@ -44,7 +44,7 @@ func TestAccountAuthProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_auth_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_account_created_event("acct-1", "alice")
 
 		// When
@@ -57,7 +57,7 @@ func TestAccountAuthProjector(t *testing.T) {
 		tc.entry_has_status("acct-1", "active")
 		tc.entry_has_empty_realms("acct-1")
 		tc.entry_has_empty_roles("acct-1")
-		tc.entry_is_stored_in_projection_account_auth_table("acct-1")
+		tc.entry_is_stored_in_account_auth_table("acct-1")
 	})
 
 	t.Run("handles AccountSuspended by updating status to suspended", func(t *testing.T) {
@@ -65,7 +65,7 @@ func TestAccountAuthProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_auth_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_entry("acct-1", "alice", "active")
 		tc.an_account_suspended_event("acct-1")
 
@@ -82,7 +82,7 @@ func TestAccountAuthProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_auth_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_entry("acct-1", "alice", "active")
 		tc.a_realm_granted_event("acct-1", "realm-1")
 
@@ -100,7 +100,7 @@ func TestAccountAuthProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_auth_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_entry_with_realms("acct-1", "alice", "active", []string{"realm-1", "realm-2"})
 		tc.a_realm_revoked_event("acct-1", "realm-1")
 
@@ -119,7 +119,7 @@ func TestAccountAuthProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_auth_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_entry("acct-1", "alice", "active")
 		tc.a_role_assigned_event("acct-1", "realm-1", "admin")
 
@@ -137,7 +137,7 @@ func TestAccountAuthProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_auth_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_entry_with_realms("acct-1", "alice", "active", []string{"realm-1"})
 		tc.a_role_assigned_event("acct-1", "realm-1", "owner")
 
@@ -155,7 +155,7 @@ func TestAccountAuthProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_auth_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_entry_with_realms("acct-1", "alice", "active", []string{"realm-1", "realm-2"})
 		tc.a_role_revoked_event("acct-1", "realm-1")
 
@@ -173,7 +173,7 @@ func TestAccountAuthProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_auth_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_unknown_event()
 
 		// When
@@ -188,7 +188,7 @@ func TestAccountAuthProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_auth_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_entry("acct-1", "alice", "active")
 		tc.an_account_created_event("acct-1", "bob") // different username
 
@@ -205,7 +205,7 @@ func TestAccountAuthProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_auth_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_entry_with_realms("acct-1", "alice", "active", []string{"realm-1"})
 		tc.a_realm_granted_event("acct-1", "realm-1")
 
@@ -223,7 +223,7 @@ func TestAccountAuthProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_auth_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_entry_with_realms("acct-1", "alice", "active", []string{"realm-1"})
 		tc.a_role_assigned_event("acct-1", "realm-1", "admin")
 
@@ -241,7 +241,7 @@ func TestAccountAuthProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_auth_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_entry("acct-1", "alice", "active")
 		tc.a_realm_revoked_event("acct-1", "realm-1")
 
@@ -258,7 +258,7 @@ func TestAccountAuthProjector(t *testing.T) {
 
 		// Given
 		tc.an_account_auth_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_entry("acct-1", "alice", "active")
 		tc.a_role_revoked_event("acct-1", "realm-1")
 
@@ -295,7 +295,7 @@ func (tc *accountAuthTestContext) an_account_auth_projector() {
 	tc.projector = NewAccountAuthProjector()
 }
 
-func (tc *accountAuthTestContext) a_projection_store() {
+func (tc *accountAuthTestContext) a_store() {
 	tc.t.Helper()
 	tc.store = newMockProjectionStore()
 }
@@ -363,7 +363,7 @@ func (tc *accountAuthTestContext) existing_entry(accountID, username, status str
 		Realms:    []string{},
 		Roles:     map[string]string{},
 	}
-	key := "realm-1:projection_account_auth:" + accountID
+	key := "realm-1:account_auth:" + accountID
 	tc.store.data[key] = entry
 }
 
@@ -380,7 +380,7 @@ func (tc *accountAuthTestContext) existing_entry_with_realms(accountID, username
 		Realms:    realms,
 		Roles:     roles,
 	}
-	key := "realm-1:projection_account_auth:" + accountID
+	key := "realm-1:account_auth:" + accountID
 	tc.store.data[key] = entry
 }
 
@@ -420,7 +420,7 @@ func (tc *accountAuthTestContext) table_name_is(expected string) {
 
 func (tc *accountAuthTestContext) entry_exists(accountID string) {
 	tc.t.Helper()
-	key := "realm-1:projection_account_auth:" + accountID
+	key := "realm-1:account_auth:" + accountID
 	_, exists := tc.store.data[key]
 	assert.True(tc.t, exists, "expected entry for account %s to exist", accountID)
 }
@@ -475,16 +475,16 @@ func (tc *accountAuthTestContext) entry_has_no_role(accountID, realmID string) {
 	assert.False(tc.t, exists, "expected no role for realm %s", realmID)
 }
 
-func (tc *accountAuthTestContext) entry_is_stored_in_projection_account_auth_table(accountID string) {
+func (tc *accountAuthTestContext) entry_is_stored_in_account_auth_table(accountID string) {
 	tc.t.Helper()
 	// Verify the entry was stored with the correct table name
 	// The mock store uses the key directly, but we verify the projector uses the right table
-	assert.Equal(tc.t, "projection_account_auth", tc.projector.TableName())
+	assert.Equal(tc.t, "account_auth", tc.projector.TableName())
 }
 
 func (tc *accountAuthTestContext) getEntry(accountID string) *AccountAuthEntry {
 	tc.t.Helper()
-	key := "realm-1:projection_account_auth:" + accountID
+	key := "realm-1:account_auth:" + accountID
 	entry, exists := tc.store.data[key]
 	if !exists {
 		return nil

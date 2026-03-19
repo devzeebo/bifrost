@@ -26,7 +26,7 @@ func TestDependencyExistenceProjector(t *testing.T) {
 		tc.name_is("dependency_existence")
 	})
 
-	t.Run("TableName returns projection_dependency_existence", func(t *testing.T) {
+	t.Run("TableName returns dependency_existence", func(t *testing.T) {
 		tc := newDepExistenceTestContext(t)
 
 		// Given
@@ -36,7 +36,7 @@ func TestDependencyExistenceProjector(t *testing.T) {
 		tc.table_name_is_called()
 
 		// Then
-		tc.table_name_is("projection_dependency_existence")
+		tc.table_name_is("dependency_existence")
 	})
 
 	// --- DependencyAdded ---
@@ -46,7 +46,7 @@ func TestDependencyExistenceProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_existence_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_dependency_added_event("bf-a1b2", "bf-c3d4", "blocks")
 
 		// When
@@ -62,7 +62,7 @@ func TestDependencyExistenceProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_existence_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_dependency_added_event("bf-a1b2", "bf-c3d4", "blocks")
 
 		// When
@@ -78,7 +78,7 @@ func TestDependencyExistenceProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_existence_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_existing_row("bf-a1b2", "bf-c3d4", "blocks")
 		tc.a_dependency_added_event("bf-a1b2", "bf-c3d4", "blocks")
 
@@ -95,7 +95,7 @@ func TestDependencyExistenceProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_existence_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_inverse_dependency_added_event("bf-a1b2", "bf-c3d4", "blocked_by")
 
 		// When
@@ -111,7 +111,7 @@ func TestDependencyExistenceProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_existence_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_dependency_added_event("bf-a1b2", "bf-c3d4", "blocks")
 		tc.handle_is_called()
 		tc.a_dependency_added_event("bf-a1b2", "bf-e5f6", "relates_to")
@@ -132,7 +132,7 @@ func TestDependencyExistenceProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_existence_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_existing_row("bf-a1b2", "bf-c3d4", "blocks")
 		tc.a_dependency_removed_event("bf-a1b2", "bf-c3d4", "blocks")
 
@@ -149,7 +149,7 @@ func TestDependencyExistenceProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_existence_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_dependency_removed_event("bf-nonexistent", "bf-c3d4", "blocks")
 
 		// When
@@ -164,7 +164,7 @@ func TestDependencyExistenceProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_existence_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_existing_row("bf-a1b2", "bf-c3d4", "blocks")
 		tc.an_inverse_dependency_removed_event("bf-a1b2", "bf-c3d4", "blocked_by")
 
@@ -183,7 +183,7 @@ func TestDependencyExistenceProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_existence_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_unknown_event()
 
 		// When
@@ -225,7 +225,7 @@ func (tc *depExistenceTestContext) a_dependency_existence_projector() {
 	tc.projector = NewDependencyExistenceProjector()
 }
 
-func (tc *depExistenceTestContext) a_projection_store() {
+func (tc *depExistenceTestContext) a_store() {
 	tc.t.Helper()
 	if tc.store == nil {
 		tc.store = newMockProjectionStore()
@@ -267,14 +267,14 @@ func (tc *depExistenceTestContext) an_unknown_event() {
 
 func (tc *depExistenceTestContext) an_existing_row(runeID, targetID, relationship string) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	key := runeID + ":" + targetID + ":" + relationship
 	doc := DependencyExistenceDoc{
 		RuneID:       runeID,
 		TargetID:     targetID,
 		Relationship: relationship,
 	}
-	tc.store.put(tc.realmID, "projection_dependency_existence", key, doc)
+	tc.store.put(tc.realmID, "dependency_existence", key, doc)
 }
 
 // --- When ---
@@ -315,7 +315,7 @@ func (tc *depExistenceTestContext) row_exists(runeID, targetID, relationship str
 	tc.t.Helper()
 	key := runeID + ":" + targetID + ":" + relationship
 	var doc DependencyExistenceDoc
-	err := tc.store.Get(tc.ctx, tc.realmID, "projection_dependency_existence", key, &doc)
+	err := tc.store.Get(tc.ctx, tc.realmID, "dependency_existence", key, &doc)
 	require.NoError(tc.t, err, "expected row to exist with key %s", key)
 }
 
@@ -323,7 +323,7 @@ func (tc *depExistenceTestContext) no_row_exists(runeID, targetID, relationship 
 	tc.t.Helper()
 	key := runeID + ":" + targetID + ":" + relationship
 	var doc DependencyExistenceDoc
-	err := tc.store.Get(tc.ctx, tc.realmID, "projection_dependency_existence", key, &doc)
+	err := tc.store.Get(tc.ctx, tc.realmID, "dependency_existence", key, &doc)
 	assert.Error(tc.t, err, "expected no row with key %s", key)
 }
 
@@ -331,7 +331,7 @@ func (tc *depExistenceTestContext) row_has_document(runeID, targetID, relationsh
 	tc.t.Helper()
 	key := runeID + ":" + targetID + ":" + relationship
 	var doc DependencyExistenceDoc
-	err := tc.store.Get(tc.ctx, tc.realmID, "projection_dependency_existence", key, &doc)
+	err := tc.store.Get(tc.ctx, tc.realmID, "dependency_existence", key, &doc)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, runeID, doc.RuneID)
 	assert.Equal(tc.t, targetID, doc.TargetID)

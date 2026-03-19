@@ -30,7 +30,7 @@ func (p *PATIDProjector) Name() string {
 
 // TableName returns the projection table name.
 func (p *PATIDProjector) TableName() string {
-	return "projection_pat_by_id"
+	return "pat_by_id"
 }
 
 // Handle processes events and updates the projection.
@@ -54,7 +54,7 @@ func (p *PATIDProjector) handlePATCreated(ctx context.Context, event core.Event,
 		KeyHash:   data.KeyHash,
 		AccountID: data.AccountID,
 	}
-	return store.Put(ctx, event.RealmID, "projection_pat_by_id", data.PATID, entry)
+	return store.Put(ctx, event.RealmID, "pat_by_id", data.PATID, entry)
 }
 
 func (p *PATIDProjector) handlePATRevoked(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -62,5 +62,5 @@ func (p *PATIDProjector) handlePATRevoked(ctx context.Context, event core.Event,
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	return store.Delete(ctx, event.RealmID, "projection_pat_by_id", data.PATID)
+	return store.Delete(ctx, event.RealmID, "pat_by_id", data.PATID)
 }

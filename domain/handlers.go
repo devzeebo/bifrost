@@ -132,7 +132,7 @@ func HandleCreateRune(ctx context.Context, realmID string, cmd CreateRune, store
 		var entry struct {
 			Count int `json:"count"`
 		}
-		err = projStore.Get(ctx, realmID, "projection_rune_child_count", cmd.ParentID, &entry)
+		err = projStore.Get(ctx, realmID, "rune_child_count", cmd.ParentID, &entry)
 		if err != nil {
 			if !isNotFoundError(err) {
 				return RuneCreated{}, err
@@ -289,7 +289,7 @@ func HandleForgeRune(ctx context.Context, realmID string, cmd ForgeRune, store c
 	var entry struct {
 		Count int `json:"count"`
 	}
-	err = projStore.Get(ctx, realmID, "projection_rune_child_count", cmd.ID, &entry)
+	err = projStore.Get(ctx, realmID, "rune_child_count", cmd.ID, &entry)
 	if err != nil {
 		if !isNotFoundError(err) {
 			return err
@@ -395,7 +395,7 @@ func HandleAddDependency(ctx context.Context, realmID string, cmd AddDependency,
 	if cmd.Relationship == RelBlocks {
 		var hasCycle bool
 		cycleKey := cmd.RuneID + ":" + cmd.TargetID
-		err := projStore.Get(ctx, realmID, "projection_dependency_cycle_check", cycleKey, &hasCycle)
+		err := projStore.Get(ctx, realmID, "dependency_cycle_check", cycleKey, &hasCycle)
 		if err == nil && hasCycle {
 			return fmt.Errorf("adding blocks dependency from %q to %q would create a cycle", cmd.RuneID, cmd.TargetID)
 		}
@@ -470,7 +470,7 @@ func HandleRemoveDependency(ctx context.Context, realmID string, cmd RemoveDepen
 
 	depKey := cmd.RuneID + ":" + cmd.TargetID + ":" + cmd.Relationship
 	var exists bool
-	err = projStore.Get(ctx, realmID, "projection_dependency_existence", depKey, &exists)
+	err = projStore.Get(ctx, realmID, "dependency_existence", depKey, &exists)
 	if err != nil {
 		if isNotFoundError(err) {
 			return &core.NotFoundError{Entity: "dependency", ID: cmd.RuneID}
@@ -552,7 +552,7 @@ func HandleShatterRune(ctx context.Context, realmID string, cmd ShatterRune, sto
 }
 
 func HandleSweepRunes(ctx context.Context, realmID string, store core.EventStore, projStore core.ProjectionStore) ([]string, error) {
-	rawEntries, err := projStore.List(ctx, realmID, "projection_rune_summary")
+	rawEntries, err := projStore.List(ctx, realmID, "rune_summary")
 	if err != nil {
 		return nil, err
 	}
@@ -598,7 +598,7 @@ func hasActiveReference(ctx context.Context, realmID string, runeID string, proj
 	}
 
 	var entry graphEntry
-	err := projStore.Get(ctx, realmID, "projection_rune_dependency_graph", runeID, &entry)
+	err := projStore.Get(ctx, realmID, "rune_dependency_graph", runeID, &entry)
 	if err == nil {
 		for _, dep := range entry.Dependents {
 			if isActiveRuneInProjection(ctx, realmID, dep.SourceID, projStore) {
@@ -610,7 +610,7 @@ func hasActiveReference(ctx context.Context, realmID string, runeID string, proj
 	var entry2 struct {
 		Count int `json:"count"`
 	}
-	err = projStore.Get(ctx, realmID, "projection_rune_child_count", runeID, &entry2)
+	err = projStore.Get(ctx, realmID, "rune_child_count", runeID, &entry2)
 	if err != nil {
 		if isNotFoundError(err) {
 			entry2.Count = 0
@@ -633,7 +633,7 @@ func isActiveRuneInProjection(ctx context.Context, realmID string, runeID string
 		Status string `json:"status"`
 	}
 	var s statusEntry
-	err := projStore.Get(ctx, realmID, "projection_rune_summary", runeID, &s)
+	err := projStore.Get(ctx, realmID, "rune_summary", runeID, &s)
 	if isNotFoundError(err) {
 		return false
 	}

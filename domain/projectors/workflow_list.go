@@ -24,7 +24,7 @@ func (p *WorkflowListProjector) Name() string {
 }
 
 func (p *WorkflowListProjector) TableName() string {
-	return "projection_workflow_list"
+	return "workflow_list"
 }
 
 func (p *WorkflowListProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -47,7 +47,7 @@ func (p *WorkflowListProjector) handleCreated(ctx context.Context, event core.Ev
 
 	// Check if workflow already exists for idempotency
 	var existing WorkflowListEntry
-	if err := store.Get(ctx, event.RealmID, "projection_workflow_list", data.WorkflowID, &existing); err == nil {
+	if err := store.Get(ctx, event.RealmID, "workflow_list", data.WorkflowID, &existing); err == nil {
 		// Workflow already exists, idempotent
 		return nil
 	}
@@ -56,7 +56,7 @@ func (p *WorkflowListProjector) handleCreated(ctx context.Context, event core.Ev
 		ID:   data.WorkflowID,
 		Name: data.Name,
 	}
-	return store.Put(ctx, event.RealmID, "projection_workflow_list", data.WorkflowID, entry)
+	return store.Put(ctx, event.RealmID, "workflow_list", data.WorkflowID, entry)
 }
 
 func (p *WorkflowListProjector) handleUpdated(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -65,13 +65,13 @@ func (p *WorkflowListProjector) handleUpdated(ctx context.Context, event core.Ev
 		return err
 	}
 	var entry WorkflowListEntry
-	if err := store.Get(ctx, event.RealmID, "projection_workflow_list", data.WorkflowID, &entry); err != nil {
+	if err := store.Get(ctx, event.RealmID, "workflow_list", data.WorkflowID, &entry); err != nil {
 		return err
 	}
 	if data.Name != nil {
 		entry.Name = *data.Name
 	}
-	return store.Put(ctx, event.RealmID, "projection_workflow_list", data.WorkflowID, entry)
+	return store.Put(ctx, event.RealmID, "workflow_list", data.WorkflowID, entry)
 }
 
 func (p *WorkflowListProjector) handleDeleted(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -79,5 +79,5 @@ func (p *WorkflowListProjector) handleDeleted(ctx context.Context, event core.Ev
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	return store.Delete(ctx, event.RealmID, "projection_workflow_list", data.WorkflowID)
+	return store.Delete(ctx, event.RealmID, "workflow_list", data.WorkflowID)
 }

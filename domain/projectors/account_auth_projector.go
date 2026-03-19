@@ -27,7 +27,7 @@ func (p *AccountAuthProjector) Name() string {
 }
 
 func (p *AccountAuthProjector) TableName() string {
-	return "projection_account_auth"
+	return "account_auth"
 }
 
 func (p *AccountAuthProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -56,7 +56,7 @@ func (p *AccountAuthProjector) handleAccountCreated(ctx context.Context, event c
 
 	// Check if account already exists for idempotency
 	var existing AccountAuthEntry
-	if err := store.Get(ctx, event.RealmID, "projection_account_auth", data.AccountID, &existing); err == nil {
+	if err := store.Get(ctx, event.RealmID, "account_auth", data.AccountID, &existing); err == nil {
 		// Account already exists, idempotent
 		return nil
 	}
@@ -68,7 +68,7 @@ func (p *AccountAuthProjector) handleAccountCreated(ctx context.Context, event c
 		Realms:    []string{},
 		Roles:     map[string]string{},
 	}
-	return store.Put(ctx, event.RealmID, "projection_account_auth", data.AccountID, entry)
+	return store.Put(ctx, event.RealmID, "account_auth", data.AccountID, entry)
 }
 
 func (p *AccountAuthProjector) handleAccountSuspended(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -78,11 +78,11 @@ func (p *AccountAuthProjector) handleAccountSuspended(ctx context.Context, event
 	}
 
 	var entry AccountAuthEntry
-	if err := store.Get(ctx, event.RealmID, "projection_account_auth", data.AccountID, &entry); err != nil {
+	if err := store.Get(ctx, event.RealmID, "account_auth", data.AccountID, &entry); err != nil {
 		return err
 	}
 	entry.Status = "suspended"
-	return store.Put(ctx, event.RealmID, "projection_account_auth", data.AccountID, entry)
+	return store.Put(ctx, event.RealmID, "account_auth", data.AccountID, entry)
 }
 
 func (p *AccountAuthProjector) handleRealmGranted(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -92,7 +92,7 @@ func (p *AccountAuthProjector) handleRealmGranted(ctx context.Context, event cor
 	}
 
 	var entry AccountAuthEntry
-	if err := store.Get(ctx, event.RealmID, "projection_account_auth", data.AccountID, &entry); err != nil {
+	if err := store.Get(ctx, event.RealmID, "account_auth", data.AccountID, &entry); err != nil {
 		return err
 	}
 
@@ -108,7 +108,7 @@ func (p *AccountAuthProjector) handleRealmGranted(ctx context.Context, event cor
 		entry.Roles = make(map[string]string)
 	}
 	entry.Roles[data.RealmID] = "member"
-	return store.Put(ctx, event.RealmID, "projection_account_auth", data.AccountID, entry)
+	return store.Put(ctx, event.RealmID, "account_auth", data.AccountID, entry)
 }
 
 func (p *AccountAuthProjector) handleRealmRevoked(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -118,14 +118,14 @@ func (p *AccountAuthProjector) handleRealmRevoked(ctx context.Context, event cor
 	}
 
 	var entry AccountAuthEntry
-	if err := store.Get(ctx, event.RealmID, "projection_account_auth", data.AccountID, &entry); err != nil {
+	if err := store.Get(ctx, event.RealmID, "account_auth", data.AccountID, &entry); err != nil {
 		return err
 	}
 
 	entry.Realms = removeString(entry.Realms, data.RealmID)
 	delete(entry.Roles, data.RealmID)
 
-	return store.Put(ctx, event.RealmID, "projection_account_auth", data.AccountID, entry)
+	return store.Put(ctx, event.RealmID, "account_auth", data.AccountID, entry)
 }
 
 func (p *AccountAuthProjector) handleRoleAssigned(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -135,7 +135,7 @@ func (p *AccountAuthProjector) handleRoleAssigned(ctx context.Context, event cor
 	}
 
 	var entry AccountAuthEntry
-	if err := store.Get(ctx, event.RealmID, "projection_account_auth", data.AccountID, &entry); err != nil {
+	if err := store.Get(ctx, event.RealmID, "account_auth", data.AccountID, &entry); err != nil {
 		return err
 	}
 
@@ -152,7 +152,7 @@ func (p *AccountAuthProjector) handleRoleAssigned(ctx context.Context, event cor
 		entry.Realms = append(entry.Realms, data.RealmID)
 	}
 
-	return store.Put(ctx, event.RealmID, "projection_account_auth", data.AccountID, entry)
+	return store.Put(ctx, event.RealmID, "account_auth", data.AccountID, entry)
 }
 
 func (p *AccountAuthProjector) handleRoleRevoked(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -162,12 +162,12 @@ func (p *AccountAuthProjector) handleRoleRevoked(ctx context.Context, event core
 	}
 
 	var entry AccountAuthEntry
-	if err := store.Get(ctx, event.RealmID, "projection_account_auth", data.AccountID, &entry); err != nil {
+	if err := store.Get(ctx, event.RealmID, "account_auth", data.AccountID, &entry); err != nil {
 		return err
 	}
 
 	entry.Realms = removeString(entry.Realms, data.RealmID)
 	delete(entry.Roles, data.RealmID)
 
-	return store.Put(ctx, event.RealmID, "projection_account_auth", data.AccountID, entry)
+	return store.Put(ctx, event.RealmID, "account_auth", data.AccountID, entry)
 }

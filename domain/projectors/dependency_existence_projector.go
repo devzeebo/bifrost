@@ -18,7 +18,7 @@ type DependencyExistenceDoc struct {
 
 // DependencyExistenceProjector maintains a table where each row represents
 // a single dependency. Row existence is the answer to "does this dependency exist?".
-// Table: projection_dependency_existence
+// Table: dependency_existence
 // Key: {rune_id}:{target_id}:{relationship}
 // Events: DependencyAdded (insert), DependencyRemoved (delete)
 type DependencyExistenceProjector struct{}
@@ -32,7 +32,7 @@ func (p *DependencyExistenceProjector) Name() string {
 }
 
 func (p *DependencyExistenceProjector) TableName() string {
-	return "projection_dependency_existence"
+	return "dependency_existence"
 }
 
 func (p *DependencyExistenceProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {

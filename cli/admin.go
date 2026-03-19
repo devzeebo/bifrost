@@ -122,7 +122,7 @@ func NewAdminCmd() *AdminCmd {
 
 func resolveUsername(ctx context.Context, projectionStore core.ProjectionStore, username string) (string, error) {
 	var accountID string
-	err := projectionStore.Get(ctx, "_admin", "projection_username_lookup", username, &accountID)
+	err := projectionStore.Get(ctx, "_admin", "username_lookup", username, &accountID)
 	if err != nil {
 		var nfe *core.NotFoundError
 		if errors.As(err, &nfe) {

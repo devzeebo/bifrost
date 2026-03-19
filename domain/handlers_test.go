@@ -173,7 +173,7 @@ func TestHandleCreateRune(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_create_rune_command("Fix the bridge", "Needs repair", 1, "")
 		tc.with_branch_on_create_command("main")
 
@@ -197,9 +197,9 @@ func TestHandleCreateRune(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "open")
-		tc.projection_returns_child_count("bf-a1b2", 0)
+		tc.returns_child_count("bf-a1b2", 0)
 		tc.a_create_rune_command("Child task", "", 2, "bf-a1b2")
 
 		// When
@@ -217,9 +217,9 @@ func TestHandleCreateRune(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "open")
-		tc.projection_returns_child_count("bf-a1b2", 1)
+		tc.returns_child_count("bf-a1b2", 1)
 		tc.a_create_rune_command("Second child", "", 2, "bf-a1b2")
 
 		// When
@@ -236,7 +236,7 @@ func TestHandleCreateRune(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.empty_stream("bf-missing")
 		tc.a_create_rune_command("Child task", "", 2, "bf-missing")
 
@@ -253,7 +253,7 @@ func TestHandleCreateRune(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "sealed")
 		tc.a_create_rune_command("Child task", "", 2, "bf-a1b2")
 
@@ -270,7 +270,7 @@ func TestHandleCreateRune(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_create_rune_command("Fix the bridge", "Needs repair", 1, "")
 
 		// When
@@ -286,9 +286,9 @@ func TestHandleCreateRune(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_with_branch_in_stream("bf-a1b2", "open", "feature/xyz")
-		tc.projection_returns_child_count("bf-a1b2", 0)
+		tc.returns_child_count("bf-a1b2", 0)
 		tc.a_create_rune_command("Child task", "", 2, "bf-a1b2")
 
 		// When
@@ -305,9 +305,9 @@ func TestHandleCreateRune(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_with_branch_in_stream("bf-a1b2", "open", "feature/xyz")
-		tc.projection_returns_child_count("bf-a1b2", 0)
+		tc.returns_child_count("bf-a1b2", 0)
 		tc.a_create_rune_command("Child task", "", 2, "bf-a1b2")
 		tc.with_branch_on_create_command("feature/override")
 
@@ -325,7 +325,7 @@ func TestHandleCreateRune(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_create_rune_command("Fix the bridge", "Needs repair", 1, "")
 		tc.with_branch_on_create_command("")
 
@@ -704,7 +704,7 @@ func TestHandleAddDependency(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "open")
 		tc.existing_rune_in_stream("bf-c3d4", "open")
 		tc.an_add_dependency_command("bf-a1b2", "bf-c3d4", RelRelatesTo)
@@ -724,7 +724,7 @@ func TestHandleAddDependency(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "open")
 		tc.existing_rune_in_stream("bf-c3d4", "open")
 		tc.dependency_graph_has_no_cycle("bf-a1b2", "bf-c3d4")
@@ -745,7 +745,7 @@ func TestHandleAddDependency(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "open")
 		tc.existing_rune_in_stream("bf-c3d4", "open")
 		tc.dependency_graph_has_cycle("bf-a1b2", "bf-c3d4")
@@ -764,7 +764,7 @@ func TestHandleAddDependency(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "open")
 		tc.existing_rune_in_stream("bf-c3d4", "open")
 		tc.an_add_dependency_command("bf-a1b2", "bf-c3d4", RelSupersedes)
@@ -785,7 +785,7 @@ func TestHandleAddDependency(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "open")
 		tc.existing_rune_in_stream("bf-c3d4", "open")
 		tc.dependency_graph_has_no_cycle("bf-a1b2", "bf-c3d4")
@@ -806,7 +806,7 @@ func TestHandleAddDependency(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "open")
 		tc.existing_rune_in_stream("bf-c3d4", "open")
 		tc.an_add_dependency_command("bf-a1b2", "bf-c3d4", RelRelatesTo)
@@ -826,7 +826,7 @@ func TestHandleAddDependency(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.empty_stream("bf-missing")
 		tc.existing_rune_in_stream("bf-c3d4", "open")
 		tc.an_add_dependency_command("bf-missing", "bf-c3d4", RelRelatesTo)
@@ -844,7 +844,7 @@ func TestHandleAddDependency(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "open")
 		tc.empty_stream("bf-missing")
 		tc.an_add_dependency_command("bf-a1b2", "bf-missing", RelRelatesTo)
@@ -862,7 +862,7 @@ func TestHandleAddDependency(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "open")
 		tc.existing_rune_in_stream("bf-c3d4", "open")
 		tc.an_add_dependency_command("bf-a1b2", "bf-c3d4", "unknown_rel")
@@ -882,7 +882,7 @@ func TestHandleRemoveDependency(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "open")
 		tc.existing_rune_in_stream("bf-c3d4", "open")
 		tc.dependency_exists_in_graph("bf-a1b2", "bf-c3d4", RelBlocks)
@@ -903,7 +903,7 @@ func TestHandleRemoveDependency(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "open")
 		tc.existing_rune_in_stream("bf-c3d4", "open")
 		tc.dependency_exists_in_graph("bf-a1b2", "bf-c3d4", RelBlocks)
@@ -924,7 +924,7 @@ func TestHandleRemoveDependency(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.empty_stream("bf-missing")
 		tc.a_remove_dependency_command("bf-missing", "bf-c3d4", RelBlocks)
 
@@ -941,7 +941,7 @@ func TestHandleRemoveDependency(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "open")
 		tc.dependency_not_in_graph("bf-a1b2", "bf-c3d4", RelBlocks)
 		tc.a_remove_dependency_command("bf-a1b2", "bf-c3d4", RelBlocks)
@@ -1115,7 +1115,7 @@ func TestHandleSweepRunes(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "sealed")
 		tc.rune_in_rune_list("bf-a1b2", "sealed")
 
@@ -1135,7 +1135,7 @@ func TestHandleSweepRunes(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "fulfilled")
 		tc.rune_in_rune_list("bf-a1b2", "fulfilled")
 
@@ -1155,7 +1155,7 @@ func TestHandleSweepRunes(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "sealed")
 		tc.existing_rune_in_stream("bf-c3d4", "open")
 		tc.rune_in_rune_list("bf-a1b2", "sealed")
@@ -1176,7 +1176,7 @@ func TestHandleSweepRunes(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "sealed")
 		tc.existing_rune_in_stream("bf-a1b2.1", "open")
 		tc.rune_in_rune_list("bf-a1b2", "sealed")
@@ -1197,7 +1197,7 @@ func TestHandleSweepRunes(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "sealed")
 		tc.existing_rune_in_stream("bf-c3d4", "fulfilled")
 		tc.rune_in_rune_list("bf-a1b2", "sealed")
@@ -1219,7 +1219,7 @@ func TestHandleSweepRunes(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "sealed")
 		tc.existing_rune_in_stream("bf-a1b2.1", "fulfilled")
 		tc.rune_in_rune_list("bf-a1b2", "sealed")
@@ -1241,7 +1241,7 @@ func TestHandleSweepRunes(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "open")
 		tc.rune_in_rune_list("bf-a1b2", "open")
 
@@ -1259,7 +1259,7 @@ func TestHandleSweepRunes(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "sealed")
 		tc.existing_rune_in_stream("bf-c3d4", "open")
 		tc.rune_in_rune_list("bf-a1b2", "sealed")
@@ -1285,7 +1285,7 @@ func TestHandleCreateRune_RejectsShatteredParent(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "shattered")
 		tc.a_create_rune_command("Child task", "", 2, "bf-a1b2")
 
@@ -1340,7 +1340,7 @@ func TestHandleForgeRune_SkipsShattered(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "shattered")
 		tc.a_forge_rune_command("bf-a1b2")
 
@@ -1360,7 +1360,7 @@ func TestHandleForgeRune_SkipsShatteredChildren(t *testing.T) {
 		// Given: a parent rune with draft status
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-1234", "draft")
 		// And: two children, one draft and one shattered
 		tc.existing_rune_in_stream("bf-1234.1", "draft")
@@ -1425,7 +1425,7 @@ func TestHandleAddDependency_RejectsShattered(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "shattered")
 		tc.existing_rune_in_stream("bf-c3d4", "open")
 		tc.an_add_dependency_command("bf-a1b2", "bf-c3d4", RelRelatesTo)
@@ -1443,7 +1443,7 @@ func TestHandleAddDependency_RejectsShattered(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "open")
 		tc.existing_rune_in_stream("bf-c3d4", "shattered")
 		tc.an_add_dependency_command("bf-a1b2", "bf-c3d4", RelRelatesTo)
@@ -1463,7 +1463,7 @@ func TestHandleRemoveDependency_RejectsShattered(t *testing.T) {
 		// Given
 		tc.a_realm("realm-1")
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_rune_in_stream("bf-a1b2", "shattered")
 		tc.a_remove_dependency_command("bf-a1b2", "bf-c3d4", RelBlocks)
 
@@ -1544,7 +1544,7 @@ func (tc *handlerTestContext) an_event_store() {
 	}
 }
 
-func (tc *handlerTestContext) a_projection_store() {
+func (tc *handlerTestContext) a_store() {
 	tc.t.Helper()
 	if tc.projectionStore == nil {
 		tc.projectionStore = newMockProjectionStore()
@@ -1793,35 +1793,35 @@ func (tc *handlerTestContext) with_branch_on_update_command(branch string) {
 	tc.updateCmd.Branch = &branch
 }
 
-func (tc *handlerTestContext) projection_returns_child_count(parentID string, count int) {
+func (tc *handlerTestContext) returns_child_count(parentID string, count int) {
 	tc.t.Helper()
-	tc.a_projection_store()
-	tc.projectionStore.data["projection_rune_child_count:"+parentID] = map[string]any{"parent_rune_id": parentID, "count": count}
+	tc.a_store()
+	tc.projectionStore.data["rune_child_count:"+parentID] = map[string]any{"parent_rune_id": parentID, "count": count}
 }
 
 func (tc *handlerTestContext) dependency_graph_has_no_cycle(sourceID, targetID string) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	// No cycle entry means no cycle detected
 }
 
 func (tc *handlerTestContext) dependency_graph_has_cycle(sourceID, targetID string) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	key := sourceID + ":" + targetID
-	tc.projectionStore.data["projection_dependency_cycle_check:"+key] = true
+	tc.projectionStore.data["dependency_cycle_check:"+key] = true
 }
 
 func (tc *handlerTestContext) dependency_exists_in_graph(sourceID, targetID, rel string) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	key := sourceID + ":" + targetID + ":" + rel
-	tc.projectionStore.data["projection_dependency_existence:"+key] = true
+	tc.projectionStore.data["dependency_existence:"+key] = true
 }
 
 func (tc *handlerTestContext) dependency_not_in_graph(sourceID, targetID, rel string) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	// No entry means dependency doesn't exist
 }
 
@@ -1917,15 +1917,15 @@ func (tc *handlerTestContext) a_shatter_rune_command(id string) {
 
 func (tc *handlerTestContext) rune_in_rune_list(runeID, status string) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	entry, _ := json.Marshal(map[string]string{"id": runeID, "status": status})
-	tc.projectionStore.listData["projection_rune_summary"] = append(tc.projectionStore.listData["projection_rune_summary"], entry)
-	tc.projectionStore.data["projection_rune_summary:"+runeID] = map[string]string{"id": runeID, "status": status}
+	tc.projectionStore.listData["rune_summary"] = append(tc.projectionStore.listData["rune_summary"], entry)
+	tc.projectionStore.data["rune_summary:"+runeID] = map[string]string{"id": runeID, "status": status}
 }
 
 func (tc *handlerTestContext) dependency_graph_has_dependents(runeID string, dependentIDs ...string) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	type dep struct {
 		SourceID string `json:"source_id"`
 	}
@@ -1933,13 +1933,13 @@ func (tc *handlerTestContext) dependency_graph_has_dependents(runeID string, dep
 	for i, id := range dependentIDs {
 		deps[i] = dep{SourceID: id}
 	}
-	tc.projectionStore.data["projection_rune_dependency_graph:"+runeID] = map[string]any{"dependents": deps}
+	tc.projectionStore.data["rune_dependency_graph:"+runeID] = map[string]any{"dependents": deps}
 }
 
 func (tc *handlerTestContext) rune_has_children(runeID string, count int) {
 	tc.t.Helper()
-	tc.a_projection_store()
-	tc.projectionStore.data["projection_rune_child_count:"+runeID] = map[string]any{"parent_rune_id": runeID, "count": count}
+	tc.a_store()
+	tc.projectionStore.data["rune_child_count:"+runeID] = map[string]any{"parent_rune_id": runeID, "count": count}
 }
 
 // --- When ---

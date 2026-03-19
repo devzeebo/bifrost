@@ -26,7 +26,7 @@ func TestDependencyCycleCheckProjector(t *testing.T) {
 		tc.name_is("dependency_cycle_check")
 	})
 
-	t.Run("TableName returns projection_dependency_cycle_check", func(t *testing.T) {
+	t.Run("TableName returns dependency_cycle_check", func(t *testing.T) {
 		tc := newDepCycleCheckTestContext(t)
 
 		// Given
@@ -36,7 +36,7 @@ func TestDependencyCycleCheckProjector(t *testing.T) {
 		tc.table_name_is_called()
 
 		// Then
-		tc.table_name_is("projection_dependency_cycle_check")
+		tc.table_name_is("dependency_cycle_check")
 	})
 
 	// --- DependencyAdded ---
@@ -46,7 +46,7 @@ func TestDependencyCycleCheckProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_cycle_check_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_dependency_added_event("bf-a1b2", "bf-c3d4", "blocks")
 
 		// When
@@ -62,7 +62,7 @@ func TestDependencyCycleCheckProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_cycle_check_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_dependency_added_event("bf-a1b2", "bf-c3d4", "blocks")
 
 		// When
@@ -78,7 +78,7 @@ func TestDependencyCycleCheckProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_cycle_check_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_existing_row("bf-a1b2", "bf-c3d4")
 		tc.a_dependency_added_event("bf-a1b2", "bf-c3d4", "blocks")
 
@@ -95,7 +95,7 @@ func TestDependencyCycleCheckProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_cycle_check_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_inverse_dependency_added_event("bf-a1b2", "bf-c3d4", "blocked_by")
 
 		// When
@@ -111,7 +111,7 @@ func TestDependencyCycleCheckProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_cycle_check_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_dependency_added_event("bf-a1b2", "bf-c3d4", "blocks")
 		tc.handle_is_called()
 		tc.a_dependency_added_event("bf-e5f6", "bf-g7h8", "blocks")
@@ -132,7 +132,7 @@ func TestDependencyCycleCheckProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_cycle_check_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_existing_row("bf-a1b2", "bf-c3d4")
 		tc.a_dependency_removed_event("bf-a1b2", "bf-c3d4", "blocks")
 
@@ -149,7 +149,7 @@ func TestDependencyCycleCheckProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_cycle_check_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_dependency_removed_event("bf-nonexistent", "bf-c3d4", "blocks")
 
 		// When
@@ -164,7 +164,7 @@ func TestDependencyCycleCheckProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_cycle_check_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_existing_row("bf-a1b2", "bf-c3d4")
 		tc.an_inverse_dependency_removed_event("bf-a1b2", "bf-c3d4", "blocked_by")
 
@@ -183,7 +183,7 @@ func TestDependencyCycleCheckProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_cycle_check_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_unknown_event()
 
 		// When
@@ -224,7 +224,7 @@ func (tc *depCycleCheckTestContext) a_dependency_cycle_check_projector() {
 	tc.projector = NewDependencyCycleCheckProjector()
 }
 
-func (tc *depCycleCheckTestContext) a_projection_store() {
+func (tc *depCycleCheckTestContext) a_store() {
 	tc.t.Helper()
 	if tc.store == nil {
 		tc.store = newMockProjectionStore()

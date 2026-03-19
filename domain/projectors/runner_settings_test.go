@@ -26,7 +26,7 @@ func TestRunnerSettingsProjector(t *testing.T) {
 		tc.name_is("runner_settings")
 	})
 
-	t.Run("TableName returns projection_runner_settings", func(t *testing.T) {
+	t.Run("TableName returns runner_settings", func(t *testing.T) {
 		tc := newRunnerSettingsTestContext(t)
 
 		// Given
@@ -36,7 +36,7 @@ func TestRunnerSettingsProjector(t *testing.T) {
 		tc.table_name_is_called()
 
 		// Then
-		tc.table_name_is("projection_runner_settings")
+		tc.table_name_is("runner_settings")
 	})
 
 	t.Run("handles RunnerSettingsCreated by putting entry with id, runner_type, and name", func(t *testing.T) {
@@ -44,7 +44,7 @@ func TestRunnerSettingsProjector(t *testing.T) {
 
 		// Given
 		tc.a_runner_settings_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_runner_settings_created_event("rs-1", "github", "GitHub Actions")
 
 		// When
@@ -63,7 +63,7 @@ func TestRunnerSettingsProjector(t *testing.T) {
 
 		// Given
 		tc.a_runner_settings_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_runner_settings_entry("rs-1", "github", "GitHub Actions")
 		tc.a_runner_settings_field_set_event("rs-1", "token", "secret-value")
 
@@ -80,7 +80,7 @@ func TestRunnerSettingsProjector(t *testing.T) {
 
 		// Given
 		tc.a_runner_settings_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_runner_settings_entry_with_fields("rs-1", "github", "GitHub Actions", map[string]string{"token": "secret", "repo": "myrepo"})
 		tc.a_runner_settings_field_deleted_event("rs-1", "token")
 
@@ -98,7 +98,7 @@ func TestRunnerSettingsProjector(t *testing.T) {
 
 		// Given
 		tc.a_runner_settings_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_runner_settings_entry("rs-1", "github", "GitHub Actions")
 		tc.a_runner_settings_deleted_event("rs-1")
 
@@ -115,7 +115,7 @@ func TestRunnerSettingsProjector(t *testing.T) {
 
 		// Given
 		tc.a_runner_settings_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_unknown_event()
 
 		// When
@@ -130,7 +130,7 @@ func TestRunnerSettingsProjector(t *testing.T) {
 
 		// Given
 		tc.a_runner_settings_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_runner_settings_entry("rs-1", "github", "GitHub Actions")
 		tc.a_runner_settings_created_event("rs-1", "github", "GitHub Actions")
 
@@ -148,7 +148,7 @@ func TestRunnerSettingsProjector(t *testing.T) {
 
 		// Given
 		tc.a_runner_settings_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_runner_settings_entry_with_fields("rs-1", "github", "GitHub Actions", map[string]string{"token": "old-value"})
 		tc.a_runner_settings_field_set_event("rs-1", "token", "new-value")
 
@@ -190,7 +190,7 @@ func (tc *runnerSettingsTestContext) a_runner_settings_projector() {
 	tc.projector = NewRunnerSettingsProjector()
 }
 
-func (tc *runnerSettingsTestContext) a_projection_store() {
+func (tc *runnerSettingsTestContext) a_store() {
 	tc.t.Helper()
 	tc.store = newMockProjectionStore()
 }
@@ -244,7 +244,7 @@ func (tc *runnerSettingsTestContext) existing_runner_settings_entry(runnerSettin
 		Name:       name,
 		Fields:     map[string]string{},
 	}
-	tc.store.put("realm-1", "projection_runner_settings", runnerSettingsID, entry)
+	tc.store.put("realm-1", "runner_settings", runnerSettingsID, entry)
 }
 
 func (tc *runnerSettingsTestContext) existing_runner_settings_entry_with_fields(runnerSettingsID, runnerType, name string, fields map[string]string) {
@@ -258,7 +258,7 @@ func (tc *runnerSettingsTestContext) existing_runner_settings_entry_with_fields(
 		Name:       name,
 		Fields:     fields,
 	}
-	tc.store.put("realm-1", "projection_runner_settings", runnerSettingsID, entry)
+	tc.store.put("realm-1", "runner_settings", runnerSettingsID, entry)
 }
 
 // --- When ---
@@ -298,21 +298,21 @@ func (tc *runnerSettingsTestContext) no_error() {
 func (tc *runnerSettingsTestContext) runner_settings_entry_exists(runnerSettingsID string) {
 	tc.t.Helper()
 	var entry RunnerSettingsEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_runner_settings", runnerSettingsID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "runner_settings", runnerSettingsID, &entry)
 	require.NoError(tc.t, err, "expected runner settings entry for %s", runnerSettingsID)
 }
 
 func (tc *runnerSettingsTestContext) runner_settings_entry_does_not_exist(runnerSettingsID string) {
 	tc.t.Helper()
 	var entry RunnerSettingsEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_runner_settings", runnerSettingsID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "runner_settings", runnerSettingsID, &entry)
 	require.Error(tc.t, err, "expected runner settings entry for %s to not exist", runnerSettingsID)
 }
 
 func (tc *runnerSettingsTestContext) runner_settings_entry_has_runner_type(runnerSettingsID, expected string) {
 	tc.t.Helper()
 	var entry RunnerSettingsEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_runner_settings", runnerSettingsID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "runner_settings", runnerSettingsID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, entry.RunnerType)
 }
@@ -320,7 +320,7 @@ func (tc *runnerSettingsTestContext) runner_settings_entry_has_runner_type(runne
 func (tc *runnerSettingsTestContext) runner_settings_entry_has_name(runnerSettingsID, expected string) {
 	tc.t.Helper()
 	var entry RunnerSettingsEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_runner_settings", runnerSettingsID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "runner_settings", runnerSettingsID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, entry.Name)
 }
@@ -328,7 +328,7 @@ func (tc *runnerSettingsTestContext) runner_settings_entry_has_name(runnerSettin
 func (tc *runnerSettingsTestContext) runner_settings_entry_has_empty_fields(runnerSettingsID string) {
 	tc.t.Helper()
 	var entry RunnerSettingsEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_runner_settings", runnerSettingsID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "runner_settings", runnerSettingsID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, map[string]string{}, entry.Fields)
 }
@@ -336,7 +336,7 @@ func (tc *runnerSettingsTestContext) runner_settings_entry_has_empty_fields(runn
 func (tc *runnerSettingsTestContext) runner_settings_entry_has_field(runnerSettingsID, key, expectedValue string) {
 	tc.t.Helper()
 	var entry RunnerSettingsEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_runner_settings", runnerSettingsID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "runner_settings", runnerSettingsID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expectedValue, entry.Fields[key])
 }
@@ -344,7 +344,7 @@ func (tc *runnerSettingsTestContext) runner_settings_entry_has_field(runnerSetti
 func (tc *runnerSettingsTestContext) runner_settings_entry_does_not_have_field(runnerSettingsID, key string) {
 	tc.t.Helper()
 	var entry RunnerSettingsEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_runner_settings", runnerSettingsID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "runner_settings", runnerSettingsID, &entry)
 	require.NoError(tc.t, err)
 	_, exists := entry.Fields[key]
 	assert.False(tc.t, exists, "expected field %s to not exist", key)

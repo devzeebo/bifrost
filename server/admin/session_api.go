@@ -167,7 +167,7 @@ func handleUILogout(cfg *RouteConfig) http.HandlerFunc {
 }
 
 // getRealmNames fetches realm names for the given realm IDs.
-// Uses projection_realm_directory for realm name lookup.
+// Uses realm_directory for realm name lookup.
 func getRealmNames(ctx context.Context, projectionStore core.ProjectionStore, realmIDs []string) map[string]string {
 	names := make(map[string]string)
 	for _, realmID := range realmIDs {
@@ -176,7 +176,7 @@ func getRealmNames(ctx context.Context, projectionStore core.ProjectionStore, re
 			continue
 		}
 		var realm projectors.RealmDirectoryEntry
-		if err := projectionStore.Get(ctx, realmID, "projection_realm_directory", realmID, &realm); err == nil {
+		if err := projectionStore.Get(ctx, realmID, "realm_directory", realmID, &realm); err == nil {
 			names[realmID] = realm.Name
 		} else {
 			names[realmID] = realmID // Fallback to ID
@@ -240,9 +240,9 @@ func handleCheckOnboarding(cfg *RouteConfig) http.HandlerFunc {
 		needsRealm := true
 
 		if cfg.ProjectionStore != nil {
-			// Check projection_system_status for admin accounts and realms
+			// Check system_status for admin accounts and realms
 			var status projectors.SystemStatusEntry
-			if err := cfg.ProjectionStore.Get(r.Context(), "_admin", "projection_system_status", "status", &status); err == nil {
+			if err := cfg.ProjectionStore.Get(r.Context(), "_admin", "system_status", "status", &status); err == nil {
 				// has_sysadmin = len(admin_account_ids) > 0
 				needsSysAdmin = len(status.AdminAccountIDs) == 0
 				// has_realm = len(realm_ids) > 0
@@ -270,9 +270,9 @@ func handleCreateAdmin(cfg *RouteConfig) http.HandlerFunc {
 		needsRealm := true
 
 		if cfg.ProjectionStore != nil {
-			// Check projection_system_status for admin accounts and realms
+			// Check system_status for admin accounts and realms
 			var status projectors.SystemStatusEntry
-			if err := cfg.ProjectionStore.Get(r.Context(), "_admin", "projection_system_status", "status", &status); err == nil {
+			if err := cfg.ProjectionStore.Get(r.Context(), "_admin", "system_status", "status", &status); err == nil {
 				// has_sysadmin = len(admin_account_ids) > 0
 				needsSysAdmin = len(status.AdminAccountIDs) == 0
 				// has_realm = len(realm_ids) > 0

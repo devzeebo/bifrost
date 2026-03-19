@@ -26,7 +26,7 @@ func TestSkillListProjector(t *testing.T) {
 		tc.name_is("skill_list")
 	})
 
-	t.Run("TableName returns projection_skill_list", func(t *testing.T) {
+	t.Run("TableName returns skill_list", func(t *testing.T) {
 		tc := newSkillListTestContext(t)
 
 		// Given
@@ -36,7 +36,7 @@ func TestSkillListProjector(t *testing.T) {
 		tc.table_name_is_called()
 
 		// Then
-		tc.table_name_is("projection_skill_list")
+		tc.table_name_is("skill_list")
 	})
 
 	t.Run("handles SkillCreated by putting entry with id and name", func(t *testing.T) {
@@ -44,7 +44,7 @@ func TestSkillListProjector(t *testing.T) {
 
 		// Given
 		tc.a_skill_list_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_skill_created_event("skill-1", "TestSkill")
 
 		// When
@@ -61,7 +61,7 @@ func TestSkillListProjector(t *testing.T) {
 
 		// Given
 		tc.a_skill_list_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_skill_entry("skill-1", "OldName")
 		tc.a_skill_updated_event_with_name("skill-1", "NewName")
 
@@ -78,7 +78,7 @@ func TestSkillListProjector(t *testing.T) {
 
 		// Given
 		tc.a_skill_list_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_skill_entry("skill-1", "TestSkill")
 		tc.a_skill_deleted_event("skill-1")
 
@@ -95,7 +95,7 @@ func TestSkillListProjector(t *testing.T) {
 
 		// Given
 		tc.a_skill_list_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_unknown_event()
 
 		// When
@@ -110,7 +110,7 @@ func TestSkillListProjector(t *testing.T) {
 
 		// Given
 		tc.a_skill_list_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_skill_entry("skill-1", "TestSkill")
 		tc.a_skill_created_event("skill-1", "TestSkill")
 
@@ -152,7 +152,7 @@ func (tc *skillListTestContext) a_skill_list_projector() {
 	tc.projector = NewSkillListProjector()
 }
 
-func (tc *skillListTestContext) a_projection_store() {
+func (tc *skillListTestContext) a_store() {
 	tc.t.Helper()
 	tc.store = newMockProjectionStore()
 }
@@ -195,7 +195,7 @@ func (tc *skillListTestContext) existing_skill_entry(skillID, name string) {
 		ID:   skillID,
 		Name: name,
 	}
-	tc.store.put("realm-1", "projection_skill_list", skillID, entry)
+	tc.store.put("realm-1", "skill_list", skillID, entry)
 }
 
 // --- When ---
@@ -235,21 +235,21 @@ func (tc *skillListTestContext) no_error() {
 func (tc *skillListTestContext) skill_entry_exists(skillID string) {
 	tc.t.Helper()
 	var entry SkillListEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_skill_list", skillID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "skill_list", skillID, &entry)
 	require.NoError(tc.t, err, "expected skill list entry for %s", skillID)
 }
 
 func (tc *skillListTestContext) skill_entry_does_not_exist(skillID string) {
 	tc.t.Helper()
 	var entry SkillListEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_skill_list", skillID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "skill_list", skillID, &entry)
 	require.Error(tc.t, err, "expected skill list entry for %s to not exist", skillID)
 }
 
 func (tc *skillListTestContext) skill_entry_has_name(skillID, expected string) {
 	tc.t.Helper()
 	var entry SkillListEntry
-	err := tc.store.Get(tc.ctx, "realm-1", "projection_skill_list", skillID, &entry)
+	err := tc.store.Get(tc.ctx, "realm-1", "skill_list", skillID, &entry)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, entry.Name)
 }

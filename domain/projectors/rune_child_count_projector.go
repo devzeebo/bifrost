@@ -32,7 +32,7 @@ func (p *RuneChildCountProjector) Name() string {
 
 // TableName returns the projection table name.
 func (p *RuneChildCountProjector) TableName() string {
-	return "projection_rune_child_count"
+	return "rune_child_count"
 }
 
 // Handle processes events and updates the projection.
@@ -55,7 +55,7 @@ func (p *RuneChildCountProjector) Handle(ctx context.Context, event core.Event, 
 
 	// Get current entry
 	var entry RuneChildCountEntry
-	err := store.Get(ctx, event.RealmID, "projection_rune_child_count", data.ParentID, &entry)
+	err := store.Get(ctx, event.RealmID, "rune_child_count", data.ParentID, &entry)
 	if err != nil {
 		var nfe *core.NotFoundError
 		if !errors.As(err, &nfe) {
@@ -71,7 +71,7 @@ func (p *RuneChildCountProjector) Handle(ctx context.Context, event core.Event, 
 	// Idempotency: only increment if count < sequence number
 	if entry.Count < sequenceNum {
 		entry.Count = sequenceNum
-		return store.Put(ctx, event.RealmID, "projection_rune_child_count", data.ParentID, entry)
+		return store.Put(ctx, event.RealmID, "rune_child_count", data.ParentID, entry)
 	}
 
 	// Already processed this or a later sequence, no-op
