@@ -13,6 +13,7 @@ type RouteConfig struct {
 	ProjectionStore  core.ProjectionStore
 	EventStore       core.EventStore
 	ViteDevServerURL string // URL of Vite dev server (development mode, e.g., "http://localhost:3000")
+	UIFS             fs.FS  // Optional: custom filesystem for UI (for testing). Defaults to embedded UIFiles.
 }
 
 // RegisterRoutesResult contains the result of registering admin routes.
@@ -62,9 +63,13 @@ func registerUIRoutes(mux *http.ServeMux, cfg *RouteConfig) {
 	}
 
 	// Production mode: serve embedded static files
-	uiFS, err := fs.Sub(UIFiles, "ui")
-	if err != nil {
-		return
+	uiFS := cfg.UIFS
+	if uiFS == nil {
+		var err error
+		uiFS, err = fs.Sub(UIFiles, "ui")
+		if err != nil {
+			return
+		}
 	}
 
 	fileServer := http.FileServer(http.FS(uiFS))
