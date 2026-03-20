@@ -3,6 +3,7 @@ package projectors
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/devzeebo/bifrost/core"
@@ -57,10 +58,15 @@ func (p *AccountAuthProjector) handleAccountCreated(ctx context.Context, event c
 
 	// Check if account already exists for idempotency
 	var existing AccountAuthEntry
-	if err := store.Get(ctx, event.RealmID, "account_auth", data.AccountID, &existing); err == nil {
+	err := store.Get(ctx, event.RealmID, "account_auth", data.AccountID, &existing)
+	if err == nil {
 		// Account already exists, idempotent
 		return nil
+	} else if !errors.As(err, &core.NotFoundError{}) {
+		// Genuine error (not a "not found" error)
+		return err
 	}
+	// Account doesn't exist (NotFoundError), continue to create it
 
 	entry := AccountAuthEntry{
 		AccountID: data.AccountID,
