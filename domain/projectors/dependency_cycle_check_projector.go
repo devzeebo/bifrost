@@ -3,6 +3,7 @@ package projectors
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/devzeebo/bifrost/core"
 	"github.com/devzeebo/bifrost/domain"
@@ -47,7 +48,7 @@ func (p *DependencyCycleCheckProjector) Handle(ctx context.Context, event core.E
 func (p *DependencyCycleCheckProjector) handleAdded(ctx context.Context, event core.Event, store core.ProjectionStore) error {
 	var data domain.DependencyAdded
 	if err := json.Unmarshal(event.Data, &data); err != nil {
-		return err
+		return fmt.Errorf("dependency_cycle_check: unmarshal %s: %w", domain.EventDependencyAdded, err)
 	}
 
 	// Skip inverse events - they're handled by the forward event
@@ -67,7 +68,7 @@ func (p *DependencyCycleCheckProjector) handleAdded(ctx context.Context, event c
 func (p *DependencyCycleCheckProjector) handleRemoved(ctx context.Context, event core.Event, store core.ProjectionStore) error {
 	var data domain.DependencyRemoved
 	if err := json.Unmarshal(event.Data, &data); err != nil {
-		return err
+		return fmt.Errorf("dependency_cycle_check: unmarshal %s: %w", domain.EventDependencyRemoved, err)
 	}
 
 	// Skip inverse events - they're handled by the forward event

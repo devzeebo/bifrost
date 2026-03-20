@@ -3,6 +3,7 @@ package projectors
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/devzeebo/bifrost/core"
 	"github.com/devzeebo/bifrost/domain"
@@ -51,7 +52,7 @@ func (p *AccountAuthProjector) Handle(ctx context.Context, event core.Event, sto
 func (p *AccountAuthProjector) handleAccountCreated(ctx context.Context, event core.Event, store core.ProjectionStore) error {
 	var data domain.AccountCreated
 	if err := json.Unmarshal(event.Data, &data); err != nil {
-		return err
+		return fmt.Errorf("account_auth: unmarshal %s: %w", domain.EventAccountCreated, err)
 	}
 
 	// Check if account already exists for idempotency
@@ -74,7 +75,7 @@ func (p *AccountAuthProjector) handleAccountCreated(ctx context.Context, event c
 func (p *AccountAuthProjector) handleAccountSuspended(ctx context.Context, event core.Event, store core.ProjectionStore) error {
 	var data domain.AccountSuspended
 	if err := json.Unmarshal(event.Data, &data); err != nil {
-		return err
+		return fmt.Errorf("account_auth: unmarshal %s: %w", domain.EventAccountSuspended, err)
 	}
 
 	var entry AccountAuthEntry
@@ -88,7 +89,7 @@ func (p *AccountAuthProjector) handleAccountSuspended(ctx context.Context, event
 func (p *AccountAuthProjector) handleRealmGranted(ctx context.Context, event core.Event, store core.ProjectionStore) error {
 	var data domain.RealmGranted
 	if err := json.Unmarshal(event.Data, &data); err != nil {
-		return err
+		return fmt.Errorf("account_auth: unmarshal %s: %w", domain.EventRealmGranted, err)
 	}
 
 	// Skip if realm doesn't exist in directory (except _admin)
@@ -123,7 +124,7 @@ func (p *AccountAuthProjector) handleRealmGranted(ctx context.Context, event cor
 func (p *AccountAuthProjector) handleRealmRevoked(ctx context.Context, event core.Event, store core.ProjectionStore) error {
 	var data domain.RealmRevoked
 	if err := json.Unmarshal(event.Data, &data); err != nil {
-		return err
+		return fmt.Errorf("account_auth: unmarshal %s: %w", domain.EventRealmRevoked, err)
 	}
 
 	var entry AccountAuthEntry
@@ -140,7 +141,7 @@ func (p *AccountAuthProjector) handleRealmRevoked(ctx context.Context, event cor
 func (p *AccountAuthProjector) handleRoleAssigned(ctx context.Context, event core.Event, store core.ProjectionStore) error {
 	var data domain.RoleAssigned
 	if err := json.Unmarshal(event.Data, &data); err != nil {
-		return err
+		return fmt.Errorf("account_auth: unmarshal %s: %w", domain.EventRoleAssigned, err)
 	}
 
 	// Skip if realm doesn't exist in directory (except _admin)
@@ -176,7 +177,7 @@ func (p *AccountAuthProjector) handleRoleAssigned(ctx context.Context, event cor
 func (p *AccountAuthProjector) handleRoleRevoked(ctx context.Context, event core.Event, store core.ProjectionStore) error {
 	var data domain.RoleRevoked
 	if err := json.Unmarshal(event.Data, &data); err != nil {
-		return err
+		return fmt.Errorf("account_auth: unmarshal %s: %w", domain.EventRoleRevoked, err)
 	}
 
 	var entry AccountAuthEntry

@@ -3,6 +3,7 @@ package projectors
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/devzeebo/bifrost/core"
 	"github.com/devzeebo/bifrost/domain"
@@ -40,7 +41,7 @@ func (p *DependencyExistenceProjector) Handle(ctx context.Context, event core.Ev
 func (p *DependencyExistenceProjector) handleAdded(ctx context.Context, event core.Event, store core.ProjectionStore) error {
 	var data domain.DependencyAdded
 	if err := json.Unmarshal(event.Data, &data); err != nil {
-		return err
+		return fmt.Errorf("dependency_existence: unmarshal %s: %w", domain.EventDependencyAdded, err)
 	}
 
 	// Skip inverse events - they're handled by the forward event
@@ -61,7 +62,7 @@ func (p *DependencyExistenceProjector) handleAdded(ctx context.Context, event co
 func (p *DependencyExistenceProjector) handleRemoved(ctx context.Context, event core.Event, store core.ProjectionStore) error {
 	var data domain.DependencyRemoved
 	if err := json.Unmarshal(event.Data, &data); err != nil {
-		return err
+		return fmt.Errorf("dependency_existence: unmarshal %s: %w", domain.EventDependencyRemoved, err)
 	}
 
 	// Skip inverse events - they're handled by the forward event
