@@ -1000,7 +1000,7 @@ func (tc *accountHandlerTestContext) username_is_available(username string) {
 func (tc *accountHandlerTestContext) username_is_taken(username string) {
 	tc.t.Helper()
 	tc.a_store()
-	tc.projectionStore.data["username_lookup:"+username] = map[string]any{"username": username, "account_id": "acct-existing"}
+	tc.projectionStore.data["_admin:username_lookup:"+username] = map[string]any{"username": username, "account_id": "acct-existing"}
 }
 
 func (tc *accountHandlerTestContext) a_create_account_command(username string) {
@@ -1021,7 +1021,7 @@ func (tc *accountHandlerTestContext) a_grant_realm_command(accountID, realmID st
 func (tc *accountHandlerTestContext) realm_exists_in_directory(realmID, name string) {
 	tc.t.Helper()
 	tc.a_store()
-	tc.projectionStore.data["realm_directory:"+realmID] = map[string]any{
+	tc.projectionStore.data[realmID+":realm_directory:"+realmID] = map[string]any{
 		"realm_id": realmID,
 		"name":    name,
 		"status":  "active",

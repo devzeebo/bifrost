@@ -8,14 +8,6 @@ import (
 	"github.com/devzeebo/bifrost/domain"
 )
 
-// DependencyExistenceDoc is the document stored for each dependency row.
-// Row existence indicates the dependency exists.
-type DependencyExistenceDoc struct {
-	RuneID       string `json:"rune_id"`
-	TargetID     string `json:"target_id"`
-	Relationship string `json:"relationship"`
-}
-
 // DependencyExistenceProjector maintains a table where each row represents
 // a single dependency. Row existence is the answer to "does this dependency exist?".
 // Table: dependency_existence
@@ -57,7 +49,7 @@ func (p *DependencyExistenceProjector) handleAdded(ctx context.Context, event co
 	}
 
 	key := data.RuneID + ":" + data.TargetID + ":" + data.Relationship
-	doc := DependencyExistenceDoc{
+	doc := core.DependencyExistenceDoc{
 		RuneID:       data.RuneID,
 		TargetID:     data.TargetID,
 		Relationship: data.Relationship,

@@ -2,6 +2,14 @@ package core
 
 import "fmt"
 
+// DependencyExistenceDoc is the document stored for each dependency row.
+// Row existence indicates the dependency exists.
+type DependencyExistenceDoc struct {
+	RuneID       string `json:"rune_id"`
+	TargetID     string `json:"target_id"`
+	Relationship string `json:"relationship"`
+}
+
 // ConcurrencyError is returned when Append detects a version mismatch
 type ConcurrencyError struct {
 	StreamID        string

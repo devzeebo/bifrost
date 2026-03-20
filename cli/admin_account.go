@@ -221,7 +221,7 @@ func newAdminAssignRoleCmd(admin *AdminCmd) *cobra.Command {
 				"realm_id":   args[1],
 				"role":       args[2],
 			}
-			_, err = admin.Client.DoPost("/api/grant-realm", req)
+			_, err = admin.Client.DoPost("/api/assign-role", req)
 			if err != nil {
 				return err
 			}
@@ -255,7 +255,7 @@ func newAdminRevokeRoleCmd(admin *AdminCmd) *cobra.Command {
 				"account_id": accountID,
 				"realm_id":   args[1],
 			}
-			_, err = admin.Client.DoPost("/api/revoke-realm", req)
+			_, err = admin.Client.DoPost("/api/revoke-role", req)
 			if err != nil {
 				return err
 			}

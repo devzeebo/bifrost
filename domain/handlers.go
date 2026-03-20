@@ -469,15 +469,16 @@ func HandleRemoveDependency(ctx context.Context, realmID string, cmd RemoveDepen
 	}
 
 	depKey := cmd.RuneID + ":" + cmd.TargetID + ":" + cmd.Relationship
-	var exists bool
-	err = projStore.Get(ctx, realmID, "dependency_existence", depKey, &exists)
+	var doc core.DependencyExistenceDoc
+	err = projStore.Get(ctx, realmID, "dependency_existence", depKey, &doc)
 	if err != nil {
 		if isNotFoundError(err) {
 			return &core.NotFoundError{Entity: "dependency", ID: cmd.RuneID}
 		}
 		return err
 	}
-	if !exists {
+	// Document existence means the dependency exists
+	if doc.RuneID == "" {
 		return &core.NotFoundError{Entity: "dependency", ID: cmd.RuneID}
 	}
 

@@ -2,8 +2,10 @@ package integration
 
 import (
 	"context"
+	"errors"
 	"testing"
 
+	"github.com/devzeebo/bifrost/core"
 	"github.com/devzeebo/bifrost/domain"
 	"github.com/devzeebo/bifrost/domain/projectors"
 	"github.com/stretchr/testify/assert"
@@ -820,7 +822,12 @@ func (tc *integrationTestContext) store_cycle_detection_entry(sourceID, targetID
 func (tc *integrationTestContext) seed_handler_dep_lookup(sourceID, targetID, relationship string) {
 	tc.t.Helper()
 	depKey := sourceID + ":" + targetID + ":" + relationship
-	err := tc.stack.ProjectionStore.Put(tc.ctx, tc.realmID, "dependency_existence", depKey, true)
+	doc := core.DependencyExistenceDoc{
+		RuneID:       sourceID,
+		TargetID:     targetID,
+		Relationship: relationship,
+	}
+	err := tc.stack.ProjectionStore.Put(tc.ctx, tc.realmID, "dependency_existence", depKey, doc)
 	require.NoError(tc.t, err)
 }
 
@@ -1211,7 +1218,7 @@ func (tc *integrationTestContext) graph_target_has_no_dependents(targetID string
 func (tc *integrationTestContext) dep_lookup_key_exists(sourceID, targetID, relationship string) {
 	tc.t.Helper()
 	key := sourceID + ":" + targetID + ":" + relationship
-	var doc projectors.DependencyExistenceDoc
+	var doc core.DependencyExistenceDoc
 	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "dependency_existence", key, &doc)
 	assert.NoError(tc.t, err, "expected dep lookup key to exist")
 	assert.Equal(tc.t, sourceID, doc.RuneID)
@@ -1220,10 +1227,16 @@ func (tc *integrationTestContext) dep_lookup_key_exists(sourceID, targetID, rela
 func (tc *integrationTestContext) dep_lookup_key_not_exists(sourceID, targetID, relationship string) {
 	tc.t.Helper()
 	key := sourceID + ":" + targetID + ":" + relationship
-	var doc projectors.DependencyExistenceDoc
+	var doc core.DependencyExistenceDoc
 	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "dependency_existence", key, &doc)
 	if err == nil {
 		tc.t.Errorf("expected dep lookup key to not exist, but found doc: %+v", doc)
+		return
+	}
+	// Only treat NotFoundError as indicating the key doesn't exist
+	var nfe *core.NotFoundError
+	if !errors.As(err, &nfe) {
+		tc.t.Errorf("expected NotFoundError for missing dep lookup key, got %T: %v", err, err)
 	}
 }
 

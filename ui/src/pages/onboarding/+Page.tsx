@@ -61,7 +61,8 @@ function Page() {
 
   const handleComplete = useCallback(async () => {
     if (!adminResponse?.pat) {
-      navigate('/dashboard');
+      showToast('Error', 'No access token available. Please sign in.', 'error');
+      navigate('/login');
       return;
     }
 

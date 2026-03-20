@@ -261,7 +261,8 @@ func TestValidatePAT(t *testing.T) {
 
 	t.Run("PAT ID reverse lookup missing", func(t *testing.T) {
 		store := newMockProjectionStore()
-		token, _ := createPATToken(t)
+		token, keyHash := createPATToken(t)
+		store.data[compositeKey("_admin", "pat_by_keyhash", keyHash)] = "pat-789"
 		// Missing pat_id entry
 
 		_, _, err := ValidatePAT(ctx, store, token)

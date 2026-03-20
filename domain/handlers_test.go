@@ -1796,7 +1796,7 @@ func (tc *handlerTestContext) with_branch_on_update_command(branch string) {
 func (tc *handlerTestContext) returns_child_count(parentID string, count int) {
 	tc.t.Helper()
 	tc.a_store()
-	tc.projectionStore.data["rune_child_count:"+parentID] = map[string]any{"parent_rune_id": parentID, "count": count}
+	tc.projectionStore.data[tc.realmID+":rune_child_count:"+parentID] = map[string]any{"parent_rune_id": parentID, "count": count}
 }
 
 func (tc *handlerTestContext) dependency_graph_has_no_cycle(sourceID, targetID string) {
@@ -1809,14 +1809,19 @@ func (tc *handlerTestContext) dependency_graph_has_cycle(sourceID, targetID stri
 	tc.t.Helper()
 	tc.a_store()
 	key := sourceID + ":" + targetID
-	tc.projectionStore.data["dependency_cycle_check:"+key] = true
+	tc.projectionStore.data[tc.realmID+":dependency_cycle_check:"+key] = true
 }
 
 func (tc *handlerTestContext) dependency_exists_in_graph(sourceID, targetID, rel string) {
 	tc.t.Helper()
 	tc.a_store()
 	key := sourceID + ":" + targetID + ":" + rel
-	tc.projectionStore.data["dependency_existence:"+key] = true
+	doc := core.DependencyExistenceDoc{
+		RuneID:       sourceID,
+		TargetID:     targetID,
+		Relationship: rel,
+	}
+	tc.projectionStore.data[tc.realmID+":dependency_existence:"+key] = doc
 }
 
 func (tc *handlerTestContext) dependency_not_in_graph(sourceID, targetID, rel string) {
@@ -1919,8 +1924,8 @@ func (tc *handlerTestContext) rune_in_rune_list(runeID, status string) {
 	tc.t.Helper()
 	tc.a_store()
 	entry, _ := json.Marshal(map[string]string{"id": runeID, "status": status})
-	tc.projectionStore.listData["rune_summary"] = append(tc.projectionStore.listData["rune_summary"], entry)
-	tc.projectionStore.data["rune_summary:"+runeID] = map[string]string{"id": runeID, "status": status}
+	tc.projectionStore.listData[tc.realmID+":rune_summary"] = append(tc.projectionStore.listData[tc.realmID+":rune_summary"], entry)
+	tc.projectionStore.data[tc.realmID+":rune_summary:"+runeID] = map[string]string{"id": runeID, "status": status}
 }
 
 func (tc *handlerTestContext) dependency_graph_has_dependents(runeID string, dependentIDs ...string) {
@@ -1933,13 +1938,13 @@ func (tc *handlerTestContext) dependency_graph_has_dependents(runeID string, dep
 	for i, id := range dependentIDs {
 		deps[i] = dep{SourceID: id}
 	}
-	tc.projectionStore.data["rune_dependency_graph:"+runeID] = map[string]any{"dependents": deps}
+	tc.projectionStore.data[tc.realmID+":rune_dependency_graph:"+runeID] = map[string]any{"dependents": deps}
 }
 
 func (tc *handlerTestContext) rune_has_children(runeID string, count int) {
 	tc.t.Helper()
 	tc.a_store()
-	tc.projectionStore.data["rune_child_count:"+runeID] = map[string]any{"parent_rune_id": runeID, "count": count}
+	tc.projectionStore.data[tc.realmID+":rune_child_count:"+runeID] = map[string]any{"parent_rune_id": runeID, "count": count}
 }
 
 // --- When ---
@@ -2357,7 +2362,7 @@ func newMockProjectionStore() *mockProjectionStore {
 }
 
 func (m *mockProjectionStore) Get(ctx context.Context, realmID string, table string, key string, dest any) error {
-	compositeKey := table + ":" + key
+	compositeKey := realmID + ":" + table + ":" + key
 	val, ok := m.data[compositeKey]
 	if !ok {
 		return &core.NotFoundError{Entity: table, ID: key}
@@ -2370,20 +2375,21 @@ func (m *mockProjectionStore) Get(ctx context.Context, realmID string, table str
 }
 
 func (m *mockProjectionStore) Put(ctx context.Context, realmID string, table string, key string, value any) error {
-	compositeKey := table + ":" + key
+	compositeKey := realmID + ":" + table + ":" + key
 	m.data[compositeKey] = value
 	return nil
 }
 
-func (m *mockProjectionStore) List(_ context.Context, _ string, table string) ([]json.RawMessage, error) {
-	if entries, ok := m.listData[table]; ok {
+func (m *mockProjectionStore) List(_ context.Context, realmID string, table string) ([]json.RawMessage, error) {
+	compositeKey := realmID + ":" + table
+	if entries, ok := m.listData[compositeKey]; ok {
 		return entries, nil
 	}
 	return []json.RawMessage{}, nil
 }
 
 func (m *mockProjectionStore) Delete(ctx context.Context, realmID string, table string, key string) error {
-	compositeKey := table + ":" + key
+	compositeKey := realmID + ":" + table + ":" + key
 	delete(m.data, compositeKey)
 	return nil
 }

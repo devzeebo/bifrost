@@ -269,7 +269,7 @@ func (tc *depExistenceTestContext) an_existing_row(runeID, targetID, relationshi
 	tc.t.Helper()
 	tc.a_store()
 	key := runeID + ":" + targetID + ":" + relationship
-	doc := DependencyExistenceDoc{
+	doc := core.DependencyExistenceDoc{
 		RuneID:       runeID,
 		TargetID:     targetID,
 		Relationship: relationship,
@@ -314,7 +314,7 @@ func (tc *depExistenceTestContext) no_error() {
 func (tc *depExistenceTestContext) row_exists(runeID, targetID, relationship string) {
 	tc.t.Helper()
 	key := runeID + ":" + targetID + ":" + relationship
-	var doc DependencyExistenceDoc
+	var doc core.DependencyExistenceDoc
 	err := tc.store.Get(tc.ctx, tc.realmID, "dependency_existence", key, &doc)
 	require.NoError(tc.t, err, "expected row to exist with key %s", key)
 }
@@ -322,7 +322,7 @@ func (tc *depExistenceTestContext) row_exists(runeID, targetID, relationship str
 func (tc *depExistenceTestContext) no_row_exists(runeID, targetID, relationship string) {
 	tc.t.Helper()
 	key := runeID + ":" + targetID + ":" + relationship
-	var doc DependencyExistenceDoc
+	var doc core.DependencyExistenceDoc
 	err := tc.store.Get(tc.ctx, tc.realmID, "dependency_existence", key, &doc)
 	assert.Error(tc.t, err, "expected no row with key %s", key)
 }
@@ -330,7 +330,7 @@ func (tc *depExistenceTestContext) no_row_exists(runeID, targetID, relationship 
 func (tc *depExistenceTestContext) row_has_document(runeID, targetID, relationship string) {
 	tc.t.Helper()
 	key := runeID + ":" + targetID + ":" + relationship
-	var doc DependencyExistenceDoc
+	var doc core.DependencyExistenceDoc
 	err := tc.store.Get(tc.ctx, tc.realmID, "dependency_existence", key, &doc)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, runeID, doc.RuneID)

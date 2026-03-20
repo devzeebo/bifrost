@@ -1435,7 +1435,12 @@ func (tc *handlerTestContext) rune_with_dependency(realmID, runeID, targetID, re
 	tc.rune_exists_in_event_store(realmID, targetID)
 	// Put dependency in projection store for RemoveDependency lookup
 	depKey := runeID + ":" + targetID + ":" + relationship
-	_ = tc.projectionStore.Put(context.Background(), realmID, "dependency_existence", depKey, true)
+	doc := core.DependencyExistenceDoc{
+		RuneID:       runeID,
+		TargetID:     targetID,
+		Relationship: relationship,
+	}
+	_ = tc.projectionStore.Put(context.Background(), realmID, "dependency_existence", depKey, doc)
 }
 
 func (tc *handlerTestContext) rune_is_sealed_in_event_store(realmID, runeID string) {
