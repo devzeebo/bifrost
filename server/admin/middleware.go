@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/devzeebo/bifrost/core"
@@ -136,20 +137,20 @@ func ValidateJWT(cfg *AuthConfig, tokenString string) (*AdminClaims, error) {
 
 // CheckPATStatus verifies that a PAT is still active by looking it up in the projection store.
 // It uses the same lookup mechanism as the API's PAT authentication.
-func CheckPATStatus(ctx context.Context, projectionStore core.ProjectionStore, patID string) (*projectors.AccountLookupEntry, error) {
-	// Look up the key hash from PAT ID reverse lookup
-	var keyHash string
-	if err := projectionStore.Get(ctx, "_admin", "account_lookup", "pat:"+patID, &keyHash); err != nil {
+func CheckPATStatus(ctx context.Context, projectionStore core.ProjectionStore, patID string) (*projectors.AccountAuthEntry, error) {
+	// Look up the PAT entry from PAT ID reverse lookup
+	var patEntry projectors.PATIDEntry
+	if err := projectionStore.Get(ctx, "_admin", "pat_by_id", patID, &patEntry); err != nil {
 		var nfe *core.NotFoundError
 		if errors.As(err, &nfe) {
 			return nil, ErrPATRevoked
 		}
-		return nil, fmt.Errorf("checking PAT status for %s: lookup key hash: %w", patID, err)
+		return nil, fmt.Errorf("checking PAT status for %s: lookup PAT entry: %w", patID, err)
 	}
 
-	// Look up the account entry by key hash
-	var entry projectors.AccountLookupEntry
-	if err := projectionStore.Get(ctx, "_admin", "account_lookup", keyHash, &entry); err != nil {
+	// Look up the account auth entry by account ID
+	var entry projectors.AccountAuthEntry
+	if err := projectionStore.Get(ctx, "_admin", "account_auth", patEntry.AccountID, &entry); err != nil {
 		var nfe *core.NotFoundError
 		if errors.As(err, &nfe) {
 			return nil, ErrPATRevoked
@@ -173,38 +174,82 @@ var (
 	ErrAccountSuspended = errors.New("account is suspended")
 )
 
-// AuthMiddleware returns HTTP middleware that authenticates admin UI requests via JWT cookie.
+// AuthMiddleware returns HTTP middleware that authenticates admin requests.
+// It supports two authentication methods:
+// 1. JWT cookie (for web UI sessions)
+// 2. Bearer token in Authorization header (for CLI/API clients)
 func AuthMiddleware(cfg *AuthConfig, projectionStore core.ProjectionStore) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			cookie, err := r.Cookie(cfg.CookieName)
-			if err != nil {
-				redirectToLogin(w, r, cfg)
-				return
+			// Try JWT cookie auth first (for web UI)
+			if cookie, err := r.Cookie(cfg.CookieName); err == nil {
+				claims, err := ValidateJWT(cfg, cookie.Value)
+				if err == nil {
+					// Check that the PAT is still active
+					entry, err := CheckPATStatus(r.Context(), projectionStore, claims.PATID)
+					if err == nil {
+						ctx := r.Context()
+						ctx = context.WithValue(ctx, accountIDKey, claims.AccountID)
+						ctx = context.WithValue(ctx, patIDKey, claims.PATID)
+						ctx = context.WithValue(ctx, usernameKey, entry.Username)
+						ctx = context.WithValue(ctx, rolesKey, entry.Roles)
+						next.ServeHTTP(w, r.WithContext(ctx))
+						return
+					}
+				}
 			}
 
-			claims, err := ValidateJWT(cfg, cookie.Value)
-			if err != nil {
-				redirectToLogin(w, r, cfg)
-				return
+			// Fall back to Bearer token auth (for CLI/API clients)
+			authHeader := r.Header.Get("Authorization")
+			if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
+				token := strings.TrimPrefix(authHeader, "Bearer ")
+				if token != "" {
+					entry, patID, err := ValidatePAT(r.Context(), projectionStore, token)
+					if err == nil {
+						ctx := r.Context()
+						ctx = context.WithValue(ctx, accountIDKey, entry.AccountID)
+						ctx = context.WithValue(ctx, patIDKey, patID)
+						ctx = context.WithValue(ctx, usernameKey, entry.Username)
+						ctx = context.WithValue(ctx, rolesKey, entry.Roles)
+						next.ServeHTTP(w, r.WithContext(ctx))
+						return
+					}
+					// Bearer token was provided but invalid - return 401 JSON
+					writeUnauthorized(w, err)
+					return
+				}
 			}
 
-			// Check that the PAT is still active
-			entry, err := CheckPATStatus(r.Context(), projectionStore, claims.PATID)
-			if err != nil {
-				redirectToLogin(w, r, cfg)
+			// No valid auth found - redirect for UI, 401 for API
+			if isAPIRequest(r) {
+				writeUnauthorized(w, ErrNoToken)
 				return
 			}
-
-			// Set values in context for downstream handlers
-			ctx := r.Context()
-			ctx = context.WithValue(ctx, accountIDKey, claims.AccountID)
-			ctx = context.WithValue(ctx, patIDKey, claims.PATID)
-			ctx = context.WithValue(ctx, usernameKey, entry.Username)
-			ctx = context.WithValue(ctx, rolesKey, entry.Roles)
-
-			next.ServeHTTP(w, r.WithContext(ctx))
+			redirectToLogin(w, r, cfg)
 		})
+	}
+}
+
+// isAPIRequest returns true if the request expects a JSON response.
+func isAPIRequest(r *http.Request) bool {
+	// Check Accept header
+	if accept := r.Header.Get("Accept"); strings.Contains(accept, "application/json") {
+		return true
+	}
+	// Check if path starts with /api/
+	return strings.HasPrefix(r.URL.Path, "/api/")
+}
+
+// writeUnauthorized writes a 401 Unauthorized JSON response.
+func writeUnauthorized(w http.ResponseWriter, err error) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusUnauthorized)
+	msg := "unauthorized"
+	if err != nil {
+		msg = err.Error()
+	}
+	if encodeErr := json.NewEncoder(w).Encode(map[string]string{"error": msg}); encodeErr != nil {
+		http.Error(w, encodeErr.Error(), http.StatusInternalServerError)
 	}
 }
 
@@ -255,7 +300,7 @@ func ClearAuthCookie(w http.ResponseWriter, cfg *AuthConfig) {
 
 // ValidatePAT validates a PAT string and returns the associated account entry and PAT ID.
 // This is used during login to validate the PAT before generating a JWT.
-func ValidatePAT(ctx context.Context, projectionStore core.ProjectionStore, token string) (*projectors.AccountLookupEntry, string, error) {
+func ValidatePAT(ctx context.Context, projectionStore core.ProjectionStore, token string) (*projectors.AccountAuthEntry, string, error) {
 	// Decode the raw key from base64url
 	rawBytes, err := base64.RawURLEncoding.DecodeString(token)
 	if err != nil {
@@ -266,10 +311,29 @@ func ValidatePAT(ctx context.Context, projectionStore core.ProjectionStore, toke
 	h := sha256.Sum256(rawBytes)
 	keyHash := base64.RawURLEncoding.EncodeToString(h[:])
 
-	// Look up in account_lookup projection
-	var entry projectors.AccountLookupEntry
-	err = projectionStore.Get(ctx, "_admin", "account_lookup", keyHash, &entry)
-	if err != nil {
+	// Look up PAT ID from keyHash reverse lookup
+	var patID string
+	if err := projectionStore.Get(ctx, "_admin", "pat_by_keyhash", keyHash, &patID); err != nil {
+		var nfe *core.NotFoundError
+		if errors.As(err, &nfe) {
+			return nil, "", ErrInvalidToken
+		}
+		return nil, "", fmt.Errorf("validate PAT: lookup PAT ID: %w", err)
+	}
+
+	// Look up PAT entry to get account ID
+	var patEntry projectors.PATIDEntry
+	if err := projectionStore.Get(ctx, "_admin", "pat_by_id", patID, &patEntry); err != nil {
+		var nfe *core.NotFoundError
+		if errors.As(err, &nfe) {
+			return nil, "", ErrInvalidToken
+		}
+		return nil, "", fmt.Errorf("validate PAT: lookup PAT entry: %w", err)
+	}
+
+	// Look up account auth entry
+	var entry projectors.AccountAuthEntry
+	if err := projectionStore.Get(ctx, "_admin", "account_auth", patEntry.AccountID, &entry); err != nil {
 		var nfe *core.NotFoundError
 		if errors.As(err, &nfe) {
 			return nil, "", ErrInvalidToken
@@ -279,16 +343,6 @@ func ValidatePAT(ctx context.Context, projectionStore core.ProjectionStore, toke
 
 	if entry.Status == "suspended" {
 		return nil, "", ErrAccountSuspended
-	}
-
-	// Look up PAT ID from keyHash reverse lookup
-	var patID string
-	if err := projectionStore.Get(ctx, "_admin", "account_lookup", "keyhash_pat:"+keyHash, &patID); err != nil {
-		var nfe *core.NotFoundError
-		if errors.As(err, &nfe) {
-			return nil, "", ErrInvalidToken
-		}
-		return nil, "", fmt.Errorf("validate PAT: lookup PAT ID: %w", err)
 	}
 
 	return &entry, patID, nil
@@ -335,7 +389,7 @@ func BuildAvailableRealms(ctx context.Context, projectionStore core.ProjectionSt
 		return nil
 	}
 
-	rawRealms, err := projectionStore.List(ctx, "_admin", "realm_list")
+	rawRealms, err := projectionStore.List(ctx, "_admin", "realm_directory")
 	if err != nil {
 		return nil
 	}
@@ -348,7 +402,7 @@ func BuildAvailableRealms(ctx context.Context, projectionStore core.ProjectionSt
 
 	realms := make([]RealmInfo, 0, len(roles))
 	for _, raw := range rawRealms {
-		var realm projectors.RealmListEntry
+		var realm projectors.RealmDirectoryEntry
 		if err := json.Unmarshal(raw, &realm); err != nil {
 			continue
 		}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"strings"
 
 	"github.com/devzeebo/bifrost/core"
 )
@@ -21,31 +22,40 @@ func NewProjectionStore(db *sql.DB) (*ProjectionStore, error) {
 	return &ProjectionStore{db: db}, nil
 }
 
-// Get retrieves a projection value by realm, projection name, and key.
-// Returns core.NotFoundError if no row is found.
-func (s *ProjectionStore) Get(ctx context.Context, realmID string, projectionName string, key string, dest any) error {
+// Get retrieves a projection value by realm, table, and key.
+// Returns core.NotFoundError if no row is found or table doesn't exist.
+func (s *ProjectionStore) Get(ctx context.Context, realmID string, table string, key string, dest any) error {
 	var value []byte
 	err := s.db.QueryRowContext(ctx,
-		`SELECT value FROM projections WHERE realm_id = ? AND projection_name = ? AND key = ?`,
-		realmID, projectionName, key,
+		`SELECT value FROM projection_`+table+` WHERE realm_id = ? AND key = ?`,
+		realmID, key,
 	).Scan(&value)
 
 	if err == sql.ErrNoRows {
-		return &core.NotFoundError{Entity: projectionName, ID: key}
+		return &core.NotFoundError{Entity: table, ID: key}
 	}
 	if err != nil {
+		// Handle "no such table" error as NotFoundError
+		if isTableNotExistError(err) {
+			return &core.NotFoundError{Entity: table, ID: key}
+		}
 		return err
 	}
 	return json.Unmarshal(value, dest)
 }
 
-// List returns all projection values for the given realm and projection name.
-func (s *ProjectionStore) List(ctx context.Context, realmID string, projectionName string) ([]json.RawMessage, error) {
+// List returns all projection values for the given realm and table.
+// Returns empty slice if table doesn't exist.
+func (s *ProjectionStore) List(ctx context.Context, realmID string, table string) ([]json.RawMessage, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT value FROM projections WHERE realm_id = ? AND projection_name = ?`,
-		realmID, projectionName,
+		`SELECT value FROM projection_`+table+` WHERE realm_id = ?`,
+		realmID,
 	)
 	if err != nil {
+		// Handle "no such table" error as empty result
+		if isTableNotExistError(err) {
+			return []json.RawMessage{}, nil
+		}
 		return nil, err
 	}
 	defer rows.Close()
@@ -61,24 +71,69 @@ func (s *ProjectionStore) List(ctx context.Context, realmID string, projectionNa
 	return results, rows.Err()
 }
 
-// Put upserts a projection value for the given realm, projection name, and key.
-func (s *ProjectionStore) Put(ctx context.Context, realmID string, projectionName string, key string, value any) error {
+// ensureTable creates the projection table if it doesn't exist.
+func (s *ProjectionStore) ensureTable(ctx context.Context, table string) error {
+	_, err := s.db.ExecContext(ctx,
+		`CREATE TABLE IF NOT EXISTS projection_`+table+` (
+			realm_id TEXT NOT NULL,
+			key TEXT NOT NULL,
+			value TEXT,
+			PRIMARY KEY(realm_id, key)
+		)`,
+	)
+	return err
+}
+
+// CreateTable creates the projection table if it doesn't exist.
+// This is the public method implementing the ProjectionStore interface.
+func (s *ProjectionStore) CreateTable(ctx context.Context, table string) error {
+	return s.ensureTable(ctx, table)
+}
+
+// Put upserts a projection value for the given realm, table, and key.
+func (s *ProjectionStore) Put(ctx context.Context, realmID string, table string, key string, value any) error {
+	if err := s.ensureTable(ctx, table); err != nil {
+		return err
+	}
 	data, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}
 	_, err = s.db.ExecContext(ctx,
-		`INSERT OR REPLACE INTO projections (realm_id, projection_name, key, value) VALUES (?, ?, ?, ?)`,
-		realmID, projectionName, key, string(data),
+		`INSERT OR REPLACE INTO projection_`+table+` (realm_id, key, value) VALUES (?, ?, ?)`,
+		realmID, key, string(data),
 	)
 	return err
 }
 
 // Delete removes a projection entry. Deleting a non-existent key is not an error.
-func (s *ProjectionStore) Delete(ctx context.Context, realmID string, projectionName string, key string) error {
+// If the table doesn't exist, it's also not an error.
+func (s *ProjectionStore) Delete(ctx context.Context, realmID string, table string, key string) error {
 	_, err := s.db.ExecContext(ctx,
-		`DELETE FROM projections WHERE realm_id = ? AND projection_name = ? AND key = ?`,
-		realmID, projectionName, key,
+		`DELETE FROM projection_`+table+` WHERE realm_id = ? AND key = ?`,
+		realmID, key,
 	)
+	if err != nil && isTableNotExistError(err) {
+		return nil
+	}
 	return err
+}
+
+// ClearTable removes all entries from a projection table.
+// If the table doesn't exist, it's not an error.
+func (s *ProjectionStore) ClearTable(ctx context.Context, table string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM projection_`+table)
+	if err != nil && isTableNotExistError(err) {
+		return nil
+	}
+	return err
+}
+
+// isTableNotExistError checks if the error indicates the table doesn't exist.
+func isTableNotExistError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "no such table")
 }

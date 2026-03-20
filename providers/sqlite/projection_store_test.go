@@ -131,13 +131,13 @@ func TestProjectionStore_List(t *testing.T) {
 		// Given
 		tc.a_database_with_schema()
 		tc.new_projection_store_is_created()
-		tc.projection_has_entries("realm-1", "rune_list", map[string]string{
+		tc.projection_has_entries("realm-1", "projection_rune_summary", map[string]string{
 			"rune-1": `{"id":"rune-1","title":"First"}`,
 			"rune-2": `{"id":"rune-2","title":"Second"}`,
 		})
 
 		// When
-		tc.list_is_called("realm-1", "rune_list")
+		tc.list_is_called("realm-1", "projection_rune_summary")
 
 		// Then
 		tc.no_error_occurred()
@@ -152,7 +152,7 @@ func TestProjectionStore_List(t *testing.T) {
 		tc.new_projection_store_is_created()
 
 		// When
-		tc.list_is_called("realm-1", "rune_list")
+		tc.list_is_called("realm-1", "projection_rune_summary")
 
 		// Then
 		tc.no_error_occurred()
@@ -165,16 +165,16 @@ func TestProjectionStore_List(t *testing.T) {
 		// Given
 		tc.a_database_with_schema()
 		tc.new_projection_store_is_created()
-		tc.projection_has_entries("realm-1", "rune_list", map[string]string{
+		tc.projection_has_entries("realm-1", "projection_rune_summary", map[string]string{
 			"rune-1": `{"id":"rune-1"}`,
 			"rune-2": `{"id":"rune-2"}`,
 		})
-		tc.projection_has_entries("realm-2", "rune_list", map[string]string{
+		tc.projection_has_entries("realm-2", "projection_rune_summary", map[string]string{
 			"rune-3": `{"id":"rune-3"}`,
 		})
 
 		// When
-		tc.list_is_called("realm-1", "rune_list")
+		tc.list_is_called("realm-1", "projection_rune_summary")
 
 		// Then
 		tc.no_error_occurred()
@@ -187,7 +187,7 @@ func TestProjectionStore_List(t *testing.T) {
 		// Given
 		tc.a_database_with_schema()
 		tc.new_projection_store_is_created()
-		tc.projection_has_entries("realm-1", "rune_list", map[string]string{
+		tc.projection_has_entries("realm-1", "projection_rune_summary", map[string]string{
 			"rune-1": `{"id":"rune-1"}`,
 		})
 		tc.projection_has_entries("realm-1", "realm_list", map[string]string{
@@ -196,7 +196,7 @@ func TestProjectionStore_List(t *testing.T) {
 		})
 
 		// When
-		tc.list_is_called("realm-1", "rune_list")
+		tc.list_is_called("realm-1", "projection_rune_summary")
 
 		// Then
 		tc.no_error_occurred()
@@ -322,10 +322,10 @@ func (tc *projectionTestContext) a_complex_value() {
 	}
 }
 
-func (tc *projectionTestContext) projection_has_entries(realmID, projectionName string, entries map[string]string) {
+func (tc *projectionTestContext) projection_has_entries(realmID, table string, entries map[string]string) {
 	tc.t.Helper()
 	for key, val := range entries {
-		tc.err = tc.store.Put(context.Background(), realmID, projectionName, key, json.RawMessage(val))
+		tc.err = tc.store.Put(context.Background(), realmID, table, key, json.RawMessage(val))
 		require.NoError(tc.t, tc.err)
 	}
 }
@@ -337,38 +337,38 @@ func (tc *projectionTestContext) new_projection_store_is_created() {
 	tc.store, tc.err = NewProjectionStore(tc.db)
 }
 
-func (tc *projectionTestContext) get_is_called(realmID, projectionName, key string) {
+func (tc *projectionTestContext) get_is_called(realmID, table, key string) {
 	tc.t.Helper()
 	tc.retrievedStr = ""
-	tc.err = tc.store.Get(context.Background(), realmID, projectionName, key, &tc.retrievedStr)
+	tc.err = tc.store.Get(context.Background(), realmID, table, key, &tc.retrievedStr)
 }
 
-func (tc *projectionTestContext) put_is_called(realmID, projectionName, key string) {
+func (tc *projectionTestContext) put_is_called(realmID, table, key string) {
 	tc.t.Helper()
-	tc.err = tc.store.Put(context.Background(), realmID, projectionName, key, tc.simpleValue)
+	tc.err = tc.store.Put(context.Background(), realmID, table, key, tc.simpleValue)
 	require.NoError(tc.t, tc.err)
 }
 
-func (tc *projectionTestContext) delete_is_called(realmID, projectionName, key string) {
+func (tc *projectionTestContext) delete_is_called(realmID, table, key string) {
 	tc.t.Helper()
-	tc.err = tc.store.Delete(context.Background(), realmID, projectionName, key)
+	tc.err = tc.store.Delete(context.Background(), realmID, table, key)
 }
 
-func (tc *projectionTestContext) put_complex_is_called(realmID, projectionName, key string) {
+func (tc *projectionTestContext) put_complex_is_called(realmID, table, key string) {
 	tc.t.Helper()
-	tc.err = tc.store.Put(context.Background(), realmID, projectionName, key, tc.complexValue)
+	tc.err = tc.store.Put(context.Background(), realmID, table, key, tc.complexValue)
 	require.NoError(tc.t, tc.err)
 }
 
-func (tc *projectionTestContext) get_complex_is_called(realmID, projectionName, key string) {
+func (tc *projectionTestContext) get_complex_is_called(realmID, table, key string) {
 	tc.t.Helper()
 	tc.retrievedProf = complexProfile{}
-	tc.err = tc.store.Get(context.Background(), realmID, projectionName, key, &tc.retrievedProf)
+	tc.err = tc.store.Get(context.Background(), realmID, table, key, &tc.retrievedProf)
 }
 
-func (tc *projectionTestContext) list_is_called(realmID, projectionName string) {
+func (tc *projectionTestContext) list_is_called(realmID, table string) {
 	tc.t.Helper()
-	tc.listResult, tc.err = tc.store.List(context.Background(), realmID, projectionName)
+	tc.listResult, tc.err = tc.store.List(context.Background(), realmID, table)
 }
 
 // --- Then ---
@@ -411,7 +411,7 @@ func (tc *projectionTestContext) list_has_n_entries(n int) {
 func (tc *projectionTestContext) stored_projection_value_column_has_type(expectedType string) {
 	tc.t.Helper()
 	var colType string
-	err := tc.db.QueryRow(`SELECT typeof(value) FROM projections LIMIT 1`).Scan(&colType)
+	err := tc.db.QueryRow(`SELECT typeof(value) FROM projection_greetings LIMIT 1`).Scan(&colType)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expectedType, colType)
 }

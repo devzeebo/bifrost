@@ -132,7 +132,7 @@ func handleGetAccounts(cfg *RouteConfig) http.HandlerFunc {
 		// Get all accounts from projection
 		var accounts []AccountListEntry
 		if cfg.ProjectionStore != nil {
-			rawAccounts, err := cfg.ProjectionStore.List(r.Context(), domain.AdminRealmID, "account_list")
+			rawAccounts, err := cfg.ProjectionStore.List(r.Context(), domain.AdminRealmID, "account_directory")
 			if err != nil {
 				log.Printf("handleGetAccounts: failed to list accounts: %v", err)
 				writeError(w, http.StatusInternalServerError, "failed to list accounts")
@@ -140,7 +140,7 @@ func handleGetAccounts(cfg *RouteConfig) http.HandlerFunc {
 			}
 			accounts = make([]AccountListEntry, 0, len(rawAccounts))
 			for _, raw := range rawAccounts {
-				var account projectors.AccountListEntry
+				var account projectors.AccountDirectoryEntry
 				if err := json.Unmarshal(raw, &account); err != nil {
 					continue
 				}
@@ -150,7 +150,7 @@ func handleGetAccounts(cfg *RouteConfig) http.HandlerFunc {
 					Status:    account.Status,
 					Realms:    account.Realms,
 					Roles:     account.Roles,
-					PATCount:  account.PATCount,
+					PATCount:  account.PATCount(),
 					CreatedAt: account.CreatedAt.Format("2006-01-02T15:04:05.000Z"),
 				})
 			}
@@ -177,9 +177,9 @@ func handleGetAccount(cfg *RouteConfig) http.HandlerFunc {
 		}
 
 		// Get account from projection
-		var account projectors.AccountListEntry
+		var account projectors.AccountDirectoryEntry
 		if cfg.ProjectionStore != nil {
-			err := cfg.ProjectionStore.Get(r.Context(), domain.AdminRealmID, "account_list", accountID, &account)
+			err := cfg.ProjectionStore.Get(r.Context(), domain.AdminRealmID, "account_directory", accountID, &account)
 			if err != nil {
 				writeError(w, http.StatusNotFound, "account not found")
 				return
@@ -192,7 +192,7 @@ func handleGetAccount(cfg *RouteConfig) http.HandlerFunc {
 			Status:    account.Status,
 			Realms:    account.Realms,
 			Roles:     account.Roles,
-			PATCount:  account.PATCount,
+			PATCount:  account.PATCount(),
 			CreatedAt: account.CreatedAt.Format("2006-01-02T15:04:05.000Z"),
 		}
 
@@ -303,7 +303,7 @@ func handleGrantRealm(cfg *RouteConfig) http.HandlerFunc {
 			AccountID: req.AccountID,
 			RealmID:   req.RealmID,
 			Role:      req.Role,
-		}, cfg.EventStore)
+		}, cfg.EventStore, cfg.ProjectionStore)
 		if err != nil {
 			log.Printf("handleGrantRealm: failed: %v", err)
 			handleDomainError(w, err)
@@ -408,15 +408,17 @@ func handleRevokePat(cfg *RouteConfig) http.HandlerFunc {
 			return
 		}
 
-		var keyHashes []string
+		// Get account from account_directory to check PAT count
+		var account projectors.AccountDirectoryEntry
 		if cfg.ProjectionStore != nil {
-			if err := cfg.ProjectionStore.Get(r.Context(), domain.AdminRealmID, "account_lookup", "account:"+req.AccountID, &keyHashes); err != nil {
+			err := cfg.ProjectionStore.Get(r.Context(), domain.AdminRealmID, "account_directory", req.AccountID, &account)
+			if err != nil {
 				writeError(w, http.StatusNotFound, "account not found")
 				return
 			}
 		}
 
-		if len(keyHashes) <= 1 {
+		if len(account.PATs) <= 1 {
 			writeError(w, http.StatusBadRequest, "cannot revoke the last PAT")
 			return
 		}
@@ -450,76 +452,25 @@ func handleGetPats(cfg *RouteConfig) http.HandlerFunc {
 			return
 		}
 
-		// Get account to check it exists and get PAT count
-		var account projectors.AccountListEntry
+		// Get account from account_directory projection
+		var account projectors.AccountDirectoryEntry
 		if cfg.ProjectionStore != nil {
-			err := cfg.ProjectionStore.Get(r.Context(), domain.AdminRealmID, "account_list", accountID, &account)
+			err := cfg.ProjectionStore.Get(r.Context(), domain.AdminRealmID, "account_directory", accountID, &account)
 			if err != nil {
 				writeError(w, http.StatusNotFound, "account not found")
 				return
 			}
 		}
 
-		// Get PAT key hashes for this account
-		var keyHashes []string
-		if cfg.ProjectionStore != nil {
-			err := cfg.ProjectionStore.Get(r.Context(), domain.AdminRealmID, "account_lookup", "account:"+accountID, &keyHashes)
-			if err != nil {
-				// No PATs yet, return empty list
-				keyHashes = []string{}
-			}
-		}
-
-		type patMeta struct {
-			Label     string
-			CreatedAt string
-		}
-		patMetadataByID := map[string]patMeta{}
-
-		if cfg.EventStore != nil {
-			events, err := cfg.EventStore.ReadStream(r.Context(), domain.AdminRealmID, "account-"+accountID, 0)
-			if err == nil {
-				for _, event := range events {
-					switch event.EventType {
-					case domain.EventPATCreated:
-						var data domain.PATCreated
-						if err := json.Unmarshal(event.Data, &data); err != nil {
-							continue
-						}
-						patMetadataByID[data.PATID] = patMeta{
-							Label:     data.Label,
-							CreatedAt: data.CreatedAt.Format("2006-01-02T15:04:05.000Z"),
-						}
-					case domain.EventPATRevoked:
-						var data domain.PATRevoked
-						if err := json.Unmarshal(event.Data, &data); err != nil {
-							continue
-						}
-						delete(patMetadataByID, data.PATID)
-					}
-				}
-			}
-		}
-
-		// Build PAT list from key hashes
-		pats := make([]PatEntry, 0, len(keyHashes))
-		for _, keyHash := range keyHashes {
-			// Look up PAT ID from key hash
-			var patID string
-			if err := cfg.ProjectionStore.Get(r.Context(), domain.AdminRealmID, "account_lookup", "keyhash_pat:"+keyHash, &patID); err != nil {
-				continue
-			}
-			metadata, ok := patMetadataByID[patID]
-			if !ok {
-				continue
-			}
+		// Build PAT list from account_directory.pats array
+		pats := make([]PatEntry, 0, len(account.PATs))
+		for _, pat := range account.PATs {
 			pats = append(pats, PatEntry{
-				ID:           patID,
-				Label:        metadata.Label,
+				ID:           pat.PATID,
+				Label:        pat.Label,
 				TokenPreview: "",
-				CreatedAt:    metadata.CreatedAt,
+				CreatedAt:    pat.CreatedAt.Format("2006-01-02T15:04:05.000Z"),
 			})
-
 		}
 
 		w.Header().Set("Content-Type", "application/json")

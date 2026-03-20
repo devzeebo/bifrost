@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 
 	"github.com/spf13/cobra"
 )
@@ -24,26 +23,9 @@ func NewShowCmd(clientFn func() *Client, out *bytes.Buffer) *ShowCmd {
 			id := args[0]
 			humanMode, _ := cmd.Flags().GetBool("human")
 
-			resp, err := clientFn().DoGet("/rune", map[string]string{"id": id})
+			respBody, err := clientFn().DoGetWithParams("/rune", map[string]string{"id": id})
 			if err != nil {
 				return err
-			}
-			defer resp.Body.Close()
-
-			respBody, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-
-			if resp.StatusCode >= 400 {
-				var errResp map[string]string
-				if json.Unmarshal(respBody, &errResp) == nil {
-					if msg, ok := errResp["error"]; ok {
-						out.WriteString(msg)
-						return fmt.Errorf("%s", msg)
-					}
-				}
-				return fmt.Errorf("server error: %s", string(respBody))
 			}
 
 			return PrintOutput(out, respBody, humanMode, func(w *bytes.Buffer, data []byte) {

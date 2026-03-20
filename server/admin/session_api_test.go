@@ -237,6 +237,55 @@ func TestUISessionAPI_GetSession(t *testing.T) {
 		assert.NotEmpty(t, session.Username)
 		assert.NotEmpty(t, session.Realms)
 	})
+
+	t.Run("uses realm_directory for realm names", func(t *testing.T) {
+		// Set up realm_directory entry
+		store.data[compositeKey("realm-1", "realm_directory", "realm-1")] = projectors.RealmDirectoryEntry{
+			RealmID:   "realm-1",
+			Name:      "My Test Realm",
+			Status:    "active",
+			CreatedAt: time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC),
+		}
+
+		// First, login to get a valid session
+		validPAT := store.validToken
+
+		loginReq := LoginRequest{PAT: validPAT}
+		body, err := json.Marshal(loginReq)
+		require.NoError(t, err)
+
+		loginHTTPReq := httptest.NewRequest("POST", "/api/ui/login", bytes.NewReader(body))
+		loginHTTPReq.Header.Set("Content-Type", "application/json")
+		loginRec := httptest.NewRecorder()
+		mux.ServeHTTP(loginRec, loginHTTPReq)
+		require.Equal(t, http.StatusOK, loginRec.Code)
+
+		// Extract the cookie
+		cookies := loginRec.Result().Cookies()
+		var authCookie *http.Cookie
+		for _, c := range cookies {
+			if c.Name == cfg.AuthConfig.CookieName {
+				authCookie = c
+				break
+			}
+		}
+		require.NotNil(t, authCookie, "auth cookie should be set after login")
+
+		// Now get session with the cookie
+		req := httptest.NewRequest("GET", "/api/ui/session", nil)
+		req.AddCookie(authCookie)
+		rec := httptest.NewRecorder()
+
+		mux.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+
+		var session SessionInfo
+		err = json.Unmarshal(rec.Body.Bytes(), &session)
+		require.NoError(t, err)
+		// Realm name should come from realm_directory
+		assert.Equal(t, "My Test Realm", session.RealmNames["realm-1"], "realm name should come from realm_directory")
+	})
 }
 
 // TestUISessionAPI_CheckOnboarding tests the GET /ui/check-onboarding endpoint.
@@ -294,6 +343,117 @@ func TestUISessionAPI_CheckOnboarding(t *testing.T) {
 		err = json.Unmarshal(rec.Body.Bytes(), &resp)
 		require.NoError(t, err)
 		assert.False(t, resp.NeedsOnboarding)
+	})
+
+	t.Run("uses system_status for onboarding check", func(t *testing.T) {
+		// This test verifies that the API uses system_status table
+		// instead of listing account_list and realm_list
+		store := newMockProjectionStore()
+		cfg := &RouteConfig{
+			AuthConfig:      DefaultAuthConfig(),
+			ProjectionStore: store,
+			EventStore:      nil,
+		}
+
+		cfg.AuthConfig.SigningKey = make([]byte, 32)
+		_, err := rand.Read(cfg.AuthConfig.SigningKey)
+		require.NoError(t, err, "failed to generate signing key")
+
+		// Set up system_status with admin account and realm
+		store.data[compositeKey("_admin", "system_status", "status")] = projectors.SystemStatusEntry{
+			AdminAccountIDs: []string{"admin-1"},
+			RealmIDs:        []string{"realm-1"},
+		}
+
+		mux := http.NewServeMux()
+		RegisterSessionAPIRoutes(mux, cfg)
+
+		req := httptest.NewRequest("GET", "/api/ui/check-onboarding", nil)
+		rec := httptest.NewRecorder()
+
+		mux.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+
+		var resp OnboardingCheckResponse
+		err = json.Unmarshal(rec.Body.Bytes(), &resp)
+		require.NoError(t, err)
+		// Should NOT need onboarding because system_status has admin and realm
+		assert.False(t, resp.NeedsSysAdmin, "should not need sysadmin (admin exists in system_status)")
+		assert.False(t, resp.NeedsRealm, "should not need realm (realm exists in system_status)")
+		assert.False(t, resp.NeedsOnboarding, "should not need onboarding")
+	})
+
+	t.Run("system_status shows needs_sysadmin when no admin accounts", func(t *testing.T) {
+		store := newMockProjectionStore()
+		cfg := &RouteConfig{
+			AuthConfig:      DefaultAuthConfig(),
+			ProjectionStore: store,
+			EventStore:      nil,
+		}
+
+		cfg.AuthConfig.SigningKey = make([]byte, 32)
+		_, err := rand.Read(cfg.AuthConfig.SigningKey)
+		require.NoError(t, err, "failed to generate signing key")
+
+		// Set up system_status with realm but no admin accounts
+		store.data[compositeKey("_admin", "system_status", "status")] = projectors.SystemStatusEntry{
+			AdminAccountIDs: []string{}, // No admins
+			RealmIDs:        []string{"realm-1"},
+		}
+
+		mux := http.NewServeMux()
+		RegisterSessionAPIRoutes(mux, cfg)
+
+		req := httptest.NewRequest("GET", "/api/ui/check-onboarding", nil)
+		rec := httptest.NewRecorder()
+
+		mux.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+
+		var resp OnboardingCheckResponse
+		err = json.Unmarshal(rec.Body.Bytes(), &resp)
+		require.NoError(t, err)
+		assert.True(t, resp.NeedsSysAdmin, "should need sysadmin (no admin in system_status)")
+		assert.False(t, resp.NeedsRealm, "should not need realm")
+		assert.True(t, resp.NeedsOnboarding, "should need onboarding")
+	})
+
+	t.Run("system_status shows needs_realm when no realms", func(t *testing.T) {
+		store := newMockProjectionStore()
+		cfg := &RouteConfig{
+			AuthConfig:      DefaultAuthConfig(),
+			ProjectionStore: store,
+			EventStore:      nil,
+		}
+
+		cfg.AuthConfig.SigningKey = make([]byte, 32)
+		_, err := rand.Read(cfg.AuthConfig.SigningKey)
+		require.NoError(t, err, "failed to generate signing key")
+
+		// Set up system_status with admin but no realms
+		store.data[compositeKey("_admin", "system_status", "status")] = projectors.SystemStatusEntry{
+			AdminAccountIDs: []string{"admin-1"},
+			RealmIDs:        []string{}, // No realms
+		}
+
+		mux := http.NewServeMux()
+		RegisterSessionAPIRoutes(mux, cfg)
+
+		req := httptest.NewRequest("GET", "/api/ui/check-onboarding", nil)
+		rec := httptest.NewRecorder()
+
+		mux.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+
+		var resp OnboardingCheckResponse
+		err = json.Unmarshal(rec.Body.Bytes(), &resp)
+		require.NoError(t, err)
+		assert.False(t, resp.NeedsSysAdmin, "should not need sysadmin")
+		assert.True(t, resp.NeedsRealm, "should need realm (no realms in system_status)")
+		assert.True(t, resp.NeedsOnboarding, "should need onboarding")
 	})
 }
 
@@ -358,6 +518,76 @@ func TestUISessionAPI_CreateAdmin(t *testing.T) {
 
 		assert.Equal(t, http.StatusBadRequest, rec.Code)
 	})
+
+	t.Run("uses system_status to check if sysadmin exists", func(t *testing.T) {
+		store := newMockProjectionStore()
+		cfg := &RouteConfig{
+			AuthConfig:      DefaultAuthConfig(),
+			ProjectionStore: store,
+			EventStore:      newMockEventStore(),
+		}
+
+		cfg.AuthConfig.SigningKey = make([]byte, 32)
+		_, err := rand.Read(cfg.AuthConfig.SigningKey)
+		require.NoError(t, err, "failed to generate signing key")
+
+		// Set up system_status with existing admin
+		store.data[compositeKey("_admin", "system_status", "status")] = projectors.SystemStatusEntry{
+			AdminAccountIDs: []string{"existing-admin"},
+			RealmIDs:        []string{},
+		}
+
+		mux := http.NewServeMux()
+		RegisterSessionAPIRoutes(mux, cfg)
+
+		createReq := CreateAdminRequest{Username: "new-admin", CreateSysAdmin: true}
+		body, err := json.Marshal(createReq)
+		require.NoError(t, err)
+
+		req := httptest.NewRequest("POST", "/api/ui/onboarding/create-admin", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+
+		mux.ServeHTTP(rec, req)
+
+		// Should fail because sysadmin already exists (per system_status)
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("uses system_status to check if realm exists", func(t *testing.T) {
+		store := newMockProjectionStore()
+		cfg := &RouteConfig{
+			AuthConfig:      DefaultAuthConfig(),
+			ProjectionStore: store,
+			EventStore:      newMockEventStore(),
+		}
+
+		cfg.AuthConfig.SigningKey = make([]byte, 32)
+		_, err := rand.Read(cfg.AuthConfig.SigningKey)
+		require.NoError(t, err, "failed to generate signing key")
+
+		// Set up system_status with existing realm
+		store.data[compositeKey("_admin", "system_status", "status")] = projectors.SystemStatusEntry{
+			AdminAccountIDs: []string{},
+			RealmIDs:        []string{"existing-realm"},
+		}
+
+		mux := http.NewServeMux()
+		RegisterSessionAPIRoutes(mux, cfg)
+
+		createReq := CreateAdminRequest{RealmName: "New Realm", CreateRealm: true}
+		body, err := json.Marshal(createReq)
+		require.NoError(t, err)
+
+		req := httptest.NewRequest("POST", "/api/ui/onboarding/create-admin", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+
+		mux.ServeHTTP(rec, req)
+
+		// Should fail because realm already exists (per system_status)
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
 }
 
 // newMockProjectionStoreWithAccount creates a mock store with a pre-configured test account.
@@ -370,8 +600,18 @@ func newMockProjectionStoreWithAccount() *mockProjectionStore {
 	h := sha256.Sum256(rawKey)
 	keyHash := base64.RawURLEncoding.EncodeToString(h[:])
 
-	// Set up the account lookup entry using projectors.AccountLookupEntry
-	store.data[compositeKey("_admin", "account_lookup", keyHash)] = projectors.AccountLookupEntry{
+	// Set up the PAT ID lookup
+	store.data[compositeKey("_admin", "pat_by_keyhash", keyHash)] = "pat-test-123"
+
+	// Set up the PAT entry
+	store.data[compositeKey("_admin", "pat_by_id", "pat-test-123")] = projectors.PATIDEntry{
+		PATID:     "pat-test-123",
+		KeyHash:   keyHash,
+		AccountID: "account-test-123",
+	}
+
+	// Set up the account auth entry
+	store.data[compositeKey("_admin", "account_auth", "account-test-123")] = projectors.AccountAuthEntry{
 		AccountID: "account-test-123",
 		Username:  "testuser",
 		Status:    "active",
@@ -379,20 +619,22 @@ func newMockProjectionStoreWithAccount() *mockProjectionStore {
 		Roles:     map[string]string{"realm-1": "admin", "_admin": "admin"},
 	}
 
-	// Set up PAT reverse lookup
-	store.data[compositeKey("_admin", "account_lookup", "pat:pat-test-123")] = keyHash
-	store.data[compositeKey("_admin", "account_lookup", "keyhash_pat:"+keyHash)] = "pat-test-123"
-
 	// Store the valid token for tests to use
 	store.validToken = token
 
-	// Add account list entry for onboarding check
-	store.listData["account_list"] = []json.RawMessage{
-		json.RawMessage(`{"account_id":"account-test-123","username":"testuser","roles":{"_admin":"admin","realm-1":"admin"}}`),
+	// Set up system_status for onboarding check
+	// This indicates we have admin accounts and realms
+	store.data[compositeKey("_admin", "system_status", "status")] = projectors.SystemStatusEntry{
+		AdminAccountIDs: []string{"account-test-123"},
+		RealmIDs:        []string{"realm-1"},
 	}
-	// Add realm list entry for onboarding check (need at least one non-_admin realm)
-	store.listData["realm_list"] = []json.RawMessage{
-		json.RawMessage(`{"realm_id":"realm-1","name":"Test Realm"}`),
+
+	// Set up realm_directory for realm name lookup
+	store.data[compositeKey("_admin", "realm_directory", "realm-1")] = projectors.RealmDirectoryEntry{
+		RealmID:   "realm-1",
+		Name:      "Test Realm",
+		Status:    "active",
+		CreatedAt: time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC),
 	}
 
 	return store

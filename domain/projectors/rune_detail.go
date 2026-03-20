@@ -28,6 +28,7 @@ type RuneDetail struct {
 	Claimant     string          `json:"claimant,omitempty"`
 	ParentID     string          `json:"parent_id,omitempty"`
 	Branch       string          `json:"branch,omitempty"`
+	Type         string          `json:"type,omitempty"`
 	Dependencies []DependencyRef `json:"dependencies"`
 	Notes        []NoteEntry     `json:"notes"`
 	CreatedAt    time.Time       `json:"created_at"`
@@ -41,6 +42,10 @@ func NewRuneDetailProjector() *RuneDetailProjector {
 }
 
 func (p *RuneDetailProjector) Name() string {
+	return "rune_detail"
+}
+
+func (p *RuneDetailProjector) TableName() string {
 	return "rune_detail"
 }
 
@@ -85,6 +90,7 @@ func (p *RuneDetailProjector) handleCreated(ctx context.Context, event core.Even
 		Priority:     data.Priority,
 		ParentID:     data.ParentID,
 		Branch:       data.Branch,
+		Type:         data.Type,
 		Dependencies: []DependencyRef{},
 		Notes:        []NoteEntry{},
 		CreatedAt:    event.Timestamp,

@@ -172,10 +172,7 @@ func (tc *updateTestContext) server_that_returns_error(status int, message strin
 
 func (tc *updateTestContext) client_configured() {
 	tc.t.Helper()
-	tc.client = NewClient(&Config{
-		URL:    tc.server.URL,
-		APIKey: "test-key",
-	})
+	tc.client = NewClient(tc.server.URL, "test-key", "test-realm")
 }
 
 // --- When ---
@@ -184,6 +181,7 @@ func (tc *updateTestContext) execute_update(args ...string) {
 	tc.t.Helper()
 	cmd := NewUpdateCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs(args)
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 

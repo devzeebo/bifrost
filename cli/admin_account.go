@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"text/tabwriter"
 
-	"github.com/devzeebo/bifrost/domain"
-	"github.com/devzeebo/bifrost/domain/projectors"
 	"github.com/spf13/cobra"
 )
 
@@ -20,6 +18,18 @@ func addAdminAccountCommands(admin *AdminCmd) {
 	admin.Command.AddCommand(newAdminRevokeRoleCmd(admin))
 }
 
+func resolveUsernameViaAPI(client *Client, username string) (string, error) {
+	resp, err := client.DoGet("/api/resolve-username?username=" + username)
+	if err != nil {
+		return "", err
+	}
+	var result map[string]string
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return "", err
+	}
+	return result["account_id"], nil
+}
+
 func newAdminCreateAccountCmd(admin *AdminCmd) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create-account <username>",
@@ -27,34 +37,24 @@ func newAdminCreateAccountCmd(admin *AdminCmd) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			ctx := cmd.Context()
 
-			result, err := domain.HandleCreateAccount(ctx, domain.CreateAccount{
-				Username: args[0],
-			}, admin.Ctx.EventStore, admin.Ctx.ProjectionStore)
+			req := map[string]string{"username": args[0]}
+			resp, err := admin.Client.DoPost("/api/create-account", req)
 			if err != nil {
-				return err
-			}
-
-			events, err := admin.Ctx.EventStore.ReadStream(ctx, "_admin", "account-"+result.AccountID, 0)
-			if err != nil {
-				return err
-			}
-			if err := syncProjections(ctx, admin.Ctx, events); err != nil {
 				return err
 			}
 
 			if jsonMode {
-				out, _ := json.Marshal(map[string]string{
-					"account_id": result.AccountID,
-					"token":      result.RawToken,
-				})
-				fmt.Fprintln(cmd.OutOrStdout(), string(out))
+				fmt.Fprintln(cmd.OutOrStdout(), string(resp))
 				return nil
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Account ID: %s\n", result.AccountID)
-			fmt.Fprintf(cmd.OutOrStdout(), "Token: %s\n", result.RawToken)
+			var result map[string]string
+			if err := json.Unmarshal(resp, &result); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Account ID: %s\n", result["account_id"])
+			fmt.Fprintf(cmd.OutOrStdout(), "Token: %s\n", result["pat"])
 			fmt.Fprintln(cmd.OutOrStdout(), "Save this token — it will not be shown again")
 			return nil
 		},
@@ -68,26 +68,26 @@ func newAdminListAccountsCmd(admin *AdminCmd) *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			ctx := cmd.Context()
 
-			rows, err := admin.Ctx.ProjectionStore.List(ctx, "_admin", "account_list")
+			resp, err := admin.Client.DoGet("/api/accounts")
 			if err != nil {
 				return err
 			}
 
-			var entries []projectors.AccountListEntry
-			for _, raw := range rows {
-				var entry projectors.AccountListEntry
-				if err := json.Unmarshal(raw, &entry); err != nil {
-					return err
-				}
-				entries = append(entries, entry)
+			if jsonMode {
+				fmt.Fprintln(cmd.OutOrStdout(), string(resp))
+				return nil
 			}
 
-			if jsonMode {
-				out, _ := json.Marshal(entries)
-				fmt.Fprintln(cmd.OutOrStdout(), string(out))
-				return nil
+			var entries []struct {
+				AccountID string `json:"account_id"`
+				Username  string `json:"username"`
+				Status    string `json:"status"`
+				Realms    []string `json:"realms"`
+				PATCount  int    `json:"pat_count"`
+			}
+			if err := json.Unmarshal(resp, &entries); err != nil {
+				return err
 			}
 
 			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
@@ -110,33 +110,20 @@ func newAdminSuspendAccountCmd(admin *AdminCmd) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			ctx := cmd.Context()
 
-			accountID, err := resolveUsername(ctx, admin.Ctx.ProjectionStore, args[0])
+			accountID, err := resolveUsernameViaAPI(admin.Client, args[0])
 			if err != nil {
 				return err
 			}
 
-			err = domain.HandleSuspendAccount(ctx, domain.SuspendAccount{
-				AccountID: accountID,
-				Reason:    "suspended via admin CLI",
-			}, admin.Ctx.EventStore)
+			req := map[string]interface{}{"id": accountID, "suspend": true}
+			_, err = admin.Client.DoPost("/api/suspend-account", req)
 			if err != nil {
-				return err
-			}
-
-			events, err := admin.Ctx.EventStore.ReadStream(ctx, "_admin", "account-"+accountID, 0)
-			if err != nil {
-				return err
-			}
-			if err := syncProjections(ctx, admin.Ctx, events); err != nil {
 				return err
 			}
 
 			if jsonMode {
-				out, _ := json.Marshal(map[string]string{
-					"status": "suspended",
-				})
+				out, _ := json.Marshal(map[string]string{"status": "suspended"})
 				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			}
@@ -154,34 +141,24 @@ func newAdminGrantCmd(admin *AdminCmd) *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			ctx := cmd.Context()
 
-			accountID, err := resolveUsername(ctx, admin.Ctx.ProjectionStore, args[0])
+			accountID, err := resolveUsernameViaAPI(admin.Client, args[0])
 			if err != nil {
 				return err
 			}
 
-			err = domain.HandleAssignRole(ctx, domain.AssignRole{
-				AccountID: accountID,
-				RealmID:   args[1],
-				Role:      domain.RoleMember,
-			}, admin.Ctx.EventStore)
-			if err != nil {
-				return err
+			req := map[string]string{
+				"account_id": accountID,
+				"realm_id":   args[1],
+				"role":       "member",
 			}
-
-			events, err := admin.Ctx.EventStore.ReadStream(ctx, "_admin", "account-"+accountID, 0)
+			_, err = admin.Client.DoPost("/api/grant-realm", req)
 			if err != nil {
-				return err
-			}
-			if err := syncProjections(ctx, admin.Ctx, events); err != nil {
 				return err
 			}
 
 			if jsonMode {
-				out, _ := json.Marshal(map[string]string{
-					"status": "granted",
-				})
+				out, _ := json.Marshal(map[string]string{"status": "granted"})
 				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			}
@@ -199,33 +176,23 @@ func newAdminRevokeCmd(admin *AdminCmd) *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			ctx := cmd.Context()
 
-			accountID, err := resolveUsername(ctx, admin.Ctx.ProjectionStore, args[0])
+			accountID, err := resolveUsernameViaAPI(admin.Client, args[0])
 			if err != nil {
 				return err
 			}
 
-			err = domain.HandleRevokeRole(ctx, domain.RevokeRole{
-				AccountID: accountID,
-				RealmID:   args[1],
-			}, admin.Ctx.EventStore)
-			if err != nil {
-				return err
+			req := map[string]string{
+				"account_id": accountID,
+				"realm_id":   args[1],
 			}
-
-			events, err := admin.Ctx.EventStore.ReadStream(ctx, "_admin", "account-"+accountID, 0)
+			_, err = admin.Client.DoPost("/api/revoke-realm", req)
 			if err != nil {
-				return err
-			}
-			if err := syncProjections(ctx, admin.Ctx, events); err != nil {
 				return err
 			}
 
 			if jsonMode {
-				out, _ := json.Marshal(map[string]string{
-					"status": "revoked",
-				})
+				out, _ := json.Marshal(map[string]string{"status": "revoked"})
 				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			}
@@ -243,35 +210,24 @@ func newAdminAssignRoleCmd(admin *AdminCmd) *cobra.Command {
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			ctx := cmd.Context()
 
-			accountID, err := resolveUsername(ctx, admin.Ctx.ProjectionStore, args[0])
+			accountID, err := resolveUsernameViaAPI(admin.Client, args[0])
 			if err != nil {
 				return err
 			}
 
-			err = domain.HandleAssignRole(ctx, domain.AssignRole{
-				AccountID: accountID,
-				RealmID:   args[1],
-				Role:      args[2],
-			}, admin.Ctx.EventStore)
-			if err != nil {
-				return err
+			req := map[string]string{
+				"account_id": accountID,
+				"realm_id":   args[1],
+				"role":       args[2],
 			}
-
-			events, err := admin.Ctx.EventStore.ReadStream(ctx, "_admin", "account-"+accountID, 0)
+			_, err = admin.Client.DoPost("/api/assign-role", req)
 			if err != nil {
-				return err
-			}
-			if err := syncProjections(ctx, admin.Ctx, events); err != nil {
 				return err
 			}
 
 			if jsonMode {
-				out, _ := json.Marshal(map[string]string{
-					"status": "assigned",
-					"role":   args[2],
-				})
+				out, _ := json.Marshal(map[string]string{"status": "assigned", "role": args[2]})
 				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			}
@@ -289,33 +245,23 @@ func newAdminRevokeRoleCmd(admin *AdminCmd) *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jsonMode, _ := cmd.Flags().GetBool("json")
-			ctx := cmd.Context()
 
-			accountID, err := resolveUsername(ctx, admin.Ctx.ProjectionStore, args[0])
+			accountID, err := resolveUsernameViaAPI(admin.Client, args[0])
 			if err != nil {
 				return err
 			}
 
-			err = domain.HandleRevokeRole(ctx, domain.RevokeRole{
-				AccountID: accountID,
-				RealmID:   args[1],
-			}, admin.Ctx.EventStore)
-			if err != nil {
-				return err
+			req := map[string]string{
+				"account_id": accountID,
+				"realm_id":   args[1],
 			}
-
-			events, err := admin.Ctx.EventStore.ReadStream(ctx, "_admin", "account-"+accountID, 0)
+			_, err = admin.Client.DoPost("/api/revoke-role", req)
 			if err != nil {
-				return err
-			}
-			if err := syncProjections(ctx, admin.Ctx, events); err != nil {
 				return err
 			}
 
 			if jsonMode {
-				out, _ := json.Marshal(map[string]string{
-					"status": "revoked",
-				})
+				out, _ := json.Marshal(map[string]string{"status": "revoked"})
 				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			}

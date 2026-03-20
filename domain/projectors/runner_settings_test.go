@@ -26,12 +26,25 @@ func TestRunnerSettingsProjector(t *testing.T) {
 		tc.name_is("runner_settings")
 	})
 
+	t.Run("TableName returns runner_settings", func(t *testing.T) {
+		tc := newRunnerSettingsTestContext(t)
+
+		// Given
+		tc.a_runner_settings_projector()
+
+		// When
+		tc.table_name_is_called()
+
+		// Then
+		tc.table_name_is("runner_settings")
+	})
+
 	t.Run("handles RunnerSettingsCreated by putting entry with id, runner_type, and name", func(t *testing.T) {
 		tc := newRunnerSettingsTestContext(t)
 
 		// Given
 		tc.a_runner_settings_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_runner_settings_created_event("rs-1", "github", "GitHub Actions")
 
 		// When
@@ -50,7 +63,7 @@ func TestRunnerSettingsProjector(t *testing.T) {
 
 		// Given
 		tc.a_runner_settings_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_runner_settings_entry("rs-1", "github", "GitHub Actions")
 		tc.a_runner_settings_field_set_event("rs-1", "token", "secret-value")
 
@@ -67,7 +80,7 @@ func TestRunnerSettingsProjector(t *testing.T) {
 
 		// Given
 		tc.a_runner_settings_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_runner_settings_entry_with_fields("rs-1", "github", "GitHub Actions", map[string]string{"token": "secret", "repo": "myrepo"})
 		tc.a_runner_settings_field_deleted_event("rs-1", "token")
 
@@ -85,7 +98,7 @@ func TestRunnerSettingsProjector(t *testing.T) {
 
 		// Given
 		tc.a_runner_settings_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_runner_settings_entry("rs-1", "github", "GitHub Actions")
 		tc.a_runner_settings_deleted_event("rs-1")
 
@@ -102,7 +115,7 @@ func TestRunnerSettingsProjector(t *testing.T) {
 
 		// Given
 		tc.a_runner_settings_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_unknown_event()
 
 		// When
@@ -117,7 +130,7 @@ func TestRunnerSettingsProjector(t *testing.T) {
 
 		// Given
 		tc.a_runner_settings_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_runner_settings_entry("rs-1", "github", "GitHub Actions")
 		tc.a_runner_settings_created_event("rs-1", "github", "GitHub Actions")
 
@@ -135,7 +148,7 @@ func TestRunnerSettingsProjector(t *testing.T) {
 
 		// Given
 		tc.a_runner_settings_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_runner_settings_entry_with_fields("rs-1", "github", "GitHub Actions", map[string]string{"token": "old-value"})
 		tc.a_runner_settings_field_set_event("rs-1", "token", "new-value")
 
@@ -153,12 +166,13 @@ func TestRunnerSettingsProjector(t *testing.T) {
 type runnerSettingsTestContext struct {
 	t *testing.T
 
-	projector  *RunnerSettingsProjector
-	store      *mockProjectionStore
-	event      core.Event
-	ctx        context.Context
-	nameResult string
-	err        error
+	projector      *RunnerSettingsProjector
+	store          *mockProjectionStore
+	event          core.Event
+	ctx            context.Context
+	nameResult     string
+	tableNameResult string
+	err            error
 }
 
 func newRunnerSettingsTestContext(t *testing.T) *runnerSettingsTestContext {
@@ -176,7 +190,7 @@ func (tc *runnerSettingsTestContext) a_runner_settings_projector() {
 	tc.projector = NewRunnerSettingsProjector()
 }
 
-func (tc *runnerSettingsTestContext) a_projection_store() {
+func (tc *runnerSettingsTestContext) a_store() {
 	tc.t.Helper()
 	tc.store = newMockProjectionStore()
 }
@@ -254,6 +268,11 @@ func (tc *runnerSettingsTestContext) name_is_called() {
 	tc.nameResult = tc.projector.Name()
 }
 
+func (tc *runnerSettingsTestContext) table_name_is_called() {
+	tc.t.Helper()
+	tc.tableNameResult = tc.projector.TableName()
+}
+
 func (tc *runnerSettingsTestContext) handle_is_called() {
 	tc.t.Helper()
 	tc.err = tc.projector.Handle(tc.ctx, tc.event, tc.store)
@@ -264,6 +283,11 @@ func (tc *runnerSettingsTestContext) handle_is_called() {
 func (tc *runnerSettingsTestContext) name_is(expected string) {
 	tc.t.Helper()
 	assert.Equal(tc.t, expected, tc.nameResult)
+}
+
+func (tc *runnerSettingsTestContext) table_name_is(expected string) {
+	tc.t.Helper()
+	assert.Equal(tc.t, expected, tc.tableNameResult)
 }
 
 func (tc *runnerSettingsTestContext) no_error() {

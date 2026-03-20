@@ -26,12 +26,25 @@ func TestSkillListProjector(t *testing.T) {
 		tc.name_is("skill_list")
 	})
 
+	t.Run("TableName returns skill_list", func(t *testing.T) {
+		tc := newSkillListTestContext(t)
+
+		// Given
+		tc.a_skill_list_projector()
+
+		// When
+		tc.table_name_is_called()
+
+		// Then
+		tc.table_name_is("skill_list")
+	})
+
 	t.Run("handles SkillCreated by putting entry with id and name", func(t *testing.T) {
 		tc := newSkillListTestContext(t)
 
 		// Given
 		tc.a_skill_list_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_skill_created_event("skill-1", "TestSkill")
 
 		// When
@@ -48,7 +61,7 @@ func TestSkillListProjector(t *testing.T) {
 
 		// Given
 		tc.a_skill_list_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_skill_entry("skill-1", "OldName")
 		tc.a_skill_updated_event_with_name("skill-1", "NewName")
 
@@ -65,7 +78,7 @@ func TestSkillListProjector(t *testing.T) {
 
 		// Given
 		tc.a_skill_list_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_skill_entry("skill-1", "TestSkill")
 		tc.a_skill_deleted_event("skill-1")
 
@@ -82,7 +95,7 @@ func TestSkillListProjector(t *testing.T) {
 
 		// Given
 		tc.a_skill_list_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_unknown_event()
 
 		// When
@@ -97,7 +110,7 @@ func TestSkillListProjector(t *testing.T) {
 
 		// Given
 		tc.a_skill_list_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_skill_entry("skill-1", "TestSkill")
 		tc.a_skill_created_event("skill-1", "TestSkill")
 
@@ -115,12 +128,13 @@ func TestSkillListProjector(t *testing.T) {
 type skillListTestContext struct {
 	t *testing.T
 
-	projector  *SkillListProjector
-	store      *mockProjectionStore
-	event      core.Event
-	ctx        context.Context
-	nameResult string
-	err        error
+	projector       *SkillListProjector
+	store           *mockProjectionStore
+	event           core.Event
+	ctx             context.Context
+	nameResult      string
+	tableNameResult string
+	err             error
 }
 
 func newSkillListTestContext(t *testing.T) *skillListTestContext {
@@ -138,7 +152,7 @@ func (tc *skillListTestContext) a_skill_list_projector() {
 	tc.projector = NewSkillListProjector()
 }
 
-func (tc *skillListTestContext) a_projection_store() {
+func (tc *skillListTestContext) a_store() {
 	tc.t.Helper()
 	tc.store = newMockProjectionStore()
 }
@@ -201,6 +215,16 @@ func (tc *skillListTestContext) handle_is_called() {
 func (tc *skillListTestContext) name_is(expected string) {
 	tc.t.Helper()
 	assert.Equal(tc.t, expected, tc.nameResult)
+}
+
+func (tc *skillListTestContext) table_name_is_called() {
+	tc.t.Helper()
+	tc.tableNameResult = tc.projector.TableName()
+}
+
+func (tc *skillListTestContext) table_name_is(expected string) {
+	tc.t.Helper()
+	assert.Equal(tc.t, expected, tc.tableNameResult)
 }
 
 func (tc *skillListTestContext) no_error() {

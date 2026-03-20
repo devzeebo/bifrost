@@ -112,10 +112,7 @@ func (tc *noteTestContext) server_that_returns_error(status int, message string)
 
 func (tc *noteTestContext) client_configured() {
 	tc.t.Helper()
-	tc.client = NewClient(&Config{
-		URL:    tc.server.URL,
-		APIKey: "test-key",
-	})
+	tc.client = NewClient(tc.server.URL, "test-key", "test-realm")
 }
 
 // --- When ---
@@ -124,6 +121,7 @@ func (tc *noteTestContext) execute_note(id, text string) {
 	tc.t.Helper()
 	cmd := NewNoteCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{id, text})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 
@@ -131,6 +129,7 @@ func (tc *noteTestContext) execute_note_with_human(id, text string) {
 	tc.t.Helper()
 	cmd := NewNoteCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{id, text, "--human"})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 

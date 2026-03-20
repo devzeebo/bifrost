@@ -185,10 +185,7 @@ func (tc *shatterTestContext) server_that_returns_error(status int, message stri
 
 func (tc *shatterTestContext) client_configured() {
 	tc.t.Helper()
-	tc.client = NewClient(&Config{
-		URL:    tc.server.URL,
-		APIKey: "test-key",
-	})
+	tc.client = NewClient(tc.server.URL, "test-key", "test-realm")
 }
 
 func (tc *shatterTestContext) user_types(input string) {
@@ -202,6 +199,7 @@ func (tc *shatterTestContext) execute_shatter(id string) {
 	tc.t.Helper()
 	cmd := NewShatterCmd(func() *Client { return tc.client }, tc.buf, tc.in)
 	cmd.Command.SetArgs([]string{id})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 
@@ -209,6 +207,7 @@ func (tc *shatterTestContext) execute_shatter_with_confirm(id string) {
 	tc.t.Helper()
 	cmd := NewShatterCmd(func() *Client { return tc.client }, tc.buf, tc.in)
 	cmd.Command.SetArgs([]string{id, "--confirm"})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 
@@ -216,6 +215,7 @@ func (tc *shatterTestContext) execute_shatter_with_confirm_and_human(id string) 
 	tc.t.Helper()
 	cmd := NewShatterCmd(func() *Client { return tc.client }, tc.buf, tc.in)
 	cmd.Command.SetArgs([]string{id, "--confirm", "--human"})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 

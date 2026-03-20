@@ -21,14 +21,6 @@ const realmIDKey contextKey = "realm_id"
 const accountIDKey contextKey = "account_id"
 const roleKey contextKey = "role"
 
-type accountLookupEntry struct {
-	AccountID string            `json:"account_id"`
-	Username  string            `json:"username"`
-	Status    string            `json:"status"`
-	Realms    []string          `json:"realms"`
-	Roles     map[string]string `json:"roles"`
-}
-
 // RealmIDFromContext extracts the realm ID from the request context.
 func RealmIDFromContext(ctx context.Context) (string, bool) {
 	id, ok := ctx.Value(realmIDKey).(string)
@@ -231,9 +223,30 @@ func authenticateViaBearerToken(ctx context.Context, token string, realmID strin
 	// SHA-256 hash the raw bytes and encode as base64url
 	h := sha256.Sum256(rawBytes)
 	keyHash := base64.RawURLEncoding.EncodeToString(h[:])
-	// Look up in account_lookup projection
-	var entry projectors.AccountLookupEntry
-	err = projectionStore.Get(ctx, "_admin", "account_lookup", keyHash, &entry)
+
+	// Look up PAT ID from keyHash reverse lookup
+	var patID string
+	if err := projectionStore.Get(ctx, "_admin", "pat_by_keyhash", keyHash, &patID); err != nil {
+		var notFound *core.NotFoundError
+		if errors.As(err, &notFound) {
+			return nil, ErrUnauthorized("Unauthorized")
+		}
+		return nil, ErrInternal("Internal server error")
+	}
+
+	// Look up PAT entry to get account ID
+	var patEntry projectors.PATIDEntry
+	if err := projectionStore.Get(ctx, "_admin", "pat_by_id", patID, &patEntry); err != nil {
+		var notFound *core.NotFoundError
+		if errors.As(err, &notFound) {
+			return nil, ErrUnauthorized("Unauthorized")
+		}
+		return nil, ErrInternal("Internal server error")
+	}
+
+	// Look up account auth entry
+	var entry projectors.AccountAuthEntry
+	err = projectionStore.Get(ctx, "_admin", "account_auth", patEntry.AccountID, &entry)
 	if err != nil {
 		// If the error is NotFoundError, it means the token is invalid
 		var notFound *core.NotFoundError
@@ -295,14 +308,14 @@ func resolveRealmID(ctx context.Context, realmIdent string, roles map[string]str
 	}
 
 	// Not found as ID, try to resolve as a realm name
-	// Look up realm_list in _admin realm
-	entries, err := projectionStore.List(ctx, "_admin", "realm_list")
+	// Look up realm_directory in _admin realm
+	entries, err := projectionStore.List(ctx, "_admin", "realm_directory")
 	if err != nil {
 		return "", ErrInternal("Internal server error")
 	}
 
 	for _, raw := range entries {
-		var realm projectors.RealmListEntry
+		var realm projectors.RealmDirectoryEntry
 		if err := json.Unmarshal(raw, &realm); err != nil {
 			continue
 		}

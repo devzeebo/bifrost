@@ -126,10 +126,7 @@ func (tc *sealTestContext) server_that_returns_error(status int, message string)
 
 func (tc *sealTestContext) client_configured() {
 	tc.t.Helper()
-	tc.client = NewClient(&Config{
-		URL:    tc.server.URL,
-		APIKey: "test-key",
-	})
+	tc.client = NewClient(tc.server.URL, "test-key", "test-realm")
 }
 
 // --- When ---
@@ -138,6 +135,7 @@ func (tc *sealTestContext) execute_seal(id string) {
 	tc.t.Helper()
 	cmd := NewSealCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{id})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 
@@ -145,6 +143,7 @@ func (tc *sealTestContext) execute_seal_with_reason(id, reason string) {
 	tc.t.Helper()
 	cmd := NewSealCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{id, "--reason", reason})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 
@@ -152,6 +151,7 @@ func (tc *sealTestContext) execute_seal_with_human(id string) {
 	tc.t.Helper()
 	cmd := NewSealCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{id, "--human"})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 

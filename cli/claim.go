@@ -2,9 +2,7 @@ package cli
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
-	"io"
 	"os/user"
 
 	"github.com/spf13/cobra"
@@ -38,31 +36,9 @@ func NewClaimCmd(clientFn func() *Client, out *bytes.Buffer) *ClaimCmd {
 				"claimant": claimant,
 			}
 
-			jsonBody, err := json.Marshal(body)
+			_, err := clientFn().DoPost("/claim-rune", body)
 			if err != nil {
 				return err
-			}
-
-			resp, err := clientFn().DoPost("/claim-rune", jsonBody)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			respBody, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-
-			if resp.StatusCode >= 400 {
-				var errResp map[string]string
-				if json.Unmarshal(respBody, &errResp) == nil {
-					if msg, ok := errResp["error"]; ok {
-						out.WriteString(msg)
-						return fmt.Errorf("%s", msg)
-					}
-				}
-				return fmt.Errorf("server error: %s", string(respBody))
 			}
 
 			if humanMode {

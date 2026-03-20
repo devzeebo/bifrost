@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -17,26 +16,11 @@ and checkpoints, then replaying all events.
 This is useful when projector logic has been fixed and you need to
 reconstruct the projection state from the event store.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
-
-			// Clear projections
-			_, err := admin.Ctx.DB.ExecContext(ctx, `DELETE FROM projections`)
+			_, err := admin.Client.DoPost("/api/rebuild-projections", nil)
 			if err != nil {
-				return fmt.Errorf("clear projections: %w", err)
+				return err
 			}
-			fmt.Println("Cleared projections table")
-
-			// Clear checkpoints
-			_, err = admin.Ctx.DB.ExecContext(ctx, `DELETE FROM checkpoints`)
-			if err != nil {
-				return fmt.Errorf("clear checkpoints: %w", err)
-			}
-			fmt.Println("Cleared checkpoints table")
-
-			// Run catch-up to rebuild
-			admin.Ctx.Engine.RunCatchUpOnce(ctx)
-			fmt.Println("Rebuilt projections from event history")
-
+			fmt.Fprintln(cmd.OutOrStdout(), "Projections rebuilt successfully")
 			return nil
 		},
 	}

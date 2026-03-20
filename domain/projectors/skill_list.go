@@ -23,6 +23,10 @@ func (p *SkillListProjector) Name() string {
 	return "skill_list"
 }
 
+func (p *SkillListProjector) TableName() string {
+	return "skill_list"
+}
+
 func (p *SkillListProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
 	switch event.EventType {
 	case domain.EventSkillCreated:

@@ -11,6 +11,7 @@ import (
 
 	"github.com/devzeebo/bifrost/core"
 	"github.com/devzeebo/bifrost/domain"
+	"github.com/devzeebo/bifrost/domain/projectors"
 )
 
 // LoginRequest is the request body for POST /ui/login.
@@ -166,6 +167,8 @@ func handleUILogout(cfg *RouteConfig) http.HandlerFunc {
 }
 
 // getRealmNames fetches realm names for the given realm IDs.
+// Uses realm_directory for realm name lookup.
+// Realms without a directory entry are silently skipped.
 func getRealmNames(ctx context.Context, projectionStore core.ProjectionStore, realmIDs []string) map[string]string {
 	names := make(map[string]string)
 	for _, realmID := range realmIDs {
@@ -173,14 +176,11 @@ func getRealmNames(ctx context.Context, projectionStore core.ProjectionStore, re
 			names[realmID] = "System Admin"
 			continue
 		}
-		var realm struct {
-			Name string `json:"name"`
-		}
-		if err := projectionStore.Get(ctx, "_admin", "realm_list", realmID, &realm); err == nil {
+		var realm projectors.RealmDirectoryEntry
+		if err := projectionStore.Get(ctx, realmID, "realm_directory", realmID, &realm); err == nil {
 			names[realmID] = realm.Name
-		} else {
-			names[realmID] = realmID // Fallback to ID
 		}
+		// Skip realms without a directory entry (orphaned/phantom realms)
 	}
 	return names
 }
@@ -240,38 +240,13 @@ func handleCheckOnboarding(cfg *RouteConfig) http.HandlerFunc {
 		needsRealm := true
 
 		if cfg.ProjectionStore != nil {
-			// Check if any sysadmin exists (account with admin/owner role in _admin realm)
-			rawAccounts, err := cfg.ProjectionStore.List(r.Context(), "_admin", "account_list")
-			if err == nil {
-				for _, raw := range rawAccounts {
-					var account struct {
-						Roles map[string]string `json:"roles"`
-					}
-					if err := json.Unmarshal(raw, &account); err != nil {
-						continue
-					}
-					if account.Roles["_admin"] == "admin" || account.Roles["_admin"] == "owner" {
-						needsSysAdmin = false
-						break
-					}
-				}
-			}
-
-			// Check if any realms exist (excluding _admin)
-			rawRealms, err := cfg.ProjectionStore.List(r.Context(), "_admin", "realm_list")
-			if err == nil {
-				for _, raw := range rawRealms {
-					var realm struct {
-						RealmID string `json:"realm_id"`
-					}
-					if err := json.Unmarshal(raw, &realm); err != nil {
-						continue
-					}
-					if realm.RealmID != "_admin" {
-						needsRealm = false
-						break
-					}
-				}
+			// Check system_status for admin accounts and realms
+			var status projectors.SystemStatusEntry
+			if err := cfg.ProjectionStore.Get(r.Context(), "_admin", "system_status", "status", &status); err == nil {
+				// has_sysadmin = len(admin_account_ids) > 0
+				needsSysAdmin = len(status.AdminAccountIDs) == 0
+				// has_realm = len(realm_ids) > 0
+				needsRealm = len(status.RealmIDs) == 0
 			}
 		}
 
@@ -295,38 +270,13 @@ func handleCreateAdmin(cfg *RouteConfig) http.HandlerFunc {
 		needsRealm := true
 
 		if cfg.ProjectionStore != nil {
-			// Check if any sysadmin exists
-			rawAccounts, err := cfg.ProjectionStore.List(r.Context(), "_admin", "account_list")
-			if err == nil {
-				for _, raw := range rawAccounts {
-					var account struct {
-						Roles map[string]string `json:"roles"`
-					}
-					if err := json.Unmarshal(raw, &account); err != nil {
-						continue
-					}
-					if account.Roles["_admin"] == "admin" || account.Roles["_admin"] == "owner" {
-						needsSysAdmin = false
-						break
-					}
-				}
-			}
-
-			// Check if any realms exist (excluding _admin)
-			rawRealms, err := cfg.ProjectionStore.List(r.Context(), "_admin", "realm_list")
-			if err == nil {
-				for _, raw := range rawRealms {
-					var realm struct {
-						RealmID string `json:"realm_id"`
-					}
-					if err := json.Unmarshal(raw, &realm); err != nil {
-						continue
-					}
-					if realm.RealmID != "_admin" {
-						needsRealm = false
-						break
-					}
-				}
+			// Check system_status for admin accounts and realms
+			var status projectors.SystemStatusEntry
+			if err := cfg.ProjectionStore.Get(r.Context(), "_admin", "system_status", "status", &status); err == nil {
+				// has_sysadmin = len(admin_account_ids) > 0
+				needsSysAdmin = len(status.AdminAccountIDs) == 0
+				// has_realm = len(realm_ids) > 0
+				needsRealm = len(status.RealmIDs) == 0
 			}
 		}
 
@@ -388,7 +338,7 @@ func handleCreateAdmin(cfg *RouteConfig) http.HandlerFunc {
 				AccountID: result.AccountID,
 				RealmID:   "_admin",
 				Role:      "admin",
-			}, cfg.EventStore)
+			}, cfg.EventStore, cfg.ProjectionStore)
 			if err != nil {
 				handleDomainError(w, err)
 				return
@@ -400,7 +350,7 @@ func handleCreateAdmin(cfg *RouteConfig) http.HandlerFunc {
 					AccountID: result.AccountID,
 					RealmID:   resp.RealmID,
 					Role:      "owner",
-				}, cfg.EventStore)
+				}, cfg.EventStore, cfg.ProjectionStore)
 				if err != nil {
 					handleDomainError(w, err)
 					return

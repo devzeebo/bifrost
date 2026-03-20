@@ -26,12 +26,25 @@ func TestWorkflowListProjector(t *testing.T) {
 		tc.name_is("workflow_list")
 	})
 
+	t.Run("TableName returns workflow_list", func(t *testing.T) {
+		tc := newWorkflowListTestContext(t)
+
+		// Given
+		tc.a_workflow_list_projector()
+
+		// When
+		tc.table_name_is_called()
+
+		// Then
+		tc.table_name_is("workflow_list")
+	})
+
 	t.Run("handles WorkflowCreated by putting entry with id and name", func(t *testing.T) {
 		tc := newWorkflowListTestContext(t)
 
 		// Given
 		tc.a_workflow_list_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_workflow_created_event("workflow-1", "TestWorkflow")
 
 		// When
@@ -48,7 +61,7 @@ func TestWorkflowListProjector(t *testing.T) {
 
 		// Given
 		tc.a_workflow_list_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_workflow_entry("workflow-1", "OldName")
 		tc.a_workflow_updated_event_with_name("workflow-1", "NewName")
 
@@ -65,7 +78,7 @@ func TestWorkflowListProjector(t *testing.T) {
 
 		// Given
 		tc.a_workflow_list_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_workflow_entry("workflow-1", "TestWorkflow")
 		tc.a_workflow_deleted_event("workflow-1")
 
@@ -82,7 +95,7 @@ func TestWorkflowListProjector(t *testing.T) {
 
 		// Given
 		tc.a_workflow_list_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_unknown_event()
 
 		// When
@@ -97,7 +110,7 @@ func TestWorkflowListProjector(t *testing.T) {
 
 		// Given
 		tc.a_workflow_list_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_workflow_entry("workflow-1", "TestWorkflow")
 		tc.a_workflow_created_event("workflow-1", "TestWorkflow")
 
@@ -115,12 +128,13 @@ func TestWorkflowListProjector(t *testing.T) {
 type workflowListTestContext struct {
 	t *testing.T
 
-	projector  *WorkflowListProjector
-	store      *mockProjectionStore
-	event      core.Event
-	ctx        context.Context
-	nameResult string
-	err        error
+	projector      *WorkflowListProjector
+	store          *mockProjectionStore
+	event          core.Event
+	ctx            context.Context
+	nameResult     string
+	tableNameResult string
+	err            error
 }
 
 func newWorkflowListTestContext(t *testing.T) *workflowListTestContext {
@@ -138,7 +152,7 @@ func (tc *workflowListTestContext) a_workflow_list_projector() {
 	tc.projector = NewWorkflowListProjector()
 }
 
-func (tc *workflowListTestContext) a_projection_store() {
+func (tc *workflowListTestContext) a_store() {
 	tc.t.Helper()
 	tc.store = newMockProjectionStore()
 }
@@ -191,6 +205,11 @@ func (tc *workflowListTestContext) name_is_called() {
 	tc.nameResult = tc.projector.Name()
 }
 
+func (tc *workflowListTestContext) table_name_is_called() {
+	tc.t.Helper()
+	tc.tableNameResult = tc.projector.TableName()
+}
+
 func (tc *workflowListTestContext) handle_is_called() {
 	tc.t.Helper()
 	tc.err = tc.projector.Handle(tc.ctx, tc.event, tc.store)
@@ -201,6 +220,11 @@ func (tc *workflowListTestContext) handle_is_called() {
 func (tc *workflowListTestContext) name_is(expected string) {
 	tc.t.Helper()
 	assert.Equal(tc.t, expected, tc.nameResult)
+}
+
+func (tc *workflowListTestContext) table_name_is(expected string) {
+	tc.t.Helper()
+	assert.Equal(tc.t, expected, tc.tableNameResult)
 }
 
 func (tc *workflowListTestContext) no_error() {

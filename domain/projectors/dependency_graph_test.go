@@ -31,7 +31,7 @@ func TestDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_dependency_added_event("bf-a1b2", "bf-c3d4", "blocks")
 
 		// When
@@ -48,7 +48,7 @@ func TestDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_dependency_added_event("bf-a1b2", "bf-c3d4", "blocks")
 
 		// When
@@ -65,7 +65,7 @@ func TestDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_graph_entry_with_dependency("bf-a1b2", "bf-c3d4", "blocks")
 		tc.a_dependency_added_event("bf-a1b2", "bf-e5f6", "relates_to")
 
@@ -84,7 +84,7 @@ func TestDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_graph_entry_with_dependent("bf-c3d4", "bf-a1b2", "blocks")
 		tc.a_dependency_added_event("bf-e5f6", "bf-c3d4", "relates_to")
 
@@ -103,7 +103,7 @@ func TestDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_graph_entry_with_dependency("bf-a1b2", "bf-c3d4", "blocks")
 		tc.a_dependency_removed_event("bf-a1b2", "bf-c3d4", "blocks")
 
@@ -120,7 +120,7 @@ func TestDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_graph_entry_with_dependent("bf-c3d4", "bf-a1b2", "blocks")
 		tc.a_dependency_removed_event("bf-a1b2", "bf-c3d4", "blocks")
 
@@ -137,7 +137,7 @@ func TestDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_dependency_added_event("bf-a1b2", "bf-c3d4", "blocks")
 
 		// When
@@ -153,7 +153,7 @@ func TestDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_graph_entry_with_dependency("bf-a1b2", "bf-c3d4", "blocks")
 		tc.existing_graph_entry_with_dependent("bf-c3d4", "bf-a1b2", "blocks")
 		tc.existing_dep_lookup("bf-a1b2", "bf-c3d4", "blocks")
@@ -172,7 +172,7 @@ func TestDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_full_dependency_graph("bf-a1b2", "bf-c3d4", "blocks", "bf-e5f6", "relates_to")
 		tc.a_rune_shattered_event("bf-a1b2")
 
@@ -193,7 +193,7 @@ func TestDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_graph_where_rune_is_dependent("bf-a1b2", "bf-c3d4", "blocks")
 		tc.a_rune_shattered_event("bf-a1b2")
 
@@ -211,7 +211,7 @@ func TestDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_rune_shattered_event("bf-nonexistent")
 
 		// When
@@ -227,7 +227,7 @@ func TestDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_unknown_event()
 
 		// When
@@ -242,7 +242,7 @@ func TestDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_inverse_dependency_added_event("bf-a1b2", "bf-c3d4", "blocked_by")
 
 		// When
@@ -259,7 +259,7 @@ func TestDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_inverse_dependency_added_event("bf-a1b2", "bf-c3d4", "relates_to")
 
 		// When
@@ -276,7 +276,7 @@ func TestDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_graph_entry_with_dependency("bf-a1b2", "bf-c3d4", "blocks")
 		tc.existing_graph_entry_with_dependent("bf-c3d4", "bf-a1b2", "blocks")
 		tc.an_inverse_dependency_removed_event("bf-a1b2", "bf-c3d4", "blocked_by")
@@ -295,7 +295,7 @@ func TestDependencyGraphProjector(t *testing.T) {
 
 		// Given
 		tc.a_dependency_graph_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_dependency_added_event("bf-a1b2", "bf-c3d4", "relates_to")
 
 		// When
@@ -340,7 +340,7 @@ func (tc *depGraphTestContext) a_dependency_graph_projector() {
 	tc.projector = NewDependencyGraphProjector()
 }
 
-func (tc *depGraphTestContext) a_projection_store() {
+func (tc *depGraphTestContext) a_store() {
 	tc.t.Helper()
 	if tc.store == nil {
 		tc.store = newMockProjectionStore()
@@ -389,7 +389,7 @@ func (tc *depGraphTestContext) a_rune_shattered_event(id string) {
 
 func (tc *depGraphTestContext) a_full_dependency_graph(runeID, target1, rel1, target2, rel2 string) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	// Source rune has two dependencies
 	sourceEntry := GraphEntry{
 		RuneID: runeID,
@@ -428,7 +428,7 @@ func (tc *depGraphTestContext) a_full_dependency_graph(runeID, target1, rel1, ta
 
 func (tc *depGraphTestContext) a_graph_where_rune_is_dependent(runeID, sourceID, relationship string) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	// The rune being shattered is a dependent (someone else depends on it... no, it appears in someone's dependents list)
 	// Actually: sourceID has runeID as a dependency target. So sourceID -> runeID.
 	// runeID's entry has sourceID as a dependent.
@@ -454,7 +454,7 @@ func (tc *depGraphTestContext) a_graph_where_rune_is_dependent(runeID, sourceID,
 
 func (tc *depGraphTestContext) existing_graph_entry_with_dependency(runeID, targetID, relationship string) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	entry := GraphEntry{
 		RuneID: runeID,
 		Dependencies: []GraphDependency{
@@ -467,7 +467,7 @@ func (tc *depGraphTestContext) existing_graph_entry_with_dependency(runeID, targ
 
 func (tc *depGraphTestContext) existing_graph_entry_with_dependent(runeID, sourceID, relationship string) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	entry := GraphEntry{
 		RuneID:       runeID,
 		Dependencies: []GraphDependency{},
@@ -480,7 +480,7 @@ func (tc *depGraphTestContext) existing_graph_entry_with_dependent(runeID, sourc
 
 func (tc *depGraphTestContext) existing_dep_lookup(runeID, targetID, relationship string) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	key := "dep:" + runeID + ":" + targetID + ":" + relationship
 	tc.store.put(tc.realmID, "dependency_graph", key, true)
 }

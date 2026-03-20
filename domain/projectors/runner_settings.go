@@ -25,6 +25,10 @@ func (p *RunnerSettingsProjector) Name() string {
 	return "runner_settings"
 }
 
+func (p *RunnerSettingsProjector) TableName() string {
+	return "runner_settings"
+}
+
 func (p *RunnerSettingsProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
 	switch event.EventType {
 	case domain.EventRunnerSettingsCreated:

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -45,26 +44,9 @@ func NewListCmd(clientFn func() *Client, out *bytes.Buffer) *ListCmd {
 				params["saga"] = saga
 			}
 
-			resp, err := clientFn().DoGet("/runes", params)
+			respBody, err := clientFn().DoGetWithParams("/runes", params)
 			if err != nil {
 				return err
-			}
-			defer resp.Body.Close()
-
-			respBody, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-
-			if resp.StatusCode >= 400 {
-				var errResp map[string]string
-				if json.Unmarshal(respBody, &errResp) == nil {
-					if msg, ok := errResp["error"]; ok {
-						out.WriteString(msg)
-						return fmt.Errorf("%s", msg)
-					}
-				}
-				return fmt.Errorf("server error: %s", string(respBody))
 			}
 
 			return PrintOutput(out, respBody, humanMode, func(w *bytes.Buffer, data []byte) {

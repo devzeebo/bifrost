@@ -2,11 +2,12 @@ package cli
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
 	"testing"
 
-	"github.com/devzeebo/bifrost/core"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,17 +24,17 @@ func TestNewAdminCmd(t *testing.T) {
 
 		// Then
 		tc.use_is("admin")
-		tc.short_description_is("Direct database administration commands")
+		tc.short_description_is("Server administration commands via HTTP API")
 	})
 
-	t.Run("has db flag", func(t *testing.T) {
+	t.Run("has url flag", func(t *testing.T) {
 		tc := newAdminTestContext(t)
 
 		// When
 		tc.admin_cmd_is_created()
 
 		// Then
-		tc.has_persistent_string_flag("db")
+		tc.has_persistent_string_flag("url")
 	})
 
 	t.Run("registers realm subcommands", func(t *testing.T) {
@@ -75,34 +76,25 @@ func TestNewAdminCmd(t *testing.T) {
 		tc.has_subcommand("list-pats")
 		tc.has_subcommand("revoke-pat")
 	})
-}
 
-func TestResolveUsername(t *testing.T) {
-	t.Run("returns account ID for existing username", func(t *testing.T) {
+	t.Run("registers bootstrap subcommand", func(t *testing.T) {
 		tc := newAdminTestContext(t)
 
-		// Given
-		tc.projection_store_has_username("alice", "acct-1234")
-
 		// When
-		tc.resolve_username("alice")
+		tc.admin_cmd_is_created()
 
 		// Then
-		tc.no_error_occurred()
-		tc.resolved_account_id_is("acct-1234")
+		tc.has_subcommand("bootstrap")
 	})
 
-	t.Run("returns error for unknown username", func(t *testing.T) {
+	t.Run("registers rebuild-projections subcommand", func(t *testing.T) {
 		tc := newAdminTestContext(t)
 
-		// Given
-		tc.projection_store_has_no_username("bob")
-
 		// When
-		tc.resolve_username("bob")
+		tc.admin_cmd_is_created()
 
 		// Then
-		tc.error_contains("not found")
+		tc.has_subcommand("rebuild-projections")
 	})
 }
 
@@ -139,12 +131,10 @@ func TestAdminRegisteredInRoot(t *testing.T) {
 type adminTestContext struct {
 	t *testing.T
 
-	adminCmd        *AdminCmd
-	rootCmd         *RootCmd
-	subCmd          *cobra.Command
-	projectionStore *mockProjectionStore
-	resolvedID      string
-	err             error
+	adminCmd *AdminCmd
+	rootCmd  *RootCmd
+	subCmd   *cobra.Command
+	err      error
 }
 
 func newAdminTestContext(t *testing.T) *adminTestContext {
@@ -153,22 +143,6 @@ func newAdminTestContext(t *testing.T) *adminTestContext {
 }
 
 // --- Given ---
-
-func (tc *adminTestContext) projection_store_has_username(username, accountID string) {
-	tc.t.Helper()
-	tc.projectionStore = &mockProjectionStore{
-		data: map[string]any{
-			"_admin|account_lookup|username:" + username: accountID,
-		},
-	}
-}
-
-func (tc *adminTestContext) projection_store_has_no_username(username string) {
-	tc.t.Helper()
-	tc.projectionStore = &mockProjectionStore{
-		data: map[string]any{},
-	}
-}
 
 func (tc *adminTestContext) sub_command_is(name string) {
 	tc.t.Helper()
@@ -186,11 +160,6 @@ func (tc *adminTestContext) admin_cmd_is_created() {
 func (tc *adminTestContext) root_cmd_is_created() {
 	tc.t.Helper()
 	tc.rootCmd = NewRootCmd()
-}
-
-func (tc *adminTestContext) resolve_username(username string) {
-	tc.t.Helper()
-	tc.resolvedID, tc.err = resolveUsername(context.Background(), tc.projectionStore, username)
 }
 
 func (tc *adminTestContext) root_persistent_pre_run_is_executed() {
@@ -242,17 +211,6 @@ func (tc *adminTestContext) no_error_occurred() {
 	assert.NoError(tc.t, tc.err)
 }
 
-func (tc *adminTestContext) error_contains(substr string) {
-	tc.t.Helper()
-	require.Error(tc.t, tc.err)
-	assert.Contains(tc.t, tc.err.Error(), substr)
-}
-
-func (tc *adminTestContext) resolved_account_id_is(expected string) {
-	tc.t.Helper()
-	assert.Equal(tc.t, expected, tc.resolvedID)
-}
-
 func (tc *adminTestContext) root_config_is_nil() {
 	tc.t.Helper()
 	assert.Nil(tc.t, tc.rootCmd.Cfg)
@@ -263,163 +221,71 @@ func (tc *adminTestContext) root_client_is_nil() {
 	assert.Nil(tc.t, tc.rootCmd.Client)
 }
 
-// --- Mock Stores ---
+// --- Mock Client ---
 
-type mockProjectionStore struct {
-	data     map[string]any
-	listData map[string][]json.RawMessage
+type mockClient struct {
+	getResponses [][]byte
+	getIndex     int
+	postResponse []byte
+	getError     error
+	postError    error
 }
 
-func (m *mockProjectionStore) Get(ctx context.Context, realmID string, projectionName string, key string, dest any) error {
-	compositeKey := realmID + "|" + projectionName + "|" + key
-	val, ok := m.data[compositeKey]
-	if !ok {
-		return &core.NotFoundError{Entity: projectionName, ID: key}
+func (m *mockClient) DoGet(path string) ([]byte, error) {
+	if m.getError != nil {
+		return nil, m.getError
 	}
-	b, err := json.Marshal(val)
-	if err != nil {
-		return err
+	if m.getIndex < len(m.getResponses) {
+		resp := m.getResponses[m.getIndex]
+		m.getIndex++
+		return resp, nil
 	}
-	return json.Unmarshal(b, dest)
+	return nil, fmt.Errorf("no more mock responses")
 }
 
-func (m *mockProjectionStore) List(ctx context.Context, realmID string, projectionName string) ([]json.RawMessage, error) {
-	compositeKey := realmID + "|" + projectionName
-	if m.listData != nil {
-		if rows, ok := m.listData[compositeKey]; ok {
-			return rows, nil
-		}
-	}
-	return []json.RawMessage{}, nil
+func (m *mockClient) DoPost(path string, reqBody interface{}) ([]byte, error) {
+	return m.postResponse, m.postError
 }
 
-func (m *mockProjectionStore) Put(ctx context.Context, realmID string, projectionName string, key string, value any) error {
-	compositeKey := realmID + "|" + projectionName + "|" + key
-	m.data[compositeKey] = value
-	return nil
+func (m *mockClient) DoGetWithParams(path string, params map[string]string) ([]byte, error) {
+	return m.DoGet(path)
 }
-
-func (m *mockProjectionStore) Delete(ctx context.Context, realmID string, projectionName string, key string) error {
-	compositeKey := realmID + "|" + projectionName + "|" + key
-	delete(m.data, compositeKey)
-	return nil
-}
-
-type mockEventStore struct {
-	streams map[string][]core.Event
-	nextPos int64
-}
-
-func newMockEventStore() *mockEventStore {
-	return &mockEventStore{
-		streams: make(map[string][]core.Event),
-		nextPos: 1,
-	}
-}
-
-func (m *mockEventStore) Append(ctx context.Context, realmID string, streamID string, expectedVersion int, events []core.EventData) ([]core.Event, error) {
-	key := realmID + "|" + streamID
-	existing := m.streams[key]
-	if len(existing) != expectedVersion {
-		return nil, &core.ConcurrencyError{
-			StreamID:        streamID,
-			ExpectedVersion: expectedVersion,
-			ActualVersion:   len(existing),
-		}
-	}
-
-	var result []core.Event
-	for _, ed := range events {
-		data, _ := json.Marshal(ed.Data)
-		evt := core.Event{
-			RealmID:        realmID,
-			StreamID:       streamID,
-			Version:        len(existing) + len(result),
-			EventType:      ed.EventType,
-			Data:           data,
-			GlobalPosition: m.nextPos,
-		}
-		m.nextPos++
-		result = append(result, evt)
-	}
-
-	m.streams[key] = append(existing, result...)
-	return result, nil
-}
-
-func (m *mockEventStore) ReadStream(ctx context.Context, realmID string, streamID string, fromVersion int) ([]core.Event, error) {
-	key := realmID + "|" + streamID
-	events := m.streams[key]
-	if fromVersion >= len(events) {
-		return []core.Event{}, nil
-	}
-	return events[fromVersion:], nil
-}
-
-func (m *mockEventStore) ReadAll(ctx context.Context, realmID string, fromGlobalPosition int64) ([]core.Event, error) {
-	var result []core.Event
-	for k, events := range m.streams {
-		if len(k) > len(realmID)+1 && k[:len(realmID)] == realmID {
-			for _, e := range events {
-				if e.GlobalPosition > fromGlobalPosition {
-					result = append(result, e)
-				}
-			}
-		}
-	}
-	return result, nil
-}
-
-func (m *mockEventStore) ListRealmIDs(ctx context.Context) ([]string, error) {
-	seen := make(map[string]bool)
-	for k := range m.streams {
-		for i, c := range k {
-			if c == '|' {
-				seen[k[:i]] = true
-				break
-			}
-		}
-	}
-	var ids []string
-	for id := range seen {
-		ids = append(ids, id)
-	}
-	return ids, nil
-}
-
-type mockEngine struct{}
-
-func (m *mockEngine) Register(projector core.Projector)                     {}
-func (m *mockEngine) RunSync(ctx context.Context, events []core.Event) error { return nil }
-func (m *mockEngine) RunCatchUpOnce(ctx context.Context)                     {}
-func (m *mockEngine) StartCatchUp(ctx context.Context) error                 { return nil }
-func (m *mockEngine) Stop() error                                            { return nil }
 
 // --- Helpers ---
 
-func newAdminCmdForTest(eventStore core.EventStore, projectionStore core.ProjectionStore) *cobra.Command {
-	admin := &AdminCmd{
-		Ctx: &AdminContext{
-			EventStore:      eventStore,
-			ProjectionStore: projectionStore,
-			Engine:          &mockEngine{},
+func newAdminCmdWithMockClient(mock *mockClient) *cobra.Command {
+	// Create a real Client but override its httpClient with a mock transport
+	client := &Client{
+		baseURL: "http://test",
+		apiKey:  "test-key",
+		realm:   "_admin",
+		httpClient: &http.Client{
+			Transport: &mockTransport{mock: mock},
 		},
+	}
+
+	admin := &AdminCmd{
+		Client: client,
 	}
 
 	cmd := &cobra.Command{
 		Use:   "admin",
-		Short: "Direct database administration commands",
+		Short: "Server administration commands via HTTP API",
 	}
 
 	cmd.PersistentFlags().Bool("json", false, "force JSON output")
 	cmd.PersistentFlags().Bool("human", false, "formatted table/text output")
-	cmd.PersistentFlags().String("db", "", "path to SQLite database")
+	cmd.PersistentFlags().String("url", "", "Bifrost server URL")
+	cmd.PersistentFlags().String("work-dir", "", "Working directory")
+	cmd.PersistentFlags().String("home-dir", "", "Home directory")
 
 	admin.Command = cmd
 
 	addAdminRealmCommands(admin)
 	addAdminAccountCommands(admin)
 	addAdminPATCommands(admin)
+	addAdminRebuildCommands(admin)
+	addAdminBootstrapCommands(admin)
 
 	return cmd
 }
@@ -431,4 +297,44 @@ func executeAdminCmd(cmd *cobra.Command, args ...string) (string, error) {
 	cmd.SetArgs(args)
 	err := cmd.Execute()
 	return buf.String(), err
+}
+
+// --- JSON Helpers ---
+
+func mustMarshal(v interface{}) []byte {
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+// mockTransport is an http.RoundTripper that returns mock responses
+type mockTransport struct {
+	mock *mockClient
+}
+
+func (t *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if t.mock.getError != nil {
+		return nil, t.mock.getError
+	}
+
+	var body []byte
+	if req.Method == http.MethodGet {
+		if t.mock.getIndex < len(t.mock.getResponses) {
+			body = t.mock.getResponses[t.mock.getIndex]
+			t.mock.getIndex++
+		} else {
+			body = []byte("{}")
+		}
+	} else {
+		body = t.mock.postResponse
+	}
+
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(bytes.NewReader(body)),
+		Request:    req,
+	}, nil
 }
