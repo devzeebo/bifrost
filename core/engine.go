@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -41,16 +42,17 @@ func NewProjectionEngine(eventStore EventStore, projectionStore ProjectionStore,
 	return e
 }
 
-func (e *projectionEngine) Register(projector Projector) {
-	e.projectors = append(e.projectors, projector)
-
-	// Auto-create the projection table
+func (e *projectionEngine) Register(projector Projector) error {
+	// Auto-create the projection table first
 	tableName := projector.TableName()
 	if err := e.projectionStore.CreateTable(context.Background(), tableName); err != nil {
-		log.Printf("failed to create table %q: %v", tableName, err)
+		return fmt.Errorf("failed to create table %q: %w", tableName, err)
 	}
 
+	// Only register after successful table creation
+	e.projectors = append(e.projectors, projector)
 	e.registeredTables = append(e.registeredTables, tableName)
+	return nil
 }
 
 func (e *projectionEngine) RegisteredTables() []string {
@@ -147,23 +149,25 @@ func (e *projectionEngine) Stop() error {
 // RebuildProjections clears all projection tables and checkpoints, then replays all events.
 // This is useful when projector logic has been fixed and projections need to be reconstructed.
 func (e *projectionEngine) RebuildProjections(ctx context.Context) error {
-	// Clear all registered projection tables
-	for _, table := range e.registeredTables {
-		if err := e.projectionStore.ClearTable(ctx, table); err != nil {
-			log.Printf("rebuild: could not clear table %s: %v", table, err)
-		}
-	}
-
-	// Clear checkpoints by resetting them to 0 for all realm/projector combinations
+	// Preflight: Verify we can list realm IDs and reset checkpoints
 	realmIDs, err := e.eventStore.ListRealmIDs(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("rebuild preflight: failed to list realm IDs: %w", err)
 	}
+
+	// Preflight: Test checkpoint reset for all realm/projector combinations
 	for _, realmID := range realmIDs {
 		for _, projector := range e.projectors {
 			if err := e.checkpointStore.SetCheckpoint(ctx, realmID, projector.Name(), 0); err != nil {
-				log.Printf("rebuild: could not reset checkpoint for %s/%s: %v", realmID, projector.Name(), err)
+				return fmt.Errorf("rebuild preflight: failed to reset checkpoint for %s/%s: %w", realmID, projector.Name(), err)
 			}
+		}
+	}
+
+	// Preflight passed - now clear all registered projection tables
+	for _, table := range e.registeredTables {
+		if err := e.projectionStore.ClearTable(ctx, table); err != nil {
+			return fmt.Errorf("rebuild: failed to clear table %s: %w", table, err)
 		}
 	}
 

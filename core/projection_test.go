@@ -164,7 +164,8 @@ func (tc *projectionTestContext) handle_is_called() {
 
 func (tc *projectionTestContext) register_is_called() {
 	tc.t.Helper()
-	tc.projectionEngine.Register(tc.projector)
+	err := tc.projectionEngine.Register(tc.projector)
+	require.NoError(tc.t, err)
 	tc.registerPassed = true
 }
 

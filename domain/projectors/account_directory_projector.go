@@ -3,6 +3,7 @@ package projectors
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/devzeebo/bifrost/core"
@@ -81,6 +82,13 @@ func (p *AccountDirectoryProjector) handleAccountCreated(ctx context.Context, ev
 	if err := store.Get(ctx, "_admin", "account_directory", data.AccountID, &existing); err == nil {
 		// Account already exists, idempotent - don't reset accumulated state
 		return nil
+	} else {
+		var nfe *core.NotFoundError
+		if !errors.As(err, &nfe) {
+			// For any non-not-found error, propagate it instead of overwriting state
+			return err
+		}
+		// Account doesn't exist, proceed with creation
 	}
 
 	entry := AccountDirectoryEntry{
@@ -174,8 +182,28 @@ func (p *AccountDirectoryProjector) handleRoleRevoked(ctx context.Context, event
 	if err := store.Get(ctx, "_admin", "account_directory", data.AccountID, &entry); err != nil {
 		return err
 	}
-	entry.Realms = removeString(entry.Realms, data.RealmID)
-	delete(entry.Roles, data.RealmID)
+	
+	// Only adjust the role, not realm membership
+	// Check if account is still a member of the realm
+	isRealmMember := false
+	for _, realmID := range entry.Realms {
+		if realmID == data.RealmID {
+			isRealmMember = true
+			break
+		}
+	}
+	
+	if isRealmMember {
+		// Account is still a member, downgrade role to "member"
+		if entry.Roles == nil {
+			entry.Roles = make(map[string]string)
+		}
+		entry.Roles[data.RealmID] = "member"
+	} else {
+		// Account is not a member (shouldn't happen in normal flow), remove role entry
+		delete(entry.Roles, data.RealmID)
+	}
+	
 	return store.Put(ctx, "_admin", "account_directory", data.AccountID, entry)
 }
 

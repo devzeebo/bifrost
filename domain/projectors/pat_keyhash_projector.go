@@ -3,6 +3,7 @@ package projectors
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/devzeebo/bifrost/core"
 	"github.com/devzeebo/bifrost/domain"
@@ -54,8 +55,13 @@ func (p *PATKeyhashProjector) handlePATRevoked(ctx context.Context, event core.E
 	// We need to look up the keyhash from the PAT ID to delete the entry
 	var patEntry PATIDEntry
 	if err := store.Get(ctx, event.RealmID, "pat_by_id", data.PATID, &patEntry); err != nil {
-		// If the PAT entry doesn't exist, nothing to delete
-		return nil
+		var nfe *core.NotFoundError
+		if errors.As(err, &nfe) {
+			// If the PAT entry doesn't exist, nothing to delete
+			return nil
+		}
+		// For any other error (database, decode, etc.), propagate it
+		return err
 	}
 	return store.Delete(ctx, event.RealmID, "pat_by_keyhash", patEntry.KeyHash)
 }

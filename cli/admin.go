@@ -48,6 +48,11 @@ func NewAdminCmd() *AdminCmd {
 				return fmt.Errorf("load config: %w", err)
 			}
 
+			// Override URL from --url flag if provided
+			if flagURL, _ := cmd.Flags().GetString("url"); flagURL != "" {
+				cfg.URL = flagURL
+			}
+
 			if cfg.URL == "" {
 				return fmt.Errorf("no server URL configured (set in .bifrost.yaml or use --url flag)")
 			}

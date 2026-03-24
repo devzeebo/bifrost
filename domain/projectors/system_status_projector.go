@@ -3,6 +3,7 @@ package projectors
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/devzeebo/bifrost/core"
 	"github.com/devzeebo/bifrost/domain"
@@ -56,6 +57,13 @@ func (p *SystemStatusProjector) handleAccountCreated(ctx context.Context, event 
 	if err := store.Get(ctx, "_admin", "system_status", "status", &existing); err == nil {
 		// Status already exists, idempotent - don't reset accumulated state
 		return nil
+	} else {
+		var nfe *core.NotFoundError
+		if !errors.As(err, &nfe) {
+			// For any non-not-found error, propagate it instead of overwriting state
+			return err
+		}
+		// Status doesn't exist, proceed with initialization
 	}
 
 	// Initialize empty status

@@ -302,7 +302,8 @@ func (tc *engineTestContext) events(evts ...Event) {
 
 func (tc *engineTestContext) register_is_called() {
 	tc.t.Helper()
-	tc.engine.Register(tc.projector)
+	err := tc.engine.Register(tc.projector)
+	require.NoError(tc.t, err)
 }
 
 func (tc *engineTestContext) run_sync_is_called() {
@@ -741,7 +742,8 @@ func (tc *catchUpTestContext) catch_up_engine_is_created() {
 
 func (tc *catchUpTestContext) register_catch_up_projector() {
 	tc.t.Helper()
-	tc.engine.Register(tc.projector)
+	err := tc.engine.Register(tc.projector)
+	require.NoError(tc.t, err)
 }
 
 // --- When ---
