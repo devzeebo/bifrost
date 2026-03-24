@@ -9,7 +9,7 @@ type Projector interface {
 }
 
 type ProjectionEngine interface {
-	Register(projector Projector)
+	Register(projector Projector) error
 	RegisteredTables() []string
 	RunSync(ctx context.Context, events []Event) error
 	RunCatchUpOnce(ctx context.Context)

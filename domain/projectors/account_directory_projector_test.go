@@ -153,7 +153,7 @@ func TestAccountDirectoryProjector(t *testing.T) {
 		tc.account_entry_has_roles("acct-1", map[string]string{"realm-1": "admin"})
 	})
 
-	t.Run("handles RoleRevoked by removing realm and role", func(t *testing.T) {
+	t.Run("handles RoleRevoked by downgrading role to member but preserving realm membership", func(t *testing.T) {
 		tc := newAccountDirectoryTestContext(t)
 
 		// Given
@@ -167,8 +167,8 @@ func TestAccountDirectoryProjector(t *testing.T) {
 
 		// Then
 		tc.no_error()
-		tc.account_entry_has_realms("acct-1", []string{"realm-2"})
-		tc.account_entry_has_roles("acct-1", map[string]string{"realm-2": "member"})
+		tc.account_entry_has_realms("acct-1", []string{"realm-1", "realm-2"})  // Realm membership preserved
+		tc.account_entry_has_roles("acct-1", map[string]string{"realm-1": "member", "realm-2": "member"})  // Role downgraded to member
 	})
 
 	t.Run("handles PATCreated by appending to pats array", func(t *testing.T) {

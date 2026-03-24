@@ -24,7 +24,7 @@ import (
 )
 
 // registerProjectors registers all projectors with the engine
-func registerProjectors(engine *core.ProjectionEngine) error {
+func registerProjectors(engine core.ProjectionEngine) error {
 	// Account projections (realm: _admin)
 	if err := engine.Register(projectors.NewAccountAuthProjector()); err != nil {
 		return err

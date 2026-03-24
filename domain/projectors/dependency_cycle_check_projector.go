@@ -24,26 +24,7 @@ type DependencyCycleCheckDoc struct {
 // Events: DependencyAdded (insert), DependencyRemoved (delete)
 type DependencyCycleCheckProjector struct{}
 
-// GraphEntry represents a node in the dependency graph
-type GraphEntry struct {
-	RuneID       string            `json:"rune_id"`
-	Dependencies []GraphDependency `json:"dependencies"`
-	Dependents   []GraphDependent  `json:"dependents"`
-}
-
-// GraphDependency represents a dependency edge
-type GraphDependency struct {
-	TargetID     string `json:"target_id"`
-	Relationship string `json:"relationship"`
-}
-
-// GraphDependent represents a dependent edge
-type GraphDependent struct {
-	SourceID     string `json:"source_id"`
-	Relationship string `json:"relationship"`
-}
-
-func isNotFoundError(err error) bool {
+func isNotFoundErrorLocal(err error) bool {
 	var nfe *core.NotFoundError
 	return errors.As(err, &nfe)
 }
@@ -58,7 +39,7 @@ func (p *DependencyCycleCheckProjector) getTransitivePredecessors(ctx context.Co
 	var entry GraphEntry
 	err := store.Get(ctx, realmID, "dependency_graph", targetID, &entry)
 	if err != nil {
-		if isNotFoundError(err) {
+		if isNotFoundErrorLocal(err) {
 			return nil, nil // No dependencies for this node
 		}
 		return nil, err
@@ -88,7 +69,7 @@ func (p *DependencyCycleCheckProjector) getTransitiveSuccessors(ctx context.Cont
 	var entry GraphEntry
 	err := store.Get(ctx, realmID, "dependency_graph", sourceID, &entry)
 	if err != nil {
-		if isNotFoundError(err) {
+		if isNotFoundErrorLocal(err) {
 			return nil, nil // No dependents for this node
 		}
 		return nil, err

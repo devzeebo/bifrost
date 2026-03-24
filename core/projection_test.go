@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Compile-time interface satisfaction checks
@@ -241,7 +242,9 @@ func (m *mockProjector) Handle(_ context.Context, _ Event, _ ProjectionStore) er
 
 type mockProjectionEngine struct{}
 
-func (m *mockProjectionEngine) Register(_ Projector) {}
+func (m *mockProjectionEngine) Register(_ Projector) error {
+	return nil
+}
 
 func (m *mockProjectionEngine) RegisteredTables() []string {
 	return nil
