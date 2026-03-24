@@ -221,10 +221,7 @@ func (tc *listTestContext) server_that_returns_error(status int, message string)
 
 func (tc *listTestContext) client_configured() {
 	tc.t.Helper()
-	tc.client = NewClient(&Config{
-		URL:    tc.server.URL,
-		APIKey: "test-key",
-	})
+	tc.client = NewClient(tc.server.URL, "test-key", "test-realm")
 }
 
 // --- When ---
@@ -233,6 +230,7 @@ func (tc *listTestContext) execute_list() {
 	tc.t.Helper()
 	cmd := NewListCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 
@@ -240,6 +238,7 @@ func (tc *listTestContext) execute_list_with_status(status string) {
 	tc.t.Helper()
 	cmd := NewListCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{"--status", status})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 
@@ -247,6 +246,7 @@ func (tc *listTestContext) execute_list_with_priority(priority string) {
 	tc.t.Helper()
 	cmd := NewListCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{"--priority", priority})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 
@@ -254,6 +254,7 @@ func (tc *listTestContext) execute_list_with_assignee(assignee string) {
 	tc.t.Helper()
 	cmd := NewListCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{"--assignee", assignee})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 
@@ -261,6 +262,7 @@ func (tc *listTestContext) execute_list_with_branch(branch string) {
 	tc.t.Helper()
 	cmd := NewListCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{"--branch", branch})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 
@@ -268,6 +270,7 @@ func (tc *listTestContext) execute_list_with_human() {
 	tc.t.Helper()
 	cmd := NewListCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{"--human"})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 

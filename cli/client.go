@@ -2,6 +2,8 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -16,11 +18,11 @@ type Client struct {
 	httpClient *http.Client
 }
 
-func NewClient(cfg *Config) *Client {
+func NewClient(baseURL, apiKey, realm string) *Client {
 	return &Client{
-		baseURL: cfg.URL,
-		apiKey:  cfg.APIKey,
-		realm:   cfg.Realm,
+		baseURL: baseURL,
+		apiKey:  apiKey,
+		realm:   realm,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -66,7 +68,69 @@ func (c *Client) DoRequest(method, path string, body []byte) (*http.Response, er
 	return resp, nil
 }
 
-func (c *Client) DoGet(path string, params map[string]string) (*http.Response, error) {
+// DoGet performs a GET request and returns the response body.
+func (c *Client) DoGet(path string) ([]byte, error) {
+	resp, err := c.DoRequest(http.MethodGet, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode >= 400 {
+		var errResp struct {
+			Error string `json:"error"`
+		}
+		if json.Unmarshal(body, &errResp) == nil && errResp.Error != "" {
+			return nil, fmt.Errorf("%s", errResp.Error)
+		}
+		return nil, fmt.Errorf("request failed: %s", resp.Status)
+	}
+
+	return body, nil
+}
+
+// DoPost performs a POST request and returns the response body.
+func (c *Client) DoPost(path string, reqBody interface{}) ([]byte, error) {
+	var body []byte
+	if reqBody != nil {
+		var err error
+		body, err = json.Marshal(reqBody)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	resp, err := c.DoRequest(http.MethodPost, path, body)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode >= 400 {
+		var errResp struct {
+			Error string `json:"error"`
+		}
+		if json.Unmarshal(respBody, &errResp) == nil && errResp.Error != "" {
+			return nil, fmt.Errorf("%s", errResp.Error)
+		}
+		return nil, fmt.Errorf("request failed: %s", resp.Status)
+	}
+
+	return respBody, nil
+}
+
+// DoGetWithParams performs a GET request with query parameters and returns the response body.
+func (c *Client) DoGetWithParams(path string, params map[string]string) ([]byte, error) {
 	if len(params) > 0 {
 		q := url.Values{}
 		for k, v := range params {
@@ -74,9 +138,5 @@ func (c *Client) DoGet(path string, params map[string]string) (*http.Response, e
 		}
 		path = path + "?" + q.Encode()
 	}
-	return c.DoRequest(http.MethodGet, path, nil)
-}
-
-func (c *Client) DoPost(path string, body []byte) (*http.Response, error) {
-	return c.DoRequest(http.MethodPost, path, body)
+	return c.DoGet(path)
 }

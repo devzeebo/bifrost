@@ -3,10 +3,16 @@ package projectors
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/devzeebo/bifrost/core"
 	"github.com/devzeebo/bifrost/domain"
 )
+
+func isNotFoundError(err error) bool {
+	var nfe *core.NotFoundError
+	return errors.As(err, &nfe)
+}
 
 type GraphDependency struct {
 	TargetID     string `json:"target_id"`
@@ -31,6 +37,10 @@ func NewDependencyGraphProjector() *DependencyGraphProjector {
 }
 
 func (p *DependencyGraphProjector) Name() string {
+	return "dependency_graph"
+}
+
+func (p *DependencyGraphProjector) TableName() string {
 	return "dependency_graph"
 }
 

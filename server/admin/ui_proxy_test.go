@@ -2,13 +2,24 @@ package admin
 
 import (
 	"crypto/rand"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"testing/fstest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// newMockUIFS creates a mock filesystem for testing UI routes
+func newMockUIFS() fs.FS {
+	return fstest.MapFS{
+		"index.html": &fstest.MapFile{
+			Data: []byte("<!DOCTYPE html><html><body>Mock UI</body></html>"),
+		},
+	}
+}
 
 func TestNewVikeProxyHandler(t *testing.T) {
 	// Create a mock Vite dev server
@@ -195,12 +206,12 @@ func TestRegisterUIRoutes_DevelopmentMode(t *testing.T) {
 }
 
 func TestRegisterUIRoutes_ProductionMode(t *testing.T) {
-	// Production mode serves embedded static files
+	// Production mode serves static files from mock filesystem
 	cfg := &RouteConfig{
 		AuthConfig:       DefaultAuthConfig(),
 		ProjectionStore:  newMockProjectionStore(),
 		EventStore:       nil,
-		// No ViteDevServerURL = production mode (embedded files)
+		UIFS:             newMockUIFS(), // Use mock filesystem
 	}
 
 	// Generate signing key
@@ -213,25 +224,53 @@ func TestRegisterUIRoutes_ProductionMode(t *testing.T) {
 	require.NoError(t, err)
 	_ = result
 
-	// /ui should serve index.html from embedded files
-	req := httptest.NewRequest("GET", "/ui", nil)
-	rec := httptest.NewRecorder()
+	tests := []struct {
+		name             string
+		path             string
+		wantStatus       int
+		wantBodyContains string
+	}{
+		{
+			name:             "/ui should serve index.html",
+			path:             "/ui",
+			wantStatus:       http.StatusOK,
+			wantBodyContains: "<!DOCTYPE html>",
+		},
+		{
+			name:             "/ui/runes should fallback to index.html (SPA routing)",
+			path:             "/ui/runes",
+			wantStatus:       http.StatusOK,
+			wantBodyContains: "<!DOCTYPE html>",
+		},
+		{
+			name:             "/ui/admin/accounts should fallback to index.html",
+			path:             "/ui/admin/accounts",
+			wantStatus:       http.StatusOK,
+			wantBodyContains: "<!DOCTYPE html>",
+		},
+	}
 
-	mux.ServeHTTP(rec, req)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", tt.path, nil)
+			rec := httptest.NewRecorder()
 
-	// With embedded UI files, returns 200 with HTML
-	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.Contains(t, rec.Body.String(), "<!DOCTYPE html>")
+			mux.ServeHTTP(rec, req)
+
+			assert.Equal(t, tt.wantStatus, rec.Code)
+			assert.Contains(t, rec.Body.String(), tt.wantBodyContains)
+		})
+	}
 }
 
 func TestRegisterUIRoutes_NoUI(t *testing.T) {
-	// Note: With embedded files, there's always a UI configured
-	// This test now verifies that embedded files are served
+	// When no UI filesystem is configured and no embedded files exist,
+	// the routes are registered but return 404
 	cfg := &RouteConfig{
 		AuthConfig:      DefaultAuthConfig(),
 		ProjectionStore: newMockProjectionStore(),
 		EventStore:      nil,
-		// No ViteDevServerURL = production mode (embedded files)
+		// No ViteDevServerURL and no UIFS = no UI available
 	}
 
 	// Generate signing key
@@ -244,12 +283,12 @@ func TestRegisterUIRoutes_NoUI(t *testing.T) {
 	require.NoError(t, err)
 	_ = result
 
-	// /ui should serve embedded index.html
+	// /ui returns 404 when no UI files available
 	req := httptest.NewRequest("GET", "/ui", nil)
 	rec := httptest.NewRecorder()
 
 	mux.ServeHTTP(rec, req)
 
-	// With embedded UI files, returns 200
-	assert.Equal(t, http.StatusOK, rec.Code)
+	// Without UI files, returns 404
+	assert.Equal(t, http.StatusNotFound, rec.Code)
 }

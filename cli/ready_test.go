@@ -191,10 +191,7 @@ func (tc *readyTestContext) server_that_returns_error(status int, message string
 
 func (tc *readyTestContext) client_configured() {
 	tc.t.Helper()
-	tc.client = NewClient(&Config{
-		URL:    tc.server.URL,
-		APIKey: "test-key",
-	})
+	tc.client = NewClient(tc.server.URL, "test-key", "test-realm")
 }
 
 // --- When ---
@@ -203,6 +200,7 @@ func (tc *readyTestContext) execute_ready() {
 	tc.t.Helper()
 	cmd := NewReadyCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 
@@ -210,6 +208,7 @@ func (tc *readyTestContext) execute_ready_with_sagas() {
 	tc.t.Helper()
 	cmd := NewReadyCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{"--sagas"})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 
@@ -217,6 +216,7 @@ func (tc *readyTestContext) execute_ready_with_human() {
 	tc.t.Helper()
 	cmd := NewReadyCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{"--human"})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 

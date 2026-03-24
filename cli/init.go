@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"text/template"
 
 	"github.com/spf13/cobra"
 	"go.yaml.in/yaml/v3"
@@ -40,7 +39,6 @@ func NewInitCmd() *cobra.Command {
 			}
 
 			yamlPath := filepath.Join(dir, ".bifrost.yaml")
-			agentsPath := filepath.Join(dir, "AGENTS.md")
 
 			if !force {
 				if _, err := os.Stat(yamlPath); err == nil {
@@ -60,29 +58,6 @@ func NewInitCmd() *cobra.Command {
 
 			if err := os.WriteFile(yamlPath, yamlData, 0644); err != nil {
 				return fmt.Errorf("writing .bifrost.yaml: %w", err)
-			}
-
-			tmpl, err := template.New("agents").Parse(AgentsTemplate)
-			if err != nil {
-				return fmt.Errorf("parsing AGENTS.md template: %w", err)
-			}
-
-			agentsFile, err := os.Create(agentsPath)
-			if err != nil {
-				return fmt.Errorf("creating AGENTS.md: %w", err)
-			}
-			defer agentsFile.Close()
-
-			data := struct {
-				RealmName string
-				URL       string
-			}{
-				RealmName: realm,
-				URL:       url,
-			}
-
-			if err := tmpl.Execute(agentsFile, data); err != nil {
-				return fmt.Errorf("rendering AGENTS.md: %w", err)
 			}
 
 			gitignorePath := filepath.Join(dir, ".gitignore")

@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"sync"
 	"testing"
@@ -57,6 +58,55 @@ func TestProjectionEngine_Register(t *testing.T) {
 
 		// Then
 		tc.projector_count_is(2)
+	})
+
+	t.Run("creates table for projector", func(t *testing.T) {
+		tc := newEngineTestContext(t)
+
+		// Given
+		tc.engine_is_created_with_tracking_store()
+		tc.a_projector("myprojector")
+
+		// When
+		tc.register_is_called()
+
+		// Then
+		tc.table_was_created("myprojector_table")
+	})
+
+	t.Run("creates tables for multiple projectors", func(t *testing.T) {
+		tc := newEngineTestContext(t)
+
+		// Given
+		tc.engine_is_created_with_tracking_store()
+		tc.a_projector("projector-a")
+		tc.register_is_called()
+		tc.a_projector("projector-b")
+
+		// When
+		tc.register_is_called()
+
+		// Then
+		tc.table_was_created("projector-a_table")
+		tc.table_was_created("projector-b_table")
+		tc.tables_created_count_is(2)
+	})
+
+	t.Run("returns registered tables", func(t *testing.T) {
+		tc := newEngineTestContext(t)
+
+		// Given
+		tc.engine_is_created()
+		tc.a_projector("projector-a")
+		tc.register_is_called()
+		tc.a_projector("projector-b")
+		tc.register_is_called()
+
+		// When
+		tables := tc.engine.RegisteredTables()
+
+		// Then
+		assert.ElementsMatch(tc.t, []string{"projector-a_table", "projector-b_table"}, tables)
 	})
 }
 
@@ -194,6 +244,9 @@ type engineTestContext struct {
 	runSyncErr error
 
 	recorders map[string]*recordingProjector
+
+	// For tracking table creation
+	trackingStore *trackingProjectionStore
 }
 
 func newEngineTestContext(t *testing.T) *engineTestContext {
@@ -211,6 +264,14 @@ func newEngineTestContext(t *testing.T) *engineTestContext {
 
 func (tc *engineTestContext) engine_is_created() {
 	tc.t.Helper()
+	tc.engine = NewProjectionEngine(tc.eventStore, tc.projectionStore, tc.checkpointStore)
+	require.NotNil(tc.t, tc.engine)
+}
+
+func (tc *engineTestContext) engine_is_created_with_tracking_store() {
+	tc.t.Helper()
+	tc.trackingStore = newTrackingProjectionStore()
+	tc.projectionStore = tc.trackingStore
 	tc.engine = NewProjectionEngine(tc.eventStore, tc.projectionStore, tc.checkpointStore)
 	require.NotNil(tc.t, tc.engine)
 }
@@ -241,7 +302,8 @@ func (tc *engineTestContext) events(evts ...Event) {
 
 func (tc *engineTestContext) register_is_called() {
 	tc.t.Helper()
-	tc.engine.Register(tc.projector)
+	err := tc.engine.Register(tc.projector)
+	require.NoError(tc.t, err)
 }
 
 func (tc *engineTestContext) run_sync_is_called() {
@@ -278,6 +340,18 @@ func (tc *engineTestContext) projector_handled_events(name string, expectedTypes
 	assert.Equal(tc.t, expectedTypes, actual)
 }
 
+func (tc *engineTestContext) table_was_created(table string) {
+	tc.t.Helper()
+	require.NotNil(tc.t, tc.trackingStore, "tracking store not initialized")
+	assert.Contains(tc.t, tc.trackingStore.createdTables, table)
+}
+
+func (tc *engineTestContext) tables_created_count_is(expected int) {
+	tc.t.Helper()
+	require.NotNil(tc.t, tc.trackingStore, "tracking store not initialized")
+	assert.Len(tc.t, tc.trackingStore.createdTables, expected)
+}
+
 // --- Test Doubles ---
 
 type recordingProjector struct {
@@ -287,6 +361,10 @@ type recordingProjector struct {
 
 func (r *recordingProjector) Name() string {
 	return r.name
+}
+
+func (r *recordingProjector) TableName() string {
+	return r.name + "_table"
 }
 
 func (r *recordingProjector) Handle(_ context.Context, event Event, _ ProjectionStore) error {
@@ -302,8 +380,48 @@ func (f *failingProjector) Name() string {
 	return f.name
 }
 
+func (f *failingProjector) TableName() string {
+	return f.name + "_table"
+}
+
 func (f *failingProjector) Handle(_ context.Context, _ Event, _ ProjectionStore) error {
 	return errors.New("projector error")
+}
+
+// trackingProjectionStore tracks which tables were created
+type trackingProjectionStore struct {
+	createdTables []string
+}
+
+func newTrackingProjectionStore() *trackingProjectionStore {
+	return &trackingProjectionStore{
+		createdTables: make([]string, 0),
+	}
+}
+
+func (m *trackingProjectionStore) Get(_ context.Context, _ string, _ string, _ string, _ any) error {
+	return nil
+}
+
+func (m *trackingProjectionStore) List(_ context.Context, _ string, _ string) ([]json.RawMessage, error) {
+	return nil, nil
+}
+
+func (m *trackingProjectionStore) Put(_ context.Context, _ string, _ string, _ string, _ any) error {
+	return nil
+}
+
+func (m *trackingProjectionStore) Delete(_ context.Context, _ string, _ string, _ string) error {
+	return nil
+}
+
+func (m *trackingProjectionStore) CreateTable(_ context.Context, table string) error {
+	m.createdTables = append(m.createdTables, table)
+	return nil
+}
+
+func (m *trackingProjectionStore) ClearTable(_ context.Context, _ string) error {
+	return nil
 }
 
 // =============================================================================
@@ -624,7 +742,8 @@ func (tc *catchUpTestContext) catch_up_engine_is_created() {
 
 func (tc *catchUpTestContext) register_catch_up_projector() {
 	tc.t.Helper()
-	tc.engine.Register(tc.projector)
+	err := tc.engine.Register(tc.projector)
+	require.NoError(tc.t, err)
 }
 
 // --- When ---
@@ -804,6 +923,10 @@ type slowProjector struct {
 
 func (s *slowProjector) Name() string {
 	return s.name
+}
+
+func (s *slowProjector) TableName() string {
+	return s.name + "_table"
 }
 
 func (s *slowProjector) Handle(_ context.Context, _ Event, _ ProjectionStore) error {

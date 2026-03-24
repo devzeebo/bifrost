@@ -181,10 +181,7 @@ func (tc *sweepTestContext) server_that_returns_error(status int, message string
 
 func (tc *sweepTestContext) client_configured() {
 	tc.t.Helper()
-	tc.client = NewClient(&Config{
-		URL:    tc.server.URL,
-		APIKey: "test-key",
-	})
+	tc.client = NewClient(tc.server.URL, "test-key", "test-realm")
 }
 
 func (tc *sweepTestContext) user_types(input string) {
@@ -198,6 +195,7 @@ func (tc *sweepTestContext) execute_sweep() {
 	tc.t.Helper()
 	cmd := NewSweepCmd(func() *Client { return tc.client }, tc.buf, tc.in)
 	cmd.Command.SetArgs([]string{})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 
@@ -205,6 +203,7 @@ func (tc *sweepTestContext) execute_sweep_with_confirm() {
 	tc.t.Helper()
 	cmd := NewSweepCmd(func() *Client { return tc.client }, tc.buf, tc.in)
 	cmd.Command.SetArgs([]string{"--confirm"})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 
@@ -212,6 +211,7 @@ func (tc *sweepTestContext) execute_sweep_with_confirm_and_human() {
 	tc.t.Helper()
 	cmd := NewSweepCmd(func() *Client { return tc.client }, tc.buf, tc.in)
 	cmd.Command.SetArgs([]string{"--confirm", "--human"})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 

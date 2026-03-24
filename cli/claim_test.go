@@ -127,10 +127,7 @@ func (tc *claimTestContext) server_that_returns_error(status int, message string
 
 func (tc *claimTestContext) client_configured() {
 	tc.t.Helper()
-	tc.client = NewClient(&Config{
-		URL:    tc.server.URL,
-		APIKey: "test-key",
-	})
+	tc.client = NewClient(tc.server.URL, "test-key", "test-realm")
 }
 
 // --- When ---
@@ -139,6 +136,7 @@ func (tc *claimTestContext) execute_claim(id string) {
 	tc.t.Helper()
 	cmd := NewClaimCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{id})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 
@@ -146,6 +144,7 @@ func (tc *claimTestContext) execute_claim_as(id, claimant string) {
 	tc.t.Helper()
 	cmd := NewClaimCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{id, "--as", claimant})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 
@@ -153,6 +152,7 @@ func (tc *claimTestContext) execute_claim_with_human(id string) {
 	tc.t.Helper()
 	cmd := NewClaimCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{id, "--human"})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 

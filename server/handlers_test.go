@@ -476,7 +476,7 @@ func TestListRealmsHandler(t *testing.T) {
 
 		// Given
 		tc.handlers_configured()
-		tc.projection_has_realm_list()
+		tc.has_realm_list()
 
 		// When
 		tc.get("/realms")
@@ -512,7 +512,7 @@ func TestListRunesHandler(t *testing.T) {
 		// Given
 		tc.handlers_configured()
 		tc.request_has_realm_id("realm-1")
-		tc.projection_has_rune_list("realm-1")
+		tc.has_rune_list("realm-1")
 
 		// When
 		tc.get("/runes")
@@ -545,7 +545,7 @@ func TestListRunesHandler(t *testing.T) {
 		// Given
 		tc.handlers_configured()
 		tc.request_has_realm_id("realm-1")
-		tc.projection_has_mixed_runes("realm-1")
+		tc.has_mixed_runes("realm-1")
 
 		// When
 		tc.get("/runes?status=open")
@@ -563,7 +563,7 @@ func TestListRunesHandler(t *testing.T) {
 		// Given
 		tc.handlers_configured()
 		tc.request_has_realm_id("realm-1")
-		tc.projection_has_mixed_runes("realm-1")
+		tc.has_mixed_runes("realm-1")
 
 		// When
 		tc.get("/runes?priority=1")
@@ -581,7 +581,7 @@ func TestListRunesHandler(t *testing.T) {
 		// Given
 		tc.handlers_configured()
 		tc.request_has_realm_id("realm-1")
-		tc.projection_has_mixed_runes("realm-1")
+		tc.has_mixed_runes("realm-1")
 
 		// When
 		tc.get("/runes?assignee=alice")
@@ -599,7 +599,7 @@ func TestListRunesHandler(t *testing.T) {
 		// Given
 		tc.handlers_configured()
 		tc.request_has_realm_id("realm-1")
-		tc.projection_has_mixed_runes("realm-1")
+		tc.has_mixed_runes("realm-1")
 
 		// When
 		tc.get("/runes?status=fulfilled")
@@ -616,7 +616,7 @@ func TestListRunesHandler(t *testing.T) {
 		// Given
 		tc.handlers_configured()
 		tc.request_has_realm_id("realm-1")
-		tc.projection_has_mixed_runes("realm-1")
+		tc.has_mixed_runes("realm-1")
 
 		// When
 		tc.get("/runes?status=open&priority=0")
@@ -634,7 +634,7 @@ func TestListRunesHandler(t *testing.T) {
 		// Given
 		tc.handlers_configured()
 		tc.request_has_realm_id("realm-1")
-		tc.projection_has_runes_with_branches("realm-1")
+		tc.has_runes_with_branches("realm-1")
 
 		// When
 		tc.get("/runes?branch=main")
@@ -652,7 +652,7 @@ func TestListRunesHandler(t *testing.T) {
 		// Given
 		tc.handlers_configured()
 		tc.request_has_realm_id("realm-1")
-		tc.projection_has_mixed_runes("realm-1")
+		tc.has_mixed_runes("realm-1")
 
 		// When
 		tc.get("/runes")
@@ -669,10 +669,10 @@ func TestListRunesHandler(t *testing.T) {
 		// Given
 		tc.handlers_configured()
 		tc.request_has_realm_id("realm-1")
-		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
-		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
-		tc.projection_has_rune_summary("realm-1", "bf-0003", "open")
-		tc.projection_has_rune_detail_with_dependencies("realm-1", "bf-0001", []projectors.DependencyRef{
+		tc.has_rune_summary("realm-1", "bf-0001", "open")
+		tc.has_rune_summary("realm-1", "bf-0002", "open")
+		tc.has_rune_summary("realm-1", "bf-0003", "open")
+		tc.has_rune_detail_with_dependencies("realm-1", "bf-0001", []projectors.DependencyRef{
 			{TargetID: "bf-0003", Relationship: "blocked_by"},
 		})
 
@@ -693,10 +693,10 @@ func TestListRunesHandler(t *testing.T) {
 		// Given
 		tc.handlers_configured()
 		tc.request_has_realm_id("realm-1")
-		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
-		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
-		tc.projection_has_rune_summary("realm-1", "bf-0003", "sealed")
-		tc.projection_has_rune_detail_with_dependencies("realm-1", "bf-0001", []projectors.DependencyRef{
+		tc.has_rune_summary("realm-1", "bf-0001", "open")
+		tc.has_rune_summary("realm-1", "bf-0002", "open")
+		tc.has_rune_summary("realm-1", "bf-0003", "sealed")
+		tc.has_rune_detail_with_dependencies("realm-1", "bf-0001", []projectors.DependencyRef{
 			{TargetID: "bf-0003", Relationship: "blocked_by"},
 		})
 
@@ -715,10 +715,10 @@ func TestListRunesHandler(t *testing.T) {
 		// Given
 		tc.handlers_configured()
 		tc.request_has_realm_id("realm-1")
-		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
-		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
-		tc.projection_has_rune_summary("realm-1", "bf-0003", "fulfilled")
-		tc.projection_has_rune_detail_with_dependencies("realm-1", "bf-0001", []projectors.DependencyRef{
+		tc.has_rune_summary("realm-1", "bf-0001", "open")
+		tc.has_rune_summary("realm-1", "bf-0002", "open")
+		tc.has_rune_summary("realm-1", "bf-0003", "fulfilled")
+		tc.has_rune_detail_with_dependencies("realm-1", "bf-0001", []projectors.DependencyRef{
 			{TargetID: "bf-0003", Relationship: "blocked_by"},
 		})
 
@@ -738,8 +738,8 @@ func TestListRunesHandler(t *testing.T) {
 		// Given
 		tc.handlers_configured()
 		tc.request_has_realm_id("realm-1")
-		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
-		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
+		tc.has_rune_summary("realm-1", "bf-0001", "open")
+		tc.has_rune_summary("realm-1", "bf-0002", "open")
 
 		// When
 		tc.get("/runes?status=open&blocked=false")
@@ -755,10 +755,10 @@ func TestListRunesHandler(t *testing.T) {
 		// Given
 		tc.handlers_configured()
 		tc.request_has_realm_id("realm-1")
-		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
-		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
-		tc.projection_has_rune_summary("realm-1", "bf-0003", "open")
-		tc.projection_has_rune_detail_with_dependencies("realm-1", "bf-0001", []projectors.DependencyRef{
+		tc.has_rune_summary("realm-1", "bf-0001", "open")
+		tc.has_rune_summary("realm-1", "bf-0002", "open")
+		tc.has_rune_summary("realm-1", "bf-0003", "open")
+		tc.has_rune_detail_with_dependencies("realm-1", "bf-0001", []projectors.DependencyRef{
 			{TargetID: "bf-0003", Relationship: "blocked_by"},
 		})
 
@@ -776,9 +776,9 @@ func TestListRunesHandler(t *testing.T) {
 		// Given
 		tc.handlers_configured()
 		tc.request_has_realm_id("realm-1")
-		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
-		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
-		tc.projection_has_child_count("realm-1", "bf-0001", 2)
+		tc.has_rune_summary("realm-1", "bf-0001", "open")
+		tc.has_rune_summary("realm-1", "bf-0002", "open")
+		tc.has_child_count("realm-1", "bf-0001", 2)
 
 		// When
 		tc.get("/runes?is_saga=false")
@@ -796,9 +796,9 @@ func TestListRunesHandler(t *testing.T) {
 		// Given
 		tc.handlers_configured()
 		tc.request_has_realm_id("realm-1")
-		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
-		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
-		tc.projection_has_child_count("realm-1", "bf-0001", 2)
+		tc.has_rune_summary("realm-1", "bf-0001", "open")
+		tc.has_rune_summary("realm-1", "bf-0002", "open")
+		tc.has_child_count("realm-1", "bf-0001", 2)
 
 		// When
 		tc.get("/runes?is_saga=true")
@@ -815,8 +815,8 @@ func TestListRunesHandler(t *testing.T) {
 		// Given
 		tc.handlers_configured()
 		tc.request_has_realm_id("realm-1")
-		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
-		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
+		tc.has_rune_summary("realm-1", "bf-0001", "open")
+		tc.has_rune_summary("realm-1", "bf-0002", "open")
 
 		// When
 		tc.get("/runes?is_saga=false")
@@ -832,9 +832,9 @@ func TestListRunesHandler(t *testing.T) {
 		// Given
 		tc.handlers_configured()
 		tc.request_has_realm_id("realm-1")
-		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
-		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
-		tc.projection_has_child_count("realm-1", "bf-0001", 2)
+		tc.has_rune_summary("realm-1", "bf-0001", "open")
+		tc.has_rune_summary("realm-1", "bf-0002", "open")
+		tc.has_child_count("realm-1", "bf-0001", 2)
 
 		// When
 		tc.get("/runes")
@@ -854,7 +854,7 @@ func TestGetRuneHandler(t *testing.T) {
 		// Given
 		tc.handlers_configured()
 		tc.request_has_realm_id("realm-1")
-		tc.projection_has_rune_detail("realm-1", "bf-0001")
+		tc.has_rune_detail("realm-1", "bf-0001")
 
 		// When
 		tc.get("/rune?id=bf-0001")
@@ -907,6 +907,7 @@ func TestAssignRoleHandler(t *testing.T) {
 		tc.request_has_realm_id("realm-1")
 		tc.request_has_role("admin")
 		tc.account_exists_in_event_store("acct-target")
+		tc.realm_exists_in_directory("realm-1", "Test Realm")
 
 		// When
 		tc.post("/assign-role", domain.AssignRole{
@@ -967,6 +968,7 @@ func TestAssignRoleHandler(t *testing.T) {
 		tc.request_has_realm_id("realm-1")
 		tc.request_has_role("owner")
 		tc.account_exists_in_event_store("acct-target")
+		tc.realm_exists_in_directory("realm-1", "Test Realm")
 
 		// When
 		tc.post("/assign-role", domain.AssignRole{
@@ -1123,7 +1125,7 @@ func TestSweepRunesHandler(t *testing.T) {
 		tc.handlers_configured()
 		tc.request_has_realm_id("realm-1")
 		tc.rune_is_sealed_in_event_store("realm-1", "bf-0001")
-		tc.projection_has_rune_summary("realm-1", "bf-0001", "sealed")
+		tc.has_rune_summary("realm-1", "bf-0001", "sealed")
 
 		// When
 		tc.post("/sweep-runes", nil)
@@ -1311,6 +1313,7 @@ func TestRoleBasedRouting(t *testing.T) {
 		tc.request_has_realm_id("realm-1")
 		tc.request_has_role("admin")
 		tc.account_exists_in_event_store("acct-target")
+		tc.realm_exists_in_directory("realm-1", "Test Realm")
 		tc.routes_are_registered()
 
 		// When
@@ -1351,11 +1354,13 @@ type handlerTestContext struct {
 
 func newHandlerTestContext(t *testing.T) *handlerTestContext {
 	t.Helper()
+	es := newMockEventStore()
+	ps := newMockProjectionStore()
 	return &handlerTestContext{
 		t:               t,
-		eventStore:      newMockEventStore(),
-		projectionStore: newMockProjectionStore(),
-		engine:          &mockProjectionEngine{},
+		eventStore:      es,
+		projectionStore: ps,
+		engine:          &mockProjectionEngine{store: ps, eventStore: es},
 		recorder:        httptest.NewRecorder(),
 	}
 }
@@ -1429,8 +1434,13 @@ func (tc *handlerTestContext) rune_with_dependency(realmID, runeID, targetID, re
 	tc.rune_exists_in_event_store(realmID, runeID)
 	tc.rune_exists_in_event_store(realmID, targetID)
 	// Put dependency in projection store for RemoveDependency lookup
-	depKey := "dep:" + runeID + ":" + targetID + ":" + relationship
-	_ = tc.projectionStore.Put(context.Background(), realmID, "dependency_graph", depKey, true)
+	depKey := runeID + ":" + targetID + ":" + relationship
+	doc := core.DependencyExistenceDoc{
+		RuneID:       runeID,
+		TargetID:     targetID,
+		Relationship: relationship,
+	}
+	_ = tc.projectionStore.Put(context.Background(), realmID, "dependency_existence", depKey, doc)
 }
 
 func (tc *handlerTestContext) rune_is_sealed_in_event_store(realmID, runeID string) {
@@ -1460,64 +1470,72 @@ func (tc *handlerTestContext) account_has_role_in_event_store(accountID, realmID
 	tc.eventStore.appendToStream("_admin", "account-"+accountID, domain.EventRoleAssigned, assigned)
 }
 
-func (tc *handlerTestContext) projection_has_rune_summary(realmID, runeID, status string) {
+func (tc *handlerTestContext) has_rune_summary(realmID, runeID, status string) {
 	tc.t.Helper()
 	summary := projectors.RuneSummary{ID: runeID, Status: status}
-	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", runeID, summary)
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_summary", runeID, summary)
 }
 
-func (tc *handlerTestContext) projection_has_child_count(realmID, runeID string, count int) {
+func (tc *handlerTestContext) has_child_count(realmID, runeID string, count int) {
 	tc.t.Helper()
-	_ = tc.projectionStore.Put(context.Background(), realmID, "RuneChildCount", runeID, count)
+	entry := projectors.RuneChildCountEntry{ParentRuneID: runeID, Count: count}
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_child_count", runeID, entry)
 }
 
-func (tc *handlerTestContext) projection_has_rune_detail_with_dependencies(realmID, runeID string, deps []projectors.DependencyRef) {
+func (tc *handlerTestContext) has_rune_detail_with_dependencies(realmID, runeID string, deps []projectors.DependencyRef) {
 	tc.t.Helper()
 	detail := projectors.RuneDetail{ID: runeID, Dependencies: deps}
 	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_detail", runeID, detail)
 }
 
-func (tc *handlerTestContext) projection_has_realm_list() {
+func (tc *handlerTestContext) has_realm_list() {
 	tc.t.Helper()
-	_ = tc.projectionStore.Put(context.Background(), "_admin", "realm_list", "realm-1", map[string]string{
+	_ = tc.projectionStore.Put(context.Background(), "_admin", "realm_directory", "realm-1", map[string]string{
 		"realm_id": "realm-1", "name": "Test Realm", "status": "active",
 	})
 }
 
-func (tc *handlerTestContext) projection_has_rune_list(realmID string) {
+func (tc *handlerTestContext) realm_exists_in_directory(realmID, name string) {
 	tc.t.Helper()
-	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", "bf-0001", map[string]string{
+	_ = tc.projectionStore.Put(context.Background(), realmID, "realm_directory", realmID, map[string]string{
+		"realm_id": realmID, "name": name, "status": "active",
+	})
+}
+
+func (tc *handlerTestContext) has_rune_list(realmID string) {
+	tc.t.Helper()
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_summary", "bf-0001", map[string]string{
 		"id": "bf-0001", "title": "Test Rune", "status": "open",
 	})
 }
 
-func (tc *handlerTestContext) projection_has_mixed_runes(realmID string) {
+func (tc *handlerTestContext) has_mixed_runes(realmID string) {
 	tc.t.Helper()
-	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", "bf-0001", map[string]any{
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_summary", "bf-0001", map[string]any{
 		"id": "bf-0001", "title": "Open Rune", "status": "open", "priority": float64(0), "assignee": "",
 	})
-	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", "bf-0002", map[string]any{
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_summary", "bf-0002", map[string]any{
 		"id": "bf-0002", "title": "Sealed Rune", "status": "sealed", "priority": float64(1), "assignee": "alice",
 	})
-	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", "bf-0003", map[string]any{
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_summary", "bf-0003", map[string]any{
 		"id": "bf-0003", "title": "Claimed Rune", "status": "claimed", "priority": float64(0), "assignee": "bob",
 	})
 }
 
-func (tc *handlerTestContext) projection_has_runes_with_branches(realmID string) {
+func (tc *handlerTestContext) has_runes_with_branches(realmID string) {
 	tc.t.Helper()
-	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", "bf-0001", map[string]any{
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_summary", "bf-0001", map[string]any{
 		"id": "bf-0001", "title": "Main Rune", "status": "open", "priority": float64(0), "assignee": "", "branch": "main",
 	})
-	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", "bf-0002", map[string]any{
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_summary", "bf-0002", map[string]any{
 		"id": "bf-0002", "title": "Feature Rune", "status": "open", "priority": float64(1), "assignee": "alice", "branch": "feature/xyz",
 	})
-	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", "bf-0003", map[string]any{
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_summary", "bf-0003", map[string]any{
 		"id": "bf-0003", "title": "Another Main Rune", "status": "claimed", "priority": float64(0), "assignee": "bob", "branch": "main",
 	})
 }
 
-func (tc *handlerTestContext) projection_has_rune_detail(realmID, runeID string) {
+func (tc *handlerTestContext) has_rune_detail(realmID, runeID string) {
 	tc.t.Helper()
 	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_detail", runeID, map[string]any{
 		"id":     runeID,
@@ -1799,13 +1817,53 @@ func (m *mockEventStore) ListRealmIDs(_ context.Context) ([]string, error) {
 
 type mockProjectionEngine struct {
 	runSyncCalled bool
+	store         *mockProjectionStore
+	eventStore    *mockEventStore
 }
+
+func (m *mockProjectionEngine) Register(projector core.Projector) {}
+
+func (m *mockProjectionEngine) RegisteredTables() []string { return nil }
 
 func (m *mockProjectionEngine) RunSync(ctx context.Context, events []core.Event) error {
 	m.runSyncCalled = true
+	// Simulate processing RealmCreated events into realm_directory projection
+	if m.store != nil {
+		for _, evt := range events {
+			if evt.EventType == domain.EventRealmCreated {
+				var created domain.RealmCreated
+				_ = json.Unmarshal(evt.Data, &created)
+				_ = m.store.Put(ctx, created.RealmID, "realm_directory", created.RealmID, map[string]string{
+					"realm_id": created.RealmID, "name": created.Name, "status": "active",
+				})
+			}
+		}
+	}
 	return nil
 }
 
-func (m *mockProjectionEngine) RunCatchUpOnce(ctx context.Context) {}
+func (m *mockProjectionEngine) RunCatchUpOnce(ctx context.Context) {
+	m.runSyncCalled = true
+	// Simulate processing all RealmCreated events from event store into projection
+	if m.store != nil && m.eventStore != nil {
+		for _, events := range m.eventStore.streams {
+			for _, evt := range events {
+				if evt.EventType == domain.EventRealmCreated {
+					var created domain.RealmCreated
+					_ = json.Unmarshal(evt.Data, &created)
+					_ = m.store.Put(ctx, created.RealmID, "realm_directory", created.RealmID, map[string]string{
+						"realm_id": created.RealmID, "name": created.Name, "status": "active",
+					})
+				}
+			}
+		}
+	}
+}
+
+func (m *mockProjectionEngine) StartCatchUp(ctx context.Context) error { return nil }
+
+func (m *mockProjectionEngine) Stop() error { return nil }
+
+func (m *mockProjectionEngine) RebuildProjections(ctx context.Context) error { return nil }
 
 func strPtr(s string) *string { return &s }

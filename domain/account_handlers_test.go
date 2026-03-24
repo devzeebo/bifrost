@@ -160,7 +160,7 @@ func TestHandleCreateAccount(t *testing.T) {
 
 		// Given
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.username_is_available("alice")
 		tc.a_create_account_command("alice")
 
@@ -182,7 +182,7 @@ func TestHandleCreateAccount(t *testing.T) {
 
 		// Given
 		tc.an_event_store()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.username_is_taken("alice")
 		tc.a_create_account_command("alice")
 
@@ -250,6 +250,7 @@ func TestHandleGrantRealm(t *testing.T) {
 		// Given
 		tc.an_event_store()
 		tc.existing_account_in_stream("acct-a1b2", "active")
+		tc.realm_exists_in_directory("bf-c3d4", "Test Realm")
 		tc.a_grant_realm_command("acct-a1b2", "bf-c3d4")
 
 		// When
@@ -268,6 +269,7 @@ func TestHandleGrantRealm(t *testing.T) {
 		// Given
 		tc.an_event_store()
 		tc.existing_account_with_realm_granted("acct-a1b2", "bf-c3d4")
+		tc.realm_exists_in_directory("bf-c3d4", "Test Realm")
 		tc.a_grant_realm_command("acct-a1b2", "bf-c3d4")
 
 		// When
@@ -284,6 +286,7 @@ func TestHandleGrantRealm(t *testing.T) {
 		// Given
 		tc.an_event_store()
 		tc.empty_account_stream("acct-missing")
+		tc.realm_exists_in_directory("bf-c3d4", "Test Realm")
 		tc.a_grant_realm_command("acct-missing", "bf-c3d4")
 
 		// When
@@ -299,6 +302,7 @@ func TestHandleGrantRealm(t *testing.T) {
 		// Given
 		tc.an_event_store()
 		tc.existing_account_in_stream("acct-a1b2", "suspended")
+		tc.realm_exists_in_directory("bf-c3d4", "Test Realm")
 		tc.a_grant_realm_command("acct-a1b2", "bf-c3d4")
 
 		// When
@@ -306,6 +310,41 @@ func TestHandleGrantRealm(t *testing.T) {
 
 		// Then
 		tc.account_error_contains("suspended")
+	})
+
+	t.Run("returns error when realm does not exist", func(t *testing.T) {
+		tc := newAccountHandlerTestContext(t)
+
+		// Given
+		tc.an_event_store()
+		tc.existing_account_in_stream("acct-a1b2", "active")
+		// No realm in directory - realm does not exist
+		tc.a_grant_realm_command("acct-a1b2", "bf-nonexistent")
+
+		// When
+		tc.handle_grant_realm()
+
+		// Then
+		tc.account_error_is_not_found("realm", "bf-nonexistent")
+	})
+
+	t.Run("allows granting _admin realm without directory entry", func(t *testing.T) {
+		tc := newAccountHandlerTestContext(t)
+
+		// Given
+		tc.an_event_store()
+		tc.existing_account_in_stream("acct-a1b2", "active")
+		// _admin realm is special - doesn't need directory entry
+		tc.a_grant_realm_command("acct-a1b2", "_admin")
+
+		// When
+		tc.handle_grant_realm()
+
+		// Then
+		tc.no_account_error()
+		tc.account_event_was_appended_to_stream("account-acct-a1b2")
+		tc.appended_account_event_has_type(EventRoleAssigned)
+		tc.appended_role_assigned_event_has_role(RoleMember)
 	})
 }
 
@@ -380,6 +419,7 @@ func TestHandleAssignRole(t *testing.T) {
 		// Given
 		tc.an_event_store()
 		tc.existing_account_in_stream("acct-a1b2", "active")
+		tc.realm_exists_in_directory("bf-c3d4", "Test Realm")
 		tc.an_assign_role_command("acct-a1b2", "bf-c3d4", RoleAdmin)
 
 		// When
@@ -413,6 +453,7 @@ func TestHandleAssignRole(t *testing.T) {
 		// Given
 		tc.an_event_store()
 		tc.existing_account_with_role("acct-a1b2", "bf-c3d4", RoleAdmin)
+		tc.realm_exists_in_directory("bf-c3d4", "Test Realm")
 		tc.an_assign_role_command("acct-a1b2", "bf-c3d4", RoleAdmin)
 
 		// When
@@ -429,6 +470,7 @@ func TestHandleAssignRole(t *testing.T) {
 		// Given
 		tc.an_event_store()
 		tc.existing_account_with_role("acct-a1b2", "bf-c3d4", RoleMember)
+		tc.realm_exists_in_directory("bf-c3d4", "Test Realm")
 		tc.an_assign_role_command("acct-a1b2", "bf-c3d4", RoleAdmin)
 
 		// When
@@ -447,6 +489,7 @@ func TestHandleAssignRole(t *testing.T) {
 		// Given
 		tc.an_event_store()
 		tc.empty_account_stream("acct-missing")
+		tc.realm_exists_in_directory("bf-c3d4", "Test Realm")
 		tc.an_assign_role_command("acct-missing", "bf-c3d4", RoleAdmin)
 
 		// When
@@ -462,6 +505,7 @@ func TestHandleAssignRole(t *testing.T) {
 		// Given
 		tc.an_event_store()
 		tc.existing_account_in_stream("acct-a1b2", "suspended")
+		tc.realm_exists_in_directory("bf-c3d4", "Test Realm")
 		tc.an_assign_role_command("acct-a1b2", "bf-c3d4", RoleAdmin)
 
 		// When
@@ -469,6 +513,41 @@ func TestHandleAssignRole(t *testing.T) {
 
 		// Then
 		tc.account_error_contains("suspended")
+	})
+
+	t.Run("returns error when realm does not exist", func(t *testing.T) {
+		tc := newAccountHandlerTestContext(t)
+
+		// Given
+		tc.an_event_store()
+		tc.existing_account_in_stream("acct-a1b2", "active")
+		// No realm in directory - realm does not exist
+		tc.an_assign_role_command("acct-a1b2", "bf-nonexistent", RoleAdmin)
+
+		// When
+		tc.handle_assign_role()
+
+		// Then
+		tc.account_error_is_not_found("realm", "bf-nonexistent")
+	})
+
+	t.Run("allows assigning role for _admin realm without directory entry", func(t *testing.T) {
+		tc := newAccountHandlerTestContext(t)
+
+		// Given
+		tc.an_event_store()
+		tc.existing_account_in_stream("acct-a1b2", "active")
+		// _admin realm is special - doesn't need directory entry
+		tc.an_assign_role_command("acct-a1b2", "_admin", RoleAdmin)
+
+		// When
+		tc.handle_assign_role()
+
+		// Then
+		tc.no_account_error()
+		tc.account_event_was_appended_to_stream("account-acct-a1b2")
+		tc.appended_account_event_has_type(EventRoleAssigned)
+		tc.appended_role_assigned_event_has_role(RoleAdmin)
 	})
 }
 
@@ -709,7 +788,7 @@ func (tc *accountHandlerTestContext) an_event_store() {
 	}
 }
 
-func (tc *accountHandlerTestContext) a_projection_store() {
+func (tc *accountHandlerTestContext) a_store() {
 	tc.t.Helper()
 	if tc.projectionStore == nil {
 		tc.projectionStore = newMockProjectionStore()
@@ -914,14 +993,14 @@ func (tc *accountHandlerTestContext) empty_account_stream(accountID string) {
 
 func (tc *accountHandlerTestContext) username_is_available(username string) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	// No entry means username is available (Get returns NotFoundError)
 }
 
 func (tc *accountHandlerTestContext) username_is_taken(username string) {
 	tc.t.Helper()
-	tc.a_projection_store()
-	tc.projectionStore.data["account_lookup:username:"+username] = "acct-existing"
+	tc.a_store()
+	tc.projectionStore.data["_admin:username_lookup:"+username] = map[string]any{"username": username, "account_id": "acct-existing"}
 }
 
 func (tc *accountHandlerTestContext) a_create_account_command(username string) {
@@ -937,6 +1016,16 @@ func (tc *accountHandlerTestContext) a_suspend_account_command(accountID, reason
 func (tc *accountHandlerTestContext) a_grant_realm_command(accountID, realmID string) {
 	tc.t.Helper()
 	tc.grantRealmCmd = GrantRealm{AccountID: accountID, RealmID: realmID}
+}
+
+func (tc *accountHandlerTestContext) realm_exists_in_directory(realmID, name string) {
+	tc.t.Helper()
+	tc.a_store()
+	tc.projectionStore.data[realmID+":realm_directory:"+realmID] = map[string]any{
+		"realm_id": realmID,
+		"name":    name,
+		"status":  "active",
+	}
 }
 
 func (tc *accountHandlerTestContext) a_revoke_realm_command(accountID, realmID string) {
@@ -996,7 +1085,8 @@ func (tc *accountHandlerTestContext) handle_suspend_account() {
 
 func (tc *accountHandlerTestContext) handle_grant_realm() {
 	tc.t.Helper()
-	tc.err = HandleGrantRealm(tc.ctx, tc.grantRealmCmd, tc.eventStore)
+	tc.a_store()
+	tc.err = HandleGrantRealm(tc.ctx, tc.grantRealmCmd, tc.eventStore, tc.projectionStore)
 }
 
 func (tc *accountHandlerTestContext) handle_revoke_realm() {
@@ -1016,7 +1106,8 @@ func (tc *accountHandlerTestContext) handle_revoke_pat() {
 
 func (tc *accountHandlerTestContext) handle_assign_role() {
 	tc.t.Helper()
-	tc.err = HandleAssignRole(tc.ctx, tc.assignRoleCmd, tc.eventStore)
+	tc.a_store()
+	tc.err = HandleAssignRole(tc.ctx, tc.assignRoleCmd, tc.eventStore, tc.projectionStore)
 }
 
 func (tc *accountHandlerTestContext) handle_revoke_role() {

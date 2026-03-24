@@ -6,3 +6,7 @@ node_modules
 .windsurf/
 ui/dist
 .worktrees/
+
+# Ignore embedded UI dist artifacts but keep the folder
+server/admin/ui/*
+!server/admin/ui/.gitkeep

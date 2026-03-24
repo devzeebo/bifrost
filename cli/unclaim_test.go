@@ -111,10 +111,7 @@ func (tc *unclaimTestContext) server_that_returns_error(status int, message stri
 
 func (tc *unclaimTestContext) client_configured() {
 	tc.t.Helper()
-	tc.client = NewClient(&Config{
-		URL:    tc.server.URL,
-		APIKey: "test-key",
-	})
+	tc.client = NewClient(tc.server.URL, "test-key", "test-realm")
 }
 
 // --- When ---
@@ -123,6 +120,7 @@ func (tc *unclaimTestContext) execute_unclaim(id string) {
 	tc.t.Helper()
 	cmd := NewUnclaimCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{id})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 
@@ -130,6 +128,7 @@ func (tc *unclaimTestContext) execute_unclaim_with_human(id string) {
 	tc.t.Helper()
 	cmd := NewUnclaimCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{id, "--human"})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 

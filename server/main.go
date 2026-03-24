@@ -23,6 +23,61 @@ import (
 	"github.com/devzeebo/bifrost/server/admin"
 )
 
+// registerProjectors registers all projectors with the engine
+func registerProjectors(engine core.ProjectionEngine) error {
+	// Account projections (realm: _admin)
+	if err := engine.Register(projectors.NewAccountAuthProjector()); err != nil {
+		return err
+	}
+	if err := engine.Register(projectors.NewAccountDirectoryProjector()); err != nil {
+		return err
+	}
+	if err := engine.Register(projectors.NewUsernameLookupProjector()); err != nil {
+		return err
+	}
+	if err := engine.Register(projectors.NewPATIDProjector()); err != nil {
+		return err
+	}
+	if err := engine.Register(projectors.NewPATKeyhashProjector()); err != nil {
+		return err
+	}
+
+	// System projections (realm: _admin)
+	if err := engine.Register(projectors.NewSystemStatusProjector()); err != nil {
+		return err
+	}
+
+	// Realm projections (realm: _admin)
+	if err := engine.Register(projectors.NewRealmDirectoryProjector()); err != nil {
+		return err
+	}
+	if err := engine.Register(projectors.NewRealmNameLookupProjector()); err != nil {
+		return err
+	}
+
+	// Rune projections (realm: per-realm)
+	if err := engine.Register(projectors.NewRuneSummaryProjector()); err != nil {
+		return err
+	}
+	if err := engine.Register(projectors.NewRuneDetailProjector()); err != nil {
+		return err
+	}
+	if err := engine.Register(projectors.NewRuneDependencyGraphProjector()); err != nil {
+		return err
+	}
+	if err := engine.Register(projectors.NewDependencyExistenceProjector()); err != nil {
+		return err
+	}
+	if err := engine.Register(projectors.NewDependencyCycleCheckProjector()); err != nil {
+		return err
+	}
+	if err := engine.Register(projectors.NewRuneChildCountProjector()); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func Run(ctx context.Context, cfg *Config) error {
 	// 1. Open DB
 	var db *sql.DB
@@ -85,13 +140,10 @@ func Run(ctx context.Context, cfg *Config) error {
 		core.WithPollInterval(cfg.CatchUpInterval),
 	)
 
-	engine.Register(projectors.NewRealmListProjector())
-	engine.Register(projectors.NewRuneListProjector())
-	engine.Register(projectors.NewRuneDetailProjector())
-	engine.Register(projectors.NewDependencyGraphProjector())
-	engine.Register(projectors.NewAccountLookupProjector())
-	engine.Register(projectors.NewAccountListProjector())
-	engine.Register(projectors.NewRuneChildCountProjector())
+	// Register all projectors
+	if err := registerProjectors(engine); err != nil {
+		log.Fatalf("failed to register projectors: %v", err)
+	}
 
 	// 4. Start catch-up in background
 	if err := engine.StartCatchUp(ctx); err != nil {

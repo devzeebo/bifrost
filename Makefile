@@ -60,7 +60,7 @@ test: test-go test-ui
 
 test-go:
 	@echo "» go test $(ARGS) $(GO_TARGETS)"
-	go test $(ARGS) $(GO_TARGETS)
+	go test -tags noui $(ARGS) $(GO_TARGETS)
 
 test-ui:
 	@echo "» vitest run"
@@ -70,7 +70,7 @@ lint: lint-go lint-ui
 
 lint-go:
 	@echo "» golangci-lint run $(ARGS) $(GO_TARGETS)"
-	go tool golangci-lint run $(ARGS) $(GO_TARGETS)
+	go tool golangci-lint run $(ARGS) --build-tags noui $(GO_TARGETS)
 
 lint-ui:
 	@echo "» oxlint"

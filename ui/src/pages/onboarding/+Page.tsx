@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@base-ui/react/button';
 import { Input } from '@base-ui/react/input';
 import { navigate } from '@/lib/router';
+import { useAuth } from '../../lib/auth';
 import { useToast } from '../../lib/toast';
 import { api } from '../../lib/api';
 import type { CreateAdminResponse } from '../../types/session';
@@ -16,7 +17,9 @@ function Page() {
   const [adminResponse, setAdminResponse] = useState<CreateAdminResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
   const { showToast } = useToast();
+  const { login } = useAuth();
 
   const handleCreateAdmin = useCallback(async () => {
     if (!username.trim()) {
@@ -56,9 +59,25 @@ function Page() {
     }
   }, [adminResponse, showToast]);
 
-  const handleComplete = useCallback(() => {
-    navigate('/dashboard');
-  }, []);
+  const handleComplete = useCallback(async () => {
+    if (!adminResponse?.pat) {
+      showToast('Error', 'No access token available. Please sign in.', 'error');
+      navigate('/login');
+      return;
+    }
+
+    setIsCompleting(true);
+    try {
+      // Auto-login with the PAT that was generated during onboarding
+      await login(adminResponse.pat, true);
+      navigate('/dashboard');
+    } catch {
+      showToast('Error', 'Failed to auto-login. Please sign in manually.', 'error');
+      navigate('/login');
+    } finally {
+      setIsCompleting(false);
+    }
+  }, [adminResponse, login, showToast]);
 
   const stepColors = [
     'var(--color-red)',
@@ -154,8 +173,8 @@ function Page() {
 
   const handleWizardNext = useCallback(
     async (currentStep: number) => {
-      // Step 2 (index 2) is the PAT generation step
-      if (currentStep === 2 && !adminResponse) {
+      // Step 2 (index 1) is Create Realm - generate PAT when advancing to step 3
+      if (currentStep === 1 && !adminResponse) {
         return handleCreateAdmin();
       }
       return true;
@@ -190,6 +209,7 @@ function Page() {
             colors={stepColors}
             onComplete={handleComplete}
             onValidateStep={handleWizardNext}
+            isCompleting={isCompleting}
           />
         </div>
       </div>
@@ -201,8 +221,9 @@ function Page() {
 type WizardWithValidationProps = {
   steps: Array<{ title: string; content: React.ReactNode }>;
   colors: string[];
-  onComplete: () => void;
+  onComplete: () => void | Promise<void>;
   onValidateStep: (stepIndex: number) => Promise<boolean>;
+  isCompleting?: boolean;
 };
 
 function WizardWithValidation({
@@ -210,6 +231,7 @@ function WizardWithValidation({
   colors,
   onComplete,
   onValidateStep,
+  isCompleting = false,
 }: WizardWithValidationProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [isValidating, setIsValidating] = useState(false);
@@ -218,7 +240,7 @@ function WizardWithValidation({
   const isFirstStep = currentStep === 0;
 
   const handleNext = async () => {
-    if (isValidating) return;
+    if (isValidating || isCompleting) return;
 
     setIsValidating(true);
     try {
@@ -227,7 +249,7 @@ function WizardWithValidation({
         if (!isLastStep) {
           setCurrentStep((prev) => prev + 1);
         } else {
-          onComplete();
+          await onComplete();
         }
       }
     } finally {
@@ -282,7 +304,14 @@ function WizardWithValidation({
       </div>
 
       {/* Step Content */}
-      <div className="wizard-content">{steps[currentStep]?.content}</div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleNext();
+        }}
+      >
+        <div className="wizard-content">{steps[currentStep]?.content}</div>
+      </form>
 
       {/* Navigation Buttons */}
       <div className="wizard-navigation">
@@ -296,9 +325,15 @@ function WizardWithValidation({
           onClick={handleNext}
           className={`wizard-button ${isLastStep ? 'wizard-button-done' : 'wizard-button-next'}`}
           type="button"
-          disabled={isValidating}
+          disabled={isValidating || isCompleting}
         >
-          {isValidating ? 'Processing...' : isLastStep ? 'Go to Dashboard →' : 'Next →'}
+          {isCompleting
+            ? 'Logging in...'
+            : isValidating
+              ? 'Processing...'
+              : isLastStep
+                ? 'Go to Dashboard →'
+                : 'Next →'}
         </Button>
       </div>
 
@@ -476,6 +511,12 @@ type FormFieldProps = {
 
 function FormField({ label, value, onChange, placeholder, disabled }: FormFieldProps) {
   const fieldId = label.toLowerCase().replace(/\s+/g, '-');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Auto-focus the input when the component mounts
+    inputRef.current?.focus();
+  }, []);
 
   return (
     <div className="mb-6">
@@ -487,6 +528,7 @@ function FormField({ label, value, onChange, placeholder, disabled }: FormFieldP
         {label}
       </label>
       <Input
+        ref={inputRef}
         id={fieldId}
         type="text"
         value={value}

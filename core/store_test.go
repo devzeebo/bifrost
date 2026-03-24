@@ -57,11 +57,11 @@ func TestEventStore(t *testing.T) {
 }
 
 func TestProjectionStore(t *testing.T) {
-	t.Run("Get accepts context, realmID, projectionName, key, and dest", func(t *testing.T) {
+	t.Run("Get accepts context, realmID, table, key, and dest", func(t *testing.T) {
 		tc := newStoreTestContext(t)
 
 		// Given
-		tc.a_mock_projection_store()
+		tc.a_mock_store()
 
 		// When
 		tc.get_is_called()
@@ -70,11 +70,11 @@ func TestProjectionStore(t *testing.T) {
 		tc.get_returns_error()
 	})
 
-	t.Run("Put accepts context, realmID, projectionName, key, and value", func(t *testing.T) {
+	t.Run("Put accepts context, realmID, table, key, and value", func(t *testing.T) {
 		tc := newStoreTestContext(t)
 
 		// Given
-		tc.a_mock_projection_store()
+		tc.a_mock_store()
 
 		// When
 		tc.put_is_called()
@@ -83,11 +83,11 @@ func TestProjectionStore(t *testing.T) {
 		tc.put_returns_error()
 	})
 
-	t.Run("Delete accepts context, realmID, projectionName, and key", func(t *testing.T) {
+	t.Run("Delete accepts context, realmID, table, and key", func(t *testing.T) {
 		tc := newStoreTestContext(t)
 
 		// Given
-		tc.a_mock_projection_store()
+		tc.a_mock_store()
 
 		// When
 		tc.delete_is_called()
@@ -160,7 +160,7 @@ func (tc *storeTestContext) a_mock_event_store() {
 	tc.eventStore = &mockEventStore{}
 }
 
-func (tc *storeTestContext) a_mock_projection_store() {
+func (tc *storeTestContext) a_mock_store() {
 	tc.t.Helper()
 	tc.projectionStore = &mockProjectionStore{}
 }
@@ -310,6 +310,14 @@ func (m *mockProjectionStore) List(_ context.Context, _ string, _ string) ([]jso
 }
 
 func (m *mockProjectionStore) Delete(_ context.Context, _ string, _ string, _ string) error {
+	return nil
+}
+
+func (m *mockProjectionStore) CreateTable(_ context.Context, _ string) error {
+	return nil
+}
+
+func (m *mockProjectionStore) ClearTable(_ context.Context, _ string) error {
 	return nil
 }
 

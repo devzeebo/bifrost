@@ -244,10 +244,7 @@ func (tc *createTestContext) server_that_returns_error(status int, message strin
 
 func (tc *createTestContext) client_configured() {
 	tc.t.Helper()
-	tc.client = NewClient(&Config{
-		URL:    tc.server.URL,
-		APIKey: "test-key",
-	})
+	tc.client = NewClient(tc.server.URL, "test-key", "test-realm")
 }
 
 // --- When ---
@@ -256,6 +253,7 @@ func (tc *createTestContext) execute_create(title, priority string) {
 	tc.t.Helper()
 	cmd := NewCreateCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{title, "-p", priority, "--no-branch"})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 
@@ -263,6 +261,7 @@ func (tc *createTestContext) execute_create_with_description(title, priority, de
 	tc.t.Helper()
 	cmd := NewCreateCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{title, "-p", priority, "-d", desc, "--no-branch"})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 
@@ -270,6 +269,7 @@ func (tc *createTestContext) execute_create_with_parent(title, priority, parent 
 	tc.t.Helper()
 	cmd := NewCreateCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{title, "-p", priority, "--parent", parent})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 
@@ -277,6 +277,7 @@ func (tc *createTestContext) execute_create_with_human(title, priority string) {
 	tc.t.Helper()
 	cmd := NewCreateCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{title, "-p", priority, "--human", "--no-branch"})
+	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }
 

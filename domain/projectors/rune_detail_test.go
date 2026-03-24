@@ -33,7 +33,7 @@ func TestRuneDetailProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_rune_created_event("bf-a1b2", "Fix the bridge", "Needs repair", 1, "")
 
 		// When
@@ -55,7 +55,7 @@ func TestRuneDetailProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_rune_created_event("bf-a1b2.1", "Child task", "", 2, "bf-a1b2")
 
 		// When
@@ -71,7 +71,7 @@ func TestRuneDetailProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_detail("bf-a1b2", "Old title", "Old desc", "open", 1, "", "")
 		tc.a_rune_updated_event("bf-a1b2", strPtr("New title"), strPtr("New desc"), intPtr(3))
 
@@ -90,7 +90,7 @@ func TestRuneDetailProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_detail("bf-a1b2", "Old title", "Old desc", "open", 1, "", "")
 		tc.a_rune_updated_event("bf-a1b2", nil, nil, intPtr(5))
 
@@ -109,7 +109,7 @@ func TestRuneDetailProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_detail("bf-a1b2", "Fix the bridge", "", "open", 1, "", "")
 		tc.a_rune_claimed_event("bf-a1b2", "odin")
 
@@ -127,7 +127,7 @@ func TestRuneDetailProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_detail("bf-a1b2", "Fix the bridge", "", "claimed", 1, "odin", "")
 		tc.a_rune_fulfilled_event("bf-a1b2")
 
@@ -144,7 +144,7 @@ func TestRuneDetailProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_detail("bf-a1b2", "Fix the bridge", "", "open", 1, "", "")
 		tc.a_rune_sealed_event("bf-a1b2", "no longer needed")
 
@@ -161,7 +161,7 @@ func TestRuneDetailProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_detail("bf-a1b2", "Fix the bridge", "", "claimed", 1, "odin", "")
 		tc.a_rune_unclaimed_event("bf-a1b2")
 
@@ -179,7 +179,7 @@ func TestRuneDetailProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_detail("bf-a1b2", "Fix the bridge", "", "open", 1, "", "")
 		tc.a_dependency_added_event("bf-a1b2", "bf-c3d4", "blocks")
 
@@ -197,7 +197,7 @@ func TestRuneDetailProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_detail_with_dependency("bf-a1b2", "bf-c3d4", "blocks")
 		tc.a_dependency_added_event("bf-a1b2", "bf-e5f6", "relates_to")
 
@@ -216,7 +216,7 @@ func TestRuneDetailProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_detail_with_dependency("bf-a1b2", "bf-c3d4", "blocks")
 		tc.a_dependency_removed_event("bf-a1b2", "bf-c3d4", "blocks")
 
@@ -233,7 +233,7 @@ func TestRuneDetailProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_detail("bf-a1b2", "Fix the bridge", "", "open", 1, "", "")
 		tc.a_rune_noted_event("bf-a1b2", "This is a note")
 
@@ -251,7 +251,7 @@ func TestRuneDetailProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_detail_with_note("bf-a1b2", "First note")
 		tc.a_rune_noted_event("bf-a1b2", "Second note")
 
@@ -270,7 +270,7 @@ func TestRuneDetailProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.a_rune_created_event_with_branch("bf-a1b2", "Fix the bridge", "Needs repair", 1, "", "feature/bridge")
 
 		// When
@@ -287,7 +287,7 @@ func TestRuneDetailProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_detail("bf-a1b2", "Old title", "Old desc", "open", 1, "", "")
 		tc.a_rune_updated_event_with_branch("bf-a1b2", nil, nil, nil, strPtr("feature/new-branch"))
 
@@ -304,7 +304,7 @@ func TestRuneDetailProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_detail_with_branch("bf-a1b2", "Old title", "Old desc", "open", 1, "", "", "feature/old")
 		tc.a_rune_updated_event_with_branch("bf-a1b2", strPtr("New title"), nil, nil, nil)
 
@@ -322,7 +322,7 @@ func TestRuneDetailProjector(t *testing.T) {
 
 		// Given
 		tc.a_rune_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.existing_detail("bf-a1b2", "Fix the bridge", "", "open", 1, "", "")
 		tc.a_rune_shattered_event("bf-a1b2")
 
@@ -334,12 +334,25 @@ func TestRuneDetailProjector(t *testing.T) {
 		tc.detail_was_deleted("bf-a1b2")
 	})
 
+	t.Run("TableName returns rune_detail", func(t *testing.T) {
+		tc := newRuneDetailTestContext(t)
+
+		// Given
+		tc.a_rune_detail_projector()
+
+		// When
+		tc.table_name_is_called()
+
+		// Then
+		tc.table_name_is("rune_detail")
+	})
+
 	t.Run("ignores unknown event types", func(t *testing.T) {
 		tc := newRuneDetailTestContext(t)
 
 		// Given
 		tc.a_rune_detail_projector()
-		tc.a_projection_store()
+		tc.a_store()
 		tc.an_unknown_event()
 
 		// When
@@ -347,6 +360,23 @@ func TestRuneDetailProjector(t *testing.T) {
 
 		// Then
 		tc.no_error()
+	})
+
+	t.Run("handles RuneCreated with type", func(t *testing.T) {
+		tc := newRuneDetailTestContext(t)
+
+		// Given
+		tc.a_rune_detail_projector()
+		tc.a_store()
+		tc.a_rune_created_event_with_type("bf-a1b2", "Fix the bridge", "Needs repair", 1, "", "bug")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.detail_was_stored("bf-a1b2")
+		tc.stored_detail_has_type("bug")
 	})
 }
 
@@ -381,7 +411,7 @@ func (tc *runeDetailTestContext) a_rune_detail_projector() {
 	tc.projector = NewRuneDetailProjector()
 }
 
-func (tc *runeDetailTestContext) a_projection_store() {
+func (tc *runeDetailTestContext) a_store() {
 	tc.t.Helper()
 	if tc.store == nil {
 		tc.store = newMockProjectionStore()
@@ -399,6 +429,13 @@ func (tc *runeDetailTestContext) a_rune_created_event_with_branch(id, title, des
 	tc.t.Helper()
 	tc.event = makeEventWithTimestamp(domain.EventRuneCreated, domain.RuneCreated{
 		ID: id, Title: title, Description: description, Priority: priority, ParentID: parentID, Branch: branch,
+	}, time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC))
+}
+
+func (tc *runeDetailTestContext) a_rune_created_event_with_type(id, title, description string, priority int, parentID, runeType string) {
+	tc.t.Helper()
+	tc.event = makeEventWithTimestamp(domain.EventRuneCreated, domain.RuneCreated{
+		ID: id, Title: title, Description: description, Priority: priority, ParentID: parentID, Type: runeType,
 	}, time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC))
 }
 
@@ -475,7 +512,7 @@ func (tc *runeDetailTestContext) an_unknown_event() {
 
 func (tc *runeDetailTestContext) existing_detail(id, title, description, status string, priority int, claimant, parentID string) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	detail := RuneDetail{
 		ID:           id,
 		Title:        title,
@@ -492,7 +529,7 @@ func (tc *runeDetailTestContext) existing_detail(id, title, description, status 
 
 func (tc *runeDetailTestContext) existing_detail_with_branch(id, title, description, status string, priority int, claimant, parentID, branch string) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	detail := RuneDetail{
 		ID:           id,
 		Title:        title,
@@ -510,7 +547,7 @@ func (tc *runeDetailTestContext) existing_detail_with_branch(id, title, descript
 
 func (tc *runeDetailTestContext) existing_detail_with_dependency(id, targetID, relationship string) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	detail := RuneDetail{
 		ID:       id,
 		Title:    "Existing rune",
@@ -526,7 +563,7 @@ func (tc *runeDetailTestContext) existing_detail_with_dependency(id, targetID, r
 
 func (tc *runeDetailTestContext) existing_detail_with_note(id, noteText string) {
 	tc.t.Helper()
-	tc.a_projection_store()
+	tc.a_store()
 	detail := RuneDetail{
 		ID:           id,
 		Title:        "Existing rune",
@@ -547,6 +584,11 @@ func (tc *runeDetailTestContext) name_is_called() {
 	tc.nameResult = tc.projector.Name()
 }
 
+func (tc *runeDetailTestContext) table_name_is_called() {
+	tc.t.Helper()
+	tc.nameResult = tc.projector.TableName()
+}
+
 func (tc *runeDetailTestContext) handle_is_called() {
 	tc.t.Helper()
 	tc.err = tc.projector.Handle(tc.ctx, tc.event, tc.store)
@@ -556,6 +598,11 @@ func (tc *runeDetailTestContext) handle_is_called() {
 // --- Then ---
 
 func (tc *runeDetailTestContext) name_is(expected string) {
+	tc.t.Helper()
+	assert.Equal(tc.t, expected, tc.nameResult)
+}
+
+func (tc *runeDetailTestContext) table_name_is(expected string) {
 	tc.t.Helper()
 	assert.Equal(tc.t, expected, tc.nameResult)
 }
@@ -648,6 +695,12 @@ func (tc *runeDetailTestContext) stored_detail_has_branch(expected string) {
 	tc.t.Helper()
 	require.NotNil(tc.t, tc.storedDetail)
 	assert.Equal(tc.t, expected, tc.storedDetail.Branch)
+}
+
+func (tc *runeDetailTestContext) stored_detail_has_type(expected string) {
+	tc.t.Helper()
+	require.NotNil(tc.t, tc.storedDetail)
+	assert.Equal(tc.t, expected, tc.storedDetail.Type)
 }
 
 func (tc *runeDetailTestContext) detail_was_deleted(id string) {

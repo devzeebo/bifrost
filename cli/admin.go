@@ -1,93 +1,79 @@
 package cli
 
 import (
-	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 	"os"
 
-	_ "modernc.org/sqlite"
-
-	"github.com/devzeebo/bifrost/core"
-	"github.com/devzeebo/bifrost/domain/projectors"
-	"github.com/devzeebo/bifrost/providers/sqlite"
 	"github.com/spf13/cobra"
 )
 
-type AdminContext struct {
-	EventStore      core.EventStore
-	ProjectionStore core.ProjectionStore
-	Engine          core.ProjectionEngine
-	DB              *sql.DB
-}
-
 type AdminCmd struct {
 	Command *cobra.Command
-	Ctx     *AdminContext
+	Client  *Client
 }
 
 func NewAdminCmd() *AdminCmd {
-	admin := &AdminCmd{
-		Ctx: &AdminContext{},
-	}
+	admin := &AdminCmd{}
 
 	cmd := &cobra.Command{
 		Use:   "admin",
-		Short: "Direct database administration commands",
+		Short: "Server administration commands via HTTP API",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			dbPath, _ := cmd.Flags().GetString("db")
-			if dbPath == "" {
-				dbPath = os.Getenv("BIFROST_DB_PATH")
-			}
-			if dbPath == "" {
-				dbPath = "bifrost.db"
+			// Skip client setup for bootstrap command (no auth needed)
+			if cmd.Name() == "bootstrap" {
+				return nil
 			}
 
-			db, err := sql.Open("sqlite", dbPath)
+			// Load config and credentials
+			workDir, _ := cmd.Flags().GetString("work-dir")
+			if workDir == "" {
+				var err error
+				workDir, err = os.Getwd()
+				if err != nil {
+					return fmt.Errorf("could not determine working directory: %w", err)
+				}
+			}
+
+			homeDir, _ := cmd.Flags().GetString("home-dir")
+			if homeDir == "" {
+				var err error
+				homeDir, err = os.UserHomeDir()
+				if err != nil {
+					return fmt.Errorf("could not determine home directory: %w", err)
+				}
+			}
+
+			cfg, err := LoadConfig(workDir, homeDir)
 			if err != nil {
-				return fmt.Errorf("open database: %w", err)
-			}
-			admin.Ctx.DB = db
-
-			eventStore, err := sqlite.NewEventStore(db)
-			if err != nil {
-				return fmt.Errorf("create event store: %w", err)
+				return fmt.Errorf("load config: %w", err)
 			}
 
-			projectionStore, err := sqlite.NewProjectionStore(db)
-			if err != nil {
-				return fmt.Errorf("create projection store: %w", err)
+			// Override URL from --url flag if provided
+			if flagURL, _ := cmd.Flags().GetString("url"); flagURL != "" {
+				cfg.URL = flagURL
 			}
 
-			checkpointStore, err := sqlite.NewCheckpointStore(db)
-			if err != nil {
-				return fmt.Errorf("create checkpoint store: %w", err)
+			if cfg.URL == "" {
+				return fmt.Errorf("no server URL configured (set in .bifrost.yaml or use --url flag)")
 			}
 
-			engine := core.NewProjectionEngine(eventStore, projectionStore, checkpointStore)
-			engine.Register(projectors.NewRealmListProjector())
-			engine.Register(projectors.NewRuneListProjector())
-			engine.Register(projectors.NewRuneDetailProjector())
-			engine.Register(projectors.NewDependencyGraphProjector())
-			engine.Register(projectors.NewAccountLookupProjector())
-			engine.Register(projectors.NewAccountListProjector())
-
-			admin.Ctx.EventStore = eventStore
-			admin.Ctx.ProjectionStore = projectionStore
-			admin.Ctx.Engine = engine
-
-			return nil
-		},
-		PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
-			if admin.Ctx.DB != nil {
-				return admin.Ctx.DB.Close()
+			if cfg.APIKey == "" {
+				return fmt.Errorf("no API key configured (run 'bf login' or set BIFROST_API_KEY)")
 			}
+
+			// Admin commands always use the _admin realm
+			admin.Client = NewClient(cfg.URL, cfg.APIKey, "_admin")
 			return nil
 		},
 	}
 
-	cmd.PersistentFlags().String("db", "", "path to SQLite database (default: bifrost.db, env: BIFROST_DB_PATH)")
+	cmd.PersistentFlags().String("url", "", "Bifrost server URL (overrides .bifrost.yaml)")
+	cmd.PersistentFlags().String("work-dir", "", "Working directory (defaults to cwd)")
+	cmd.PersistentFlags().String("home-dir", "", "Home directory (defaults to user home)")
+
+	// Hide test-only flags
+	cmd.Flags().MarkHidden("work-dir")
+	cmd.Flags().MarkHidden("home-dir")
 
 	admin.Command = cmd
 
@@ -95,23 +81,7 @@ func NewAdminCmd() *AdminCmd {
 	addAdminAccountCommands(admin)
 	addAdminPATCommands(admin)
 	addAdminRebuildCommands(admin)
+	addAdminBootstrapCommands(admin)
 
 	return admin
-}
-
-func resolveUsername(ctx context.Context, projectionStore core.ProjectionStore, username string) (string, error) {
-	var accountID string
-	err := projectionStore.Get(ctx, "_admin", "account_lookup", "username:"+username, &accountID)
-	if err != nil {
-		var nfe *core.NotFoundError
-		if errors.As(err, &nfe) {
-			return "", fmt.Errorf("username %q not found", username)
-		}
-		return "", err
-	}
-	return accountID, nil
-}
-
-func syncProjections(ctx context.Context, admin *AdminContext, events []core.Event) error {
-	return admin.Engine.RunSync(ctx, events)
 }

@@ -2,8 +2,10 @@ package integration
 
 import (
 	"context"
+	"errors"
 	"testing"
 
+	"github.com/devzeebo/bifrost/core"
 	"github.com/devzeebo/bifrost/domain"
 	"github.com/devzeebo/bifrost/domain/projectors"
 	"github.com/stretchr/testify/assert"
@@ -533,7 +535,7 @@ func TestDependencyGraphProjector_FullLifecycle(t *testing.T) {
 		// Then: source has dependency, target has dependent (forward only)
 		tc.graph_source_has_dependency(tc.runeIDs[0], tc.runeIDs[1], domain.RelBlocks)
 		tc.graph_target_has_dependent(tc.runeIDs[1], tc.runeIDs[0], domain.RelBlocks)
-		tc.graph_dep_lookup_exists(tc.runeIDs[0], tc.runeIDs[1], domain.RelBlocks)
+		tc.dep_lookup_key_exists(tc.runeIDs[0], tc.runeIDs[1], domain.RelBlocks)
 
 		// Then: graph does NOT contain blocked_by entries
 		tc.graph_has_no_inverse_relationships(tc.runeIDs[0])
@@ -549,7 +551,7 @@ func TestDependencyGraphProjector_FullLifecycle(t *testing.T) {
 		// Then: both sides cleaned up
 		tc.graph_source_has_no_dependencies(tc.runeIDs[0])
 		tc.graph_target_has_no_dependents(tc.runeIDs[1])
-		tc.graph_dep_lookup_does_not_exist(tc.runeIDs[0], tc.runeIDs[1], domain.RelBlocks)
+		tc.dep_lookup_key_not_exists(tc.runeIDs[0], tc.runeIDs[1], domain.RelBlocks)
 	})
 }
 
@@ -810,17 +812,22 @@ func (tc *integrationTestContext) two_existing_runes(titleA, titleB string) {
 
 func (tc *integrationTestContext) store_cycle_detection_entry(sourceID, targetID string) {
 	tc.t.Helper()
-	cycleKey := "cycle:" + sourceID + ":" + targetID
-	err := tc.stack.ProjectionStore.Put(tc.ctx, tc.realmID, "dependency_graph", cycleKey, true)
+	cycleKey := sourceID + ":" + targetID
+	err := tc.stack.ProjectionStore.Put(tc.ctx, tc.realmID, "dependency_cycle_check", cycleKey, true)
 	require.NoError(tc.t, err)
 }
 
-// seed_handler_dep_lookup seeds the dep lookup key that the DependencyGraphProjector
+// seed_handler_dep_lookup seeds the dep lookup key that the DependencyExistenceProjector
 // would normally create, so the handler can find it without replaying all events.
 func (tc *integrationTestContext) seed_handler_dep_lookup(sourceID, targetID, relationship string) {
 	tc.t.Helper()
-	depKey := "dep:" + sourceID + ":" + targetID + ":" + relationship
-	err := tc.stack.ProjectionStore.Put(tc.ctx, tc.realmID, "dependency_graph", depKey, true)
+	depKey := sourceID + ":" + targetID + ":" + relationship
+	doc := core.DependencyExistenceDoc{
+		RuneID:       sourceID,
+		TargetID:     targetID,
+		Relationship: relationship,
+	}
+	err := tc.stack.ProjectionStore.Put(tc.ctx, tc.realmID, "dependency_existence", depKey, doc)
 	require.NoError(tc.t, err)
 }
 
@@ -1044,15 +1051,15 @@ func (tc *integrationTestContext) rebuilt_state_has_claimant(expected string) {
 func (tc *integrationTestContext) rune_list_has_entry(runeID string) {
 	tc.t.Helper()
 	var summary projectors.RuneSummary
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_list", runeID, &summary)
-	require.NoError(tc.t, err, "expected rune_list entry for %s", runeID)
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_summary", runeID, &summary)
+	require.NoError(tc.t, err, "expected rune_summary entry for %s", runeID)
 	assert.Equal(tc.t, runeID, summary.ID)
 }
 
 func (tc *integrationTestContext) rune_list_entry_has_title(runeID, expected string) {
 	tc.t.Helper()
 	var summary projectors.RuneSummary
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_list", runeID, &summary)
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_summary", runeID, &summary)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, summary.Title)
 }
@@ -1060,7 +1067,7 @@ func (tc *integrationTestContext) rune_list_entry_has_title(runeID, expected str
 func (tc *integrationTestContext) rune_list_entry_has_status(runeID, expected string) {
 	tc.t.Helper()
 	var summary projectors.RuneSummary
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_list", runeID, &summary)
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_summary", runeID, &summary)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, summary.Status)
 }
@@ -1068,7 +1075,7 @@ func (tc *integrationTestContext) rune_list_entry_has_status(runeID, expected st
 func (tc *integrationTestContext) rune_list_entry_has_priority(runeID string, expected int) {
 	tc.t.Helper()
 	var summary projectors.RuneSummary
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_list", runeID, &summary)
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_summary", runeID, &summary)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, summary.Priority)
 }
@@ -1076,7 +1083,7 @@ func (tc *integrationTestContext) rune_list_entry_has_priority(runeID string, ex
 func (tc *integrationTestContext) rune_list_entry_has_claimant(runeID, expected string) {
 	tc.t.Helper()
 	var summary projectors.RuneSummary
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_list", runeID, &summary)
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_summary", runeID, &summary)
 	require.NoError(tc.t, err)
 	assert.Equal(tc.t, expected, summary.Claimant)
 }
@@ -1164,8 +1171,8 @@ func (tc *integrationTestContext) rune_detail_entry_has_note_text(runeID string,
 
 func (tc *integrationTestContext) graph_source_has_dependency(sourceID, targetID, relationship string) {
 	tc.t.Helper()
-	var entry projectors.GraphEntry
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "dependency_graph", sourceID, &entry)
+	var entry projectors.RuneDependencyGraphEntry
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_dependency_graph", sourceID, &entry)
 	require.NoError(tc.t, err)
 	found := false
 	for _, dep := range entry.Dependencies {
@@ -1179,8 +1186,8 @@ func (tc *integrationTestContext) graph_source_has_dependency(sourceID, targetID
 
 func (tc *integrationTestContext) graph_target_has_dependent(targetID, sourceID, relationship string) {
 	tc.t.Helper()
-	var entry projectors.GraphEntry
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "dependency_graph", targetID, &entry)
+	var entry projectors.RuneDependencyGraphEntry
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_dependency_graph", targetID, &entry)
 	require.NoError(tc.t, err)
 	found := false
 	for _, dep := range entry.Dependents {
@@ -1194,43 +1201,49 @@ func (tc *integrationTestContext) graph_target_has_dependent(targetID, sourceID,
 
 func (tc *integrationTestContext) graph_source_has_no_dependencies(sourceID string) {
 	tc.t.Helper()
-	var entry projectors.GraphEntry
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "dependency_graph", sourceID, &entry)
+	var entry projectors.RuneDependencyGraphEntry
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_dependency_graph", sourceID, &entry)
 	require.NoError(tc.t, err)
 	assert.Empty(tc.t, entry.Dependencies)
 }
 
 func (tc *integrationTestContext) graph_target_has_no_dependents(targetID string) {
 	tc.t.Helper()
-	var entry projectors.GraphEntry
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "dependency_graph", targetID, &entry)
+	var entry projectors.RuneDependencyGraphEntry
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_dependency_graph", targetID, &entry)
 	require.NoError(tc.t, err)
 	assert.Empty(tc.t, entry.Dependents)
 }
 
-func (tc *integrationTestContext) graph_dep_lookup_exists(sourceID, targetID, relationship string) {
+func (tc *integrationTestContext) dep_lookup_key_exists(sourceID, targetID, relationship string) {
 	tc.t.Helper()
-	key := "dep:" + sourceID + ":" + targetID + ":" + relationship
-	var exists bool
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "dependency_graph", key, &exists)
+	key := sourceID + ":" + targetID + ":" + relationship
+	var doc core.DependencyExistenceDoc
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "dependency_existence", key, &doc)
 	assert.NoError(tc.t, err, "expected dep lookup key to exist")
-	assert.True(tc.t, exists)
+	assert.Equal(tc.t, sourceID, doc.RuneID)
 }
 
-func (tc *integrationTestContext) graph_dep_lookup_does_not_exist(sourceID, targetID, relationship string) {
+func (tc *integrationTestContext) dep_lookup_key_not_exists(sourceID, targetID, relationship string) {
 	tc.t.Helper()
-	key := "dep:" + sourceID + ":" + targetID + ":" + relationship
-	var exists bool
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "dependency_graph", key, &exists)
+	key := sourceID + ":" + targetID + ":" + relationship
+	var doc core.DependencyExistenceDoc
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "dependency_existence", key, &doc)
 	if err == nil {
-		assert.False(tc.t, exists, "expected dep lookup key to not exist")
+		tc.t.Errorf("expected dep lookup key to not exist, but found doc: %+v", doc)
+		return
+	}
+	// Only treat NotFoundError as indicating the key doesn't exist
+	var nfe *core.NotFoundError
+	if !errors.As(err, &nfe) {
+		tc.t.Errorf("expected NotFoundError for missing dep lookup key, got %T: %v", err, err)
 	}
 }
 
 func (tc *integrationTestContext) rune_has_blockers(runeID string) {
 	tc.t.Helper()
-	var entry projectors.GraphEntry
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "dependency_graph", runeID, &entry)
+	var entry projectors.RuneDependencyGraphEntry
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_dependency_graph", runeID, &entry)
 	require.NoError(tc.t, err)
 	found := false
 	for _, dep := range entry.Dependents {
@@ -1244,8 +1257,8 @@ func (tc *integrationTestContext) rune_has_blockers(runeID string) {
 
 func (tc *integrationTestContext) rune_has_no_blockers(runeID string) {
 	tc.t.Helper()
-	var entry projectors.GraphEntry
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "dependency_graph", runeID, &entry)
+	var entry projectors.RuneDependencyGraphEntry
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_dependency_graph", runeID, &entry)
 	if err != nil {
 		return
 	}
@@ -1282,8 +1295,8 @@ func (tc *integrationTestContext) rune_detail_has_no_dependencies(runeID string)
 
 func (tc *integrationTestContext) graph_has_no_inverse_relationships(runeID string) {
 	tc.t.Helper()
-	var entry projectors.GraphEntry
-	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "dependency_graph", runeID, &entry)
+	var entry projectors.RuneDependencyGraphEntry
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_dependency_graph", runeID, &entry)
 	if err != nil {
 		return
 	}

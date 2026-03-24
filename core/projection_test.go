@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Compile-time interface satisfaction checks
@@ -39,6 +40,19 @@ func TestProjector(t *testing.T) {
 		// Then
 		tc.handle_returns_error()
 	})
+
+	t.Run("TableName returns the table name", func(t *testing.T) {
+		tc := newProjectionTestContext(t)
+
+		// Given
+		tc.a_mock_projector()
+
+		// When
+		tc.table_name_is_called()
+
+		// Then
+		tc.table_name_returns_string()
+	})
 }
 
 func TestProjectionEngine(t *testing.T) {
@@ -46,7 +60,7 @@ func TestProjectionEngine(t *testing.T) {
 		tc := newProjectionTestContext(t)
 
 		// Given
-		tc.a_mock_projection_engine()
+		tc.a_mock_engine()
 		tc.a_mock_projector()
 
 		// When
@@ -60,7 +74,7 @@ func TestProjectionEngine(t *testing.T) {
 		tc := newProjectionTestContext(t)
 
 		// Given
-		tc.a_mock_projection_engine()
+		tc.a_mock_engine()
 
 		// When
 		tc.run_sync_is_called()
@@ -73,7 +87,7 @@ func TestProjectionEngine(t *testing.T) {
 		tc := newProjectionTestContext(t)
 
 		// Given
-		tc.a_mock_projection_engine()
+		tc.a_mock_engine()
 
 		// When
 		tc.start_catch_up_is_called()
@@ -86,7 +100,7 @@ func TestProjectionEngine(t *testing.T) {
 		tc := newProjectionTestContext(t)
 
 		// Given
-		tc.a_mock_projection_engine()
+		tc.a_mock_engine()
 
 		// When
 		tc.stop_is_called()
@@ -105,6 +119,7 @@ type projectionTestContext struct {
 	projectionEngine ProjectionEngine
 
 	nameResult     string
+	tableNameResult string
 	handleErr      error
 	runSyncErr     error
 	startCatchErr  error
@@ -124,7 +139,7 @@ func (tc *projectionTestContext) a_mock_projector() {
 	tc.projector = &mockProjector{}
 }
 
-func (tc *projectionTestContext) a_mock_projection_engine() {
+func (tc *projectionTestContext) a_mock_engine() {
 	tc.t.Helper()
 	tc.projectionEngine = &mockProjectionEngine{}
 }
@@ -136,6 +151,11 @@ func (tc *projectionTestContext) name_is_called() {
 	tc.nameResult = tc.projector.Name()
 }
 
+func (tc *projectionTestContext) table_name_is_called() {
+	tc.t.Helper()
+	tc.tableNameResult = tc.projector.TableName()
+}
+
 func (tc *projectionTestContext) handle_is_called() {
 	tc.t.Helper()
 	tc.handleErr = tc.projector.Handle(
@@ -145,7 +165,8 @@ func (tc *projectionTestContext) handle_is_called() {
 
 func (tc *projectionTestContext) register_is_called() {
 	tc.t.Helper()
-	tc.projectionEngine.Register(tc.projector)
+	err := tc.projectionEngine.Register(tc.projector)
+	require.NoError(tc.t, err)
 	tc.registerPassed = true
 }
 
@@ -171,6 +192,11 @@ func (tc *projectionTestContext) stop_is_called() {
 func (tc *projectionTestContext) name_returns_string() {
 	tc.t.Helper()
 	assert.IsType(tc.t, "", tc.nameResult)
+}
+
+func (tc *projectionTestContext) table_name_returns_string() {
+	tc.t.Helper()
+	assert.IsType(tc.t, "", tc.tableNameResult)
 }
 
 func (tc *projectionTestContext) handle_returns_error() {
@@ -206,13 +232,23 @@ func (m *mockProjector) Name() string {
 	return "mock-projector"
 }
 
+func (m *mockProjector) TableName() string {
+	return "mock_table"
+}
+
 func (m *mockProjector) Handle(_ context.Context, _ Event, _ ProjectionStore) error {
 	return nil
 }
 
 type mockProjectionEngine struct{}
 
-func (m *mockProjectionEngine) Register(_ Projector) {}
+func (m *mockProjectionEngine) Register(_ Projector) error {
+	return nil
+}
+
+func (m *mockProjectionEngine) RegisteredTables() []string {
+	return nil
+}
 
 func (m *mockProjectionEngine) RunSync(_ context.Context, _ []Event) error {
 	return nil

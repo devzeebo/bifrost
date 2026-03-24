@@ -317,7 +317,7 @@ func (tc *depTestContext) root_cmd_with_server() {
 		URL:    tc.server.URL,
 		APIKey: "test-key",
 	}
-	tc.root.Client = NewClient(tc.root.Cfg)
+	tc.root.Client = NewClient(tc.server.URL, "test-key", "test-realm")
 
 	cmd := &cobra.Command{Use: "bf"}
 	cmd.PersistentFlags().Bool("human", false, "formatted table/text output")

@@ -98,7 +98,7 @@ func TestAuthMiddleware(t *testing.T) {
 		// Given
 		tc.request_with_bearer_token(tc.rawKey)
 		tc.request_has_realm_header("realm-1")
-		tc.projection_store_has_no_entries()
+		tc.store_has_no_entries()
 
 		// When
 		tc.middleware_is_invoked()
@@ -114,7 +114,7 @@ func TestAuthMiddleware(t *testing.T) {
 		// Given
 		tc.request_with_bearer_token(tc.rawKey)
 		tc.request_has_realm_header("realm-1")
-		tc.projection_store_has_account_with_roles("acct-1", "alice", "suspended", map[string]string{"realm-1": "member"})
+		tc.store_has_account_with_roles("acct-1", "alice", "suspended", map[string]string{"realm-1": "member"})
 
 		// When
 		tc.middleware_is_invoked()
@@ -130,7 +130,7 @@ func TestAuthMiddleware(t *testing.T) {
 		// Given
 		tc.request_with_bearer_token(tc.rawKey)
 		tc.request_has_realm_header("realm-2")
-		tc.projection_store_has_account_with_roles("acct-1", "alice", "active", map[string]string{"realm-1": "member"})
+		tc.store_has_account_with_roles("acct-1", "alice", "active", map[string]string{"realm-1": "member"})
 
 		// When
 		tc.middleware_is_invoked()
@@ -146,7 +146,7 @@ func TestAuthMiddleware(t *testing.T) {
 		// Given
 		tc.request_with_bearer_token(tc.rawKey)
 		tc.request_has_realm_header("realm-1")
-		tc.projection_store_has_account_with_roles("acct-1", "alice", "active", map[string]string{"realm-1": "admin"})
+		tc.store_has_account_with_roles("acct-1", "alice", "active", map[string]string{"realm-1": "admin"})
 
 		// When
 		tc.middleware_is_invoked()
@@ -165,7 +165,7 @@ func TestAuthMiddleware(t *testing.T) {
 		// Given
 		tc.request_with_bearer_token(tc.rawKey)
 		tc.request_has_realm_header("realm-1")
-		tc.projection_store_has_account("acct-1", "alice", "active", []string{"realm-1"})
+		tc.store_has_account("acct-1", "alice", "active", []string{"realm-1"})
 
 		// When
 		tc.middleware_is_invoked()
@@ -184,7 +184,7 @@ func TestAuthMiddleware(t *testing.T) {
 		// Given
 		tc.request_with_bearer_token(tc.rawKey)
 		tc.request_has_realm_header("realm-2")
-		tc.projection_store_has_account("acct-1", "alice", "active", []string{"realm-1"})
+		tc.store_has_account("acct-1", "alice", "active", []string{"realm-1"})
 
 		// When
 		tc.middleware_is_invoked()
@@ -200,7 +200,7 @@ func TestAuthMiddleware(t *testing.T) {
 		// Given
 		tc.request_with_bearer_token(tc.rawKey)
 		tc.request_has_realm_header("realm-1")
-		tc.projection_store_returns_error()
+		tc.store_returns_error()
 
 		// When
 		tc.middleware_is_invoked()
@@ -216,8 +216,8 @@ func TestAuthMiddleware(t *testing.T) {
 		// Given
 		tc.request_with_bearer_token(tc.rawKey)
 		tc.request_has_realm_header("my-realm-name") // using name instead of ID
-		tc.projection_store_has_account_with_roles("acct-1", "alice", "active", map[string]string{"realm-1": "admin"})
-		tc.projection_store_has_realm("realm-1", "my-realm-name", "active")
+		tc.store_has_account_with_roles("acct-1", "alice", "active", map[string]string{"realm-1": "admin"})
+		tc.store_has_realm("realm-1", "my-realm-name", "active")
 
 		// When
 		tc.middleware_is_invoked()
@@ -236,8 +236,8 @@ func TestAuthMiddleware(t *testing.T) {
 		// Given
 		tc.request_with_bearer_token(tc.rawKey)
 		tc.request_has_realm_header("other-realm")
-		tc.projection_store_has_account_with_roles("acct-1", "alice", "active", map[string]string{"realm-1": "admin"})
-		tc.projection_store_has_realm("realm-2", "other-realm", "active")
+		tc.store_has_account_with_roles("acct-1", "alice", "active", map[string]string{"realm-1": "admin"})
+		tc.store_has_realm("realm-2", "other-realm", "active")
 
 		// When
 		tc.middleware_is_invoked()
@@ -253,7 +253,7 @@ func TestAuthMiddleware(t *testing.T) {
 		// Given
 		tc.request_with_bearer_token(tc.rawKey)
 		tc.request_has_realm_header("nonexistent-realm")
-		tc.projection_store_has_account_with_roles("acct-1", "alice", "active", map[string]string{"realm-1": "admin"})
+		tc.store_has_account_with_roles("acct-1", "alice", "active", map[string]string{"realm-1": "admin"})
 
 		// When
 		tc.middleware_is_invoked()
@@ -654,44 +654,64 @@ func (tc *testContext) request_has_no_realm_header() {
 	// no realm header set — this is the default
 }
 
-func (tc *testContext) projection_store_has_no_entries() {
+func (tc *testContext) store_has_no_entries() {
 	tc.t.Helper()
 	// store is already empty
 }
 
-func (tc *testContext) projection_store_has_account(accountID, username, status string, realms []string) {
+func (tc *testContext) store_has_account(accountID, username, status string, realms []string) {
 	tc.t.Helper()
-	entry := accountLookupEntry{
-		AccountID: accountID,
-		Username:  username,
-		Status:    status,
-		Realms:    realms,
+	// Set up the PAT ID lookup
+	tc.store.put("_admin", "pat_by_keyhash", tc.keyHash, "pat-test-123")
+	// Set up the PAT entry
+	patEntry := map[string]any{
+		"pat_id":     "pat-test-123",
+		"key_hash":   tc.keyHash,
+		"account_id": accountID,
 	}
-	tc.store.put("_admin", "account_lookup", tc.keyHash, entry)
+	tc.store.put("_admin", "pat_by_id", "pat-test-123", patEntry)
+	// Set up the account auth entry
+	entry := map[string]any{
+		"account_id": accountID,
+		"username":   username,
+		"status":     status,
+		"realms":     realms,
+	}
+	tc.store.put("_admin", "account_auth", accountID, entry)
 }
 
-func (tc *testContext) projection_store_has_account_with_roles(accountID, username, status string, roles map[string]string) {
+func (tc *testContext) store_has_account_with_roles(accountID, username, status string, roles map[string]string) {
 	tc.t.Helper()
 	realms := make([]string, 0, len(roles))
 	for r := range roles {
 		realms = append(realms, r)
 	}
-	entry := accountLookupEntry{
-		AccountID: accountID,
-		Username:  username,
-		Status:    status,
-		Realms:    realms,
-		Roles:     roles,
+	// Set up the PAT ID lookup
+	tc.store.put("_admin", "pat_by_keyhash", tc.keyHash, "pat-test-123")
+	// Set up the PAT entry
+	patEntry := map[string]any{
+		"pat_id":     "pat-test-123",
+		"key_hash":   tc.keyHash,
+		"account_id": accountID,
 	}
-	tc.store.put("_admin", "account_lookup", tc.keyHash, entry)
+	tc.store.put("_admin", "pat_by_id", "pat-test-123", patEntry)
+	// Set up the account auth entry
+	entry := map[string]any{
+		"account_id": accountID,
+		"username":   username,
+		"status":     status,
+		"realms":     realms,
+		"roles":      roles,
+	}
+	tc.store.put("_admin", "account_auth", accountID, entry)
 }
 
-func (tc *testContext) projection_store_returns_error() {
+func (tc *testContext) store_returns_error() {
 	tc.t.Helper()
 	tc.store.forceError = true
 }
 
-func (tc *testContext) projection_store_has_realm(realmID, name, status string) {
+func (tc *testContext) store_has_realm(realmID, name, status string) {
 	tc.t.Helper()
 	entry := map[string]any{
 		"realm_id":   realmID,
@@ -699,7 +719,7 @@ func (tc *testContext) projection_store_has_realm(realmID, name, status string) 
 		"status":     status,
 		"created_at": "2026-01-01T00:00:00Z",
 	}
-	tc.store.put("_admin", "realm_list", realmID, entry)
+	tc.store.put("_admin", "realm_directory", realmID, entry)
 }
 
 func (tc *testContext) context_with_realm_id(realmID string) {
@@ -820,19 +840,19 @@ func newMockProjectionStore() *mockProjectionStore {
 	}
 }
 
-func (m *mockProjectionStore) put(realmID, projectionName, key string, value any) {
-	compositeKey := realmID + ":" + projectionName + ":" + key
+func (m *mockProjectionStore) put(realmID, table, key string, value any) {
+	compositeKey := realmID + ":" + table + ":" + key
 	m.data[compositeKey] = value
 }
 
-func (m *mockProjectionStore) Get(_ context.Context, realmID string, projectionName string, key string, dest any) error {
+func (m *mockProjectionStore) Get(_ context.Context, realmID string, table string, key string, dest any) error {
 	if m.forceError {
 		return fmt.Errorf("forced store error")
 	}
-	compositeKey := realmID + ":" + projectionName + ":" + key
+	compositeKey := realmID + ":" + table + ":" + key
 	val, ok := m.data[compositeKey]
 	if !ok {
-		return &core.NotFoundError{Entity: projectionName, ID: key}
+		return &core.NotFoundError{Entity: table, ID: key}
 	}
 	dataBytes, err := json.Marshal(val)
 	if err != nil {
@@ -841,14 +861,14 @@ func (m *mockProjectionStore) Get(_ context.Context, realmID string, projectionN
 	return json.Unmarshal(dataBytes, dest)
 }
 
-func (m *mockProjectionStore) Put(_ context.Context, realmID string, projectionName string, key string, value any) error {
-	compositeKey := realmID + ":" + projectionName + ":" + key
+func (m *mockProjectionStore) Put(_ context.Context, realmID string, table string, key string, value any) error {
+	compositeKey := realmID + ":" + table + ":" + key
 	m.data[compositeKey] = value
 	return nil
 }
 
-func (m *mockProjectionStore) List(_ context.Context, realmID string, projectionName string) ([]json.RawMessage, error) {
-	prefix := realmID + ":" + projectionName + ":"
+func (m *mockProjectionStore) List(_ context.Context, realmID string, table string) ([]json.RawMessage, error) {
+	prefix := realmID + ":" + table + ":"
 	var results []json.RawMessage
 	for k, v := range m.data {
 		if len(k) > len(prefix) && k[:len(prefix)] == prefix {
@@ -862,8 +882,16 @@ func (m *mockProjectionStore) List(_ context.Context, realmID string, projection
 	return results, nil
 }
 
-func (m *mockProjectionStore) Delete(_ context.Context, realmID string, projectionName string, key string) error {
-	compositeKey := realmID + ":" + projectionName + ":" + key
+func (m *mockProjectionStore) Delete(_ context.Context, realmID string, table string, key string) error {
+	compositeKey := realmID + ":" + table + ":" + key
 	delete(m.data, compositeKey)
+	return nil
+}
+
+func (m *mockProjectionStore) CreateTable(_ context.Context, table string) error {
+	return nil
+}
+
+func (m *mockProjectionStore) ClearTable(_ context.Context, table string) error {
 	return nil
 }
