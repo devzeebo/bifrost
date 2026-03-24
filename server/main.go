@@ -107,12 +107,6 @@ func Run(ctx context.Context, cfg *Config) error {
 	engine.Register(projectors.NewDependencyCycleCheckProjector())
 	engine.Register(projectors.NewRuneChildCountProjector())
 
-	// Agent/Skill/Workflow/Runner projections (realm: per-realm)
-	engine.Register(projectors.NewAgentDetailProjector())
-	engine.Register(projectors.NewSkillListProjector())
-	engine.Register(projectors.NewWorkflowListProjector())
-	engine.Register(projectors.NewRunnerSettingsProjector())
-
 	// 4. Start catch-up in background
 	if err := engine.StartCatchUp(ctx); err != nil {
 		return fmt.Errorf("start catch-up: %w", err)

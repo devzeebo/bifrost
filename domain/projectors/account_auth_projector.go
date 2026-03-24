@@ -62,7 +62,7 @@ func (p *AccountAuthProjector) handleAccountCreated(ctx context.Context, event c
 	if err == nil {
 		// Account already exists, idempotent
 		return nil
-	} else if !errors.As(err, &core.NotFoundError{}) {
+	} else if !errors.As(err, new(*core.NotFoundError)) {
 		// Genuine error (not a "not found" error)
 		return err
 	}

@@ -28,17 +28,6 @@ func TestInitCommand(t *testing.T) {
 		tc.bifrost_yaml_does_not_contain("api_key")
 	})
 
-	t.Run("creates AGENTS.md from template with realm name interpolated", func(t *testing.T) {
-		tc := newInitTestContext(t)
-
-		// When
-		tc.execute_init("--realm", "my-realm")
-
-		// Then
-		tc.no_error_occurred()
-		tc.agents_md_exists()
-		tc.agents_md_contains("realm **my-realm**")
-	})
 
 	t.Run("uses custom url when --url flag is provided", func(t *testing.T) {
 		tc := newInitTestContext(t)
@@ -51,16 +40,6 @@ func TestInitCommand(t *testing.T) {
 		tc.bifrost_yaml_contains("url: https://bifrost.example.com")
 	})
 
-	t.Run("interpolates URL into AGENTS.md template", func(t *testing.T) {
-		tc := newInitTestContext(t)
-
-		// When
-		tc.execute_init("--realm", "r1", "--url", "https://bifrost.example.com")
-
-		// Then
-		tc.no_error_occurred()
-		tc.agents_md_contains("url: https://bifrost.example.com")
-	})
 
 	t.Run("errors if .bifrost.yaml already exists without --force", func(t *testing.T) {
 		tc := newInitTestContext(t)
@@ -81,7 +60,6 @@ func TestInitCommand(t *testing.T) {
 
 		// Given
 		tc.bifrost_yaml_already_exists()
-		tc.agents_md_already_exists()
 
 		// When
 		tc.execute_init("--realm", "new-realm", "--force")
@@ -89,7 +67,6 @@ func TestInitCommand(t *testing.T) {
 		// Then
 		tc.no_error_occurred()
 		tc.bifrost_yaml_contains("realm: new-realm")
-		tc.agents_md_contains("realm **new-realm**")
 	})
 
 	t.Run("prints confirmation message with login instruction on success", func(t *testing.T) {
@@ -180,11 +157,6 @@ func (tc *initTestContext) bifrost_yaml_already_exists() {
 	require.NoError(tc.t, err)
 }
 
-func (tc *initTestContext) agents_md_already_exists() {
-	tc.t.Helper()
-	err := os.WriteFile(filepath.Join(tc.tmpDir, "AGENTS.md"), []byte("old content\n"), 0644)
-	require.NoError(tc.t, err)
-}
 
 func (tc *initTestContext) gitignore_exists_with(content string) {
 	tc.t.Helper()
@@ -243,18 +215,7 @@ func (tc *initTestContext) bifrost_yaml_does_not_contain(substr string) {
 	assert.NotContains(tc.t, string(data), substr)
 }
 
-func (tc *initTestContext) agents_md_exists() {
-	tc.t.Helper()
-	_, err := os.Stat(filepath.Join(tc.tmpDir, "AGENTS.md"))
-	assert.NoError(tc.t, err, "AGENTS.md should exist")
-}
 
-func (tc *initTestContext) agents_md_contains(substr string) {
-	tc.t.Helper()
-	data, err := os.ReadFile(filepath.Join(tc.tmpDir, "AGENTS.md"))
-	require.NoError(tc.t, err)
-	assert.Contains(tc.t, string(data), substr)
-}
 
 func (tc *initTestContext) output_contains(substr string) {
 	tc.t.Helper()
