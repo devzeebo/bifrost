@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -284,7 +283,7 @@ func authenticateViaBearerToken(ctx context.Context, token string, realmID strin
 	}
 
 	// Resolve realm ID (handles both realm IDs and realm names)
-	resolvedRealmID, err := resolveRealmID(ctx, realmID, entry.Roles, entry.Realms, projectionStore)
+	resolvedRealmID, err := resolveRealmID(ctx, realmID, entry.Roles, entry.Realms, entry.RealmNames, projectionStore)
 	if err != nil {
 		return nil, err
 	}
@@ -316,7 +315,7 @@ func authenticateViaBearerToken(ctx context.Context, token string, realmID strin
 
 // resolveRealmID resolves a realm identifier (ID or name) to a realm ID.
 // Returns an AuthError if the realm cannot be found or accessed.
-func resolveRealmID(ctx context.Context, realmIdent string, roles map[string]string, realms []string, projectionStore core.ProjectionStore) (string, error) {
+func resolveRealmID(ctx context.Context, realmIdent string, roles map[string]string, realms []string, realmNames map[string]string, projectionStore core.ProjectionStore) (string, error) {
 	// First, check if it's already a valid realm ID (exists in roles or realms)
 	if roles != nil {
 		if _, ok := roles[realmIdent]; ok {
@@ -329,32 +328,20 @@ func resolveRealmID(ctx context.Context, realmIdent string, roles map[string]str
 		}
 	}
 
-	// Not found as ID, try to resolve as a realm name
-	// Look up realm_directory in _admin realm
-	entries, err := projectionStore.List(ctx, "_admin", "realm_directory")
-	if err != nil {
-		return "", ErrInternal("Internal server error")
-	}
-
-	for _, raw := range entries {
-		var realm projectors.RealmDirectoryEntry
-		if err := json.Unmarshal(raw, &realm); err != nil {
-			continue
-		}
-		if realm.Name == realmIdent {
-			// Found by name, check if user has access
+	// Not found as ID, try to resolve as a realm name using RealmNames map
+	for realmID, name := range realmNames {
+		if name == realmIdent {
+			// Found by name, verify user still has access
 			if roles != nil {
-				if _, ok := roles[realm.RealmID]; ok {
-					return realm.RealmID, nil
+				if _, ok := roles[realmID]; ok {
+					return realmID, nil
 				}
 			}
 			for _, r := range realms {
-				if r == realm.RealmID {
-					return realm.RealmID, nil
+				if r == realmID {
+					return realmID, nil
 				}
 			}
-			// Found realm but user doesn't have access
-			return "", ErrForbidden("No access to realm")
 		}
 	}
 

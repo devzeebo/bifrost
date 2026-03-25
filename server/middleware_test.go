@@ -216,8 +216,8 @@ func TestAuthMiddleware(t *testing.T) {
 		// Given
 		tc.request_with_bearer_token(tc.rawKey)
 		tc.request_has_realm_header("my-realm-name") // using name instead of ID
+		tc.store_has_realm("realm-1", "my-realm-name", "active") // must be called before account setup to populate realmNames
 		tc.store_has_account_with_roles("acct-1", "alice", "active", map[string]string{"realm-1": "admin"})
-		tc.store_has_realm("realm-1", "my-realm-name", "active")
 
 		// When
 		tc.middleware_is_invoked()
@@ -236,8 +236,8 @@ func TestAuthMiddleware(t *testing.T) {
 		// Given
 		tc.request_with_bearer_token(tc.rawKey)
 		tc.request_has_realm_header("other-realm")
-		tc.store_has_account_with_roles("acct-1", "alice", "active", map[string]string{"realm-1": "admin"})
 		tc.store_has_realm("realm-2", "other-realm", "active")
+		tc.store_has_account_with_roles("acct-1", "alice", "active", map[string]string{"realm-1": "admin"})
 
 		// When
 		tc.middleware_is_invoked()
@@ -598,6 +598,9 @@ type testContext struct {
 	// Captured from next handler
 	nextCalled  bool
 	capturedCtx context.Context
+
+	// Test data
+	realmNames map[string]string
 }
 
 func newTestContext(t *testing.T) *testContext {
@@ -697,11 +700,12 @@ func (tc *testContext) store_has_account_with_roles(accountID, username, status 
 	tc.store.put("_admin", "pat_by_id", "pat-test-123", patEntry)
 	// Set up the account auth entry
 	entry := map[string]any{
-		"account_id": accountID,
-		"username":   username,
-		"status":     status,
-		"realms":     realms,
-		"roles":      roles,
+		"account_id":  accountID,
+		"username":    username,
+		"status":      status,
+		"realms":      realms,
+		"roles":       roles,
+		"realm_names": tc.realmNames,
 	}
 	tc.store.put("_admin", "account_auth", accountID, entry)
 }
@@ -720,6 +724,11 @@ func (tc *testContext) store_has_realm(realmID, name, status string) {
 		"created_at": "2026-01-01T00:00:00Z",
 	}
 	tc.store.put("_admin", "realm_directory", realmID, entry)
+	// Also populate realmNames for account auth entry
+	if tc.realmNames == nil {
+		tc.realmNames = make(map[string]string)
+	}
+	tc.realmNames[realmID] = name
 }
 
 func (tc *testContext) context_with_realm_id(realmID string) {

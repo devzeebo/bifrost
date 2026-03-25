@@ -16,6 +16,7 @@ type AccountAuthEntry struct {
 	Status    string            `json:"status"`
 	Realms    []string          `json:"realms"`
 	Roles     map[string]string `json:"roles"`
+	RealmNames map[string]string `json:"realm_names"` // realm_id -> realm_name mapping
 }
 
 type AccountAuthProjector struct{}
@@ -98,13 +99,15 @@ func (p *AccountAuthProjector) handleRealmGranted(ctx context.Context, event cor
 		return fmt.Errorf("account_auth: unmarshal %s: %w", domain.EventRealmGranted, err)
 	}
 
-	// Skip if realm doesn't exist in directory (except _admin)
+	// Get realm name for RealmNames mapping (skip for _admin)
+	var realmName string
 	if data.RealmID != "_admin" {
 		var realmEntry RealmDirectoryEntry
 		if err := store.Get(ctx, data.RealmID, "realm_directory", data.RealmID, &realmEntry); err != nil {
 			// Realm doesn't exist, skip this event
 			return nil
 		}
+		realmName = realmEntry.Name
 	}
 
 	var entry AccountAuthEntry
@@ -124,6 +127,12 @@ func (p *AccountAuthProjector) handleRealmGranted(ctx context.Context, event cor
 		entry.Roles = make(map[string]string)
 	}
 	entry.Roles[data.RealmID] = "member"
+	if realmName != "" {
+		if entry.RealmNames == nil {
+			entry.RealmNames = make(map[string]string)
+		}
+		entry.RealmNames[data.RealmID] = realmName
+	}
 	return store.Put(ctx, event.RealmID, "account_auth", data.AccountID, entry)
 }
 
@@ -140,6 +149,7 @@ func (p *AccountAuthProjector) handleRealmRevoked(ctx context.Context, event cor
 
 	entry.Realms = removeString(entry.Realms, data.RealmID)
 	delete(entry.Roles, data.RealmID)
+	delete(entry.RealmNames, data.RealmID)
 
 	return store.Put(ctx, event.RealmID, "account_auth", data.AccountID, entry)
 }
@@ -150,13 +160,15 @@ func (p *AccountAuthProjector) handleRoleAssigned(ctx context.Context, event cor
 		return fmt.Errorf("account_auth: unmarshal %s: %w", domain.EventRoleAssigned, err)
 	}
 
-	// Skip if realm doesn't exist in directory (except _admin)
+	// Get realm name for RealmNames mapping (skip for _admin)
+	var realmName string
 	if data.RealmID != "_admin" {
 		var realmEntry RealmDirectoryEntry
 		if err := store.Get(ctx, data.RealmID, "realm_directory", data.RealmID, &realmEntry); err != nil {
 			// Realm doesn't exist, skip this event
 			return nil
 		}
+		realmName = realmEntry.Name
 	}
 
 	var entry AccountAuthEntry
@@ -177,6 +189,14 @@ func (p *AccountAuthProjector) handleRoleAssigned(ctx context.Context, event cor
 		entry.Realms = append(entry.Realms, data.RealmID)
 	}
 
+	// Add realm name mapping
+	if realmName != "" {
+		if entry.RealmNames == nil {
+			entry.RealmNames = make(map[string]string)
+		}
+		entry.RealmNames[data.RealmID] = realmName
+	}
+
 	return store.Put(ctx, event.RealmID, "account_auth", data.AccountID, entry)
 }
 
@@ -193,6 +213,7 @@ func (p *AccountAuthProjector) handleRoleRevoked(ctx context.Context, event core
 
 	entry.Realms = removeString(entry.Realms, data.RealmID)
 	delete(entry.Roles, data.RealmID)
+	delete(entry.RealmNames, data.RealmID)
 
 	return store.Put(ctx, event.RealmID, "account_auth", data.AccountID, entry)
 }
