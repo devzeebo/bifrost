@@ -23,7 +23,7 @@ const realmStatusColors: Record<RealmStatus, { bg: string; border: string; text:
     border: 'var(--color-border)',
     text: 'white',
   },
-  archived: {
+  inactive: {
     bg: 'var(--color-border)',
     border: 'var(--color-border)',
     text: 'white',
@@ -116,7 +116,7 @@ function Page() {
       return {
         id,
         name: rawRealm.name ?? realmNames[id] ?? id,
-        status: rawRealm.status === 'suspended' ? 'archived' : 'active',
+        status: rawRealm.status === 'suspended' ? 'inactive' : 'active',
         created_at: rawRealm.created_at ?? new Date(0).toISOString(),
         description: rawRealm.description ?? '',
         owner_id: rawRealm.owner_id ?? '',

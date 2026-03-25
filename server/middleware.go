@@ -155,7 +155,12 @@ func authenticateViaJWT(ctx context.Context, token string, cfg *admin.AuthConfig
 	// Get realm from header or cookie, fallback to first available
 	realmID := r.Header.Get("X-Bifrost-Realm")
 	if realmID == "" {
-		realmID = getSelectedRealm(r, entry.Roles, entry.Realms)
+		// For admin API endpoints, force _admin realm
+		if strings.HasPrefix(r.URL.Path, "/api/") && isAdminEndpoint(r.URL.Path) {
+			realmID = "_admin"
+		} else {
+			realmID = getSelectedRealm(r, entry.Roles, entry.Realms)
+		}
 	}
 
 	if realmID == "" {
@@ -182,6 +187,23 @@ func authenticateViaJWT(ctx context.Context, token string, cfg *admin.AuthConfig
 	ctx = context.WithValue(ctx, realmIDKey, realmID)
 	ctx = context.WithValue(ctx, roleKey, role)
 	return ctx, nil
+}
+
+// isAdminEndpoint returns true if the endpoint is an admin endpoint that requires _admin realm
+func isAdminEndpoint(path string) bool {
+	adminEndpoints := []string{
+		"/api/create-realm",
+		"/api/suspend-realm", 
+		"/api/realms",
+		"/api/rebuild-projections",
+		"/api/resolve-username",
+	}
+	for _, endpoint := range adminEndpoints {
+		if path == endpoint {
+			return true
+		}
+	}
+	return false
 }
 
 // getSelectedRealm returns the realm ID from cookie if valid, otherwise the first available realm.

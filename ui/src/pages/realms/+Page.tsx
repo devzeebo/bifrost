@@ -60,7 +60,7 @@ function Page() {
             return null;
           }
 
-          const status: RealmStatus = rawEntry.status === 'suspended' ? 'archived' : 'active';
+          const status: RealmStatus = rawEntry.status === 'suspended' ? 'inactive' : 'active';
 
           return {
             id,
@@ -113,7 +113,7 @@ function Page() {
   const getStatusColor = (status: RealmStatus) => {
     const colors: Record<RealmStatus, string> = {
       active: 'var(--color-green)',
-      archived: 'var(--color-border)',
+      inactive: 'var(--color-border)',
     };
     return colors[status];
   };

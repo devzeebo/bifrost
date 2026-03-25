@@ -1,4 +1,4 @@
-export type RealmStatus = "active" | "archived";
+export type RealmStatus = 'active' | 'inactive';
 
 export interface RealmListEntry {
   id: string;
@@ -12,7 +12,6 @@ export interface RealmDetail extends RealmListEntry {
   owner_id: string;
   member_count: number;
 }
-
 
 export interface CreateRealmRequest {
   name: string;
