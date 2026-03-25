@@ -18,6 +18,7 @@ function Page() {
   const [realms, setRealms] = useState<RealmListEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [showSuspended, setShowSuspended] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newRealmName, setNewRealmName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -118,12 +119,18 @@ function Page() {
     return colors[status];
   };
 
-  const filteredRealms =
-    statusFilter === 'all'
-      ? realms
-      : realms.filter((realm) =>
-          statusFilter === 'active' ? realm.status === 'active' : realm.status !== 'active'
-        );
+  const filteredRealms = realms.filter((realm) => {
+    // Hide suspended realms unless explicitly shown
+    if (!showSuspended && realm.status === 'inactive') {
+      return false;
+    }
+
+    // Apply status filter
+    if (statusFilter === 'all') {
+      return true;
+    }
+    return statusFilter === 'active' ? realm.status === 'active' : realm.status !== 'active';
+  });
 
   const handleCreateRealm = async () => {
     const realmName = newRealmName.trim();
@@ -217,28 +224,43 @@ function Page() {
           ))}
         </ToggleGroup>
 
-        <Button
-          onClick={() => setIsCreateDialogOpen(true)}
-          className="px-3 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-150"
-          style={{
-            backgroundColor: 'var(--color-bg)',
-            border: '2px solid var(--color-border)',
-            color: 'var(--color-text)',
-            boxShadow: 'var(--shadow-soft)',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--color-green)';
-            e.currentTarget.style.color = 'white';
-            e.currentTarget.style.boxShadow = 'var(--shadow-soft-hover)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--color-bg)';
-            e.currentTarget.style.color = 'var(--color-text)';
-            e.currentTarget.style.boxShadow = 'var(--shadow-soft)';
-          }}
-        >
-          +
-        </Button>
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider cursor-pointer">
+            <Toggle
+              pressed={showSuspended}
+              onPressedChange={setShowSuspended}
+              className="w-4 h-4"
+              style={{
+                backgroundColor: showSuspended ? 'var(--color-green)' : 'var(--color-bg)',
+                border: '2px solid var(--color-border)',
+              }}
+            />
+            Show Suspended Realms
+          </label>
+
+          <Button
+            onClick={() => setIsCreateDialogOpen(true)}
+            className="px-3 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-150"
+            style={{
+              backgroundColor: 'var(--color-bg)',
+              border: '2px solid var(--color-border)',
+              color: 'var(--color-text)',
+              boxShadow: 'var(--shadow-soft)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-green)';
+              e.currentTarget.style.color = 'white';
+              e.currentTarget.style.boxShadow = 'var(--shadow-soft-hover)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-bg)';
+              e.currentTarget.style.color = 'var(--color-text)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-soft)';
+            }}
+          >
+            +
+          </Button>
+        </div>
       </div>
 
       <BaseDialog.Root open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
