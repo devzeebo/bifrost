@@ -10,3 +10,5 @@ ui/dist
 # Ignore embedded UI dist artifacts but keep the folder
 server/admin/ui/*
 !server/admin/ui/.gitkeep
+
+.ai/
