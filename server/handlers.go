@@ -769,36 +769,46 @@ func (h *Handlers) GetRune(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) ListRealms(w http.ResponseWriter, r *http.Request) {
-	realms, err := h.projectionStore.List(r.Context(), "_admin", "realm_directory")
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list realms")
-		return
-	}
+	ctx := r.Context()
 
-	// Filter realms based on user's access
-	accountID, hasAccountID := AccountIDFromContext(r.Context())
+	// Determine which realm IDs this user can see
+	var realmIDs []string
+	accountID, hasAccountID := AccountIDFromContext(ctx)
 	if hasAccountID && accountID != "" {
 		var accountEntry projectors.AccountAuthEntry
-		if err := h.projectionStore.Get(r.Context(), "_admin", "account_auth", accountID, &accountEntry); err == nil {
-			// System admins (admin/owner in _admin realm) can see all realms
+		if err := h.projectionStore.Get(ctx, "_admin", "account_auth", accountID, &accountEntry); err == nil {
 			isSysAdmin := accountEntry.Roles["_admin"] == "admin" || accountEntry.Roles["_admin"] == "owner"
-			if !isSysAdmin {
-				// Filter to only realms the user has access to
-				var filteredRealms []json.RawMessage
-				for _, raw := range realms {
-					var realm struct {
-						RealmID string `json:"realm_id"`
-					}
-					if err := json.Unmarshal(raw, &realm); err != nil {
-						continue
-					}
-					if _, hasAccess := accountEntry.Roles[realm.RealmID]; hasAccess {
-						filteredRealms = append(filteredRealms, raw)
+			if isSysAdmin {
+				// System admins see all realms
+				ids, err := h.eventStore.ListRealmIDs(ctx)
+				if err != nil {
+					writeError(w, http.StatusInternalServerError, "failed to list realms")
+					return
+				}
+				realmIDs = ids
+			} else {
+				// Regular users see only their realms
+				for id := range accountEntry.Roles {
+					if id != "_admin" {
+						realmIDs = append(realmIDs, id)
 					}
 				}
-				realms = filteredRealms
 			}
 		}
+	}
+
+	// Fetch each realm's directory entry from its own namespace
+	var realms []json.RawMessage
+	for _, id := range realmIDs {
+		var entry projectors.RealmDirectoryEntry
+		if err := h.projectionStore.Get(ctx, id, "realm_directory", id, &entry); err != nil {
+			continue
+		}
+		raw, err := json.Marshal(entry)
+		if err != nil {
+			continue
+		}
+		realms = append(realms, raw)
 	}
 
 	writeJSON(w, http.StatusOK, realms)
@@ -847,7 +857,7 @@ func (h *Handlers) GetRealm(w http.ResponseWriter, r *http.Request) {
 
 	// Get realm info from realm_directory
 	var realmInfo projectors.RealmDirectoryEntry
-	err := h.projectionStore.Get(r.Context(), "_admin", "realm_directory", realmID, &realmInfo)
+	err := h.projectionStore.Get(r.Context(), realmID, "realm_directory", realmID, &realmInfo)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "realm not found")
 		return

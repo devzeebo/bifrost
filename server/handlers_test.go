@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/devzeebo/bifrost/core"
@@ -476,6 +477,8 @@ func TestListRealmsHandler(t *testing.T) {
 
 		// Given
 		tc.handlers_configured()
+		tc.request_has_account_id("acct-admin")
+		tc.account_is_sys_admin("acct-admin")
 		tc.has_realm_list()
 
 		// When
@@ -492,6 +495,8 @@ func TestListRealmsHandler(t *testing.T) {
 
 		// Given
 		tc.handlers_configured()
+		tc.request_has_account_id("acct-admin")
+		tc.account_is_sys_admin("acct-admin")
 
 		// When
 		tc.get("/realms")
@@ -1459,6 +1464,15 @@ func (tc *handlerTestContext) account_exists_in_event_store(accountID string) {
 	tc.eventStore.appendToStream("_admin", "account-"+accountID, domain.EventAccountCreated, created)
 }
 
+func (tc *handlerTestContext) account_is_sys_admin(accountID string) {
+	tc.t.Helper()
+	entry := projectors.AccountAuthEntry{
+		AccountID: accountID,
+		Roles:     map[string]string{"_admin": "owner"},
+	}
+	_ = tc.projectionStore.Put(context.Background(), "_admin", "account_auth", accountID, entry)
+}
+
 func (tc *handlerTestContext) account_has_role_in_event_store(accountID, realmID, role string) {
 	tc.t.Helper()
 	tc.account_exists_in_event_store(accountID)
@@ -1490,7 +1504,8 @@ func (tc *handlerTestContext) has_rune_detail_with_dependencies(realmID, runeID 
 
 func (tc *handlerTestContext) has_realm_list() {
 	tc.t.Helper()
-	_ = tc.projectionStore.Put(context.Background(), "_admin", "realm_directory", "realm-1", map[string]string{
+	tc.eventStore.appendToStream("realm-1", "realm-1", "realm.created", map[string]string{})
+	_ = tc.projectionStore.Put(context.Background(), "realm-1", "realm_directory", "realm-1", map[string]string{
 		"realm_id": "realm-1", "name": "Test Realm", "status": "active",
 	})
 }
@@ -1810,7 +1825,18 @@ func (m *mockEventStore) ReadAll(_ context.Context, realmID string, fromGlobalPo
 }
 
 func (m *mockEventStore) ListRealmIDs(_ context.Context) ([]string, error) {
-	return nil, nil
+	seen := make(map[string]struct{})
+	for key := range m.streams {
+		parts := strings.SplitN(key, ":", 2)
+		if len(parts) == 2 {
+			seen[parts[0]] = struct{}{}
+		}
+	}
+	ids := make([]string, 0, len(seen))
+	for id := range seen {
+		ids = append(ids, id)
+	}
+	return ids, nil
 }
 
 // --- Mock Projection Engine ---
