@@ -13,19 +13,17 @@ import { RealmSelector } from "../../components/RealmSelector/RealmSelector";
 import type { RuneListItem, RuneStatus } from "../../types/rune";
 export { Page };
 
-const STATUS_FILTERS: { label: string; value: RuneStatus | "all" }[] = [
+const ACTIVE_STATUSES: RuneStatus[] = ["draft", "open", "in_progress"];
+
+const STATUS_FILTERS: { label: string; value: RuneStatus | "all" | "active" }[] = [
+  { label: "Active", value: "active" },
   { label: "All", value: "all" },
-  { label: "Draft", value: "draft" },
-  { label: "Open", value: "open" },
-  { label: "In Progress", value: "in_progress" },
-  { label: "Fulfilled", value: "fulfilled" },
-  { label: "Sealed", value: "sealed" },
 ];
 
 function Page() {
   const [runes, setRunes] = useState<RuneListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<RuneStatus | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<RuneStatus | "all" | "active">("active");
   const { realms, isAuthenticated, loading: authLoading } = useAuth();
   const { currentRealm, availableRealms, isLoading: realmLoading } = useRealm();
   const { showToast } = useToast();
@@ -76,7 +74,9 @@ function Page() {
   const filteredRunes =
     statusFilter === "all"
       ? runes
-      : runes.filter((r) => r.status === statusFilter);
+      : statusFilter === "active"
+        ? runes.filter((r) => ACTIVE_STATUSES.includes(r.status))
+        : runes.filter((r) => r.status === statusFilter);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -160,7 +160,7 @@ function Page() {
           onValueChange={(values) => {
             const nextFilter = values[0];
             if (nextFilter) {
-              setStatusFilter(nextFilter as RuneStatus | "all");
+              setStatusFilter(nextFilter as RuneStatus | "all" | "active");
             }
           }}
           className="flex flex-wrap gap-2"
