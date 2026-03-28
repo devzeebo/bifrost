@@ -506,6 +506,42 @@ func TestListRealmsHandler(t *testing.T) {
 		tc.content_type_is_json()
 		tc.response_is_empty_json_array()
 	})
+
+	t.Run("excludes suspended realms by default", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_account_id("acct-admin")
+		tc.account_is_sys_admin("acct-admin")
+		tc.has_realm_list()
+		tc.has_suspended_realm("realm-suspended", "Suspended Realm")
+
+		// When
+		tc.get("/realms")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.response_array_has_length(1)
+	})
+
+	t.Run("includes suspended realms with include_suspended=true", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_account_id("acct-admin")
+		tc.account_is_sys_admin("acct-admin")
+		tc.has_realm_list()
+		tc.has_suspended_realm("realm-suspended", "Suspended Realm")
+
+		// When
+		tc.get("/realms?include_suspended=true")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.response_array_has_length(2)
+	})
 }
 
 // --- Tests: ListRunes ---
@@ -1507,6 +1543,14 @@ func (tc *handlerTestContext) has_realm_list() {
 	tc.eventStore.appendToStream("realm-1", "realm-1", "realm.created", map[string]string{})
 	_ = tc.projectionStore.Put(context.Background(), "realm-1", "realm_directory", "realm-1", map[string]string{
 		"realm_id": "realm-1", "name": "Test Realm", "status": "active",
+	})
+}
+
+func (tc *handlerTestContext) has_suspended_realm(realmID, name string) {
+	tc.t.Helper()
+	tc.eventStore.appendToStream(realmID, realmID, "realm.created", map[string]string{})
+	_ = tc.projectionStore.Put(context.Background(), realmID, "realm_directory", realmID, map[string]string{
+		"realm_id": realmID, "name": name, "status": "suspended",
 	})
 }
 

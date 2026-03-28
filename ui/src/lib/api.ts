@@ -332,8 +332,9 @@ export class ApiClient {
   }
 
   // Realms
-  async getRealms(): Promise<RealmListEntry[]> {
-    return this.request<RealmListEntry[]>("/realms", {
+  async getRealms(includeSuspended = false): Promise<RealmListEntry[]> {
+    const url = includeSuspended ? "/realms?include_suspended=true" : "/realms";
+    return this.request<RealmListEntry[]>(url, {
       method: "GET",
     });
   }

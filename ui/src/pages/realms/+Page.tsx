@@ -85,7 +85,7 @@ function Page() {
 
     const fetchRealms = async () => {
       try {
-        const data = await api.getRealms();
+        const data = await api.getRealms(true);
         const normalized = normalizeRealms(data);
         setRealms(normalized.length > 0 ? normalized : toFallbackRealms());
       } catch {

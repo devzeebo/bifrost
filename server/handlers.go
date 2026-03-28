@@ -797,11 +797,16 @@ func (h *Handlers) ListRealms(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	includeSuspended := r.URL.Query().Get("include_suspended") == "true"
+
 	// Fetch each realm's directory entry from its own namespace
 	var realms []json.RawMessage
 	for _, id := range realmIDs {
 		var entry projectors.RealmDirectoryEntry
 		if err := h.projectionStore.Get(ctx, id, "realm_directory", id, &entry); err != nil {
+			continue
+		}
+		if !includeSuspended && entry.Status == "suspended" {
 			continue
 		}
 		raw, err := json.Marshal(entry)
