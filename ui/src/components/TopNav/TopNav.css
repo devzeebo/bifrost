@@ -115,6 +115,17 @@
   gap: 16px;
 }
 
+/* Realm selector in nav */
+.top-nav__realm-selector {
+  display: flex;
+  align-items: center;
+}
+
+.top-nav__realm-selector [id="realm-select"] {
+  height: 36px;
+  font-size: 0.75rem;
+}
+
 /* Theme toggle button */
 .top-nav__theme-toggle {
   display: flex;

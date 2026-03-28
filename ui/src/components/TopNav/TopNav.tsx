@@ -7,6 +7,8 @@ import { Switch } from "@base-ui/react/switch";
 import { navigate, toUIPath } from "@/lib/router";
 import { useAuth } from "../../lib/auth";
 import { useTheme } from "../../lib/theme";
+import { useRealm } from "../../lib/realm";
+import { RealmSelector } from "../RealmSelector/RealmSelector";
 import "./TopNav.css";
 
 const NAV_LINKS = [
@@ -96,6 +98,7 @@ type TopNavProps = {
 export function TopNav({ currentPath }: TopNavProps) {
   const { username, accountId, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
+  const { availableRealms } = useRealm();
   const [activeIndex, setActiveIndex] = useState(0);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
@@ -210,8 +213,13 @@ export function TopNav({ currentPath }: TopNavProps) {
         ))}
       </div>
 
-      {/* Right side: Theme toggle + Account badge */}
+      {/* Right side: Realm selector + Theme toggle + Account badge */}
       <div className="top-nav__right">
+        {availableRealms.length > 1 && (
+          <div className="top-nav__realm-selector">
+            <RealmSelector />
+          </div>
+        )}
         <Switch.Root
           checked={isDark}
           onCheckedChange={(checked) => {
