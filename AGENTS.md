@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Agent Instructions
 
 # Banned Commands
@@ -101,3 +105,77 @@ You MUST ensure that all quality gates are passed before completing a task, incl
 # NEVER USE FORCE PUSH
 
 You are NEVER allowed to use --force or --force-with-lease. If there is a conflict on the remote, you must pull and rebase and fix it.
+
+# Architecture
+
+## What Bifrost Is
+
+Bifrost is an **event-sourced rune (work item) management service** designed for AI agents. It provides rune lifecycle management, multi-tenant isolation via realms, RBAC, and a CLI + HTTP API + admin UI.
+
+## Go Workspace Structure
+
+7 modules in a Go workspace (`go.work`):
+
+| Module | Purpose |
+|--------|---------|
+| `core` | Event sourcing primitives: EventStore, ProjectionStore, ProjectionEngine |
+| `domain` | Business logic: rune commands, events, handlers, projectors |
+| `domain/integration` | Integration tests for domain module |
+| `providers/sqlite` | SQLite implementations of core interfaces |
+| `providers/postgres` | PostgreSQL implementations of core interfaces |
+| `server` | HTTP API server + admin UI embedding |
+| `cli` | Cobra-based CLI client (`bf` command) |
+
+## Event Sourcing Pattern
+
+All state changes flow through events:
+
+1. **Command** arrives at a domain handler (e.g., `HandleCreateRune`)
+2. Handler validates and emits **Events** (e.g., `RuneCreated`)
+3. Events are **appended** to EventStore (append-only, versioned per aggregate stream)
+4. **ProjectionEngine** feeds events to Projectors (sync after append, async catch-up background)
+5. Projectors write **read models** into ProjectionStore (key-value tables per realm)
+
+The `_admin` realm is special — it stores accounts, PATs, and realm metadata.
+
+## Rune Lifecycle
+
+```
+draft → [forge] → open → [claim] → claimed → [fulfill] → fulfilled
+                        ↓
+                       [seal] → sealed
+```
+
+## Key Projectors
+
+| Projector | Table | Purpose |
+|-----------|-------|---------|
+| `RuneSummaryProjector` | `rune_summary` | List view |
+| `RuneDetailProjector` | `rune_detail` | Full detail + dependencies + notes |
+| `DependencyCycleCheckProjector` | `dependency_cycle_check` | Prevents circular deps |
+| `AccountAuthProjector` | `account_auth` (in `_admin`) | PAT → account auth mapping |
+| `RealmDirectoryProjector` | `realm_directory` (in `_admin`) | Realm metadata |
+
+## Server Request Flow
+
+```
+Request → AuthMiddleware (JWT cookie or Bearer + X-Bifrost-Realm header)
+        → RequireRole middleware (per-route minimum role)
+        → Handler → Domain logic → EventStore.Append → ProjectionEngine.RunSync
+        → Response
+```
+
+RBAC tiers: `viewer < member < admin < owner`. Role checked against the requesting account's role in the target realm.
+
+## UI Architecture
+
+React 19 + Vike (file-based router) + Tailwind CSS 4.2, located in `ui/`.
+
+- `ui/src/pages/` — file-based routes (Vike convention)
+- `ui/src/components/` — shared components
+- `ui/src/lib/api.ts` — `ApiClient` wraps all HTTP calls, injects `X-Bifrost-Realm` header
+- `ui/src/lib/auth.tsx` — `AuthContext` for session state (JWT via HttpOnly cookie)
+- `ui/src/lib/realm.tsx` — `RealmContext` for active realm selection
+
+The compiled UI is embedded in the server binary. During `make dev`, the Vike dev server proxies API calls to the Go server.
+

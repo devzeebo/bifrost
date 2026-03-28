@@ -30,6 +30,10 @@ vi.mock("../../lib/theme", () => ({
   useTheme: vi.fn(),
 }));
 
+vi.mock("../../lib/realm", () => ({
+  useRealm: vi.fn(),
+}));
+
 // Mock navigate function
 vi.mock("vike/client/router", () => ({
   navigate: vi.fn(),
@@ -37,6 +41,7 @@ vi.mock("vike/client/router", () => ({
 
 import { useAuth } from "../../lib/auth";
 import { useTheme } from "../../lib/theme";
+import { useRealm } from "../../lib/realm";
 
 // Helper function to create complete AuthContextValue mock
 const createMockAuthValue = (
@@ -67,6 +72,13 @@ const createMockThemeValue = (
 describe("TopNav", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(useRealm).mockReturnValue({
+      currentRealm: null,
+      setCurrentRealm: vi.fn(),
+      availableRealms: [],
+      realmOptions: [],
+      isLoading: false,
+    });
   });
 
   describe("Navigation Links", () => {
