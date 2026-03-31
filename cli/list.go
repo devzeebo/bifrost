@@ -49,6 +49,17 @@ func NewListCmd(clientFn func() *Client, out *bytes.Buffer) *ListCmd {
 				return err
 			}
 
+			// Apply sorting before output
+			{
+				var runes []map[string]any
+				if json.Unmarshal(respBody, &runes) == nil {
+					sortRunes(runes)
+					if b, err := json.Marshal(runes); err == nil {
+						respBody = b
+					}
+				}
+			}
+
 			return PrintOutput(out, respBody, humanMode, func(w *bytes.Buffer, data []byte) {
 				var runes []map[string]any
 				if json.Unmarshal(data, &runes) != nil {
