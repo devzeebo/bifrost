@@ -328,21 +328,49 @@ func resolveRealmID(ctx context.Context, realmIdent string, roles map[string]str
 		}
 	}
 
-	// Not found as ID, try to resolve as a realm name using RealmNames map
+	// Not found as ID, try to resolve as a realm name using RealmNames map.
+	// Collect all accessible, non-suspended realms matching the name.
+	var matches []string
 	for realmID, name := range realmNames {
-		if name == realmIdent {
-			// Found by name, verify user still has access
-			if roles != nil {
-				if _, ok := roles[realmID]; ok {
-					return realmID, nil
-				}
+		if name != realmIdent {
+			continue
+		}
+		// Verify user has access to this realm
+		hasAccess := false
+		if roles != nil {
+			if _, ok := roles[realmID]; ok {
+				hasAccess = true
 			}
+		}
+		if !hasAccess {
 			for _, r := range realms {
 				if r == realmID {
-					return realmID, nil
+					hasAccess = true
+					break
 				}
 			}
 		}
+		if !hasAccess {
+			continue
+		}
+		// Check realm is not suspended
+		var entry struct {
+			Status string `json:"status"`
+		}
+		if err := projectionStore.Get(ctx, realmID, "realm_directory", realmID, &entry); err != nil {
+			continue
+		}
+		if entry.Status == "suspended" {
+			continue
+		}
+		matches = append(matches, realmID)
+	}
+
+	if len(matches) > 1 {
+		return "", ErrForbidden("Realm name is ambiguous; use realm ID instead")
+	}
+	if len(matches) == 1 {
+		return matches[0], nil
 	}
 
 	// Realm not found by ID or name

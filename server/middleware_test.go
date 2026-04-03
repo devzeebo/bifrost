@@ -262,6 +262,61 @@ func TestAuthMiddleware(t *testing.T) {
 		tc.status_is(http.StatusForbidden)
 		tc.next_handler_was_not_called()
 	})
+
+	t.Run("returns 403 when realm name resolves only to suspended realms", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.request_with_bearer_token(tc.rawKey)
+		tc.request_has_realm_header("my-realm")
+		tc.store_has_realm("realm-1", "my-realm", "suspended")
+		tc.store_has_account_with_roles("acct-1", "alice", "active", map[string]string{"realm-1": "admin"})
+
+		// When
+		tc.middleware_is_invoked()
+
+		// Then
+		tc.status_is(http.StatusForbidden)
+		tc.next_handler_was_not_called()
+	})
+
+	t.Run("returns 403 when realm name is ambiguous across multiple accessible non-suspended realms", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.request_with_bearer_token(tc.rawKey)
+		tc.request_has_realm_header("shared-name")
+		tc.store_has_realm("realm-1", "shared-name", "active")
+		tc.store_has_realm("realm-2", "shared-name", "active")
+		tc.store_has_account_with_roles("acct-1", "alice", "active", map[string]string{"realm-1": "admin", "realm-2": "member"})
+
+		// When
+		tc.middleware_is_invoked()
+
+		// Then
+		tc.status_is(http.StatusForbidden)
+		tc.next_handler_was_not_called()
+		tc.response_body_contains("ambiguous")
+	})
+
+	t.Run("resolves realm name when matching realm is active and other same-named realm is suspended", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.request_with_bearer_token(tc.rawKey)
+		tc.request_has_realm_header("my-realm")
+		tc.store_has_realm("realm-1", "my-realm", "active")
+		tc.store_has_realm("realm-2", "my-realm", "suspended")
+		tc.store_has_account_with_roles("acct-1", "alice", "active", map[string]string{"realm-1": "admin", "realm-2": "member"})
+
+		// When
+		tc.middleware_is_invoked()
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.next_handler_was_called()
+		tc.context_has_realm_id("realm-1")
+	})
 }
 
 func TestRequireRealm(t *testing.T) {
@@ -723,7 +778,7 @@ func (tc *testContext) store_has_realm(realmID, name, status string) {
 		"status":     status,
 		"created_at": "2026-01-01T00:00:00Z",
 	}
-	tc.store.put("_admin", "realm_directory", realmID, entry)
+	tc.store.put(realmID, "realm_directory", realmID, entry)
 	// Also populate realmNames for account auth entry
 	if tc.realmNames == nil {
 		tc.realmNames = make(map[string]string)
@@ -834,6 +889,11 @@ func (tc *testContext) context_has_role(expected string) {
 	role, ok := RoleFromContext(tc.capturedCtx)
 	assert.True(tc.t, ok, "expected role in context")
 	assert.Equal(tc.t, expected, role)
+}
+
+func (tc *testContext) response_body_contains(substring string) {
+	tc.t.Helper()
+	assert.Contains(tc.t, tc.recorder.Body.String(), substring)
 }
 
 // --- Mock Projection Store ---
