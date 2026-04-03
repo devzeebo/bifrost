@@ -32,9 +32,11 @@ bf claim <id>         # Claim a rune
 bf fulfill <id>       # Mark a rune as fulfilled
 bf seal <id>          # Seal (close) a rune that won't be implemented
 bf update <id>        # Update a rune
-bf note <id> <text>   # Add a note to a rune
-bf events <id>        # View rune event history
-bf ready              # List runes ready for work
+bf note <id> <text>         # Add a note to a rune
+bf retro <id>              # View retrospective for a rune or saga
+bf retro <id> <text>       # Add a retro item to a rune (allowed in all states)
+bf events <id>             # View rune event history
+bf ready                   # List runes ready for work
 ```
 
 ## Dependency Commands
