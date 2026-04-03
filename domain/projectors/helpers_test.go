@@ -23,6 +23,7 @@ var _ core.Projector = (*SystemStatusProjector)(nil)
 var _ core.Projector = (*DependencyCycleCheckProjector)(nil)
 var _ core.Projector = (*AccountAuthProjector)(nil)
 var _ core.Projector = (*RuneSummaryProjector)(nil)
+var _ core.Projector = (*RuneRetroProjector)(nil)
 
 // --- Helpers ---
 

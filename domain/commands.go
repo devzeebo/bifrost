@@ -59,3 +59,8 @@ type AddNote struct {
 	RuneID string `json:"rune_id"`
 	Text   string `json:"text"`
 }
+
+type AddRetro struct {
+	RuneID string `json:"rune_id"`
+	Text   string `json:"text"`
+}

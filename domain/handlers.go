@@ -531,6 +531,25 @@ func HandleAddNote(ctx context.Context, realmID string, cmd AddNote, store core.
 	return err
 }
 
+func HandleAddRetro(ctx context.Context, realmID string, cmd AddRetro, store core.EventStore) error {
+	state, events, err := readAndRebuild(ctx, realmID, cmd.RuneID, store)
+	if err != nil {
+		return err
+	}
+	if !state.Exists {
+		return &core.NotFoundError{Entity: "rune", ID: cmd.RuneID}
+	}
+	// No status gate — retro items are allowed in all states including shattered.
+
+	retroed := RuneRetroed(cmd)
+
+	streamID := runeStreamID(cmd.RuneID)
+	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
+		{EventType: EventRuneRetroed, Data: retroed},
+	})
+	return err
+}
+
 func HandleShatterRune(ctx context.Context, realmID string, cmd ShatterRune, store core.EventStore) error {
 	state, events, err := readAndRebuild(ctx, realmID, cmd.ID, store)
 	if err != nil {

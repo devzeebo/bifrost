@@ -48,6 +48,8 @@ func NewHandlers(eventStore core.EventStore, projectionStore core.ProjectionStor
 	h.mux.HandleFunc("POST /add-dependency", h.AddDependency)
 	h.mux.HandleFunc("POST /remove-dependency", h.RemoveDependency)
 	h.mux.HandleFunc("POST /add-note", h.AddNote)
+	h.mux.HandleFunc("POST /add-retro", h.AddRetro)
+	h.mux.HandleFunc("GET /retro", h.GetRetro)
 	h.mux.HandleFunc("POST /shatter-rune", h.ShatterRune)
 	h.mux.HandleFunc("POST /sweep-runes", h.SweepRunes)
 	h.mux.HandleFunc("GET /runes", h.ListRunes)
@@ -98,12 +100,14 @@ func (h *Handlers) RegisterRoutes(mux *http.ServeMux, realmMiddleware, adminMidd
 	mux.Handle("POST /api/add-dependency", memberAuth(http.HandlerFunc(h.AddDependency)))
 	mux.Handle("POST /api/remove-dependency", memberAuth(http.HandlerFunc(h.RemoveDependency)))
 	mux.Handle("POST /api/add-note", memberAuth(http.HandlerFunc(h.AddNote)))
+	mux.Handle("POST /api/add-retro", memberAuth(http.HandlerFunc(h.AddRetro)))
 	mux.Handle("POST /api/shatter-rune", memberAuth(http.HandlerFunc(h.ShatterRune)))
 	mux.Handle("POST /api/sweep-runes", memberAuth(http.HandlerFunc(h.SweepRunes)))
 
 	// Rune queries (viewer role minimum)
 	mux.Handle("GET /api/runes", viewerAuth(http.HandlerFunc(h.ListRunes)))
 	mux.Handle("GET /api/rune", viewerAuth(http.HandlerFunc(h.GetRune)))
+	mux.Handle("GET /api/retro", viewerAuth(http.HandlerFunc(h.GetRetro)))
 
 	// Role management (admin role minimum, realm auth)
 	mux.Handle("POST /api/assign-role", adminRealmAuth(http.HandlerFunc(h.AssignRole)))
@@ -471,6 +475,79 @@ func (h *Handlers) AddNote(w http.ResponseWriter, r *http.Request) {
 	}
 	h.runSyncQuietly(r)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) AddRetro(w http.ResponseWriter, r *http.Request) {
+	realmID, ok := RealmIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusForbidden, "realm ID required")
+		return
+	}
+	var cmd domain.AddRetro
+	if err := json.NewDecoder(r.Body).Decode(&cmd); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if err := domain.HandleAddRetro(r.Context(), realmID, cmd, h.eventStore); err != nil {
+		handleDomainError(w, err)
+		return
+	}
+	h.runSyncQuietly(r)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) GetRetro(w http.ResponseWriter, r *http.Request) {
+	realmID, ok := RealmIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusForbidden, "realm ID required")
+		return
+	}
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		writeError(w, http.StatusBadRequest, "id query parameter is required")
+		return
+	}
+
+	// Determine if id refers to a saga by checking rune_child_count.
+	var childCount projectors.RuneChildCountEntry
+	err := h.projectionStore.Get(r.Context(), realmID, "rune_child_count", id, &childCount)
+	isSaga := err == nil && childCount.Count > 0
+
+	if isSaga {
+		allRunes, err := h.projectionStore.List(r.Context(), realmID, "rune_summary")
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to list runes")
+			return
+		}
+		result := make([]projectors.RuneRetro, 0)
+		for _, raw := range allRunes {
+			var summary projectors.RuneSummary
+			if json.Unmarshal(raw, &summary) != nil {
+				continue
+			}
+			if summary.ParentID != id {
+				continue
+			}
+			var retro projectors.RuneRetro
+			if err := h.projectionStore.Get(r.Context(), realmID, "rune_retro", summary.ID, &retro); err != nil {
+				continue
+			}
+			result = append(result, retro)
+		}
+		writeJSON(w, http.StatusOK, result)
+		return
+	}
+
+	var retro projectors.RuneRetro
+	if err := h.projectionStore.Get(r.Context(), realmID, "rune_retro", id, &retro); err != nil {
+		if isNotFound(err) {
+			writeError(w, http.StatusNotFound, "rune not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to get rune retro")
+		return
+	}
+	writeJSON(w, http.StatusOK, retro)
 }
 
 func (h *Handlers) CreateRealm(w http.ResponseWriter, r *http.Request) {

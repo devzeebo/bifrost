@@ -12,6 +12,7 @@ const (
 	EventRuneNoted         = "RuneNoted"
 	EventRuneUnclaimed     = "RuneUnclaimed"
 	EventRuneShattered     = "RuneShattered"
+	EventRuneRetroed       = "RuneRetroed"
 )
 
 const (
@@ -122,4 +123,9 @@ type RuneNoted struct {
 
 type RuneShattered struct {
 	ID string `json:"id"`
+}
+
+type RuneRetroed struct {
+	RuneID string `json:"rune_id"`
+	Text   string `json:"text"`
 }

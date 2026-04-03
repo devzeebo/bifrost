@@ -401,6 +401,161 @@ func TestAddNote(t *testing.T) {
 	})
 }
 
+func TestAddRetro(t *testing.T) {
+	t.Run("adds retro item to existing rune, emits RuneRetroed event", func(t *testing.T) {
+		tc := newIntegrationTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_existing_top_level_rune("Task with retro", 1)
+
+		// When
+		tc.add_retro("We should have split this into smaller tasks")
+
+		// Then
+		tc.no_error()
+		tc.stream_has_event_type(2, domain.EventRuneRetroed)
+	})
+
+	t.Run("allows retro on fulfilled rune", func(t *testing.T) {
+		tc := newIntegrationTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_existing_top_level_rune("Fulfilled task", 1)
+		tc.claim_rune("odin")
+		require.NoError(t, tc.err)
+		tc.fulfill_rune()
+		require.NoError(t, tc.err)
+
+		// When
+		tc.add_retro("Good outcome, but scope crept")
+
+		// Then
+		tc.no_error()
+	})
+
+	t.Run("allows retro on sealed rune", func(t *testing.T) {
+		tc := newIntegrationTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_existing_sealed_rune("Sealed task", 1)
+
+		// When
+		tc.add_retro("Sealed because requirements changed")
+
+		// Then
+		tc.no_error()
+	})
+
+	t.Run("returns error for non-existent rune", func(t *testing.T) {
+		tc := newIntegrationTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.createdEvent = domain.RuneCreated{ID: "bf-0000"}
+
+		// When
+		tc.add_retro("This should fail")
+
+		// Then
+		tc.error_contains("not found")
+	})
+}
+
+func TestRuneRetroProjector_FullLifecycle(t *testing.T) {
+	t.Run("retro projector tracks status changes and retro items", func(t *testing.T) {
+		tc := newIntegrationTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+
+		// When: create rune
+		tc.create_top_level_rune("Fix the bridge", "Needs repair", 1)
+		tc.no_error()
+		tc.project_all_events()
+		runeID := tc.createdEvent.ID
+
+		// Then: rune_retro has initial entry with draft status
+		tc.rune_retro_entry_exists(runeID)
+		tc.rune_retro_entry_has_status(runeID, "draft")
+		tc.rune_retro_entry_has_item_count(runeID, 0)
+
+		// When: forge rune
+		tc.forge_rune()
+		tc.no_error()
+		tc.project_all_events()
+
+		// Then: rune_retro reflects open status
+		tc.rune_retro_entry_has_status(runeID, "open")
+
+		// When: add retro item
+		tc.add_retro("We should have started earlier")
+		tc.no_error()
+		tc.project_all_events()
+
+		// Then: retro item appears in rune_retro
+		tc.rune_retro_entry_has_item_count(runeID, 1)
+		tc.rune_retro_entry_has_item_text(runeID, 0, "We should have started earlier")
+
+		// When: claim and fulfill
+		tc.claim_rune("odin")
+		require.NoError(t, tc.err)
+		tc.fulfill_rune()
+		require.NoError(t, tc.err)
+		tc.project_all_events()
+
+		// Then: status is fulfilled
+		tc.rune_retro_entry_has_status(runeID, "fulfilled")
+
+		// When: add another retro item after fulfill
+		tc.add_retro("Good collaboration")
+		tc.no_error()
+		tc.project_all_events()
+
+		// Then: retro now has 2 items
+		tc.rune_retro_entry_has_item_count(runeID, 2)
+	})
+
+	t.Run("retro entry survives rune shatter", func(t *testing.T) {
+		tc := newIntegrationTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.create_top_level_rune("Task to shatter", "", 1)
+		tc.no_error()
+		tc.project_all_events()
+		runeID := tc.createdEvent.ID
+
+		tc.forge_rune()
+		require.NoError(t, tc.err)
+		tc.seal_rune("won't fix")
+		require.NoError(t, tc.err)
+		tc.project_all_events()
+
+		// When: add retro before shatter
+		tc.add_retro("Decided this was out of scope")
+		tc.no_error()
+		tc.project_all_events()
+
+		// Verify retro exists before shatter
+		tc.rune_retro_entry_has_item_count(runeID, 1)
+
+		// When: shatter the rune (fulfill first to satisfy shatter precondition)
+		// Note: shatter requires fulfilled or sealed state
+		err := domain.HandleShatterRune(tc.ctx, tc.realmID, domain.ShatterRune{ID: runeID}, tc.stack.EventStore)
+		require.NoError(t, err)
+		tc.project_all_events()
+
+		// Then: rune_retro entry still exists with retro items intact
+		tc.rune_retro_entry_exists(runeID)
+		tc.rune_retro_entry_has_status(runeID, "shattered")
+		tc.rune_retro_entry_has_item_count(runeID, 1)
+		tc.rune_retro_entry_has_item_text(runeID, 0, "Decided this was out of scope")
+	})
+}
+
 // --- Projector Integration Tests ---
 
 func TestRuneListProjector_FullLifecycle(t *testing.T) {
@@ -1321,3 +1476,44 @@ func (tc *integrationTestContext) rebuild_state(runeID string) domain.RuneState 
 
 func strPtr(s string) *string { return &s }
 func intPtr(i int) *int       { return &i }
+
+// add_retro adds a retro item to the most recently created rune.
+func (tc *integrationTestContext) add_retro(text string) {
+	tc.t.Helper()
+	tc.err = domain.HandleAddRetro(tc.ctx, tc.realmID, domain.AddRetro{
+		RuneID: tc.createdEvent.ID, Text: text,
+	}, tc.stack.EventStore)
+}
+
+func (tc *integrationTestContext) rune_retro_entry_exists(runeID string) {
+	tc.t.Helper()
+	var retro projectors.RuneRetro
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_retro", runeID, &retro)
+	require.NoError(tc.t, err, "expected rune_retro entry for %s", runeID)
+	assert.Equal(tc.t, runeID, retro.ID)
+}
+
+func (tc *integrationTestContext) rune_retro_entry_has_item_count(runeID string, expected int) {
+	tc.t.Helper()
+	var retro projectors.RuneRetro
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_retro", runeID, &retro)
+	require.NoError(tc.t, err)
+	assert.Len(tc.t, retro.RetroItems, expected)
+}
+
+func (tc *integrationTestContext) rune_retro_entry_has_item_text(runeID string, index int, expected string) {
+	tc.t.Helper()
+	var retro projectors.RuneRetro
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_retro", runeID, &retro)
+	require.NoError(tc.t, err)
+	require.Greater(tc.t, len(retro.RetroItems), index)
+	assert.Equal(tc.t, expected, retro.RetroItems[index].Text)
+}
+
+func (tc *integrationTestContext) rune_retro_entry_has_status(runeID, expected string) {
+	tc.t.Helper()
+	var retro projectors.RuneRetro
+	err := tc.stack.ProjectionStore.Get(tc.ctx, tc.realmID, "rune_retro", runeID, &retro)
+	require.NoError(tc.t, err)
+	assert.Equal(tc.t, expected, retro.Status)
+}

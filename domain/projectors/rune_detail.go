@@ -31,6 +31,7 @@ type RuneDetail struct {
 	Type         string          `json:"type,omitempty"`
 	Dependencies []DependencyRef `json:"dependencies"`
 	Notes        []NoteEntry     `json:"notes"`
+	RetroItems   []RetroEntry    `json:"retro_items"`
 	CreatedAt    time.Time       `json:"created_at"`
 	UpdatedAt    time.Time       `json:"updated_at"`
 }
@@ -71,6 +72,8 @@ func (p *RuneDetailProjector) Handle(ctx context.Context, event core.Event, stor
 		return p.handleDependencyRemoved(ctx, event, store)
 	case domain.EventRuneNoted:
 		return p.handleNoted(ctx, event, store)
+	case domain.EventRuneRetroed:
+		return p.handleRetroed(ctx, event, store)
 	case domain.EventRuneShattered:
 		return p.handleShattered(ctx, event, store)
 	}
@@ -93,6 +96,7 @@ func (p *RuneDetailProjector) handleCreated(ctx context.Context, event core.Even
 		Type:         data.Type,
 		Dependencies: []DependencyRef{},
 		Notes:        []NoteEntry{},
+		RetroItems:   []RetroEntry{},
 		CreatedAt:    event.Timestamp,
 		UpdatedAt:    event.Timestamp,
 	}
@@ -263,6 +267,29 @@ func (p *RuneDetailProjector) handleNoted(ctx context.Context, event core.Event,
 		}
 	}
 	detail.Notes = append(detail.Notes, NoteEntry{
+		Text:      data.Text,
+		CreatedAt: event.Timestamp,
+	})
+	detail.UpdatedAt = event.Timestamp
+	return store.Put(ctx, event.RealmID, "rune_detail", data.RuneID, detail)
+}
+
+func (p *RuneDetailProjector) handleRetroed(ctx context.Context, event core.Event, store core.ProjectionStore) error {
+	var data domain.RuneRetroed
+	if err := json.Unmarshal(event.Data, &data); err != nil {
+		return err
+	}
+	var detail RuneDetail
+	if err := store.Get(ctx, event.RealmID, "rune_detail", data.RuneID, &detail); err != nil {
+		return err
+	}
+	// Check for duplicate for idempotency (retro items are unique by text + timestamp)
+	for _, item := range detail.RetroItems {
+		if item.Text == data.Text && item.CreatedAt.Equal(event.Timestamp) {
+			return nil // Already exists, idempotent
+		}
+	}
+	detail.RetroItems = append(detail.RetroItems, RetroEntry{
 		Text:      data.Text,
 		CreatedAt: event.Timestamp,
 	})
