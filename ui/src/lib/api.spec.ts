@@ -177,8 +177,8 @@ describe("ApiClient", () => {
   describe("getRunes", () => {
     test("sends GET request to /api/runes with realm header", async () => {
       const runes = [
-        { id: "1", title: "Rune 1", status: "open" as const, priority: 1, realm_id: "test-realm", created_at: "", updated_at: "" },
-        { id: "2", title: "Rune 2", status: "open" as const, priority: 1, realm_id: "test-realm", created_at: "", updated_at: "" },
+        { id: "1", title: "Rune 1", status: "open" as const, priority: 1, realm_id: "test-realm", created_at: "", updated_at: "", tags: [] },
+        { id: "2", title: "Rune 2", status: "open" as const, priority: 1, realm_id: "test-realm", created_at: "", updated_at: "", tags: [] },
       ];
 
       mockFetch.mockResolvedValueOnce({
@@ -201,6 +201,31 @@ describe("ApiClient", () => {
       expect(result).toEqual(runes);
     });
 
+  });
+
+  describe("getRunes tag normalization", () => {
+    test("normalizes tags to lowercase", async () => {
+      const runes = [
+        {
+          id: "1",
+          title: "Rune 1",
+          status: "open" as const,
+          priority: 1,
+          realm_id: "test-realm",
+          created_at: "",
+          updated_at: "",
+          tags: ["Backend", " urgent "],
+        },
+      ];
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => runes,
+      });
+
+      const result = await apiClient.getRunes("test-realm");
+      expect(result[0].tags).toEqual(["backend", "urgent"]);
+    });
   });
 
   describe("getRune", () => {
@@ -324,6 +349,24 @@ describe("ApiClient", () => {
             "X-Bifrost-Realm": "test-realm",
           }),
           credentials: "include",
+        })
+      );
+    });
+
+    test("includes lowercase tags in update command", async () => {
+      const updates = { tags: ["Backend", " urgent "] };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+      });
+
+      await apiClient.updateRune("test-realm", "1", updates);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/update-rune",
+        expect.objectContaining({
+          body: JSON.stringify({ id: "1", tags: ["backend", "urgent"] }),
         })
       );
     });

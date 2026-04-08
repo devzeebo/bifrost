@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/devzeebo/bifrost/core"
 )
@@ -21,6 +23,7 @@ type RuneState struct {
 	Claimant    string
 	ParentID    string
 	Branch      string
+	Tags        []string
 	Priority    int
 	Type        string
 	Exists      bool
@@ -40,6 +43,7 @@ func RebuildRuneState(events []core.Event) RuneState {
 			state.Priority = data.Priority
 			state.ParentID = data.ParentID
 			state.Branch = data.Branch
+			state.Tags = normalizeTags(data.Tags)
 			state.Type = data.Type
 			if state.Type == "" {
 				state.Type = "rune"
@@ -60,6 +64,7 @@ func RebuildRuneState(events []core.Event) RuneState {
 			if data.Branch != nil {
 				state.Branch = *data.Branch
 			}
+			state.Tags = applyTagMutations(state.Tags, data.Tags, data.AddTags, data.RemoveTags)
 		case EventRuneClaimed:
 			var data RuneClaimed
 			_ = json.Unmarshal(evt.Data, &data)
@@ -164,6 +169,7 @@ func HandleCreateRune(ctx context.Context, realmID string, cmd CreateRune, store
 		Priority:    cmd.Priority,
 		ParentID:    cmd.ParentID,
 		Branch:      branch,
+		Tags:        normalizeTags(cmd.Tags),
 		Type:        runeType,
 	}
 
@@ -193,7 +199,16 @@ func HandleUpdateRune(ctx context.Context, realmID string, cmd UpdateRune, store
 		return fmt.Errorf("cannot update shattered rune %q", cmd.ID)
 	}
 
-	updated := RuneUpdated(cmd)
+	updated := RuneUpdated{
+		ID:          cmd.ID,
+		Title:       cmd.Title,
+		Description: cmd.Description,
+		Priority:    cmd.Priority,
+		Branch:      cmd.Branch,
+		Tags:        normalizeTagPointer(cmd.Tags),
+		AddTags:     normalizeTags(cmd.AddTags),
+		RemoveTags:  normalizeTags(cmd.RemoveTags),
+	}
 
 	streamID := runeStreamID(cmd.ID)
 	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
@@ -672,4 +687,59 @@ func isKnownRelationship(rel string) bool {
 func isNotFoundError(err error) bool {
 	var nfe *core.NotFoundError
 	return errors.As(err, &nfe)
+}
+
+func normalizeTagPointer(tags *[]string) *[]string {
+	if tags == nil {
+		return nil
+	}
+	normalized := normalizeTags(*tags)
+	return &normalized
+}
+
+func normalizeTags(tags []string) []string {
+	if len(tags) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(tags))
+	out := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		normalized := strings.ToLower(strings.TrimSpace(tag))
+		if normalized == "" {
+			continue
+		}
+		if _, exists := seen[normalized]; exists {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, normalized)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func applyTagMutations(current []string, replacement *[]string, addTags []string, removeTags []string) []string {
+	next := normalizeTags(current)
+	if replacement != nil {
+		next = normalizeTags(*replacement)
+	}
+	if len(addTags) == 0 && len(removeTags) == 0 {
+		return next
+	}
+	set := make(map[string]struct{}, len(next))
+	for _, tag := range next {
+		set[tag] = struct{}{}
+	}
+	for _, tag := range normalizeTags(addTags) {
+		set[tag] = struct{}{}
+	}
+	for _, tag := range normalizeTags(removeTags) {
+		delete(set, tag)
+	}
+	out := make([]string, 0, len(set))
+	for tag := range set {
+		out = append(out, tag)
+	}
+	sort.Strings(out)
+	return out
 }

@@ -39,6 +39,7 @@ func TestCreateRuneCommand(t *testing.T) {
 		tc.cmd_json_omits_key("description")
 		tc.cmd_json_omits_key("parent_id")
 		tc.cmd_json_omits_key("branch")
+		tc.cmd_json_omits_key("tags")
 	})
 }
 
@@ -70,6 +71,9 @@ func TestUpdateRuneCommand(t *testing.T) {
 		tc.cmd_json_omits_key("description")
 		tc.cmd_json_omits_key("priority")
 		tc.cmd_json_omits_key("branch")
+		tc.cmd_json_omits_key("tags")
+		tc.cmd_json_omits_key("add_tags")
+		tc.cmd_json_omits_key("remove_tags")
 	})
 }
 
@@ -253,6 +257,7 @@ func (tc *cmdTestContext) create_rune_command() {
 		Priority:    1,
 		ParentID:    "epic-1",
 		Branch:      &branch,
+		Tags:        []string{"backend", "p1"},
 	}
 }
 
@@ -276,6 +281,9 @@ func (tc *cmdTestContext) update_rune_command_with_all_fields() {
 		Description: &desc,
 		Priority:    &prio,
 		Branch:      &branch,
+		Tags:        &[]string{"backend", "urgent"},
+		AddTags:     []string{"newtag"},
+		RemoveTags:  []string{"oldtag"},
 	}
 }
 
@@ -477,6 +485,10 @@ func (tc *cmdTestContext) update_rune_fields_match() {
 	assert.Equal(tc.t, *tc.updateRune.Priority, *tc.roundTrippedUpdateRune.Priority)
 	require.NotNil(tc.t, tc.roundTrippedUpdateRune.Branch)
 	assert.Equal(tc.t, *tc.updateRune.Branch, *tc.roundTrippedUpdateRune.Branch)
+	require.NotNil(tc.t, tc.roundTrippedUpdateRune.Tags)
+	assert.Equal(tc.t, *tc.updateRune.Tags, *tc.roundTrippedUpdateRune.Tags)
+	assert.Equal(tc.t, tc.updateRune.AddTags, tc.roundTrippedUpdateRune.AddTags)
+	assert.Equal(tc.t, tc.updateRune.RemoveTags, tc.roundTrippedUpdateRune.RemoveTags)
 }
 
 func (tc *cmdTestContext) claim_rune_fields_match() {

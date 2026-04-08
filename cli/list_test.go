@@ -90,6 +90,21 @@ func TestListCommand(t *testing.T) {
 		tc.request_query_param_was("branch", "feature-x")
 	})
 
+	t.Run("passes tag filter as tags query parameter", func(t *testing.T) {
+		tc := newListTestContext(t)
+
+		// Given
+		tc.server_that_captures_request_and_returns_runes()
+		tc.client_configured()
+
+		// When
+		tc.execute_list_with_tag("Backend")
+
+		// Then
+		tc.command_has_no_error()
+		tc.request_query_param_was("tags", "backend")
+	})
+
 	t.Run("omits branch query parameter when flag not set", func(t *testing.T) {
 		tc := newListTestContext(t)
 
@@ -270,6 +285,14 @@ func (tc *listTestContext) execute_list_with_human() {
 	tc.t.Helper()
 	cmd := NewListCmd(func() *Client { return tc.client }, tc.buf)
 	cmd.Command.SetArgs([]string{"--human"})
+	cmd.Command.SetErr(tc.buf)
+	tc.err = cmd.Command.Execute()
+}
+
+func (tc *listTestContext) execute_list_with_tag(tag string) {
+	tc.t.Helper()
+	cmd := NewListCmd(func() *Client { return tc.client }, tc.buf)
+	cmd.Command.SetArgs([]string{"--tag", tag})
 	cmd.Command.SetErr(tc.buf)
 	tc.err = cmd.Command.Execute()
 }

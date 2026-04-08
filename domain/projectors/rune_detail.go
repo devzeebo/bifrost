@@ -28,6 +28,7 @@ type RuneDetail struct {
 	Claimant     string          `json:"claimant,omitempty"`
 	ParentID     string          `json:"parent_id,omitempty"`
 	Branch       string          `json:"branch,omitempty"`
+	Tags         []string        `json:"tags,omitempty"`
 	Type         string          `json:"type,omitempty"`
 	Dependencies []DependencyRef `json:"dependencies"`
 	Notes        []NoteEntry     `json:"notes"`
@@ -93,6 +94,7 @@ func (p *RuneDetailProjector) handleCreated(ctx context.Context, event core.Even
 		Priority:     data.Priority,
 		ParentID:     data.ParentID,
 		Branch:       data.Branch,
+		Tags:         normalizeTags(data.Tags),
 		Type:         data.Type,
 		Dependencies: []DependencyRef{},
 		Notes:        []NoteEntry{},
@@ -138,6 +140,7 @@ func (p *RuneDetailProjector) handleUpdated(ctx context.Context, event core.Even
 	if data.Branch != nil {
 		detail.Branch = *data.Branch
 	}
+	detail.Tags = applyTagMutations(detail.Tags, data.Tags, data.AddTags, data.RemoveTags)
 	detail.UpdatedAt = event.Timestamp
 	return store.Put(ctx, event.RealmID, "rune_detail", data.ID, detail)
 }

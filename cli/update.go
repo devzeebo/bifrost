@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -45,6 +46,28 @@ func NewUpdateCmd(clientFn func() *Client, out *bytes.Buffer) *UpdateCmd {
 				branch, _ := cmd.Flags().GetString("branch")
 				body["branch"] = branch
 			}
+			if cmd.Flags().Changed("add-tag") {
+				tags, _ := cmd.Flags().GetStringSlice("add-tag")
+				normalized := make([]string, 0, len(tags))
+				for _, tag := range tags {
+					tag = strings.ToLower(strings.TrimSpace(tag))
+					if tag != "" {
+						normalized = append(normalized, tag)
+					}
+				}
+				body["add_tags"] = normalized
+			}
+			if cmd.Flags().Changed("remove-tag") {
+				tags, _ := cmd.Flags().GetStringSlice("remove-tag")
+				normalized := make([]string, 0, len(tags))
+				for _, tag := range tags {
+					tag = strings.ToLower(strings.TrimSpace(tag))
+					if tag != "" {
+						normalized = append(normalized, tag)
+					}
+				}
+				body["remove_tags"] = normalized
+			}
 
 			_, err := clientFn().DoPost("/update-rune", body)
 			if err != nil {
@@ -63,6 +86,8 @@ func NewUpdateCmd(clientFn func() *Client, out *bytes.Buffer) *UpdateCmd {
 	cmd.Flags().String("priority", "", "new priority (0-4)")
 	cmd.Flags().StringP("description", "d", "", "new description")
 	cmd.Flags().String("branch", "", "branch name")
+	cmd.Flags().StringSlice("add-tag", nil, "tag to add (repeatable)")
+	cmd.Flags().StringSlice("remove-tag", nil, "tag to remove (repeatable)")
 	cmd.Flags().Bool("human", false, "human-readable output")
 
 	c.Command = cmd

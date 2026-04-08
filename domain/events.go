@@ -35,6 +35,7 @@ type RuneCreated struct {
 	Priority    int    `json:"priority"`
 	ParentID    string `json:"parent_id,omitempty"`
 	Branch      string `json:"branch,omitempty"`
+	Tags        []string `json:"tags,omitempty"`
 	Type        string `json:"type,omitempty"`
 }
 
@@ -48,6 +49,9 @@ type RuneUpdated struct {
 	Description *string `json:"description,omitempty"`
 	Priority    *int    `json:"priority,omitempty"`
 	Branch      *string `json:"branch,omitempty"`
+	Tags        *[]string `json:"tags,omitempty"`
+	AddTags     []string `json:"add_tags,omitempty"`
+	RemoveTags  []string `json:"remove_tags,omitempty"`
 }
 
 type RuneClaimed struct {

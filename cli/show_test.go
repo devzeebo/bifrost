@@ -96,6 +96,22 @@ func TestShowCommand(t *testing.T) {
 		tc.output_not_contains("Branch:")
 	})
 
+	t.Run("displays tags in human output when present", func(t *testing.T) {
+		tc := newShowTestContext(t)
+
+		// Given
+		tc.server_that_returns_json(`{"id":"bf-abc","title":"My Rune","status":"open","priority":1,"tags":["backend","urgent"]}`)
+		tc.client_configured()
+
+		// When
+		tc.execute_show_with_human("bf-abc")
+
+		// Then
+		tc.command_has_no_error()
+		tc.output_contains("Tags:")
+		tc.output_contains("backend, urgent")
+	})
+
 	t.Run("returns error when server responds with not found", func(t *testing.T) {
 		tc := newShowTestContext(t)
 
