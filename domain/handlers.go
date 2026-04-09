@@ -693,6 +693,11 @@ func normalizeTagPointer(tags *[]string) *[]string {
 	if tags == nil {
 		return nil
 	}
+	// Preserve explicit empty slice intent (clear all tags)
+	if len(*tags) == 0 {
+		emptySlice := []string{}
+		return &emptySlice
+	}
 	normalized := normalizeTags(*tags)
 	return &normalized
 }

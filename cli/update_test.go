@@ -253,10 +253,13 @@ func (tc *updateTestContext) request_body_has_array_field(key string, expected .
 	raw, ok := tc.receivedBody[key].([]any)
 	require.True(tc.t, ok, "expected %q to be an array", key)
 	actual := make([]string, 0, len(raw))
-	for _, item := range raw {
-		if s, ok := item.(string); ok {
-			actual = append(actual, s)
+	for i, item := range raw {
+		s, ok := item.(string)
+		if !ok {
+			require.Fail(tc.t, "request_body_has_array_field: non-string element in array",
+				"expected all elements in %q to be strings, but element at index %d is %T: %v", key, i, item, item)
 		}
+		actual = append(actual, s)
 	}
 	assert.Equal(tc.t, expected, actual)
 }

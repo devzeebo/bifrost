@@ -56,6 +56,7 @@ func TestRuneCreated(t *testing.T) {
 		tc.json_omits_key("description")
 		tc.json_omits_key("parent_id")
 		tc.json_omits_key("branch")
+		tc.json_omits_key("tags")
 	})
 }
 
@@ -669,6 +670,7 @@ func (tc *testContext) rune_created_json_has_expected_keys() {
 	assert.Contains(tc.t, tc.jsonMap, "id")
 	assert.Contains(tc.t, tc.jsonMap, "title")
 	assert.Contains(tc.t, tc.jsonMap, "priority")
+	assert.Contains(tc.t, tc.jsonMap, "tags")
 }
 
 func (tc *testContext) rune_updated_fields_match() {
@@ -686,6 +688,10 @@ func (tc *testContext) rune_updated_fields_match() {
 	assert.Equal(tc.t, *tc.runeUpdated.Tags, *tc.roundTrippedUpdated.Tags)
 	assert.Equal(tc.t, tc.runeUpdated.AddTags, tc.roundTrippedUpdated.AddTags)
 	assert.Equal(tc.t, tc.runeUpdated.RemoveTags, tc.roundTrippedUpdated.RemoveTags)
+	// Explicitly verify JSON keys to catch typos in struct tags
+	assert.Contains(tc.t, tc.jsonMap, "tags")
+	assert.Contains(tc.t, tc.jsonMap, "add_tags")
+	assert.Contains(tc.t, tc.jsonMap, "remove_tags")
 }
 
 func (tc *testContext) rune_claimed_fields_match() {
