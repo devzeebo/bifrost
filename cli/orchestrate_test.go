@@ -198,10 +198,10 @@ func (f *failingDispatcher) Dispatch(ctx context.Context, rune DispatchInput) (*
 // --- Test context ---
 
 type orchestratorTestContext struct {
-	t          *testing.T
-	server     *httptest.Server
-	requests   []recordedRequest
-	mu         sync.Mutex
+	t           *testing.T
+	server      *httptest.Server
+	requests    []recordedRequest
+	mu          sync.Mutex
 	claimBodies []map[string]any
 }
 
@@ -212,44 +212,59 @@ type recordedRequest struct {
 	body   map[string]any
 }
 
+// recordRequestHandler captures HTTP requests and routes responses based on handlerFn.
+// handlerFn should encode the response body and write to w; recordRequestHandler handles
+// request capture, query parsing, POST body unmarshaling, and cleanup.
+type recordRequestHandler struct {
+	tc        *orchestratorTestContext
+	handlerFn func(w http.ResponseWriter, r *http.Request, rec recordedRequest)
+}
+
+func (h *recordRequestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	rec := recordedRequest{
+		method: r.Method,
+		path:   r.URL.Path,
+		query:  make(map[string]string),
+	}
+	for k, v := range r.URL.Query() {
+		if len(v) > 0 {
+			rec.query[k] = v[0]
+		}
+	}
+	if r.Method == "POST" {
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &rec.body)
+	}
+
+	h.tc.mu.Lock()
+	h.tc.requests = append(h.tc.requests, rec)
+	if r.URL.Path == "/api/claim-rune" {
+		h.tc.claimBodies = append(h.tc.claimBodies, rec.body)
+	}
+	h.tc.mu.Unlock()
+
+	h.handlerFn(w, r, rec)
+}
+
 func newOrchestratorTestContext(t *testing.T) *orchestratorTestContext {
 	t.Helper()
 	tc := &orchestratorTestContext{t: t}
 
-	tc.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		rec := recordedRequest{
-			method: r.Method,
-			path:   r.URL.Path,
-			query:  make(map[string]string),
-		}
-		for k, v := range r.URL.Query() {
-			if len(v) > 0 {
-				rec.query[k] = v[0]
+	tc.server = httptest.NewServer(&recordRequestHandler{
+		tc: tc,
+		handlerFn: func(w http.ResponseWriter, r *http.Request, rec recordedRequest) {
+			// Route responses.
+			switch {
+			case r.Method == "GET" && r.URL.Path == "/api/runes":
+				// Served by handler set in test setup; default empty.
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_ = json.NewEncoder(w).Encode([]map[string]any{})
+			default:
+				w.WriteHeader(http.StatusNoContent)
 			}
-		}
-		if r.Method == "POST" {
-			body, _ := io.ReadAll(r.Body)
-			_ = json.Unmarshal(body, &rec.body)
-		}
-
-		tc.mu.Lock()
-		tc.requests = append(tc.requests, rec)
-		if r.URL.Path == "/api/claim-rune" {
-			tc.claimBodies = append(tc.claimBodies, rec.body)
-		}
-		tc.mu.Unlock()
-
-		// Route responses.
-		switch {
-		case r.Method == "GET" && r.URL.Path == "/api/runes":
-			// Served by handler set in test setup; default empty.
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			_ = json.NewEncoder(w).Encode([]map[string]any{})
-		default:
-			w.WriteHeader(http.StatusNoContent)
-		}
-	}))
+		},
+	})
 	t.Cleanup(tc.server.Close)
 
 	return tc
@@ -260,36 +275,17 @@ func (tc *orchestratorTestContext) ready_runes(runes []map[string]any) {
 	tc.t.Helper()
 	tc.server.Close()
 
-	tc.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		rec := recordedRequest{
-			method: r.Method,
-			path:   r.URL.Path,
-			query:  make(map[string]string),
-		}
-		for k, v := range r.URL.Query() {
-			if len(v) > 0 {
-				rec.query[k] = v[0]
+	tc.server = httptest.NewServer(&recordRequestHandler{
+		tc: tc,
+		handlerFn: func(w http.ResponseWriter, r *http.Request, rec recordedRequest) {
+			w.Header().Set("Content-Type", "application/json")
+			if r.Method == "GET" && r.URL.Path == "/api/runes" {
+				_ = json.NewEncoder(w).Encode(runes)
+			} else {
+				w.WriteHeader(http.StatusNoContent)
 			}
-		}
-		if r.Method == "POST" {
-			body, _ := io.ReadAll(r.Body)
-			_ = json.Unmarshal(body, &rec.body)
-		}
-
-		tc.mu.Lock()
-		tc.requests = append(tc.requests, rec)
-		if r.URL.Path == "/api/claim-rune" {
-			tc.claimBodies = append(tc.claimBodies, rec.body)
-		}
-		tc.mu.Unlock()
-
-		w.Header().Set("Content-Type", "application/json")
-		if r.Method == "GET" && r.URL.Path == "/api/runes" {
-			_ = json.NewEncoder(w).Encode(runes)
-		} else {
-			w.WriteHeader(http.StatusNoContent)
-		}
-	}))
+		},
+	})
 	tc.t.Cleanup(tc.server.Close)
 }
 
@@ -298,39 +294,20 @@ func (tc *orchestratorTestContext) ready_runes_then_detail(runes []map[string]an
 	tc.t.Helper()
 	tc.server.Close()
 
-	tc.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		rec := recordedRequest{
-			method: r.Method,
-			path:   r.URL.Path,
-			query:  make(map[string]string),
-		}
-		for k, v := range r.URL.Query() {
-			if len(v) > 0 {
-				rec.query[k] = v[0]
+	tc.server = httptest.NewServer(&recordRequestHandler{
+		tc: tc,
+		handlerFn: func(w http.ResponseWriter, r *http.Request, rec recordedRequest) {
+			w.Header().Set("Content-Type", "application/json")
+			switch {
+			case r.Method == "GET" && r.URL.Path == "/api/runes":
+				_ = json.NewEncoder(w).Encode(runes)
+			case r.Method == "GET" && r.URL.Path == "/api/rune":
+				_ = json.NewEncoder(w).Encode(detail)
+			default:
+				w.WriteHeader(http.StatusNoContent)
 			}
-		}
-		if r.Method == "POST" {
-			body, _ := io.ReadAll(r.Body)
-			_ = json.Unmarshal(body, &rec.body)
-		}
-
-		tc.mu.Lock()
-		tc.requests = append(tc.requests, rec)
-		if r.URL.Path == "/api/claim-rune" {
-			tc.claimBodies = append(tc.claimBodies, rec.body)
-		}
-		tc.mu.Unlock()
-
-		w.Header().Set("Content-Type", "application/json")
-		switch {
-		case r.Method == "GET" && r.URL.Path == "/api/runes":
-			_ = json.NewEncoder(w).Encode(runes)
-		case r.Method == "GET" && r.URL.Path == "/api/rune":
-			_ = json.NewEncoder(w).Encode(detail)
-		default:
-			w.WriteHeader(http.StatusNoContent)
-		}
-	}))
+		},
+	})
 	tc.t.Cleanup(tc.server.Close)
 }
 
@@ -349,9 +326,8 @@ func (tc *orchestratorTestContext) run_once(d Dispatcher, saga string, dryRun, u
 	}
 	err := runOrchestrator(ctx, tc.client(), cfg, d, saga, dryRun, true, unclaimOnFailure)
 	require.NoError(tc.t, err)
-
-	// Small wait for goroutines to finish after queue drains.
-	time.Sleep(50 * time.Millisecond)
+	// runOrchestrator returns synchronously after all workers finish in --once mode,
+	// so no additional wait is needed — all requests have been made.
 }
 
 func (tc *orchestratorTestContext) run_once_with_saga(d Dispatcher, saga string) {
