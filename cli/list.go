@@ -80,7 +80,7 @@ func NewListCmd(clientFn func() *Client, out *bytes.Buffer) *ListCmd {
 					return
 				}
 				tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-				fmt.Fprintf(tw, "ID\tTitle\tStatus\tPriority\tAssignee\tBranch\n")
+				fmt.Fprintf(tw, "ID\tTitle\tStatus\tPriority\tAssignee\tBranch\tTags\n")
 				for _, r := range runes {
 					id, _ := r["id"].(string)
 					title, _ := r["title"].(string)
@@ -91,7 +91,19 @@ func NewListCmd(clientFn func() *Client, out *bytes.Buffer) *ListCmd {
 					}
 					claimant, _ := r["claimant"].(string)
 					br, _ := r["branch"].(string)
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", id, title, st, p, claimant, br)
+					tags := ""
+					if tagsRaw, ok := r["tags"].([]any); ok && len(tagsRaw) > 0 {
+						tagStrs := make([]string, 0, len(tagsRaw))
+						for _, t := range tagsRaw {
+							if tag, ok := t.(string); ok && tag != "" {
+								tagStrs = append(tagStrs, tag)
+							}
+						}
+						if len(tagStrs) > 0 {
+							tags = strings.Join(tagStrs, ", ")
+						}
+					}
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", id, title, st, p, claimant, br, tags)
 				}
 				tw.Flush()
 			})

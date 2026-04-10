@@ -7,7 +7,7 @@ import (
 
 func normalizeTags(tags []string) []string {
 	if len(tags) == 0 {
-		return nil
+		return []string{}
 	}
 	seen := make(map[string]struct{}, len(tags))
 	out := make([]string, 0, len(tags))

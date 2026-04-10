@@ -18,7 +18,7 @@ type RuneSummary struct {
 	Claimant  string    `json:"claimant,omitempty"`
 	ParentID  string    `json:"parent_id,omitempty"`
 	Branch    string    `json:"branch,omitempty"`
-	Tags      []string  `json:"tags,omitempty"`
+	Tags      []string  `json:"tags"`
 	Type      string    `json:"type,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
