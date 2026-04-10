@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -51,6 +52,17 @@ func NewShowCmd(clientFn func() *Client, out *bytes.Buffer) *ShowCmd {
 					}
 					if claimant != "" {
 						fmt.Fprintf(w, "Claimant:    %s\n", claimant)
+					}
+					if tags, ok := result["tags"].([]any); ok && len(tags) > 0 {
+						rendered := make([]string, 0, len(tags))
+						for _, raw := range tags {
+							if tag, ok := raw.(string); ok && tag != "" {
+								rendered = append(rendered, tag)
+							}
+						}
+						if len(rendered) > 0 {
+							fmt.Fprintf(w, "Tags:        %s\n", strings.Join(rendered, ", "))
+						}
 					}
 					if deps, ok := result["dependencies"].([]any); ok && len(deps) > 0 {
 						fmt.Fprintf(w, "Dependencies:\n")

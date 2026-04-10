@@ -46,6 +46,7 @@ func TestRuneDetailProjector(t *testing.T) {
 		tc.stored_detail_has_description("Needs repair")
 		tc.stored_detail_has_status("draft")
 		tc.stored_detail_has_priority(1)
+		tc.stored_detail_has_tags("backend", "feature")
 		tc.stored_detail_has_empty_dependencies()
 		tc.stored_detail_has_empty_notes()
 	})
@@ -102,6 +103,23 @@ func TestRuneDetailProjector(t *testing.T) {
 		tc.stored_detail_has_title("Old title")
 		tc.stored_detail_has_description("Old desc")
 		tc.stored_detail_has_priority(5)
+	})
+
+	t.Run("handles RuneUpdated tag mutations", func(t *testing.T) {
+		tc := newRuneDetailTestContext(t)
+
+		// Given
+		tc.a_rune_detail_projector()
+		tc.a_store()
+		tc.existing_detail_with_tags("bf-a1b2", []string{"backend", "feature"})
+		tc.a_rune_updated_event_with_tags("bf-a1b2", []string{"api"}, []string{"BACKEND"})
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.stored_detail_has_tags("api", "feature")
 	})
 
 	t.Run("handles RuneClaimed", func(t *testing.T) {
@@ -421,7 +439,7 @@ func (tc *runeDetailTestContext) a_store() {
 func (tc *runeDetailTestContext) a_rune_created_event(id, title, description string, priority int, parentID string) {
 	tc.t.Helper()
 	tc.event = makeEventWithTimestamp(domain.EventRuneCreated, domain.RuneCreated{
-		ID: id, Title: title, Description: description, Priority: priority, ParentID: parentID,
+		ID: id, Title: title, Description: description, Priority: priority, ParentID: parentID, Tags: []string{"Feature", " backend "},
 	}, time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC))
 }
 
@@ -450,6 +468,13 @@ func (tc *runeDetailTestContext) a_rune_updated_event_with_branch(id string, tit
 	tc.t.Helper()
 	tc.event = makeEvent(domain.EventRuneUpdated, domain.RuneUpdated{
 		ID: id, Title: title, Description: description, Priority: priority, Branch: branch,
+	})
+}
+
+func (tc *runeDetailTestContext) a_rune_updated_event_with_tags(id string, addTags, removeTags []string) {
+	tc.t.Helper()
+	tc.event = makeEvent(domain.EventRuneUpdated, domain.RuneUpdated{
+		ID: id, AddTags: addTags, RemoveTags: removeTags,
 	})
 }
 
@@ -573,6 +598,21 @@ func (tc *runeDetailTestContext) existing_detail_with_note(id, noteText string) 
 		Notes: []NoteEntry{
 			{Text: noteText, CreatedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
 		},
+	}
+	tc.store.put(tc.realmID, "rune_detail", id, detail)
+}
+
+func (tc *runeDetailTestContext) existing_detail_with_tags(id string, tags []string) {
+	tc.t.Helper()
+	tc.a_store()
+	detail := RuneDetail{
+		ID:           id,
+		Title:        "Existing rune",
+		Status:       "open",
+		Priority:     1,
+		Tags:         tags,
+		Dependencies: []DependencyRef{},
+		Notes:        []NoteEntry{},
 	}
 	tc.store.put(tc.realmID, "rune_detail", id, detail)
 }
@@ -701,6 +741,12 @@ func (tc *runeDetailTestContext) stored_detail_has_type(expected string) {
 	tc.t.Helper()
 	require.NotNil(tc.t, tc.storedDetail)
 	assert.Equal(tc.t, expected, tc.storedDetail.Type)
+}
+
+func (tc *runeDetailTestContext) stored_detail_has_tags(expected ...string) {
+	tc.t.Helper()
+	require.NotNil(tc.t, tc.storedDetail)
+	assert.Equal(tc.t, expected, tc.storedDetail.Tags)
 }
 
 func (tc *runeDetailTestContext) detail_was_deleted(id string) {

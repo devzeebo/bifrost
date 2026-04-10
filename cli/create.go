@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -28,6 +29,7 @@ func NewCreateCmd(clientFn func() *Client, out *bytes.Buffer) *CreateCmd {
 			humanMode, _ := cmd.Flags().GetBool("human")
 			branch, _ := cmd.Flags().GetString("branch")
 			noBranch, _ := cmd.Flags().GetBool("no-branch")
+			tags, _ := cmd.Flags().GetStringSlice("tag")
 			branchSet := cmd.Flags().Changed("branch")
 			noBranchSet := cmd.Flags().Changed("no-branch")
 
@@ -58,6 +60,18 @@ func NewCreateCmd(clientFn func() *Client, out *bytes.Buffer) *CreateCmd {
 			} else if branchSet {
 				body["branch"] = branch
 			}
+			if len(tags) > 0 {
+				normalized := make([]string, 0, len(tags))
+				for _, tag := range tags {
+					tag = strings.ToLower(strings.TrimSpace(tag))
+					if tag != "" {
+						normalized = append(normalized, tag)
+					}
+				}
+				if len(normalized) > 0 {
+					body["tags"] = normalized
+				}
+			}
 
 			respBody, err := clientFn().DoPost("/create-rune", body)
 			if err != nil {
@@ -81,6 +95,7 @@ func NewCreateCmd(clientFn func() *Client, out *bytes.Buffer) *CreateCmd {
 	cmd.Flags().Bool("human", false, "human-readable output")
 	cmd.Flags().StringP("branch", "b", "", "branch name for the rune")
 	cmd.Flags().Bool("no-branch", false, "create rune without a branch")
+	cmd.Flags().StringSlice("tag", nil, "tag to apply (repeatable)")
 
 	c.Command = cmd
 	return c

@@ -108,6 +108,22 @@ func TestUpdateCommand(t *testing.T) {
 		tc.request_body_does_not_have_field("branch")
 	})
 
+	t.Run("includes lowercase add/remove tags when flags are set", func(t *testing.T) {
+		tc := newUpdateTestContext(t)
+
+		// Given
+		tc.server_that_captures_request_and_returns_no_content()
+		tc.client_configured()
+
+		// When
+		tc.execute_update("bf-abc", "--add-tag", "Backend", "--remove-tag", " old ")
+
+		// Then
+		tc.command_has_no_error()
+		tc.request_body_has_array_field("add_tags", "backend")
+		tc.request_body_has_array_field("remove_tags", "old")
+	})
+
 	t.Run("returns error when server responds with error", func(t *testing.T) {
 		tc := newUpdateTestContext(t)
 
@@ -229,4 +245,21 @@ func (tc *updateTestContext) request_body_does_not_have_field(key string) {
 	require.NotNil(tc.t, tc.receivedBody)
 	_, exists := tc.receivedBody[key]
 	assert.False(tc.t, exists, "expected field %q to be absent from request body", key)
+}
+
+func (tc *updateTestContext) request_body_has_array_field(key string, expected ...string) {
+	tc.t.Helper()
+	require.NotNil(tc.t, tc.receivedBody)
+	raw, ok := tc.receivedBody[key].([]any)
+	require.True(tc.t, ok, "expected %q to be an array", key)
+	actual := make([]string, 0, len(raw))
+	for i, item := range raw {
+		s, ok := item.(string)
+		if !ok {
+			require.Fail(tc.t, "request_body_has_array_field: non-string element in array",
+				"expected all elements in %q to be strings, but element at index %d is %T: %v", key, i, item, item)
+		}
+		actual = append(actual, s)
+	}
+	assert.Equal(tc.t, expected, actual)
 }

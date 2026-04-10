@@ -63,6 +63,21 @@ func TestCreateCommand(t *testing.T) {
 		tc.request_body_has_field("parent_id", "bf-parent-123")
 	})
 
+	t.Run("includes lowercase tags when --tag flags are set", func(t *testing.T) {
+		tc := newCreateTestContext(t)
+
+		// Given
+		tc.server_that_captures_request_and_returns_created()
+		tc.client_configured()
+
+		// When
+		tc.execute_create_with_tags("My Rune", "1", "Backend", " urgent ")
+
+		// Then
+		tc.command_has_no_error()
+		tc.request_body_has_array_field("tags", "backend", "urgent")
+	})
+
 	t.Run("outputs JSON response by default", func(t *testing.T) {
 		tc := newCreateTestContext(t)
 
@@ -309,6 +324,17 @@ func (tc *createTestContext) execute_create_with_branch_and_no_branch(title, pri
 	tc.err = cmd.Command.Execute()
 }
 
+func (tc *createTestContext) execute_create_with_tags(title, priority string, tags ...string) {
+	tc.t.Helper()
+	args := []string{title, "-p", priority, "--no-branch"}
+	for _, tag := range tags {
+		args = append(args, "--tag", tag)
+	}
+	cmd := NewCreateCmd(func() *Client { return tc.client }, tc.buf)
+	cmd.Command.SetArgs(args)
+	tc.err = cmd.Command.Execute()
+}
+
 // --- Then ---
 
 func (tc *createTestContext) command_has_no_error() {
@@ -359,4 +385,20 @@ func (tc *createTestContext) error_contains(substr string) {
 	tc.t.Helper()
 	require.Error(tc.t, tc.err)
 	assert.Contains(tc.t, tc.err.Error(), substr)
+}
+
+func (tc *createTestContext) request_body_has_array_field(key string, expected ...string) {
+	tc.t.Helper()
+	require.NotNil(tc.t, tc.receivedBody)
+	raw, ok := tc.receivedBody[key].([]any)
+	require.True(tc.t, ok, "expected %q to be an array", key)
+	actual := make([]string, 0, len(raw))
+	for i, item := range raw {
+		s, ok := item.(string)
+		if !ok {
+			tc.t.Fatalf("expected all elements in %q to be strings, but element at index %d is %T: %v", key, i, item, item)
+		}
+		actual = append(actual, s)
+	}
+	assert.Equal(tc.t, expected, actual)
 }

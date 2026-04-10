@@ -164,6 +164,32 @@ func TestRebuildRuneState(t *testing.T) {
 		// Then
 		tc.state_has_parent_id("bf-a1b2")
 	})
+
+	t.Run("normalizes tags to lowercase on create", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.events_from_created_rune_with_tags("Feature", " backend ", "feature")
+
+		// When
+		tc.state_is_rebuilt()
+
+		// Then
+		tc.state_has_tags("backend", "feature")
+	})
+
+	t.Run("applies tag add and remove updates", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.events_from_created_and_tag_updated_rune()
+
+		// When
+		tc.state_is_rebuilt()
+
+		// Then
+		tc.state_has_tags("api", "feature")
+	})
 }
 
 func TestHandleCreateRune(t *testing.T) {
@@ -1583,6 +1609,15 @@ func (tc *handlerTestContext) events_from_created_rune_with_branch(branch string
 	}
 }
 
+func (tc *handlerTestContext) events_from_created_rune_with_tags(tags ...string) {
+	tc.t.Helper()
+	tc.events = []core.Event{
+		makeEvent(EventRuneCreated, RuneCreated{
+			ID: "bf-a1b2", Title: "Fix the bridge", Description: "Needs repair", Priority: 1, Tags: tags,
+		}),
+	}
+}
+
 func (tc *handlerTestContext) events_from_created_rune_with_branch_then_updated(initialBranch, updatedBranch string) {
 	tc.t.Helper()
 	tc.events = []core.Event{
@@ -1605,6 +1640,20 @@ func (tc *handlerTestContext) events_from_created_and_updated_rune() {
 		}),
 		makeEvent(EventRuneUpdated, RuneUpdated{
 			ID: "bf-a1b2", Title: &title, Priority: &prio,
+		}),
+	}
+}
+
+func (tc *handlerTestContext) events_from_created_and_tag_updated_rune() {
+	tc.t.Helper()
+	tc.events = []core.Event{
+		makeEvent(EventRuneCreated, RuneCreated{
+			ID: "bf-a1b2", Title: "Fix the bridge", Priority: 1, Tags: []string{"feature", "backend"},
+		}),
+		makeEvent(EventRuneUpdated, RuneUpdated{
+			ID:         "bf-a1b2",
+			AddTags:    []string{"API"},
+			RemoveTags: []string{"BACKEND"},
 		}),
 	}
 }
@@ -2084,6 +2133,11 @@ func (tc *handlerTestContext) state_has_parent_id(expected string) {
 func (tc *handlerTestContext) state_has_branch(expected string) {
 	tc.t.Helper()
 	assert.Equal(tc.t, expected, tc.state.Branch)
+}
+
+func (tc *handlerTestContext) state_has_tags(expected ...string) {
+	tc.t.Helper()
+	assert.Equal(tc.t, expected, tc.state.Tags)
 }
 
 func (tc *handlerTestContext) created_event_was_returned() {

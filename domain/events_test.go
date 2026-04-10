@@ -56,6 +56,7 @@ func TestRuneCreated(t *testing.T) {
 		tc.json_omits_key("description")
 		tc.json_omits_key("parent_id")
 		tc.json_omits_key("branch")
+		tc.json_omits_key("tags")
 	})
 }
 
@@ -87,6 +88,9 @@ func TestRuneUpdated(t *testing.T) {
 		tc.json_omits_key("description")
 		tc.json_omits_key("priority")
 		tc.json_omits_key("branch")
+		tc.json_omits_key("tags")
+		tc.json_omits_key("add_tags")
+		tc.json_omits_key("remove_tags")
 	})
 }
 
@@ -376,6 +380,7 @@ func (tc *testContext) rune_created_event() {
 		Priority:    1,
 		ParentID:    "epic-1",
 		Branch:      "feature/fix-bridge",
+		Tags:        []string{"backend", "p1"},
 	}
 }
 
@@ -400,6 +405,9 @@ func (tc *testContext) rune_updated_event_with_all_fields() {
 		Description: &desc,
 		Priority:    &prio,
 		Branch:      &branch,
+		Tags:        &[]string{"backend", "urgent"},
+		AddTags:     []string{"newtag"},
+		RemoveTags:  []string{"oldtag"},
 	}
 }
 
@@ -662,6 +670,7 @@ func (tc *testContext) rune_created_json_has_expected_keys() {
 	assert.Contains(tc.t, tc.jsonMap, "id")
 	assert.Contains(tc.t, tc.jsonMap, "title")
 	assert.Contains(tc.t, tc.jsonMap, "priority")
+	assert.Contains(tc.t, tc.jsonMap, "tags")
 }
 
 func (tc *testContext) rune_updated_fields_match() {
@@ -675,6 +684,14 @@ func (tc *testContext) rune_updated_fields_match() {
 	assert.Equal(tc.t, *tc.runeUpdated.Priority, *tc.roundTrippedUpdated.Priority)
 	require.NotNil(tc.t, tc.roundTrippedUpdated.Branch)
 	assert.Equal(tc.t, *tc.runeUpdated.Branch, *tc.roundTrippedUpdated.Branch)
+	require.NotNil(tc.t, tc.roundTrippedUpdated.Tags)
+	assert.Equal(tc.t, *tc.runeUpdated.Tags, *tc.roundTrippedUpdated.Tags)
+	assert.Equal(tc.t, tc.runeUpdated.AddTags, tc.roundTrippedUpdated.AddTags)
+	assert.Equal(tc.t, tc.runeUpdated.RemoveTags, tc.roundTrippedUpdated.RemoveTags)
+	// Explicitly verify JSON keys to catch typos in struct tags
+	assert.Contains(tc.t, tc.jsonMap, "tags")
+	assert.Contains(tc.t, tc.jsonMap, "add_tags")
+	assert.Contains(tc.t, tc.jsonMap, "remove_tags")
 }
 
 func (tc *testContext) rune_claimed_fields_match() {

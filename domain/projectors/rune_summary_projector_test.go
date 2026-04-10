@@ -59,6 +59,7 @@ func TestRuneSummaryProjector(t *testing.T) {
 		tc.stored_summary_has_status("draft")
 		tc.stored_summary_has_priority(1)
 		tc.stored_summary_has_parent_id("")
+		tc.stored_summary_has_tags("backend", "feature")
 	})
 
 	t.Run("handles RuneCreated with parent ID", func(t *testing.T) {
@@ -147,6 +148,23 @@ func TestRuneSummaryProjector(t *testing.T) {
 		tc.no_error()
 		tc.stored_summary_has_title("Old title")
 		tc.stored_summary_has_priority(5)
+	})
+
+	t.Run("handles RuneUpdated tag mutations", func(t *testing.T) {
+		tc := newRuneSummaryTestContext(t)
+
+		// Given
+		tc.a_rune_summary_projector()
+		tc.a_store()
+		tc.existing_summary_with_tags("bf-a1b2", "Old title", "open", 1, []string{"backend", "feature"})
+		tc.a_rune_updated_event_with_tags("bf-a1b2", []string{"api"}, []string{"BACKEND"})
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.stored_summary_has_tags("api", "feature")
 	})
 
 	t.Run("handles RuneUpdated with branch", func(t *testing.T) {
@@ -396,7 +414,7 @@ func (tc *runeSummaryTestContext) a_store() {
 func (tc *runeSummaryTestContext) a_rune_created_event(id, title string, priority int, parentID string) {
 	tc.t.Helper()
 	tc.event = makeEvent(domain.EventRuneCreated, domain.RuneCreated{
-		ID: id, Title: title, Priority: priority, ParentID: parentID,
+		ID: id, Title: title, Priority: priority, ParentID: parentID, Tags: []string{"Feature", " backend "},
 	})
 }
 
@@ -432,6 +450,13 @@ func (tc *runeSummaryTestContext) a_rune_updated_event_with_branch(id string, ti
 	tc.t.Helper()
 	tc.event = makeEvent(domain.EventRuneUpdated, domain.RuneUpdated{
 		ID: id, Title: title, Priority: priority, Branch: branch,
+	})
+}
+
+func (tc *runeSummaryTestContext) a_rune_updated_event_with_tags(id string, addTags, removeTags []string) {
+	tc.t.Helper()
+	tc.event = makeEvent(domain.EventRuneUpdated, domain.RuneUpdated{
+		ID: id, AddTags: addTags, RemoveTags: removeTags,
 	})
 }
 
@@ -537,6 +562,19 @@ func (tc *runeSummaryTestContext) existing_summary_with_timestamps(id, title, st
 	tc.store.put(tc.realmID, "rune_summary", id, summary)
 }
 
+func (tc *runeSummaryTestContext) existing_summary_with_tags(id, title, status string, priority int, tags []string) {
+	tc.t.Helper()
+	tc.a_store()
+	summary := RuneSummary{
+		ID:       id,
+		Title:    title,
+		Status:   status,
+		Priority: priority,
+		Tags:     tags,
+	}
+	tc.store.put(tc.realmID, "rune_summary", id, summary)
+}
+
 // --- When ---
 
 func (tc *runeSummaryTestContext) name_is_called() {
@@ -618,6 +656,12 @@ func (tc *runeSummaryTestContext) stored_summary_has_type(expected string) {
 	tc.t.Helper()
 	require.NotNil(tc.t, tc.storedSummary)
 	assert.Equal(tc.t, expected, tc.storedSummary.Type)
+}
+
+func (tc *runeSummaryTestContext) stored_summary_has_tags(expected ...string) {
+	tc.t.Helper()
+	require.NotNil(tc.t, tc.storedSummary)
+	assert.Equal(tc.t, expected, tc.storedSummary.Tags)
 }
 
 func (tc *runeSummaryTestContext) stored_summary_has_created_at() {

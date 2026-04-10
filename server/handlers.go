@@ -650,8 +650,9 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 	assigneeFilter := r.URL.Query().Get("assignee")
 	branchFilter := r.URL.Query().Get("branch")
 	sagaFilter := r.URL.Query().Get("saga")
+	tagFilters := parseTagFilters(r)
 
-	if statusFilter != "" || priorityFilter != "" || assigneeFilter != "" || branchFilter != "" || sagaFilter != "" {
+	if statusFilter != "" || priorityFilter != "" || assigneeFilter != "" || branchFilter != "" || sagaFilter != "" || len(tagFilters) > 0 {
 		var filtered []json.RawMessage
 		for _, raw := range runes {
 			var item map[string]any
@@ -682,6 +683,9 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 				if fmt.Sprintf("%v", item["parent_id"]) != sagaFilter {
 					continue
 				}
+			}
+			if len(tagFilters) > 0 && !itemHasAnyTag(item, tagFilters) {
+				continue
 			}
 			filtered = append(filtered, raw)
 		}
@@ -1036,4 +1040,60 @@ func isNotFound(err error) bool {
 
 func (h *Handlers) runSyncQuietly(r *http.Request) {
 	h.engine.RunCatchUpOnce(r.Context())
+}
+
+func parseTagFilters(r *http.Request) []string {
+	collected := make([]string, 0)
+	collected = append(collected, r.URL.Query()["tag"]...)
+	if csv := r.URL.Query().Get("tags"); csv != "" {
+		collected = append(collected, strings.Split(csv, ",")...)
+	}
+	return normalizeTagList(collected)
+}
+
+func normalizeTagList(tags []string) []string {
+	if len(tags) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(tags))
+	out := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		normalized := strings.ToLower(strings.TrimSpace(tag))
+		if normalized == "" {
+			continue
+		}
+		if _, exists := seen[normalized]; exists {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, normalized)
+	}
+	return out
+}
+
+func itemHasAnyTag(item map[string]any, wanted []string) bool {
+	rawTags, exists := item["tags"]
+	if !exists {
+		return false
+	}
+	list, ok := rawTags.([]any)
+	if !ok {
+		return false
+	}
+	itemTags := make(map[string]struct{}, len(list))
+	for _, raw := range list {
+		tag, ok := raw.(string)
+		if !ok {
+			continue
+		}
+		for _, normalized := range normalizeTagList([]string{tag}) {
+			itemTags[normalized] = struct{}{}
+		}
+	}
+	for _, wantedTag := range wanted {
+		if _, ok := itemTags[wantedTag]; ok {
+			return true
+		}
+	}
+	return false
 }

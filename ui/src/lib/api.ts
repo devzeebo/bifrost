@@ -142,7 +142,24 @@ export class ApiClient {
       assignee_id: raw.assignee_id,
       saga_id: raw.saga_id,
       dependencies: normalizeDependencies(raw.dependencies),
-      tags: Array.isArray(raw.tags) ? raw.tags : [],
+      tags: Array.isArray(raw.tags)
+        ? raw.tags
+            .filter((tag): tag is string => typeof tag === "string")
+            .map((tag) => tag.trim().toLowerCase())
+            .filter((tag) => tag.length > 0)
+        : [],
+    };
+  }
+
+  private normalizeRuneListItem(raw: RuneListItem): RuneListItem {
+    return {
+      ...raw,
+      tags: Array.isArray(raw.tags)
+        ? raw.tags
+            .filter((tag): tag is string => typeof tag === "string")
+            .map((tag) => tag.trim().toLowerCase())
+            .filter((tag) => tag.length > 0)
+        : [],
     };
   }
 
@@ -183,18 +200,20 @@ export class ApiClient {
   // Runes
   async getRunes(realmId: string): Promise<RuneListItem[]> {
     try {
-      return await this.request<RuneListItem[]>("/runes", {
+      const items = await this.request<RuneListItem[]>("/runes", {
         method: "GET",
         headers: this.withRealmHeader(realmId),
       });
+      return items.map((item) => this.normalizeRuneListItem(item));
     } catch (error) {
       if (!(error instanceof ApiError) || error.status !== 404) {
         throw error;
       }
 
-      return this.request<RuneListItem[]>(`/realms/${realmId}/runes`, {
+      const items = await this.request<RuneListItem[]>(`/realms/${realmId}/runes`, {
         method: "GET",
       });
+      return items.map((item) => this.normalizeRuneListItem(item));
     }
   }
 
@@ -303,6 +322,7 @@ export class ApiClient {
       description?: string;
       priority?: number;
       branch?: string;
+      tags?: string[];
     } = {
       id: runeId,
     };
@@ -318,6 +338,12 @@ export class ApiClient {
     }
     if (typeof updates.branch === "string") {
       command.branch = updates.branch;
+    }
+    if (Array.isArray(updates.tags)) {
+      command.tags = updates.tags
+        .filter((tag): tag is string => typeof tag === "string")
+        .map((tag) => tag.trim().toLowerCase())
+        .filter((tag) => tag.length > 0);
     }
 
     await this.request<void>("/update-rune", {

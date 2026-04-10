@@ -18,6 +18,7 @@ type RuneSummary struct {
 	Claimant  string    `json:"claimant,omitempty"`
 	ParentID  string    `json:"parent_id,omitempty"`
 	Branch    string    `json:"branch,omitempty"`
+	Tags      []string  `json:"tags,omitempty"`
 	Type      string    `json:"type,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -76,6 +77,7 @@ func (p *RuneSummaryProjector) handleCreated(ctx context.Context, event core.Eve
 		Priority:  data.Priority,
 		ParentID:  data.ParentID,
 		Branch:    data.Branch,
+		Tags:      normalizeTags(data.Tags),
 		Type:      data.Type,
 		CreatedAt: event.Timestamp,
 		UpdatedAt: event.Timestamp,
@@ -115,6 +117,7 @@ func (p *RuneSummaryProjector) handleUpdated(ctx context.Context, event core.Eve
 	if data.Branch != nil {
 		summary.Branch = *data.Branch
 	}
+	summary.Tags = applyTagMutations(summary.Tags, data.Tags, data.AddTags, data.RemoveTags)
 	summary.UpdatedAt = event.Timestamp
 	return store.Put(ctx, event.RealmID, "rune_summary", data.ID, summary)
 }

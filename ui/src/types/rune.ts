@@ -25,6 +25,7 @@ export interface RuneListItem {
   claimant_username?: string;
   dependencies_count?: number;
   dependents_count?: number;
+  tags?: string[];
   realm_id: string;
   created_at: string;
   updated_at: string;

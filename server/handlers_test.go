@@ -704,6 +704,23 @@ func TestListRunesHandler(t *testing.T) {
 		tc.response_array_has_length(3)
 	})
 
+	t.Run("filters runes by tag query parameter", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.has_tagged_runes("realm-1")
+
+		// When
+		tc.get("/runes?tag=backend")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.response_array_has_length(1)
+		tc.response_array_contains_rune_id("bf-0001")
+	})
+
 	t.Run("excludes runes with open blockers when blocked=false", func(t *testing.T) {
 		tc := newHandlerTestContext(t)
 
@@ -1591,6 +1608,16 @@ func (tc *handlerTestContext) has_runes_with_branches(realmID string) {
 	})
 	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_summary", "bf-0003", map[string]any{
 		"id": "bf-0003", "title": "Another Main Rune", "status": "claimed", "priority": float64(0), "assignee": "bob", "branch": "main",
+	})
+}
+
+func (tc *handlerTestContext) has_tagged_runes(realmID string) {
+	tc.t.Helper()
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_summary", "bf-0001", map[string]any{
+		"id": "bf-0001", "title": "Backend Rune", "status": "open", "priority": float64(0), "tags": []string{"backend"},
+	})
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_summary", "bf-0002", map[string]any{
+		"id": "bf-0002", "title": "UI Rune", "status": "open", "priority": float64(1), "tags": []string{"ui"},
 	})
 }
 

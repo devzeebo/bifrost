@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -25,6 +26,7 @@ func NewListCmd(clientFn func() *Client, out *bytes.Buffer) *ListCmd {
 			assignee, _ := cmd.Flags().GetString("assignee")
 			branch, _ := cmd.Flags().GetString("branch")
 			saga, _ := cmd.Flags().GetString("saga")
+			tags, _ := cmd.Flags().GetStringSlice("tag")
 			humanMode, _ := cmd.Flags().GetBool("human")
 
 			params := map[string]string{}
@@ -42,6 +44,18 @@ func NewListCmd(clientFn func() *Client, out *bytes.Buffer) *ListCmd {
 			}
 			if saga != "" {
 				params["saga"] = saga
+			}
+			if len(tags) > 0 {
+				normalized := make([]string, 0, len(tags))
+				for _, tag := range tags {
+					tag = strings.ToLower(strings.TrimSpace(tag))
+					if tag != "" {
+						normalized = append(normalized, tag)
+					}
+				}
+				if len(normalized) > 0 {
+					params["tags"] = strings.Join(normalized, ",")
+				}
 			}
 
 			respBody, err := clientFn().DoGetWithParams("/runes", params)
@@ -89,6 +103,7 @@ func NewListCmd(clientFn func() *Client, out *bytes.Buffer) *ListCmd {
 	cmd.Flags().String("assignee", "", "filter by assignee name")
 	cmd.Flags().String("branch", "", "filter by branch name")
 	cmd.Flags().String("saga", "", "filter by parent saga ID")
+	cmd.Flags().StringSlice("tag", nil, "filter by tag (repeatable)")
 	cmd.Flags().Bool("human", false, "human-readable table output")
 
 	c.Command = cmd
