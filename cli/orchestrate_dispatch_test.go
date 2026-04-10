@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -18,7 +19,7 @@ id=$(echo "$input" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 echo "{\"command\":\"echo\",\"args\":[\"$id\"],\"stdin\":\"\",\"env\":{}}"
 `)
 		d := &ScriptDispatcher{ScriptPath: script}
-		result, err := d.Dispatch(DispatchInput{ID: "bf-abc123", Title: "Test"})
+		result, err := d.Dispatch(context.Background(), DispatchInput{ID: "bf-abc123", Title: "Test"})
 
 		require.NoError(t, err)
 		require.NotNil(t, result)
@@ -31,7 +32,7 @@ echo "{\"command\":\"echo\",\"args\":[\"$id\"],\"stdin\":\"\",\"env\":{}}"
 echo '{"command":""}'
 `)
 		d := &ScriptDispatcher{ScriptPath: script}
-		result, err := d.Dispatch(DispatchInput{ID: "bf-abc"})
+		result, err := d.Dispatch(context.Background(), DispatchInput{ID: "bf-abc"})
 
 		require.NoError(t, err)
 		require.NotNil(t, result)
@@ -44,7 +45,7 @@ echo "something went wrong" >&2
 exit 1
 `)
 		d := &ScriptDispatcher{ScriptPath: script}
-		result, err := d.Dispatch(DispatchInput{ID: "bf-abc"})
+		result, err := d.Dispatch(context.Background(), DispatchInput{ID: "bf-abc"})
 
 		require.Error(t, err)
 		assert.Nil(t, result)
@@ -56,7 +57,7 @@ exit 1
 echo "not valid json"
 `)
 		d := &ScriptDispatcher{ScriptPath: script}
-		result, err := d.Dispatch(DispatchInput{ID: "bf-abc"})
+		result, err := d.Dispatch(context.Background(), DispatchInput{ID: "bf-abc"})
 
 		require.Error(t, err)
 		assert.Nil(t, result)
@@ -78,7 +79,7 @@ echo '{"command":"echo","args":[],"stdin":"","env":{}}'
 			Priority:    2,
 			Tags:        []string{"backend", "urgent"},
 		}
-		_, err := d.Dispatch(input)
+		_, err := d.Dispatch(context.Background(), input)
 		require.NoError(t, err)
 
 		// Read the captured input file the script wrote.

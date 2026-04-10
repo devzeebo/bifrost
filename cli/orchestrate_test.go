@@ -182,7 +182,7 @@ type stubDispatcher struct {
 	mu        sync.Mutex
 }
 
-func (s *stubDispatcher) Dispatch(rune DispatchInput) (*DispatchResult, error) {
+func (s *stubDispatcher) Dispatch(ctx context.Context, rune DispatchInput) (*DispatchResult, error) {
 	s.mu.Lock()
 	s.callCount++
 	s.mu.Unlock()
@@ -191,7 +191,7 @@ func (s *stubDispatcher) Dispatch(rune DispatchInput) (*DispatchResult, error) {
 
 type failingDispatcher struct{}
 
-func (f *failingDispatcher) Dispatch(rune DispatchInput) (*DispatchResult, error) {
+func (f *failingDispatcher) Dispatch(ctx context.Context, rune DispatchInput) (*DispatchResult, error) {
 	return nil, assert.AnError
 }
 
