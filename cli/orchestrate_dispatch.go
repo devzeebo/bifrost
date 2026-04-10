@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os/exec"
@@ -30,7 +31,7 @@ type DispatchResult struct {
 
 // Dispatcher resolves a rune to an execution plan.
 type Dispatcher interface {
-	Dispatch(rune DispatchInput) (*DispatchResult, error)
+	Dispatch(ctx context.Context, rune DispatchInput) (*DispatchResult, error)
 }
 
 // ScriptDispatcher invokes an external script to resolve a rune.
@@ -41,13 +42,13 @@ type ScriptDispatcher struct {
 
 // Dispatch invokes the external script with rune data on stdin and parses the result.
 // Returns nil result (no error) when the script signals skip via empty Command.
-func (d *ScriptDispatcher) Dispatch(rune DispatchInput) (*DispatchResult, error) {
+func (d *ScriptDispatcher) Dispatch(ctx context.Context, rune DispatchInput) (*DispatchResult, error) {
 	inputJSON, err := json.Marshal(rune)
 	if err != nil {
 		return nil, fmt.Errorf("marshaling dispatch input: %w", err)
 	}
 
-	cmd := exec.Command(d.ScriptPath) //nolint:gosec
+	cmd := exec.CommandContext(ctx, d.ScriptPath) //nolint:gosec
 	cmd.Stdin = bytes.NewReader(inputJSON)
 
 	var stdout, stderr bytes.Buffer
@@ -55,6 +56,10 @@ func (d *ScriptDispatcher) Dispatch(rune DispatchInput) (*DispatchResult, error)
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
+		// Check for context cancellation
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		raw := stdout.String()
 		if raw == "" {
 			raw = stderr.String()

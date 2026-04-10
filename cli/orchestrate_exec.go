@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -17,6 +18,9 @@ func RunDispatched(ctx context.Context, result *DispatchResult, stdout, stderr i
 		cmd.Stdin = strings.NewReader(result.Stdin)
 	}
 
+	if cmd.Env == nil {
+		cmd.Env = os.Environ()
+	}
 	for k, v := range result.Env {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 	}

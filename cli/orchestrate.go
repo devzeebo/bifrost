@@ -65,6 +65,14 @@ func NewOrchestrateCmd(clientFn func() *Client, cfgFn func() *Config) *Orchestra
 				}
 			}
 
+			// Validate configuration values.
+			if oCfg.Concurrency <= 0 {
+				return fmt.Errorf("concurrency must be positive, got %d", oCfg.Concurrency)
+			}
+			if oCfg.PollInterval <= 0 {
+				return fmt.Errorf("poll-interval must be positive, got %s", oCfg.PollInterval)
+			}
+
 			if oCfg.Dispatcher == "" {
 				return fmt.Errorf("dispatcher is required: set orchestrate.dispatcher in .bifrost.yaml or use --dispatcher")
 			}
@@ -151,11 +159,16 @@ func runOrchestrator(
 			if _, loaded := inFlight.LoadOrStore(id, struct{}{}); loaded {
 				continue
 			}
-			// Non-blocking send — if queue is full, release from in-flight and skip.
-			select {
-			case queue <- r:
-			default:
-				inFlight.Delete(id)
+			// Blocking send in --once mode to guarantee all items are enqueued.
+			// Non-blocking send otherwise — if queue is full, release from in-flight and skip.
+			if once {
+				queue <- r
+			} else {
+				select {
+				case queue <- r:
+				default:
+					inFlight.Delete(id)
+				}
 			}
 		}
 	}
@@ -239,7 +252,7 @@ func processRune(
 
 	// Resolve dispatch.
 	input := dispatchInputFromRune(detail)
-	result, err := dispatcher.Dispatch(input)
+	result, err := dispatcher.Dispatch(ctx, input)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "orchestrate: [%s] dispatcher error: %v\n", id, err)
 		unclaimRune(client, id)
