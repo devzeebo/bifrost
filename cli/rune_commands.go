@@ -7,6 +7,7 @@ import (
 
 func RegisterRuneCommands(root *RootCmd, out *bytes.Buffer) {
 	clientFn := func() *Client { return root.Client }
+	cfgFn := func() *Config { return root.Cfg }
 
 	root.Command.AddCommand(NewCreateCmd(clientFn, out).Command)
 	root.Command.AddCommand(NewShowCmd(clientFn, out).Command)
@@ -23,4 +24,5 @@ func RegisterRuneCommands(root *RootCmd, out *bytes.Buffer) {
 	root.Command.AddCommand(NewEventsCmd(clientFn, out).Command)
 	root.Command.AddCommand(NewSweepCmd(clientFn, out, os.Stdin).Command)
 	root.Command.AddCommand(NewShatterCmd(clientFn, out, os.Stdin).Command)
+	root.Command.AddCommand(NewOrchestrateCmd(clientFn, cfgFn).Command)
 }

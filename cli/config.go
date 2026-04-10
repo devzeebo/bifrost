@@ -9,10 +9,11 @@ import (
 )
 
 type Config struct {
-	URL      string   `mapstructure:"url"`
-	APIKey   string   `mapstructure:"api_key"`
-	Realm    string   `mapstructure:"realm"`
-	Warnings []string `mapstructure:"-"`
+	URL         string            `mapstructure:"url"`
+	APIKey      string            `mapstructure:"api_key"`
+	Realm       string            `mapstructure:"realm"`
+	Orchestrate OrchestrateConfig `mapstructure:"orchestrate"`
+	Warnings    []string          `mapstructure:"-"`
 }
 
 func LoadConfig(workDir, homeDir string) (*Config, error) {
