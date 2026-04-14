@@ -3,3 +3,4 @@ realm: bifrost
 orchestrate:
   dispatcher: /home/devzeebo/.config/bifrost/orchestrator
   concurrency: 1
+  logging: verbose
