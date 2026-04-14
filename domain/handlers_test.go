@@ -433,6 +433,28 @@ func TestHandleUpdateRune(t *testing.T) {
 		tc.event_was_appended_to_stream("rune-bf-a1b2")
 		tc.appended_event_has_type(EventRuneUpdated)
 	})
+
+	t.Run("adds and removes tags", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.existing_rune_in_stream("bf-a1b2", "open")
+		tc.an_update_rune_command("bf-a1b2", nil, nil, nil)
+		tc.with_add_tags_on_update_command("API", "backend")
+		tc.with_remove_tags_on_update_command("old")
+
+		// When
+		tc.handle_update_rune()
+
+		// Then
+		tc.no_error()
+		tc.event_was_appended_to_stream("rune-bf-a1b2")
+		tc.appended_event_has_type(EventRuneUpdated)
+		tc.appended_rune_updated_event_has_add_tags("api", "backend")
+		tc.appended_rune_updated_event_has_remove_tags("old")
+	})
 }
 
 func TestHandleClaimRune(t *testing.T) {
