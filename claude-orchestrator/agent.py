@@ -100,6 +100,10 @@ def main() -> None:
         logger.error("Unknown agent: %r (available: %s)", agent_name, list(registry.all().keys()))
         sys.exit(1)
 
+    if not agent_def.model:
+        logger.error("Agent %r has no model declared; add 'model:' to its frontmatter", agent_name)
+        sys.exit(1)
+
     cwd = _find_project_root()
     rune_id = rune.get("id", "unknown")
     verbose = _is_verbose()
@@ -132,9 +136,10 @@ def _build_prompt(rune: dict) -> str:
     return "\n".join(lines)
 
 
-def _log_verbose(worker_id: str, msg: str) -> None:
+def _log_verbose(worker_id: str, msg: str, elapsed_ms: int | None = None) -> None:
     prefix = _worker_prefix(worker_id)
-    print(f"{prefix}: {msg}", file=sys.stderr)
+    ts = f"\033[2m+{elapsed_ms}ms\033[0m " if elapsed_ms is not None else ""
+    print(f"{prefix}: {ts}{msg}", file=sys.stderr)
 
 
 async def _run_agent(
@@ -145,6 +150,8 @@ async def _run_agent(
     rune_id: str,
     verbose: bool,
 ) -> None:
+    import time
+
     from claude_agent_sdk import (
         AssistantMessage,
         ClaudeAgentOptions,
@@ -159,22 +166,31 @@ async def _run_agent(
         allowed_tools=agent_def.tools or ["Read", "Bash", "Glob", "Grep"],
         permission_mode="bypassPermissions",
         system_prompt=agent_def.prompt,
+        model=agent_def.model,
         setting_sources=["project"],
     )
 
+    start_ns = time.monotonic_ns()
+    last_ns = start_ns
+
     if verbose:
-        _log_verbose(rune_id, f"starting agent={agent_name}")
+        _log_verbose(rune_id, f"starting agent={agent_name} model={agent_def.model}", elapsed_ms=0)
 
     got_result = False
     async for message in query(prompt=prompt, options=options):
+        now_ns = time.monotonic_ns()
+        since_last_ms = (now_ns - last_ns) // 1_000_000
+        last_ns = now_ns
+
         if verbose:
-            _log_verbose_message(rune_id, message, AssistantMessage, TextBlock, ToolUseBlock)
+            _log_verbose_message(rune_id, message, AssistantMessage, TextBlock, ToolUseBlock, since_last_ms)
         if isinstance(message, ResultMessage):
+            total_ms = (now_ns - start_ns) // 1_000_000
             if verbose:
                 cost = f"  cost=${message.total_cost_usd:.4f}" if message.total_cost_usd is not None else ""
-                _log_verbose(rune_id, f"done turns={message.num_turns}{cost}")
+                _log_verbose(rune_id, f"done turns={message.num_turns} total={total_ms}ms{cost}")
             else:
-                logger.info("Agent %r completed: %s", agent_name, (message.result or "")[:200])
+                logger.info("Agent %r completed in %dms: %s", agent_name, total_ms, (message.result or "")[:200])
             got_result = True
             break
 
@@ -183,18 +199,16 @@ async def _run_agent(
         sys.exit(1)
 
 
-def _log_verbose_message(rune_id: str, message: object, AssistantMessage, TextBlock, ToolUseBlock) -> None:  # noqa: N803
+def _log_verbose_message(rune_id: str, message: object, AssistantMessage, TextBlock, ToolUseBlock, elapsed_ms: int) -> None:  # noqa: N803
     if isinstance(message, AssistantMessage):
         for block in message.content:
             if isinstance(block, TextBlock) and block.text.strip():
-                # Truncate long text, show first line only
                 first_line = block.text.strip().splitlines()[0][:120]
-                _log_verbose(rune_id, f"text: {first_line}")
+                _log_verbose(rune_id, f"text: {first_line}", elapsed_ms=elapsed_ms)
             elif isinstance(block, ToolUseBlock):
-                # Show tool name + key input fields
                 inp = block.input or {}
                 inp_summary = ", ".join(f"{k}={str(v)[:60]}" for k, v in list(inp.items())[:3])
-                _log_verbose(rune_id, f"tool: {block.name}({inp_summary})")
+                _log_verbose(rune_id, f"tool: {block.name}({inp_summary})", elapsed_ms=elapsed_ms)
 
 
 def _find_project_root() -> str:
