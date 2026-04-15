@@ -1,18 +1,32 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
 	"os/user"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
 )
+
+// CompletionStats holds execution telemetry from agent completion.
+type CompletionStats struct {
+	DurationMS              int     `json:"duration_ms"`
+	InputTokens             int     `json:"input_tokens"`
+	OutputTokens            int     `json:"output_tokens"`
+	CacheReadInputTokens    int     `json:"cache_read_input_tokens"`
+	CacheCreationInputTokens int    `json:"cache_creation_input_tokens"`
+	TotalCostUSD            float64 `json:"total_cost_usd"`
+	NumTurns                int     `json:"num_turns"`
+}
 
 // OrchestrateConfig holds the orchestrate section of .bifrost.yaml.
 type OrchestrateConfig struct {
@@ -274,7 +288,9 @@ func processRune(
 
 	fmt.Fprintf(os.Stderr, "orchestrate: [%s] invoking: %s %v\n", id, result.Command, result.Args)
 
-	exitCode, err := RunDispatched(ctx, result, os.Stdout, os.Stderr)
+	// Capture stdout to extract completion stats.
+	var stdoutBuf bytes.Buffer
+	exitCode, err := RunDispatched(ctx, result, &stdoutBuf, os.Stderr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "orchestrate: [%s] exec error: %v\n", id, err)
 		if unclaimOnFailure {
@@ -289,6 +305,12 @@ func processRune(
 			unclaimRune(client, id)
 		}
 		return
+	}
+
+	// On success, append completion note with stats before fulfilling.
+	stdoutStr := stdoutBuf.String()
+	if note, err := formatCompletionNote(stdoutStr); err == nil && note != "" {
+		addNoteForCompletion(client, id, note)
 	}
 
 	if err := fulfillRune(client, id); err != nil {
@@ -322,4 +344,73 @@ func unclaimRune(client *Client, id string) {
 func fulfillRune(client *Client, id string) error {
 	_, err := client.DoPost("/fulfill-rune", map[string]string{"id": id})
 	return err
+}
+
+// formatCompletionNote extracts completion stats from stdout and formats a human-readable note.
+// Returns empty string if stats cannot be parsed.
+func formatCompletionNote(stdout string) (string, error) {
+	// Try to find JSON in stdout (may contain other text).
+	// Look for lines that are valid JSON.
+	lines := strings.Split(stdout, "\n")
+	var stats CompletionStats
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if err := json.Unmarshal([]byte(line), &stats); err == nil {
+			// Successfully parsed stats.
+			return buildNoteText(stats), nil
+		}
+	}
+	return "", nil
+}
+
+// buildNoteText formats completion stats into a human-readable note.
+func buildNoteText(stats CompletionStats) string {
+	var buf bytes.Buffer
+
+	// Header with orchestrator attribution
+	buf.WriteString("[orchestrator] Completed with execution telemetry:\n\n")
+
+	// Duration
+	durationSec := float64(stats.DurationMS) / 1000.0
+	buf.WriteString(fmt.Sprintf("duration: %.2fs\n", durationSec))
+
+	// Token counts
+	buf.WriteString(fmt.Sprintf("tokens: %s input, %s output\n",
+		formatNumber(stats.InputTokens),
+		formatNumber(stats.OutputTokens)))
+
+	// Cache tokens if present
+	totalCacheTokens := stats.CacheReadInputTokens + stats.CacheCreationInputTokens
+	if totalCacheTokens > 0 {
+		buf.WriteString(fmt.Sprintf("cache: %s read, %s creation\n",
+			formatNumber(stats.CacheReadInputTokens),
+			formatNumber(stats.CacheCreationInputTokens)))
+	}
+
+	// Cost
+	buf.WriteString(fmt.Sprintf("cost: $%.4f USD\n", stats.TotalCostUSD))
+
+	// Turn count
+	buf.WriteString(fmt.Sprintf("turns: %d", stats.NumTurns))
+
+	return buf.String()
+}
+
+// formatNumber formats an integer with thousands separator (optional, for readability).
+func formatNumber(n int) string {
+	return strconv.Itoa(n)
+}
+
+// addNoteForCompletion appends a completion note to a rune.
+func addNoteForCompletion(client *Client, id string, noteText string) {
+	body := map[string]string{
+		"rune_id": id,
+		"text":    noteText,
+	}
+	if _, err := client.DoPost("/add-note", body); err != nil {
+		fmt.Fprintf(os.Stderr, "orchestrate: [%s] add-note error: %v\n", id, err)
+	}
 }
