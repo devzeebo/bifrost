@@ -144,14 +144,6 @@ func (tc *showACTestContext) client_configured() {
 // When
 // ---------------------------------------------------------------------------
 
-func (tc *showACTestContext) execute_show(id string) {
-	tc.t.Helper()
-	cmd := NewShowCmd(func() *Client { return tc.client }, tc.buf)
-	cmd.Command.SetArgs([]string{id})
-	cmd.Command.SetErr(tc.buf)
-	tc.err = cmd.Command.Execute()
-}
-
 func (tc *showACTestContext) execute_show_with_human(id string) {
 	tc.t.Helper()
 	cmd := NewShowCmd(func() *Client { return tc.client }, tc.buf)

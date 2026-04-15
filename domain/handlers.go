@@ -675,6 +675,149 @@ func isActiveRuneInProjection(ctx context.Context, realmID string, runeID string
 	return s.Status != "sealed" && s.Status != "fulfilled"
 }
 
+func HandleAddACItem(ctx context.Context, realmID string, cmd AddACItem, store core.EventStore) error {
+	state, events, err := readAndRebuild(ctx, realmID, cmd.RuneID, store)
+	if err != nil {
+		return err
+	}
+	if !state.Exists {
+		return &core.NotFoundError{Entity: "rune", ID: cmd.RuneID}
+	}
+	if state.Status == "sealed" {
+		return fmt.Errorf("cannot add AC to sealed rune %q", cmd.RuneID)
+	}
+	if state.Status == "shattered" {
+		return fmt.Errorf("cannot add AC to shattered rune %q", cmd.RuneID)
+	}
+
+	// Find highest AC ID number from events
+	maxID := 0
+	for _, evt := range events {
+		if evt.EventType == EventRuneACAdded || evt.EventType == EventRuneACRemoved {
+			var data struct {
+				ID string `json:"id"`
+			}
+			_ = json.Unmarshal(evt.Data, &data)
+			// Parse AC-NN format
+			if len(data.ID) > 3 && data.ID[:3] == "AC-" {
+				var num int
+				_, _ = fmt.Sscanf(data.ID, "AC-%d", &num)
+				if num > maxID {
+					maxID = num
+				}
+			}
+		}
+	}
+	nextID := fmt.Sprintf("AC-%02d", maxID+1)
+
+	acAdded := RuneACAdded{
+		RuneID:      cmd.RuneID,
+		ID:          nextID,
+		Scenario:    cmd.Scenario,
+		Description: cmd.Description,
+	}
+
+	streamID := runeStreamID(cmd.RuneID)
+	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
+		{EventType: EventRuneACAdded, Data: acAdded},
+	})
+	return err
+}
+
+func HandleUpdateACItem(ctx context.Context, realmID string, cmd UpdateACItem, store core.EventStore) error {
+	state, events, err := readAndRebuild(ctx, realmID, cmd.RuneID, store)
+	if err != nil {
+		return err
+	}
+	if !state.Exists {
+		return &core.NotFoundError{Entity: "rune", ID: cmd.RuneID}
+	}
+	if state.Status == "sealed" {
+		return fmt.Errorf("cannot update AC on sealed rune %q", cmd.RuneID)
+	}
+	if state.Status == "shattered" {
+		return fmt.Errorf("cannot update AC on shattered rune %q", cmd.RuneID)
+	}
+
+	// Check if the AC ID exists in the stream
+	acExists := false
+	for _, evt := range events {
+		if evt.EventType == EventRuneACAdded {
+			var data RuneACAdded
+			_ = json.Unmarshal(evt.Data, &data)
+			if data.ID == cmd.ID {
+				acExists = true
+				break
+			}
+		}
+		if evt.EventType == EventRuneACRemoved {
+			var data RuneACRemoved
+			_ = json.Unmarshal(evt.Data, &data)
+			if data.ID == cmd.ID {
+				acExists = false
+			}
+		}
+	}
+	if !acExists {
+		return fmt.Errorf("AC %q does not exist on rune %q", cmd.ID, cmd.RuneID)
+	}
+
+	acUpdated := RuneACUpdated(cmd)
+
+	streamID := runeStreamID(cmd.RuneID)
+	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
+		{EventType: EventRuneACUpdated, Data: acUpdated},
+	})
+	return err
+}
+
+func HandleRemoveACItem(ctx context.Context, realmID string, cmd RemoveACItem, store core.EventStore) error {
+	state, events, err := readAndRebuild(ctx, realmID, cmd.RuneID, store)
+	if err != nil {
+		return err
+	}
+	if !state.Exists {
+		return &core.NotFoundError{Entity: "rune", ID: cmd.RuneID}
+	}
+	if state.Status == "sealed" {
+		return fmt.Errorf("cannot remove AC from sealed rune %q", cmd.RuneID)
+	}
+	if state.Status == "shattered" {
+		return fmt.Errorf("cannot remove AC from shattered rune %q", cmd.RuneID)
+	}
+
+	// Check if the AC ID exists in the stream
+	acExists := false
+	for _, evt := range events {
+		if evt.EventType == EventRuneACAdded {
+			var data RuneACAdded
+			_ = json.Unmarshal(evt.Data, &data)
+			if data.ID == cmd.ID {
+				acExists = true
+				break
+			}
+		}
+		if evt.EventType == EventRuneACRemoved {
+			var data RuneACRemoved
+			_ = json.Unmarshal(evt.Data, &data)
+			if data.ID == cmd.ID {
+				acExists = false
+			}
+		}
+	}
+	if !acExists {
+		return fmt.Errorf("AC %q does not exist on rune %q", cmd.ID, cmd.RuneID)
+	}
+
+	acRemoved := RuneACRemoved(cmd)
+
+	streamID := runeStreamID(cmd.RuneID)
+	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
+		{EventType: EventRuneACRemoved, Data: acRemoved},
+	})
+	return err
+}
+
 func isKnownRelationship(rel string) bool {
 	switch rel {
 	case RelBlocks, RelRelatesTo, RelDuplicates, RelSupersedes, RelRepliesTo,

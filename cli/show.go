@@ -78,6 +78,17 @@ func NewShowCmd(clientFn func() *Client, out *bytes.Buffer) *ShowCmd {
 							fmt.Fprintf(w, "  - %v\n", n)
 						}
 					}
+					if acs, ok := result["acceptance_criteria"].([]any); ok && len(acs) > 0 {
+						fmt.Fprintf(w, "Acceptance Criteria:\n")
+						for _, ac := range acs {
+							if acMap, ok := ac.(map[string]any); ok {
+								id, _ := acMap["id"].(string)
+								scenario, _ := acMap["scenario"].(string)
+								desc, _ := acMap["description"].(string)
+								fmt.Fprintf(w, "  %s: %s - %s\n", id, scenario, desc)
+							}
+						}
+					}
 				}
 			})
 		},

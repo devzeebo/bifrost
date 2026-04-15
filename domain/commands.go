@@ -68,3 +68,21 @@ type AddRetro struct {
 	RuneID string `json:"rune_id"`
 	Text   string `json:"text"`
 }
+
+type AddACItem struct {
+	RuneID      string `json:"rune_id"`
+	Scenario    string `json:"scenario"`
+	Description string `json:"description"`
+}
+
+type UpdateACItem struct {
+	RuneID      string `json:"rune_id"`
+	ID          string `json:"id"`
+	Scenario    string `json:"scenario"`
+	Description string `json:"description"`
+}
+
+type RemoveACItem struct {
+	RuneID string `json:"rune_id"`
+	ID     string `json:"id"`
+}
