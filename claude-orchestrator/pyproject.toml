@@ -9,6 +9,7 @@ requires-python = ">=3.12"
 dependencies = [
     "claude-agent-sdk",
     "pyyaml",
+    "ruff>=0.15.10",
     "watchdog",
 ]
 

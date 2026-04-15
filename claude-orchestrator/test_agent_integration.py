@@ -12,9 +12,7 @@ These tests cover:
 
 import json
 import pytest
-import asyncio
-from unittest.mock import MagicMock, AsyncMock, patch, Mock
-from pathlib import Path
+from unittest.mock import MagicMock, AsyncMock, patch
 
 
 class MockResultMessage:
@@ -101,7 +99,9 @@ class TestAgentExecutionWithNoteAppending:
 
             # Verify note was appended (post_to_api called with /add-note)
             # Note: This will fail until implementation exists
-            assert mock_post.called or True  # Temporary allowance for test to fail properly
+            assert (
+                mock_post.called or True
+            )  # Temporary allowance for test to fail properly
 
     @pytest.mark.asyncio
     async def test_agent_does_not_append_note_on_failure(self):
@@ -231,7 +231,9 @@ class TestNoteAppendingWithAPIClient:
 
             # Should handle error gracefully
             try:
-                append_completion_note_to_api(rune_id, note_text, "http://localhost:8000")
+                append_completion_note_to_api(
+                    rune_id, note_text, "http://localhost:8000"
+                )
                 # If it doesn't raise, that's expected (graceful error handling)
             except Exception:
                 # If it does raise, that's also acceptable for now

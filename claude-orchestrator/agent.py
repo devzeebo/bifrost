@@ -42,14 +42,14 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 # ANSI color codes for worker prefixes — cycle through these per worker ID
 _WORKER_COLORS = [
-    "\033[36m",   # cyan
-    "\033[33m",   # yellow
-    "\033[35m",   # magenta
-    "\033[32m",   # green
-    "\033[34m",   # blue
-    "\033[91m",   # bright red
-    "\033[96m",   # bright cyan
-    "\033[93m",   # bright yellow
+    "\033[36m",  # cyan
+    "\033[33m",  # yellow
+    "\033[35m",  # magenta
+    "\033[32m",  # green
+    "\033[34m",  # blue
+    "\033[91m",  # bright red
+    "\033[96m",  # bright cyan
+    "\033[93m",  # bright yellow
 ]
 _COLOR_RESET = "\033[0m"
 _COLOR_BOLD = "\033[1m"
@@ -77,6 +77,7 @@ def _is_verbose() -> bool:
     """Read orchestrate.logging from .bifrost.yaml in project root."""
     try:
         import yaml
+
         root = _find_project_root()
         config_path = Path(root) / ".bifrost.yaml"
         if not config_path.exists():
@@ -103,18 +104,24 @@ def main() -> None:
 
     # Load agent registry (no watcher needed — single invocation)
     from agents.loader import registry
+
     registry.load_all()
 
     entry = registry.get(agent_name)
     if entry is None:
-        logger.error("Unknown agent: %r (available: %s)", agent_name, list(registry.all().keys()))
+        logger.error(
+            "Unknown agent: %r (available: %s)", agent_name, list(registry.all().keys())
+        )
         sys.exit(1)
 
     agent_def = entry.definition
     hooks = entry.hooks
 
     if not agent_def.model:
-        logger.error("Agent %r has no model declared; add 'model:' to its frontmatter", agent_name)
+        logger.error(
+            "Agent %r has no model declared; add 'model:' to its frontmatter",
+            agent_name,
+        )
         sys.exit(1)
 
     cwd = _find_project_root()
@@ -125,7 +132,9 @@ def main() -> None:
     logger.info("Running agent %r in %s for rune %s", agent_name, cwd, rune_id)
 
     # --- RuneStart hooks ---
-    extra_system_prompt = _run_rune_start_hooks(hooks.rune_start, rune_json, rune_id, cwd)
+    extra_system_prompt = _run_rune_start_hooks(
+        hooks.rune_start, rune_json, rune_id, cwd
+    )
 
     system_prompt = agent_def.prompt
     if extra_system_prompt:
@@ -134,6 +143,7 @@ def main() -> None:
     prompt = _build_prompt(rune)
 
     import anyio
+
     success = anyio.run(
         _run_agent,
         agent_name,
@@ -157,10 +167,18 @@ def _log_hook(event: str, command: str, returncode: int, reason: str = "") -> No
         logger.info("hook:%s command=%s result=0", event, command)
     else:
         truncated = reason[:100] + ("..." if len(reason) > 100 else "")
-        logger.warning("hook:%s command=%s result=%d reason=%s", event, command, returncode, truncated)
+        logger.warning(
+            "hook:%s command=%s result=%d reason=%s",
+            event,
+            command,
+            returncode,
+            truncated,
+        )
 
 
-def _run_hook_command(command: str, rune_json: str, project_dir: str) -> subprocess.CompletedProcess:
+def _run_hook_command(
+    command: str, rune_json: str, project_dir: str
+) -> subprocess.CompletedProcess:
     """Run a hook command with rune JSON on stdin, using shell for expansion."""
     env = os.environ.copy()
     env["CLAUDE_PROJECT_DIR"] = project_dir
@@ -174,13 +192,19 @@ def _run_hook_command(command: str, rune_json: str, project_dir: str) -> subproc
     )
 
 
-def _run_rune_start_hooks(hook_commands, rune_json: str, rune_id: str, project_dir: str) -> str:
+def _run_rune_start_hooks(
+    hook_commands, rune_json: str, rune_id: str, project_dir: str
+) -> str:
     """Run all RuneStart hook commands; return concatenated stdout."""
     parts: list[str] = []
     for hook in hook_commands:
         try:
             result = _run_hook_command(hook.command, rune_json, project_dir)
-            reason = (result.stderr.strip() or result.stdout.strip()) if result.returncode != 0 else ""
+            reason = (
+                (result.stderr.strip() or result.stdout.strip())
+                if result.returncode != 0
+                else ""
+            )
             _log_hook("RuneStart", hook.command, result.returncode, reason)
             if result.stdout.strip():
                 parts.append(result.stdout.strip())
@@ -246,7 +270,14 @@ async def _drain_messages(
         last_ns = now_ns
 
         if verbose:
-            _log_verbose_message(rune_id, message, AssistantMessage, TextBlock, ToolUseBlock, since_last_ms)
+            _log_verbose_message(
+                rune_id,
+                message,
+                AssistantMessage,
+                TextBlock,
+                ToolUseBlock,
+                since_last_ms,
+            )
         if isinstance(message, ResultMessage):
             total_ms = (now_ns - start_ns) // 1_000_000
             usage = message.usage or {}
@@ -254,7 +285,11 @@ async def _drain_messages(
             output_tokens = usage.get("output_tokens", 0)
             cache_read = usage.get("cache_read_input_tokens", 0)
             cache_write = usage.get("cache_creation_input_tokens", 0)
-            cost = f"${message.total_cost_usd:.4f}" if message.total_cost_usd is not None else "n/a"
+            cost = (
+                f"${message.total_cost_usd:.4f}"
+                if message.total_cost_usd is not None
+                else "n/a"
+            )
             if verbose:
                 token_parts = [f"in={input_tokens}", f"out={output_tokens}"]
                 if cache_read:
@@ -269,8 +304,12 @@ async def _drain_messages(
             else:
                 logger.info(
                     "Agent %r completed: turns=%d time=%dms tokens(in=%d out=%d) cost=%s — %s",
-                    agent_name, message.num_turns, total_ms,
-                    input_tokens, output_tokens, cost,
+                    agent_name,
+                    message.num_turns,
+                    total_ms,
+                    input_tokens,
+                    output_tokens,
+                    cost,
                     (message.result or "")[:200],
                 )
             got_result = True
@@ -322,7 +361,8 @@ async def _run_rune_stop_hooks(
                 )
                 if not cont_result:
                     logger.error(
-                        "Agent %r produced no ResultMessage after hook follow-up", agent_name
+                        "Agent %r produced no ResultMessage after hook follow-up",
+                        agent_name,
                     )
                     return False, last_ns
                 # Restart all hooks from scratch to verify the fix
@@ -368,7 +408,11 @@ async def _run_agent(
     start_ns = time.monotonic_ns()
 
     if verbose:
-        _log_verbose(rune_id, f"starting agent={agent_name} model={agent_def.model}", elapsed_ms=0)
+        _log_verbose(
+            rune_id,
+            f"starting agent={agent_name} model={agent_def.model}",
+            elapsed_ms=0,
+        )
 
     async with ClaudeSDKClient(options=options) as client:
         await client.query(prompt)
@@ -382,12 +426,26 @@ async def _run_agent(
             return False
 
         hooks_passed, last_ns = await _run_rune_stop_hooks(
-            rune_stop_hooks, rune_json, cwd, client, rune_id, agent_name, verbose, last_ns
+            rune_stop_hooks,
+            rune_json,
+            cwd,
+            client,
+            rune_id,
+            agent_name,
+            verbose,
+            last_ns,
         )
         return hooks_passed
 
 
-def _log_verbose_message(rune_id: str, message: object, AssistantMessage, TextBlock, ToolUseBlock, elapsed_ms: int) -> None:  # noqa: N803
+def _log_verbose_message(
+    rune_id: str,
+    message: object,
+    AssistantMessage,
+    TextBlock,
+    ToolUseBlock,
+    elapsed_ms: int,
+) -> None:  # noqa: N803
     if isinstance(message, AssistantMessage):
         for block in message.content:
             if isinstance(block, TextBlock) and block.text.strip():
@@ -395,8 +453,12 @@ def _log_verbose_message(rune_id: str, message: object, AssistantMessage, TextBl
                 _log_verbose(rune_id, f"text: {first_line}", elapsed_ms=elapsed_ms)
             elif isinstance(block, ToolUseBlock):
                 inp = block.input or {}
-                inp_summary = ", ".join(f"{k}={str(v)[:60]}" for k, v in list(inp.items())[:3])
-                _log_verbose(rune_id, f"tool: {block.name}({inp_summary})", elapsed_ms=elapsed_ms)
+                inp_summary = ", ".join(
+                    f"{k}={str(v)[:60]}" for k, v in list(inp.items())[:3]
+                )
+                _log_verbose(
+                    rune_id, f"tool: {block.name}({inp_summary})", elapsed_ms=elapsed_ms
+                )
 
 
 def _find_project_root() -> str:

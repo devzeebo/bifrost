@@ -11,7 +11,7 @@ Tests covering:
 
 import pytest
 import json
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import patch
 
 
 class TestCompletionNoteFormattingEdgeCases:
@@ -202,7 +202,9 @@ class TestAPIIntegrationErrors:
 
             # Should handle error (either raise or log)
             try:
-                append_completion_note_to_api("bf-1234", "test note", "http://localhost:8000")
+                append_completion_note_to_api(
+                    "bf-1234", "test note", "http://localhost:8000"
+                )
                 # If no exception, that's graceful handling
             except ConnectionError:
                 # If exception raised, that's acceptable
@@ -216,7 +218,9 @@ class TestAPIIntegrationErrors:
             mock_post.side_effect = Exception("Unauthorized")
 
             try:
-                append_completion_note_to_api("bf-1234", "test note", "http://localhost:8000")
+                append_completion_note_to_api(
+                    "bf-1234", "test note", "http://localhost:8000"
+                )
             except Exception:
                 pass
 
@@ -228,7 +232,9 @@ class TestAPIIntegrationErrors:
             mock_post.side_effect = Exception("Invalid JSON response")
 
             try:
-                append_completion_note_to_api("bf-1234", "test note", "http://localhost:8000")
+                append_completion_note_to_api(
+                    "bf-1234", "test note", "http://localhost:8000"
+                )
             except Exception:
                 pass
 

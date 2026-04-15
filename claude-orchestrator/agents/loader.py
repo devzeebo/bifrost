@@ -43,13 +43,15 @@ _FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
 class HookCommand(NamedTuple):
     """A single hook command entry."""
+
     command: str
 
 
 class AgentHooks(NamedTuple):
     """Hook commands attached to an agent, keyed by event name."""
+
     rune_start: list[HookCommand]  # run before agent; stdout appended to system prompt
-    rune_stop: list[HookCommand]   # run after agent; exit code controls fulfillment
+    rune_stop: list[HookCommand]  # run after agent; exit code controls fulfillment
 
 
 AGENTS_DIR = Path(__file__).parent
@@ -59,6 +61,7 @@ CLAUDE_AGENTS_DIR = Path.home() / ".claude" / "agents"
 @dataclass
 class AgentEntry:
     """Bundled agent definition and its rune hooks."""
+
     definition: AgentDefinition
     hooks: AgentHooks
 
@@ -122,7 +125,9 @@ class AgentRegistry:
         observer.daemon = True
         observer.start()
         self._watcher = observer
-        logger.info("Watching %s and %s for agent changes", AGENTS_DIR, CLAUDE_AGENTS_DIR)
+        logger.info(
+            "Watching %s and %s for agent changes", AGENTS_DIR, CLAUDE_AGENTS_DIR
+        )
 
     def stop_watcher(self) -> None:
         if self._watcher is not None:
@@ -160,7 +165,7 @@ def _parse_agent_file(path: Path) -> tuple[str, AgentEntry]:
         raise ValueError(f"No YAML frontmatter found in {path.name}")
 
     frontmatter_text = m.group(1)
-    body = text[m.end():].strip()
+    body = text[m.end() :].strip()
 
     fields: dict = yaml.safe_load(frontmatter_text) or {}
 

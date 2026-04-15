@@ -9,10 +9,8 @@ These tests cover:
 - Cost calculation and formatting
 """
 
-import json
 import pytest
-from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 
 class TestCompletionNoteFormatter:

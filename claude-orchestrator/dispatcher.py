@@ -32,7 +32,7 @@ def main() -> None:
     agent_name: str | None = None
     for tag in tags:
         if tag.startswith("worker:"):
-            agent_name = tag[len("worker:"):]
+            agent_name = tag[len("worker:") :]
             break
 
     if not agent_name:
@@ -43,16 +43,19 @@ def main() -> None:
     script_dir = os.path.dirname(os.path.abspath(__file__))
     agent_script = os.path.join(script_dir, "agent.py")
 
-    _emit({
-        "command": "uv",
-        "args": ["run", "--project", script_dir, agent_script, agent_name],
-        "stdin": json.dumps(rune),
-        "env": {},
-    })
+    _emit(
+        {
+            "command": "uv",
+            "args": ["run", "--project", script_dir, agent_script, agent_name],
+            "stdin": json.dumps(rune),
+            "env": {},
+        }
+    )
 
 
 def _list_agents() -> None:
     from agents.loader import registry
+
     registry.load_all()
     agents = registry.all()
     if not agents:
@@ -69,7 +72,9 @@ def _list_agents() -> None:
         if defn.tools:
             print(f"    tools:            {', '.join(defn.tools)}")
         if hooks.rune_start:
-            print(f"    rune_start_hooks: {', '.join(str(p) for p in hooks.rune_start)}")
+            print(
+                f"    rune_start_hooks: {', '.join(str(p) for p in hooks.rune_start)}"
+            )
         if hooks.rune_stop:
             print(f"    rune_stop_hooks:  {', '.join(str(p) for p in hooks.rune_stop)}")
 
