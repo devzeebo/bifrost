@@ -15,7 +15,7 @@ else
 endif
 
 .PHONY: deps build build-server build-cli build-ui ui-dist \
-        test test-go test-ui \
+        test test-go test-ui test-py \
         lint lint-go lint-ui \
         vet tidy \
         dev prod docker clean list help
@@ -65,6 +65,10 @@ test-go:
 test-ui:
 	@echo "» vitest run"
 	cd ui && npm run test -- --run
+
+test-py:
+	@echo "» uv run pytest"
+	cd claude-orchestrator && uv run pytest
 
 lint: lint-go lint-ui
 

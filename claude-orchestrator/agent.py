@@ -279,6 +279,67 @@ async def _drain_messages(
     return got_result, last_ns
 
 
+async def _run_rune_stop_hooks(
+    rune_stop_hooks: list,
+    rune_json: str,
+    cwd: str,
+    client,
+    rune_id: str,
+    agent_name: str,
+    verbose: bool,
+    last_ns: int,
+) -> tuple[bool, int]:
+    """
+    Run all RuneStop hooks, restarting from the first hook after any exit-1
+    follow-up (so the agent's fix is verified by the full suite).
+
+    Returns (passed, last_ns).
+    """
+    while True:
+        restarted = False
+        for hook in rune_stop_hooks:
+            try:
+                result = _run_hook_command(hook.command, rune_json, cwd)
+            except Exception as exc:
+                logger.warning("hook:RuneStop command=%s failed: %s", hook.command, exc)
+                continue
+
+            hook_output = result.stdout.strip() or result.stderr.strip()
+
+            if result.returncode == 0:
+                _log_hook("RuneStop", hook.command, 0)
+                continue
+
+            if result.returncode == 1:
+                _log_hook("RuneStop", hook.command, 1, hook_output)
+                follow_up = (
+                    "A post-completion hook reported an issue and provided "
+                    f"additional context. Please review and address it:\n\n{hook_output}"
+                )
+                await client.query(follow_up)
+                cont_result, last_ns = await _drain_messages(
+                    client, rune_id, agent_name, verbose, start_ns=last_ns
+                )
+                if not cont_result:
+                    logger.error(
+                        "Agent %r produced no ResultMessage after hook follow-up", agent_name
+                    )
+                    return False, last_ns
+                # Restart all hooks from scratch to verify the fix
+                restarted = True
+                break
+
+            elif result.returncode == 2:
+                _log_hook("RuneStop", hook.command, 2, hook_output)
+                return False, last_ns
+
+            else:
+                _log_hook("RuneStop", hook.command, result.returncode, hook_output)
+
+        if not restarted:
+            return True, last_ns
+
+
 async def _run_agent(
     agent_name: str,
     agent_def,
@@ -310,7 +371,6 @@ async def _run_agent(
         _log_verbose(rune_id, f"starting agent={agent_name} model={agent_def.model}", elapsed_ms=0)
 
     async with ClaudeSDKClient(options=options) as client:
-        # __aenter__ called connect() with empty stream; send initial prompt now
         await client.query(prompt)
 
         got_result, last_ns = await _drain_messages(
@@ -321,44 +381,10 @@ async def _run_agent(
             logger.error("Agent %r produced no ResultMessage", agent_name)
             return False
 
-        # --- RuneStop hooks ---
-        for hook in rune_stop_hooks:
-            try:
-                result = _run_hook_command(hook.command, rune_json, cwd)
-            except Exception as exc:
-                logger.warning("hook:RuneStop command=%s failed: %s", hook.command, exc)
-                continue
-
-            hook_output = result.stdout.strip() or result.stderr.strip()
-
-            if result.returncode == 0:
-                _log_hook("RuneStop", hook.command, 0)
-                continue
-
-            if result.returncode == 1:
-                _log_hook("RuneStop", hook.command, 1, hook_output)
-                follow_up = (
-                    f"A post-completion hook reported an issue and provided "
-                    f"additional context. Please review and address it:\n\n{hook_output}"
-                )
-                await client.query(follow_up)
-                cont_result, last_ns = await _drain_messages(
-                    client, rune_id, agent_name, verbose, start_ns=last_ns
-                )
-                if not cont_result:
-                    logger.error(
-                        "Agent %r produced no ResultMessage after hook follow-up", agent_name
-                    )
-                    return False
-
-            elif result.returncode == 2:
-                _log_hook("RuneStop", hook.command, 2, hook_output)
-                return False
-
-            else:
-                _log_hook("RuneStop", hook.command, result.returncode, hook_output)
-
-    return True
+        hooks_passed, last_ns = await _run_rune_stop_hooks(
+            rune_stop_hooks, rune_json, cwd, client, rune_id, agent_name, verbose, last_ns
+        )
+        return hooks_passed
 
 
 def _log_verbose_message(rune_id: str, message: object, AssistantMessage, TextBlock, ToolUseBlock, elapsed_ms: int) -> None:  # noqa: N803
