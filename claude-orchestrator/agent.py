@@ -125,7 +125,7 @@ def main() -> None:
     logger.info("Running agent %r in %s for rune %s", agent_name, cwd, rune_id)
 
     # --- RuneStart hooks ---
-    extra_system_prompt = _run_rune_start_hooks(hooks.rune_start, rune_json, rune_id)
+    extra_system_prompt = _run_rune_start_hooks(hooks.rune_start, rune_json, rune_id, cwd)
 
     system_prompt = agent_def.prompt
     if extra_system_prompt:
@@ -151,24 +151,27 @@ def main() -> None:
         sys.exit(1)
 
 
-def _run_hook_command(command: str, rune_json: str) -> subprocess.CompletedProcess:
+def _run_hook_command(command: str, rune_json: str, project_dir: str) -> subprocess.CompletedProcess:
     """Run a hook command with rune JSON on stdin, using shell for expansion."""
+    env = os.environ.copy()
+    env["CLAUDE_PROJECT_DIR"] = project_dir
     return subprocess.run(
         command,
         shell=True,
         input=rune_json,
         capture_output=True,
         text=True,
+        env=env,
     )
 
 
-def _run_rune_start_hooks(hook_commands, rune_json: str, rune_id: str) -> str:
+def _run_rune_start_hooks(hook_commands, rune_json: str, rune_id: str, project_dir: str) -> str:
     """Run all RuneStart hook commands; return concatenated stdout."""
     parts: list[str] = []
     for hook in hook_commands:
         logger.info("Running RuneStart hook: %s", hook.command)
         try:
-            result = _run_hook_command(hook.command, rune_json)
+            result = _run_hook_command(hook.command, rune_json, project_dir)
             if result.returncode != 0:
                 logger.warning(
                     "RuneStart hook exited %d: %s",
@@ -299,7 +302,7 @@ async def _run_agent(
         for hook in rune_stop_hooks:
             logger.info("Running RuneStop hook: %s", hook.command)
             try:
-                result = _run_hook_command(hook.command, rune_json)
+                result = _run_hook_command(hook.command, rune_json, cwd)
             except Exception as exc:
                 logger.warning("RuneStop hook failed to execute: %s", exc)
                 continue
