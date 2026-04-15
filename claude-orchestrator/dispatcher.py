@@ -58,14 +58,20 @@ def _list_agents() -> None:
     if not agents:
         print("No agents found.", file=sys.stderr)
         return
-    for name, defn in sorted(agents.items()):
+    for name, entry in sorted(agents.items()):
+        defn = entry.definition
+        hooks = entry.hooks
         print(f"  {name}")
         if defn.description:
-            print(f"    description: {defn.description}")
+            print(f"    description:      {defn.description}")
         if defn.model:
-            print(f"    model:       {defn.model}")
+            print(f"    model:            {defn.model}")
         if defn.tools:
-            print(f"    tools:       {', '.join(defn.tools)}")
+            print(f"    tools:            {', '.join(defn.tools)}")
+        if hooks.rune_start:
+            print(f"    rune_start_hooks: {', '.join(str(p) for p in hooks.rune_start)}")
+        if hooks.rune_stop:
+            print(f"    rune_stop_hooks:  {', '.join(str(p) for p in hooks.rune_stop)}")
 
 
 def _emit(result: dict) -> None:
