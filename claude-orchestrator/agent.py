@@ -245,11 +245,30 @@ async def _drain_messages(
             _log_verbose_message(rune_id, message, AssistantMessage, TextBlock, ToolUseBlock, since_last_ms)
         if isinstance(message, ResultMessage):
             total_ms = (now_ns - start_ns) // 1_000_000
+            usage = message.usage or {}
+            input_tokens = usage.get("input_tokens", 0)
+            output_tokens = usage.get("output_tokens", 0)
+            cache_read = usage.get("cache_read_input_tokens", 0)
+            cache_write = usage.get("cache_creation_input_tokens", 0)
+            cost = f"${message.total_cost_usd:.4f}" if message.total_cost_usd is not None else "n/a"
             if verbose:
-                cost = f"  cost=${message.total_cost_usd:.4f}" if message.total_cost_usd is not None else ""
-                _log_verbose(rune_id, f"done turns={message.num_turns} total={total_ms}ms{cost}")
+                token_parts = [f"in={input_tokens}", f"out={output_tokens}"]
+                if cache_read:
+                    token_parts.append(f"cache_read={cache_read}")
+                if cache_write:
+                    token_parts.append(f"cache_write={cache_write}")
+                _log_verbose(
+                    rune_id,
+                    f"done turns={message.num_turns} total={total_ms}ms"
+                    f"  tokens={' '.join(token_parts)}  cost={cost}",
+                )
             else:
-                logger.info("Agent %r completed in %dms: %s", agent_name, total_ms, (message.result or "")[:200])
+                logger.info(
+                    "Agent %r completed: turns=%d time=%dms tokens(in=%d out=%d) cost=%s — %s",
+                    agent_name, message.num_turns, total_ms,
+                    input_tokens, output_tokens, cost,
+                    (message.result or "")[:200],
+                )
             got_result = True
             break
 
