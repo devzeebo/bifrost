@@ -151,6 +151,15 @@ def main() -> None:
         sys.exit(1)
 
 
+def _log_hook(event: str, command: str, returncode: int, reason: str = "") -> None:
+    """Emit a structured hook log line."""
+    if returncode == 0:
+        logger.info("hook:%s command=%s result=0", event, command)
+    else:
+        truncated = reason[:100] + ("..." if len(reason) > 100 else "")
+        logger.warning("hook:%s command=%s result=%d reason=%s", event, command, returncode, truncated)
+
+
 def _run_hook_command(command: str, rune_json: str, project_dir: str) -> subprocess.CompletedProcess:
     """Run a hook command with rune JSON on stdin, using shell for expansion."""
     env = os.environ.copy()
@@ -169,19 +178,14 @@ def _run_rune_start_hooks(hook_commands, rune_json: str, rune_id: str, project_d
     """Run all RuneStart hook commands; return concatenated stdout."""
     parts: list[str] = []
     for hook in hook_commands:
-        logger.info("Running RuneStart hook: %s", hook.command)
         try:
             result = _run_hook_command(hook.command, rune_json, project_dir)
-            if result.returncode != 0:
-                logger.warning(
-                    "RuneStart hook exited %d: %s",
-                    result.returncode,
-                    result.stderr.strip(),
-                )
+            reason = (result.stderr.strip() or result.stdout.strip()) if result.returncode != 0 else ""
+            _log_hook("RuneStart", hook.command, result.returncode, reason)
             if result.stdout.strip():
                 parts.append(result.stdout.strip())
         except Exception as exc:
-            logger.warning("RuneStart hook failed: %s", exc)
+            logger.warning("hook:RuneStart command=%s failed: %s", hook.command, exc)
     return "\n\n".join(parts)
 
 
@@ -319,27 +323,24 @@ async def _run_agent(
 
         # --- RuneStop hooks ---
         for hook in rune_stop_hooks:
-            logger.info("Running RuneStop hook: %s", hook.command)
             try:
                 result = _run_hook_command(hook.command, rune_json, cwd)
             except Exception as exc:
-                logger.warning("RuneStop hook failed to execute: %s", exc)
+                logger.warning("hook:RuneStop command=%s failed: %s", hook.command, exc)
                 continue
 
+            hook_output = result.stdout.strip() or result.stderr.strip()
+
             if result.returncode == 0:
-                # Success — continue to next hook
+                _log_hook("RuneStop", hook.command, 0)
                 continue
 
             if result.returncode == 1:
-                # Non-blocking: forward stdout back to agent as a follow-up message
-                hook_output = result.stdout.strip()
-                if not hook_output:
-                    hook_output = result.stderr.strip()
+                _log_hook("RuneStop", hook.command, 1, hook_output)
                 follow_up = (
                     f"A post-completion hook reported an issue and provided "
                     f"additional context. Please review and address it:\n\n{hook_output}"
                 )
-                logger.info("RuneStop hook exited 1; sending follow-up to agent")
                 await client.query(follow_up)
                 cont_result, last_ns = await _drain_messages(
                     client, rune_id, agent_name, verbose, start_ns=last_ns
@@ -351,20 +352,11 @@ async def _run_agent(
                     return False
 
             elif result.returncode == 2:
-                # Blocking: do NOT fulfill, leave rune claimed
-                hook_output = result.stderr.strip() or result.stdout.strip()
-                logger.error(
-                    "RuneStop hook blocked fulfillment (exit 2): %s",
-                    hook_output,
-                )
+                _log_hook("RuneStop", hook.command, 2, hook_output)
                 return False
 
             else:
-                # Unknown exit code — treat as non-fatal warning
-                logger.warning(
-                    "RuneStop hook exited %d (unexpected); continuing",
-                    result.returncode,
-                )
+                _log_hook("RuneStop", hook.command, result.returncode, hook_output)
 
     return True
 
