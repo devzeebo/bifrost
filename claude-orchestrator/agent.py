@@ -189,6 +189,7 @@ def _run_hook_command(
         capture_output=True,
         text=True,
         env=env,
+        cwd=project_dir,
     )
 
 
