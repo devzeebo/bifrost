@@ -15,6 +15,7 @@ type DispatchInput struct {
 	Description  string   `json:"description,omitempty"`
 	Status       string   `json:"status"`
 	Priority     int      `json:"priority"`
+	Branch       string   `json:"branch,omitempty"`
 	Tags         []string `json:"tags,omitempty"`
 	Notes        []any    `json:"notes,omitempty"`
 	Dependencies []any    `json:"dependencies,omitempty"`
@@ -82,6 +83,7 @@ func dispatchInputFromRune(detail map[string]any) DispatchInput {
 		Title:       stringField(detail, "title"),
 		Description: stringField(detail, "description"),
 		Status:      stringField(detail, "status"),
+		Branch:      stringField(detail, "branch"),
 	}
 
 	if p, ok := detail["priority"].(float64); ok {
