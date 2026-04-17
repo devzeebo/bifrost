@@ -238,7 +238,7 @@ def _log_claude_command(
     rune_id: str, model: str, tools: list[str] | None, verbose: bool
 ) -> None:
     """Log the effective claude invocation flags."""
-    parts = ["claude", f"--model {model}", "--permission-mode bypassPermissions"]
+    parts = ["claude", f"--model {model}", "--permission-mode dontAsk"]
     if tools:
         parts.append(f"--allowedTools {','.join(tools)}")
     cmd_str = " ".join(parts)
@@ -414,7 +414,7 @@ async def _run_agent(
     options = ClaudeAgentOptions(
         cwd=cwd,
         allowed_tools=agent_def.tools,
-        permission_mode="bypassPermissions",
+        permission_mode="dontAsk",
         system_prompt=system_prompt,
         model=agent_def.model,
         setting_sources=["project"],
