@@ -240,6 +240,7 @@ def _log_claude_command(
     """Log the effective claude invocation flags."""
     parts = ["claude", f"--model {model}", "--permission-mode dontAsk"]
     if tools:
+        parts.append(f"--tools {','.join(tools)}")
         parts.append(f"--allowedTools {','.join(tools)}")
     cmd_str = " ".join(parts)
     if verbose:
@@ -413,6 +414,7 @@ async def _run_agent(
 
     options = ClaudeAgentOptions(
         cwd=cwd,
+        tools=agent_def.tools,
         allowed_tools=agent_def.tools,
         permission_mode="dontAsk",
         system_prompt=system_prompt,
