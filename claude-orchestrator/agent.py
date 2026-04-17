@@ -234,6 +234,20 @@ def _build_prompt(rune: dict) -> str:
     return "\n".join(lines)
 
 
+def _log_claude_command(
+    rune_id: str, model: str, tools: list[str] | None, verbose: bool
+) -> None:
+    """Log the effective claude invocation flags."""
+    parts = ["claude", f"--model {model}", "--permission-mode bypassPermissions"]
+    if tools:
+        parts.append(f"--allowedTools {','.join(tools)}")
+    cmd_str = " ".join(parts)
+    if verbose:
+        _log_verbose(rune_id, f"exec: {cmd_str}", elapsed_ms=0)
+    else:
+        logger.info("Starting agent: %s", cmd_str)
+
+
 def _log_verbose(worker_id: str, msg: str, elapsed_ms: int | None = None) -> None:
     prefix = _worker_prefix(worker_id)
     ts = f"\033[2m+{elapsed_ms}ms\033[0m " if elapsed_ms is not None else ""
@@ -399,7 +413,7 @@ async def _run_agent(
 
     options = ClaudeAgentOptions(
         cwd=cwd,
-        allowed_tools=agent_def.tools or ["Read", "Bash", "Glob", "Grep"],
+        allowed_tools=agent_def.tools,
         permission_mode="bypassPermissions",
         system_prompt=system_prompt,
         model=agent_def.model,
@@ -408,12 +422,7 @@ async def _run_agent(
 
     start_ns = time.monotonic_ns()
 
-    if verbose:
-        _log_verbose(
-            rune_id,
-            f"starting agent={agent_name} model={agent_def.model}",
-            elapsed_ms=0,
-        )
+    _log_claude_command(rune_id, agent_def.model, agent_def.tools, verbose)
 
     async with ClaudeSDKClient(options=options) as client:
         await client.query(prompt)
