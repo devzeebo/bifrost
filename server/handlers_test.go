@@ -109,7 +109,7 @@ func TestHandleDomainError(t *testing.T) {
 		tc.response_body_has_error_field()
 	})
 
-	t.Run("maps validation-style error to 400", func(t *testing.T) {
+	t.Run("maps validation-style error to 422", func(t *testing.T) {
 		tc := newHandlerTestContext(t)
 
 		// Given
@@ -119,7 +119,7 @@ func TestHandleDomainError(t *testing.T) {
 		tc.handle_domain_error()
 
 		// Then
-		tc.status_is(http.StatusBadRequest)
+		tc.status_is(http.StatusUnprocessableEntity)
 		tc.content_type_is_json()
 		tc.response_body_has_error_field()
 	})
@@ -1154,7 +1154,7 @@ func TestShatterRuneHandler(t *testing.T) {
 		tc.response_body_has_error_field()
 	})
 
-	t.Run("returns 400 for open rune", func(t *testing.T) {
+	t.Run("returns 422 for open rune", func(t *testing.T) {
 		tc := newHandlerTestContext(t)
 
 		// Given
@@ -1168,7 +1168,7 @@ func TestShatterRuneHandler(t *testing.T) {
 		})
 
 		// Then
-		tc.status_is(http.StatusBadRequest)
+		tc.status_is(http.StatusUnprocessableEntity)
 		tc.response_body_has_error_field()
 	})
 }
@@ -1237,6 +1237,9 @@ func TestRegisterRoutes(t *testing.T) {
 		tc.route_exists("POST", "/api/add-dependency")
 		tc.route_exists("POST", "/api/remove-dependency")
 		tc.route_exists("POST", "/api/add-note")
+		tc.route_exists("POST", "/api/add-ac")
+		tc.route_exists("POST", "/api/update-ac")
+		tc.route_exists("POST", "/api/remove-ac")
 		tc.route_exists("GET", "/api/runes")
 		tc.route_exists("GET", "/api/rune")
 		tc.route_exists("POST", "/api/create-realm")

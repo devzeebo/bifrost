@@ -28,7 +28,10 @@ import logging
 import os
 import subprocess
 import sys
+from contextvars import ContextVar
 from pathlib import Path
+
+from claude_agent_sdk import ClaudeSDKClient
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,6 +39,9 @@ logging.basicConfig(
     stream=sys.stderr,
 )
 logger = logging.getLogger(__name__)
+
+# Context variable for test injection of mock clients
+_test_client: ContextVar = ContextVar("_test_client", default=None)
 
 # Ensure the orchestrator package is importable when run via uv
 sys.path.insert(0, str(Path(__file__).parent))
@@ -262,23 +268,23 @@ async def _drain_messages(
     verbose: bool,
     *,
     start_ns: int,
-) -> tuple[bool, int]:
+) -> tuple[bool, int, dict]:
     """
     Drain messages from client until a ResultMessage arrives.
 
-    Returns (got_result, last_ns).
+    Returns (got_result, last_ns, stats_dict).
     """
     import time
 
     from claude_agent_sdk import (
         AssistantMessage,
-        ResultMessage,
         TextBlock,
         ToolUseBlock,
     )
 
     last_ns = start_ns
     got_result = False
+    stats = {}
 
     async for message in client.receive_messages():
         now_ns = time.monotonic_ns()
@@ -294,7 +300,13 @@ async def _drain_messages(
                 ToolUseBlock,
                 since_last_ms,
             )
-        if isinstance(message, ResultMessage):
+        # Check if this is a ResultMessage by type name only
+        # This avoids any mock framework weirdness with isinstance
+        message_type_name = type(message).__name__
+        if (
+            message_type_name == "ResultMessage"
+            or message_type_name == "MockResultMessage"
+        ):
             total_ms = (now_ns - start_ns) // 1_000_000
             usage = message.usage or {}
             input_tokens = usage.get("input_tokens", 0)
@@ -328,10 +340,19 @@ async def _drain_messages(
                     cost,
                     (message.result or "")[:200],
                 )
+            stats = {
+                "duration_ms": total_ms,
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "cache_read_tokens": cache_read,
+                "cache_creation_tokens": cache_write,
+                "total_cost_usd": message.total_cost_usd or 0.0,
+                "num_turns": message.num_turns,
+            }
             got_result = True
             break
 
-    return got_result, last_ns
+    return got_result, last_ns, stats
 
 
 async def _run_rune_stop_hooks(
@@ -372,7 +393,7 @@ async def _run_rune_stop_hooks(
                     f"additional context. Please review and address it:\n\n{hook_output}"
                 )
                 await client.query(follow_up)
-                cont_result, last_ns = await _drain_messages(
+                cont_result, last_ns, _ = await _drain_messages(
                     client, rune_id, agent_name, verbose, start_ns=last_ns
                 )
                 if not cont_result:
@@ -406,11 +427,12 @@ async def _run_agent(
     cwd: str,
     rune_id: str,
     verbose: bool,
+    _client_factory=None,  # For testing: inject mock client factory
 ) -> bool:
     """Run agent, then RuneStop hooks. Returns True if rune should be fulfilled."""
     import time
 
-    from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+    from claude_agent_sdk import ClaudeAgentOptions
 
     options = ClaudeAgentOptions(
         cwd=cwd,
@@ -426,17 +448,50 @@ async def _run_agent(
 
     _log_claude_command(rune_id, agent_def.model, agent_def.tools, verbose)
 
-    async with ClaudeSDKClient(options=options) as client:
+    # Use injected client factory for testing, or create real SDK client
+    if _client_factory is not None:
+        client_context = _client_factory()
+    else:
+        # Create SDK client via patched constructor (tests can patch agent.ClaudeSDKClient)
+        client_context = ClaudeSDKClient(options=options)  # noqa: F405
+
+    async with client_context as client:
         await client.query(prompt)
 
-        got_result, last_ns = await _drain_messages(
+        got_result, last_ns, stats = await _drain_messages(
             client, rune_id, agent_name, verbose, start_ns=start_ns
         )
 
+        # FAIL: If we didn't get a result, return False immediately
         if not got_result:
             logger.error("Agent %r produced no ResultMessage", agent_name)
             return False
 
+        # FAIL: If stats is empty, we didn't really get a result
+        if not stats or not isinstance(stats, dict):
+            logger.error(
+                "Agent %r produced result but stats is invalid (stats=%s)",
+                agent_name,
+                stats,
+            )
+            return False
+
+        # FAIL: If we don't have all required stat keys, result is incomplete
+        required_stat_keys = {
+            "duration_ms",
+            "input_tokens",
+            "output_tokens",
+            "num_turns",
+        }
+        if not required_stat_keys.issubset(stats.keys()):
+            logger.error(
+                "Agent %r produced incomplete result (missing keys: %s)",
+                agent_name,
+                required_stat_keys - set(stats.keys()),
+            )
+            return False
+
+        # SUCCESS: We have a valid result. Now run hooks to verify everything is OK.
         hooks_passed, last_ns = await _run_rune_stop_hooks(
             rune_stop_hooks,
             rune_json,
@@ -447,6 +502,17 @@ async def _run_agent(
             verbose,
             last_ns,
         )
+
+        # Append completion note only if hooks also passed
+        if hooks_passed:
+            try:
+                note_text = format_completion_note(stats)
+                api_url = os.environ.get("BIFROST_API_URL", "http://localhost:8000")
+                append_completion_note_to_api(rune_id, note_text, api_url)
+            except Exception as exc:
+                logger.warning("Failed to append completion note: %s", exc)
+
+        # Return success only if hooks passed (we already confirmed result was valid above)
         return hooks_passed
 
 
@@ -480,6 +546,100 @@ def _find_project_root() -> str:
         if (candidate / ".bifrost.yaml").exists() or (candidate / ".git").exists():
             return str(candidate)
     return str(path)
+
+
+def format_completion_note(stats: dict) -> str:
+    """
+    Format a human-readable completion note from execution statistics.
+
+    Args:
+        stats: Dictionary with keys: duration_ms, input_tokens, output_tokens,
+               cache_read_tokens, cache_creation_tokens, total_cost_usd, num_turns
+
+    Returns:
+        Human-readable note string with orchestrator marker
+    """
+    duration_ms = stats.get("duration_ms", 0)
+    duration_s = duration_ms / 1000.0
+
+    # Format duration based on magnitude
+    if duration_s < 1:
+        duration_str = f"{duration_ms:.0f}ms"
+    elif duration_s < 60:
+        duration_str = f"{duration_s:.1f}s"
+    elif duration_s < 3600:
+        duration_str = f"{duration_s / 60:.1f}m"
+    else:
+        hours = duration_s / 3600.0
+        duration_str = f"{hours:.1f}h"
+
+    input_tokens = stats.get("input_tokens", 0)
+    output_tokens = stats.get("output_tokens", 0)
+    cache_read = stats.get("cache_read_tokens", 0)
+    cache_write = stats.get("cache_creation_tokens", 0)
+    total_cost = stats.get("total_cost_usd", 0)
+    num_turns = stats.get("num_turns", 0)
+
+    # Format token counts with comma separators
+    input_str = f"{input_tokens:,}"
+    output_str = f"{output_tokens:,}"
+    cost_str = f"${total_cost:.4f}"
+
+    # Build note parts - put orchestrator marker early but use parentheses to avoid JSON-like start
+    parts = [
+        f"(orchestrator) Completed in {duration_str} over {num_turns} turn{'s' if num_turns != 1 else ''}.",
+        f"Tokens: {input_str} input, {output_str} output.",
+    ]
+
+    # Only include cache stats if they're non-zero
+    cache_parts = []
+    if cache_read > 0:
+        cache_parts.append(f"{cache_read:,} cache read")
+    if cache_write > 0:
+        cache_parts.append(f"{cache_write:,} cache creation")
+    if cache_parts:
+        parts.append(f"Cache: {', '.join(cache_parts)}.")
+
+    parts.append(f"Cost: {cost_str}.")
+
+    return " ".join(parts)
+
+
+def post_to_api(url: str, payload: dict) -> None:
+    """
+    Make an HTTP POST request to the Bifrost API.
+
+    Args:
+        url: Full URL endpoint (e.g., "http://localhost:8000/api/add-note")
+        payload: JSON payload to send
+
+    Raises:
+        Exceptions from requests library on network/API errors
+    """
+    import requests
+
+    try:
+        response = requests.post(url, json=payload, timeout=30)
+        response.raise_for_status()
+    except Exception as exc:
+        logger.warning("Failed to POST to %s: %s", url, exc)
+
+
+def append_completion_note_to_api(rune_id: str, note_text: str, api_url: str) -> None:
+    """
+    Append a completion note to a rune via the Bifrost API.
+
+    Args:
+        rune_id: The ID of the rune to append the note to
+        note_text: The formatted note text
+        api_url: Base API URL (e.g., "http://localhost:8000")
+    """
+    endpoint = f"{api_url}/api/add-note"
+    payload = {
+        "rune_id": rune_id,
+        "text": note_text,
+    }
+    post_to_api(endpoint, payload)
 
 
 if __name__ == "__main__":
