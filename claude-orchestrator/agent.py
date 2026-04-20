@@ -139,7 +139,7 @@ def main() -> None:
 
     # --- RuneStart hooks ---
     extra_system_prompt = _run_rune_start_hooks(
-        hooks.rune_start, rune_json, rune_id, cwd
+        hooks.rune_start, rune_json, rune_id, cwd, None
     )
 
     system_prompt = agent_def.prompt
@@ -183,15 +183,22 @@ def _log_hook(event: str, command: str, returncode: int, reason: str = "") -> No
 
 
 def _run_hook_command(
-    command: str, rune_json: str, project_dir: str
+    command: str, rune_json: str, project_dir: str, last_agent_message: str | None = None
 ) -> subprocess.CompletedProcess:
     """Run a hook command with rune JSON on stdin, using shell for expansion."""
     env = os.environ.copy()
     env["CLAUDE_PROJECT_DIR"] = project_dir
+    
+    # Construct the JSON structure with rune and last_agent_message
+    hook_input = json.dumps({
+        "rune": json.loads(rune_json),
+        "last_agent_message": last_agent_message
+    })
+    
     return subprocess.run(
         command,
         shell=True,
-        input=rune_json,
+        input=hook_input,
         capture_output=True,
         text=True,
         env=env,
@@ -200,13 +207,13 @@ def _run_hook_command(
 
 
 def _run_rune_start_hooks(
-    hook_commands, rune_json: str, rune_id: str, project_dir: str
+    hook_commands, rune_json: str, rune_id: str, project_dir: str, last_agent_message: str | None = None
 ) -> str:
     """Run all RuneStart hook commands; return concatenated stdout."""
     parts: list[str] = []
     for hook in hook_commands:
         try:
-            result = _run_hook_command(hook.command, rune_json, project_dir)
+            result = _run_hook_command(hook.command, rune_json, project_dir, last_agent_message)
             reason = (
                 (result.stderr.strip() or result.stdout.strip())
                 if result.returncode != 0
@@ -268,11 +275,11 @@ async def _drain_messages(
     verbose: bool,
     *,
     start_ns: int,
-) -> tuple[bool, int, dict]:
+) -> tuple[bool, int, dict, str | None]:
     """
     Drain messages from client until a ResultMessage arrives.
 
-    Returns (got_result, last_ns, stats_dict).
+    Returns (got_result, last_ns, stats_dict, last_assistant_message).
     """
     import time
 
@@ -285,11 +292,23 @@ async def _drain_messages(
     last_ns = start_ns
     got_result = False
     stats = {}
+    last_assistant_message: str | None = None
 
     async for message in client.receive_messages():
         now_ns = time.monotonic_ns()
         since_last_ms = (now_ns - last_ns) // 1_000_000
         last_ns = now_ns
+
+        # Capture the last assistant message
+        message_type_name = type(message).__name__
+        if message_type_name == "AssistantMessage":
+            # Extract text content from the assistant message
+            text_parts = []
+            if hasattr(message, 'content'):
+                for block in message.content:
+                    if hasattr(block, 'text') and block.text:
+                        text_parts.append(block.text)
+            last_assistant_message = "\n".join(text_parts) if text_parts else None
 
         if verbose:
             _log_verbose_message(
@@ -302,7 +321,6 @@ async def _drain_messages(
             )
         # Check if this is a ResultMessage by type name only
         # This avoids any mock framework weirdness with isinstance
-        message_type_name = type(message).__name__
         if (
             message_type_name == "ResultMessage"
             or message_type_name == "MockResultMessage"
@@ -352,7 +370,7 @@ async def _drain_messages(
             got_result = True
             break
 
-    return got_result, last_ns, stats
+    return got_result, last_ns, stats, last_assistant_message
 
 
 async def _run_rune_stop_hooks(
@@ -364,6 +382,7 @@ async def _run_rune_stop_hooks(
     agent_name: str,
     verbose: bool,
     last_ns: int,
+    last_agent_message: str | None,
 ) -> tuple[bool, int]:
     """
     Run all RuneStop hooks, restarting from the first hook after any exit-1
@@ -375,7 +394,7 @@ async def _run_rune_stop_hooks(
         restarted = False
         for hook in rune_stop_hooks:
             try:
-                result = _run_hook_command(hook.command, rune_json, cwd)
+                result = _run_hook_command(hook.command, rune_json, cwd, last_agent_message)
             except Exception as exc:
                 logger.warning("hook:RuneStop command=%s failed: %s", hook.command, exc)
                 continue
@@ -393,7 +412,7 @@ async def _run_rune_stop_hooks(
                     f"additional context. Please review and address it:\n\n{hook_output}"
                 )
                 await client.query(follow_up)
-                cont_result, last_ns, _ = await _drain_messages(
+                cont_result, last_ns, _, last_assistant_message = await _drain_messages(
                     client, rune_id, agent_name, verbose, start_ns=last_ns
                 )
                 if not cont_result:
@@ -402,6 +421,8 @@ async def _run_rune_stop_hooks(
                         agent_name,
                     )
                     return False, last_ns
+                # Update last_agent_message with the follow-up response
+                last_agent_message = last_assistant_message
                 # Restart all hooks from scratch to verify the fix
                 restarted = True
                 break
@@ -458,7 +479,7 @@ async def _run_agent(
     async with client_context as client:
         await client.query(prompt)
 
-        got_result, last_ns, stats = await _drain_messages(
+        got_result, last_ns, stats, last_assistant_message = await _drain_messages(
             client, rune_id, agent_name, verbose, start_ns=start_ns
         )
 
@@ -501,6 +522,7 @@ async def _run_agent(
             agent_name,
             verbose,
             last_ns,
+            last_assistant_message,
         )
 
         # Append completion note only if hooks also passed
