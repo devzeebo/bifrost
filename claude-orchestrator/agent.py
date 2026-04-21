@@ -138,9 +138,14 @@ def main() -> None:
     logger.info("Running agent %r in %s for rune %s", agent_name, cwd, rune_id)
 
     # --- RuneStart hooks ---
-    extra_system_prompt = _run_rune_start_hooks(
+    extra_system_prompt, skip_agent = _run_rune_start_hooks(
         hooks.rune_start, rune_json, rune_id, cwd, None
     )
+
+    # If RuneStart hook said skip (-2), exit 0 (success, no agent)
+    if skip_agent:
+        logger.info("RuneStart hook signaled skip agent (-2), exiting successfully")
+        sys.exit(0)
 
     system_prompt = agent_def.prompt
     if extra_system_prompt:
@@ -150,7 +155,7 @@ def main() -> None:
 
     import anyio
 
-    success = anyio.run(
+    success, skip_fulfill = anyio.run(
         _run_agent,
         agent_name,
         agent_def,
@@ -165,6 +170,11 @@ def main() -> None:
 
     if not success:
         sys.exit(1)
+
+    # If RuneStop hook said skip fulfill (-2), exit -2
+    if skip_fulfill:
+        logger.info("RuneStop hook signaled skip fulfill (-2), exiting with -2")
+        sys.exit(-2)
 
 
 def _log_hook(event: str, command: str, returncode: int, reason: str = "") -> None:
@@ -208,8 +218,12 @@ def _run_hook_command(
 
 def _run_rune_start_hooks(
     hook_commands, rune_json: str, rune_id: str, project_dir: str, last_agent_message: str | None = None
-) -> str:
-    """Run all RuneStart hook commands; return concatenated stdout."""
+) -> tuple[str, bool]:
+    """
+    Run all RuneStart hook commands; return (concatenated_stdout, skip_agent).
+
+    If any hook exits -2, skip agent and return (output, True).
+    """
     parts: list[str] = []
     for hook in hook_commands:
         try:
@@ -220,11 +234,18 @@ def _run_rune_start_hooks(
                 else ""
             )
             _log_hook("RuneStart", hook.command, result.returncode, reason)
+
+            # Exit -2 = skip agent, everything OK
+            if result.returncode == -2:
+                if result.stdout.strip():
+                    parts.append(result.stdout.strip())
+                return "\n\n".join(parts), True
+
             if result.stdout.strip():
                 parts.append(result.stdout.strip())
         except Exception as exc:
             logger.warning("hook:RuneStart command=%s failed: %s", hook.command, exc)
-    return "\n\n".join(parts)
+    return "\n\n".join(parts), False
 
 
 def _build_prompt(rune: dict) -> str:
@@ -383,13 +404,15 @@ async def _run_rune_stop_hooks(
     verbose: bool,
     last_ns: int,
     last_agent_message: str | None,
-) -> tuple[bool, int]:
+) -> tuple[bool, int, bool]:
     """
     Run all RuneStop hooks, restarting from the first hook after any exit-1
     follow-up (so the agent's fix is verified by the full suite).
 
-    Returns (passed, last_ns).
+    Returns (passed, last_ns, skip_fulfill).
+    skip_fulfill=True if any hook exits -2 (success but don't fulfill).
     """
+    skip_fulfill = False
     while True:
         restarted = False
         for hook in rune_stop_hooks:
@@ -403,6 +426,11 @@ async def _run_rune_stop_hooks(
 
             if result.returncode == 0:
                 _log_hook("RuneStop", hook.command, 0)
+                continue
+
+            if result.returncode == -2:
+                _log_hook("RuneStop", hook.command, -2, hook_output)
+                skip_fulfill = True
                 continue
 
             if result.returncode == 1:
@@ -420,7 +448,7 @@ async def _run_rune_stop_hooks(
                         "Agent %r produced no ResultMessage after hook follow-up",
                         agent_name,
                     )
-                    return False, last_ns
+                    return False, last_ns, skip_fulfill
                 # Update last_agent_message with the follow-up response
                 last_agent_message = last_assistant_message
                 # Restart all hooks from scratch to verify the fix
@@ -429,13 +457,13 @@ async def _run_rune_stop_hooks(
 
             elif result.returncode == 2:
                 _log_hook("RuneStop", hook.command, 2, hook_output)
-                return False, last_ns
+                return False, last_ns, skip_fulfill
 
             else:
                 _log_hook("RuneStop", hook.command, result.returncode, hook_output)
 
         if not restarted:
-            return True, last_ns
+            return True, last_ns, skip_fulfill
 
 
 async def _run_agent(
@@ -513,7 +541,7 @@ async def _run_agent(
             return False
 
         # SUCCESS: We have a valid result. Now run hooks to verify everything is OK.
-        hooks_passed, last_ns = await _run_rune_stop_hooks(
+        hooks_passed, last_ns, skip_fulfill = await _run_rune_stop_hooks(
             rune_stop_hooks,
             rune_json,
             cwd,
@@ -534,8 +562,8 @@ async def _run_agent(
             except Exception as exc:
                 logger.warning("Failed to append completion note: %s", exc)
 
-        # Return success only if hooks passed (we already confirmed result was valid above)
-        return hooks_passed
+        # Return (success, skip_fulfill) — used to decide if we exit 0 or -2
+        return hooks_passed, skip_fulfill
 
 
 def _log_verbose_message(

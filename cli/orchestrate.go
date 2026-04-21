@@ -283,6 +283,13 @@ func processRune(
 		return
 	}
 
+	// Exit -2 = success but skip fulfill (unclaim only)
+	if exitCode == -2 {
+		fmt.Fprintf(os.Stderr, "orchestrate: [%s] agent signaled skip-fulfill (-2), unclaiming\n", id)
+		unclaimRune(client, id)
+		return
+	}
+
 	if exitCode != 0 {
 		fmt.Fprintf(os.Stderr, "orchestrate: [%s] agent exited with code %d\n", id, exitCode)
 		if unclaimOnFailure {
