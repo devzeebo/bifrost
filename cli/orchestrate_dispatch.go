@@ -21,6 +21,7 @@ type DispatchInput struct {
 	Notes        []any    `json:"notes,omitempty"`
 	Dependencies []any    `json:"dependencies,omitempty"`
 	ProjectDir   string   `json:"cwd,omitempty"`
+	RawDetail    map[string]any `json:"raw_detail,omitempty"`
 }
 
 // DispatchResult is the execution plan returned by the dispatcher script via stdout.
@@ -114,6 +115,9 @@ func dispatchInputFromRune(detail map[string]any) DispatchInput {
 	if err != nil {
 		input.ProjectDir = ""
 	}
+
+	// Populate raw detail (full rune data from bf show)
+	input.RawDetail = detail
 
 	return input
 }
