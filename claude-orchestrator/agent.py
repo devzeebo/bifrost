@@ -139,9 +139,14 @@ def main() -> None:
     logger.info("Running agent %r in %s for rune %s", agent_name, cwd, rune_id)
 
     # --- RuneStart hooks ---
-    extra_system_prompt, skip_agent = _run_rune_start_hooks(
+    extra_system_prompt, skip_agent, hook_error = _run_rune_start_hooks(
         hooks.rune_start, rune_json, rune_id, cwd, None
     )
+
+    # If RuneStart hook had a positive error, exit 1 (failure)
+    if hook_error:
+        logger.error("RuneStart hook reported error, exiting with failure")
+        sys.exit(1)
 
     # If RuneStart hook said skip (-2), exit 0 (success, no agent)
     if skip_agent:
@@ -220,11 +225,13 @@ def _run_hook_command(
 
 def _run_rune_start_hooks(
     hook_commands, rune_json: str, rune_id: str, project_dir: str, last_agent_message: str | None = None
-) -> tuple[str, bool]:
+) -> tuple[str, bool, bool]:
     """
-    Run all RuneStart hook commands; return (concatenated_stdout, skip_agent).
+    Run all RuneStart hook commands; return (concatenated_stdout, skip_agent, error).
 
-    If any hook exits -2, skip agent and return (output, True).
+    If any hook exits -2, skip agent and return (output, True, False).
+    If any hook exits with positive error (1, 2, etc.), return (output, False, True).
+    Otherwise return (output, False, False).
     """
     parts: list[str] = []
     for hook in hook_commands:
@@ -241,13 +248,19 @@ def _run_rune_start_hooks(
             if result.returncode == -2:
                 if result.stdout.strip():
                     parts.append(result.stdout.strip())
-                return "\n\n".join(parts), True
+                return "\n\n".join(parts), True, False
+
+            # Positive error code = failure, stop immediately
+            if result.returncode > 0:
+                if result.stdout.strip():
+                    parts.append(result.stdout.strip())
+                return "\n\n".join(parts), False, True
 
             if result.stdout.strip():
                 parts.append(result.stdout.strip())
         except Exception as exc:
             logger.warning("hook:RuneStart command=%s failed: %s", hook.command, exc)
-    return "\n\n".join(parts), False
+    return "\n\n".join(parts), False, False
 
 
 def _build_prompt(rune: dict) -> str:
