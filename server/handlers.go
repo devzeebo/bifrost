@@ -50,6 +50,9 @@ func NewHandlers(eventStore core.EventStore, projectionStore core.ProjectionStor
 	h.mux.HandleFunc("POST /add-note", h.AddNote)
 	h.mux.HandleFunc("POST /add-retro", h.AddRetro)
 	h.mux.HandleFunc("GET /retro", h.GetRetro)
+	h.mux.HandleFunc("POST /add-ac", h.AddAC)
+	h.mux.HandleFunc("POST /update-ac", h.UpdateAC)
+	h.mux.HandleFunc("POST /remove-ac", h.RemoveAC)
 	h.mux.HandleFunc("POST /shatter-rune", h.ShatterRune)
 	h.mux.HandleFunc("POST /sweep-runes", h.SweepRunes)
 	h.mux.HandleFunc("GET /runes", h.ListRunes)
@@ -101,6 +104,9 @@ func (h *Handlers) RegisterRoutes(mux *http.ServeMux, realmMiddleware, adminMidd
 	mux.Handle("POST /api/remove-dependency", memberAuth(http.HandlerFunc(h.RemoveDependency)))
 	mux.Handle("POST /api/add-note", memberAuth(http.HandlerFunc(h.AddNote)))
 	mux.Handle("POST /api/add-retro", memberAuth(http.HandlerFunc(h.AddRetro)))
+	mux.Handle("POST /api/add-ac", memberAuth(http.HandlerFunc(h.AddAC)))
+	mux.Handle("POST /api/update-ac", memberAuth(http.HandlerFunc(h.UpdateAC)))
+	mux.Handle("POST /api/remove-ac", memberAuth(http.HandlerFunc(h.RemoveAC)))
 	mux.Handle("POST /api/shatter-rune", memberAuth(http.HandlerFunc(h.ShatterRune)))
 	mux.Handle("POST /api/sweep-runes", memberAuth(http.HandlerFunc(h.SweepRunes)))
 
@@ -489,6 +495,63 @@ func (h *Handlers) AddRetro(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := domain.HandleAddRetro(r.Context(), realmID, cmd, h.eventStore); err != nil {
+		handleDomainError(w, err)
+		return
+	}
+	h.runSyncQuietly(r)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) AddAC(w http.ResponseWriter, r *http.Request) {
+	realmID, ok := RealmIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusForbidden, "realm ID required")
+		return
+	}
+	var cmd domain.AddACItem
+	if err := json.NewDecoder(r.Body).Decode(&cmd); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if err := domain.HandleAddACItem(r.Context(), realmID, cmd, h.eventStore); err != nil {
+		handleDomainError(w, err)
+		return
+	}
+	h.runSyncQuietly(r)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) UpdateAC(w http.ResponseWriter, r *http.Request) {
+	realmID, ok := RealmIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusForbidden, "realm ID required")
+		return
+	}
+	var cmd domain.UpdateACItem
+	if err := json.NewDecoder(r.Body).Decode(&cmd); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if err := domain.HandleUpdateACItem(r.Context(), realmID, cmd, h.eventStore); err != nil {
+		handleDomainError(w, err)
+		return
+	}
+	h.runSyncQuietly(r)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) RemoveAC(w http.ResponseWriter, r *http.Request) {
+	realmID, ok := RealmIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusForbidden, "realm ID required")
+		return
+	}
+	var cmd domain.RemoveACItem
+	if err := json.NewDecoder(r.Body).Decode(&cmd); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if err := domain.HandleRemoveACItem(r.Context(), realmID, cmd, h.eventStore); err != nil {
 		handleDomainError(w, err)
 		return
 	}
@@ -1011,7 +1074,7 @@ func handleDomainError(w http.ResponseWriter, err error) {
 
 	msg := err.Error()
 	if isValidationError(msg) {
-		writeError(w, http.StatusBadRequest, msg)
+		writeError(w, http.StatusUnprocessableEntity, msg)
 		return
 	}
 
@@ -1024,6 +1087,7 @@ func isValidationError(msg string) bool {
 		"rune ",
 		"realm ",
 		"unknown ",
+		"AC ",
 	}
 	for _, p := range prefixes {
 		if strings.HasPrefix(msg, p) {

@@ -77,6 +77,9 @@ func registerProjectors(engine core.ProjectionEngine) error {
 	if err := engine.Register(projectors.NewRuneRetroProjector()); err != nil {
 		return err
 	}
+	if err := engine.Register(projectors.NewRuneACCounterProjector()); err != nil {
+		return err
+	}
 
 	return nil
 }

@@ -13,6 +13,9 @@ const (
 	EventRuneUnclaimed     = "RuneUnclaimed"
 	EventRuneShattered     = "RuneShattered"
 	EventRuneRetroed       = "RuneRetroed"
+	EventRuneACAdded       = "RuneACAdded"
+	EventRuneACUpdated     = "RuneACUpdated"
+	EventRuneACRemoved     = "RuneACRemoved"
 )
 
 const (
@@ -132,4 +135,23 @@ type RuneShattered struct {
 type RuneRetroed struct {
 	RuneID string `json:"rune_id"`
 	Text   string `json:"text"`
+}
+
+type RuneACAdded struct {
+	RuneID      string `json:"rune_id"`
+	ID          string `json:"id"`
+	Scenario    string `json:"scenario"`
+	Description string `json:"description"`
+}
+
+type RuneACUpdated struct {
+	RuneID      string `json:"rune_id"`
+	ID          string `json:"id"`
+	Scenario    string `json:"scenario"`
+	Description string `json:"description"`
+}
+
+type RuneACRemoved struct {
+	RuneID string `json:"rune_id"`
+	ID     string `json:"id"`
 }

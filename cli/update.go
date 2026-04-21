@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -74,6 +75,53 @@ func NewUpdateCmd(clientFn func() *Client, out *bytes.Buffer) *UpdateCmd {
 				return err
 			}
 
+			// Handle --ac-add flags
+			if cmd.Flags().Changed("ac-add") {
+				acAddJSONs, _ := cmd.Flags().GetStringArray("ac-add")
+				for _, acJSON := range acAddJSONs {
+					var acBody map[string]any
+					if err := json.Unmarshal([]byte(acJSON), &acBody); err != nil {
+						return fmt.Errorf("invalid JSON for --ac-add: %s", acJSON)
+					}
+					acBody["rune_id"] = id
+					_, err := clientFn().DoPost("/add-ac", acBody)
+					if err != nil {
+						return err
+					}
+				}
+			}
+
+			// Handle --ac-update flags
+			if cmd.Flags().Changed("ac-update") {
+				acUpdateJSONs, _ := cmd.Flags().GetStringArray("ac-update")
+				for _, acJSON := range acUpdateJSONs {
+					var acBody map[string]any
+					if err := json.Unmarshal([]byte(acJSON), &acBody); err != nil {
+						return fmt.Errorf("invalid JSON for --ac-update: %s", acJSON)
+					}
+					acBody["rune_id"] = id
+					_, err := clientFn().DoPost("/update-ac", acBody)
+					if err != nil {
+						return err
+					}
+				}
+			}
+
+			// Handle --ac-remove flags
+			if cmd.Flags().Changed("ac-remove") {
+				acRemoveIDs, _ := cmd.Flags().GetStringArray("ac-remove")
+				for _, acID := range acRemoveIDs {
+					acBody := map[string]any{
+						"rune_id": id,
+						"id":      acID,
+					}
+					_, err := clientFn().DoPost("/remove-ac", acBody)
+					if err != nil {
+						return err
+					}
+				}
+			}
+
 			if humanMode {
 				fmt.Fprintf(out, "Rune %s updated", id)
 			}
@@ -88,6 +136,9 @@ func NewUpdateCmd(clientFn func() *Client, out *bytes.Buffer) *UpdateCmd {
 	cmd.Flags().String("branch", "", "branch name")
 	cmd.Flags().StringSlice("add-tag", nil, "tag to add (repeatable)")
 	cmd.Flags().StringSlice("remove-tag", nil, "tag to remove (repeatable)")
+	cmd.Flags().StringArray("ac-add", nil, "add acceptance criteria as JSON (repeatable)")
+	cmd.Flags().StringArray("ac-update", nil, "update acceptance criteria as JSON (repeatable)")
+	cmd.Flags().StringArray("ac-remove", nil, "remove acceptance criteria by ID (repeatable)")
 	cmd.Flags().Bool("human", false, "human-readable output")
 
 	c.Command = cmd

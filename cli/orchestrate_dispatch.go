@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 )
 
@@ -15,9 +16,12 @@ type DispatchInput struct {
 	Description  string   `json:"description,omitempty"`
 	Status       string   `json:"status"`
 	Priority     int      `json:"priority"`
+	Branch       string   `json:"branch,omitempty"`
 	Tags         []string `json:"tags,omitempty"`
 	Notes        []any    `json:"notes,omitempty"`
 	Dependencies []any    `json:"dependencies,omitempty"`
+	ProjectDir   string   `json:"cwd,omitempty"`
+	RawDetail    map[string]any `json:"raw_detail,omitempty"`
 }
 
 // DispatchResult is the execution plan returned by the dispatcher script via stdout.
@@ -82,6 +86,7 @@ func dispatchInputFromRune(detail map[string]any) DispatchInput {
 		Title:       stringField(detail, "title"),
 		Description: stringField(detail, "description"),
 		Status:      stringField(detail, "status"),
+		Branch:      stringField(detail, "branch"),
 	}
 
 	if p, ok := detail["priority"].(float64); ok {
@@ -103,6 +108,16 @@ func dispatchInputFromRune(detail map[string]any) DispatchInput {
 	if deps, ok := detail["dependencies"].([]any); ok {
 		input.Dependencies = deps
 	}
+
+	// Populate project directory (working directory at dispatch time)
+	var err error
+	input.ProjectDir, err = os.Getwd()
+	if err != nil {
+		input.ProjectDir = ""
+	}
+
+	// Populate raw detail (full rune data from bf show)
+	input.RawDetail = detail
 
 	return input
 }

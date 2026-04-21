@@ -19,22 +19,29 @@ type NoteEntry struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type ACEntry struct {
+	ID          string `json:"id"`
+	Scenario    string `json:"scenario"`
+	Description string `json:"description"`
+}
+
 type RuneDetail struct {
-	ID           string          `json:"id"`
-	Title        string          `json:"title"`
-	Description  string          `json:"description,omitempty"`
-	Status       string          `json:"status"`
-	Priority     int             `json:"priority"`
-	Claimant     string          `json:"claimant,omitempty"`
-	ParentID     string          `json:"parent_id,omitempty"`
-	Branch       string          `json:"branch,omitempty"`
-	Tags         []string        `json:"tags"`
-	Type         string          `json:"type,omitempty"`
-	Dependencies []DependencyRef `json:"dependencies"`
-	Notes        []NoteEntry     `json:"notes"`
-	RetroItems   []RetroEntry    `json:"retro_items"`
-	CreatedAt    time.Time       `json:"created_at"`
-	UpdatedAt    time.Time       `json:"updated_at"`
+	ID                 string          `json:"id"`
+	Title              string          `json:"title"`
+	Description        string          `json:"description,omitempty"`
+	Status             string          `json:"status"`
+	Priority           int             `json:"priority"`
+	Claimant           string          `json:"claimant,omitempty"`
+	ParentID           string          `json:"parent_id,omitempty"`
+	Branch             string          `json:"branch,omitempty"`
+	Tags               []string        `json:"tags"`
+	Type               string          `json:"type,omitempty"`
+	Dependencies       []DependencyRef `json:"dependencies"`
+	Notes              []NoteEntry     `json:"notes"`
+	RetroItems         []RetroEntry    `json:"retro_items"`
+	AcceptanceCriteria []ACEntry       `json:"acceptance_criteria"`
+	CreatedAt          time.Time       `json:"created_at"`
+	UpdatedAt          time.Time       `json:"updated_at"`
 }
 
 type RuneDetailProjector struct{}
@@ -77,6 +84,12 @@ func (p *RuneDetailProjector) Handle(ctx context.Context, event core.Event, stor
 		return p.handleRetroed(ctx, event, store)
 	case domain.EventRuneShattered:
 		return p.handleShattered(ctx, event, store)
+	case domain.EventRuneACAdded:
+		return p.handleACAdded(ctx, event, store)
+	case domain.EventRuneACUpdated:
+		return p.handleACUpdated(ctx, event, store)
+	case domain.EventRuneACRemoved:
+		return p.handleACRemoved(ctx, event, store)
 	}
 	return nil
 }
@@ -87,20 +100,21 @@ func (p *RuneDetailProjector) handleCreated(ctx context.Context, event core.Even
 		return err
 	}
 	detail := RuneDetail{
-		ID:           data.ID,
-		Title:        data.Title,
-		Description:  data.Description,
-		Status:       "draft",
-		Priority:     data.Priority,
-		ParentID:     data.ParentID,
-		Branch:       data.Branch,
-		Tags:         normalizeTags(data.Tags),
-		Type:         data.Type,
-		Dependencies: []DependencyRef{},
-		Notes:        []NoteEntry{},
-		RetroItems:   []RetroEntry{},
-		CreatedAt:    event.Timestamp,
-		UpdatedAt:    event.Timestamp,
+		ID:                 data.ID,
+		Title:              data.Title,
+		Description:        data.Description,
+		Status:             "draft",
+		Priority:           data.Priority,
+		ParentID:           data.ParentID,
+		Branch:             data.Branch,
+		Tags:               normalizeTags(data.Tags),
+		Type:               data.Type,
+		Dependencies:       []DependencyRef{},
+		Notes:              []NoteEntry{},
+		RetroItems:         []RetroEntry{},
+		AcceptanceCriteria: []ACEntry{},
+		CreatedAt:          event.Timestamp,
+		UpdatedAt:          event.Timestamp,
 	}
 	return store.Put(ctx, event.RealmID, "rune_detail", data.ID, detail)
 }
@@ -296,6 +310,72 @@ func (p *RuneDetailProjector) handleRetroed(ctx context.Context, event core.Even
 		Text:      data.Text,
 		CreatedAt: event.Timestamp,
 	})
+	detail.UpdatedAt = event.Timestamp
+	return store.Put(ctx, event.RealmID, "rune_detail", data.RuneID, detail)
+}
+
+func (p *RuneDetailProjector) handleACAdded(ctx context.Context, event core.Event, store core.ProjectionStore) error {
+	var data domain.RuneACAdded
+	if err := json.Unmarshal(event.Data, &data); err != nil {
+		return err
+	}
+	var detail RuneDetail
+	if err := store.Get(ctx, event.RealmID, "rune_detail", data.RuneID, &detail); err != nil {
+		return err
+	}
+	// Check for duplicate for idempotency (AC items are unique by ID + timestamp)
+	for _, ac := range detail.AcceptanceCriteria {
+		if ac.ID == data.ID && ac.Scenario == data.Scenario && ac.Description == data.Description {
+			return nil // Already exists, idempotent
+		}
+	}
+	detail.AcceptanceCriteria = append(detail.AcceptanceCriteria, ACEntry{
+		ID:          data.ID,
+		Scenario:    data.Scenario,
+		Description: data.Description,
+	})
+	detail.UpdatedAt = event.Timestamp
+	return store.Put(ctx, event.RealmID, "rune_detail", data.RuneID, detail)
+}
+
+func (p *RuneDetailProjector) handleACUpdated(ctx context.Context, event core.Event, store core.ProjectionStore) error {
+	var data domain.RuneACUpdated
+	if err := json.Unmarshal(event.Data, &data); err != nil {
+		return err
+	}
+	var detail RuneDetail
+	if err := store.Get(ctx, event.RealmID, "rune_detail", data.RuneID, &detail); err != nil {
+		return err
+	}
+	// Find and update the AC entry
+	for i, ac := range detail.AcceptanceCriteria {
+		if ac.ID == data.ID {
+			detail.AcceptanceCriteria[i].Scenario = data.Scenario
+			detail.AcceptanceCriteria[i].Description = data.Description
+			break
+		}
+	}
+	detail.UpdatedAt = event.Timestamp
+	return store.Put(ctx, event.RealmID, "rune_detail", data.RuneID, detail)
+}
+
+func (p *RuneDetailProjector) handleACRemoved(ctx context.Context, event core.Event, store core.ProjectionStore) error {
+	var data domain.RuneACRemoved
+	if err := json.Unmarshal(event.Data, &data); err != nil {
+		return err
+	}
+	var detail RuneDetail
+	if err := store.Get(ctx, event.RealmID, "rune_detail", data.RuneID, &detail); err != nil {
+		return err
+	}
+	// Remove the AC entry by ID
+	filtered := make([]ACEntry, 0, len(detail.AcceptanceCriteria))
+	for _, ac := range detail.AcceptanceCriteria {
+		if ac.ID != data.ID {
+			filtered = append(filtered, ac)
+		}
+	}
+	detail.AcceptanceCriteria = filtered
 	detail.UpdatedAt = event.Timestamp
 	return store.Put(ctx, event.RealmID, "rune_detail", data.RuneID, detail)
 }

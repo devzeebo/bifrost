@@ -78,6 +78,28 @@ func NewCreateCmd(clientFn func() *Client, out *bytes.Buffer) *CreateCmd {
 				return err
 			}
 
+			// Extract created rune ID for AC operations
+			var createdRune map[string]any
+			if json.Unmarshal(respBody, &createdRune) == nil {
+				if runeID, ok := createdRune["id"].(string); ok {
+					// Handle --ac-add flags
+					if cmd.Flags().Changed("ac-add") {
+						acAddJSONs, _ := cmd.Flags().GetStringArray("ac-add")
+						for _, acJSON := range acAddJSONs {
+							var acBody map[string]any
+							if err := json.Unmarshal([]byte(acJSON), &acBody); err != nil {
+								return fmt.Errorf("invalid JSON for --ac-add: %s", acJSON)
+							}
+							acBody["rune_id"] = runeID
+							_, err := clientFn().DoPost("/add-ac", acBody)
+							if err != nil {
+								return err
+							}
+						}
+					}
+				}
+			}
+
 			return PrintOutput(out, respBody, humanMode, func(w *bytes.Buffer, data []byte) {
 				var result map[string]any
 				if json.Unmarshal(data, &result) == nil {
@@ -96,6 +118,7 @@ func NewCreateCmd(clientFn func() *Client, out *bytes.Buffer) *CreateCmd {
 	cmd.Flags().StringP("branch", "b", "", "branch name for the rune")
 	cmd.Flags().Bool("no-branch", false, "create rune without a branch")
 	cmd.Flags().StringSlice("tag", nil, "tag to apply (repeatable)")
+	cmd.Flags().StringArray("ac-add", nil, "add acceptance criteria as JSON (repeatable)")
 
 	c.Command = cmd
 	return c

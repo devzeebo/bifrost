@@ -15,8 +15,8 @@ else
 endif
 
 .PHONY: deps build build-server build-cli build-ui ui-dist \
-        test test-go test-ui \
-        lint lint-go lint-ui \
+        test test-go test-ui test-py \
+        lint lint-go lint-ui lint-py \
         vet tidy \
         dev prod docker clean list help
 
@@ -56,7 +56,7 @@ build-ui: ui-dist
 
 # ── Quality ───────────────────────────────────────────────────────────────────
 
-test: test-go test-ui
+test: test-go test-ui test-py
 
 test-go:
 	@echo "» go test $(ARGS) $(GO_TARGETS)"
@@ -66,7 +66,11 @@ test-ui:
 	@echo "» vitest run"
 	cd ui && npm run test -- --run
 
-lint: lint-go lint-ui
+test-py:
+	@echo "» uv test"
+	cd claude-orchestrator && uv run python -m pytest
+
+lint: lint-go lint-ui lint-py
 
 lint-go:
 	@echo "» golangci-lint run $(ARGS) $(GO_TARGETS)"
@@ -75,6 +79,10 @@ lint-go:
 lint-ui:
 	@echo "» oxlint"
 	cd ui && npm run lint
+
+lint-py:
+	@echo "» uv run ruff"
+	cd claude-orchestrator && uv run ruff check --fix . && uv run ruff format .
 
 vet:
 	@echo "» go vet $(ARGS) $(GO_TARGETS)"
