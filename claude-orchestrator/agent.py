@@ -131,7 +131,7 @@ def main() -> None:
         sys.exit(1)
 
     # Extract cwd from rune if available, otherwise fall back to finding project root
-    cwd = rune.get("cwd") or _find_project_root()
+    cwd = _find_project_root()
     rune_id = rune.get("id", "unknown")
     verbose = _is_verbose()
     rune_json = json.dumps(rune)
