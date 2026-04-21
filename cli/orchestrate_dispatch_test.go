@@ -19,7 +19,7 @@ id=$(echo "$input" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 echo "{\"command\":\"echo\",\"args\":[\"$id\"],\"stdin\":\"\",\"env\":{}}"
 `)
 		d := &ScriptDispatcher{ScriptPath: script}
-		result, err := d.Dispatch(context.Background(), DispatchInput{ID: "bf-abc123", Title: "Test"})
+		result, err := d.Dispatch(context.Background(), DispatchInput{Rune: map[string]any{"id": "bf-abc123", "title": "Test"}})
 
 		require.NoError(t, err)
 		require.NotNil(t, result)
@@ -32,7 +32,7 @@ echo "{\"command\":\"echo\",\"args\":[\"$id\"],\"stdin\":\"\",\"env\":{}}"
 echo '{"command":""}'
 `)
 		d := &ScriptDispatcher{ScriptPath: script}
-		result, err := d.Dispatch(context.Background(), DispatchInput{ID: "bf-abc"})
+		result, err := d.Dispatch(context.Background(), DispatchInput{Rune: map[string]any{"id": "bf-abc"}})
 
 		require.NoError(t, err)
 		require.NotNil(t, result)
@@ -45,7 +45,7 @@ echo "something went wrong" >&2
 exit 1
 `)
 		d := &ScriptDispatcher{ScriptPath: script}
-		result, err := d.Dispatch(context.Background(), DispatchInput{ID: "bf-abc"})
+		result, err := d.Dispatch(context.Background(), DispatchInput{Rune: map[string]any{"id": "bf-abc"}})
 
 		require.Error(t, err)
 		assert.Nil(t, result)
@@ -57,14 +57,14 @@ exit 1
 echo "not valid json"
 `)
 		d := &ScriptDispatcher{ScriptPath: script}
-		result, err := d.Dispatch(context.Background(), DispatchInput{ID: "bf-abc"})
+		result, err := d.Dispatch(context.Background(), DispatchInput{Rune: map[string]any{"id": "bf-abc"}})
 
 		require.Error(t, err)
 		assert.Nil(t, result)
 		assert.Contains(t, err.Error(), "not valid JSON")
 	})
 
-	t.Run("passes all rune fields to dispatcher", func(t *testing.T) {
+	t.Run("passes rune and cwd to dispatcher", func(t *testing.T) {
 		var capturedInput DispatchInput
 		script := writeScript(t, `#!/bin/sh
 cat > /tmp/bf_dispatch_test_input.json
@@ -72,12 +72,15 @@ echo '{"command":"echo","args":[],"stdin":"","env":{}}'
 `)
 		d := &ScriptDispatcher{ScriptPath: script}
 		input := DispatchInput{
-			ID:          "bf-xyz",
-			Title:       "My Task",
-			Description: "Do something",
-			Status:      "open",
-			Priority:    2,
-			Tags:        []string{"backend", "urgent"},
+			Rune: map[string]any{
+				"id":          "bf-xyz",
+				"title":       "My Task",
+				"description": "Do something",
+				"status":      "open",
+				"priority":    2,
+				"tags":        []string{"backend", "urgent"},
+			},
+			Cwd: "/tmp",
 		}
 		_, err := d.Dispatch(context.Background(), input)
 		require.NoError(t, err)
@@ -87,16 +90,15 @@ echo '{"command":"echo","args":[],"stdin":"","env":{}}'
 		require.NoError(t, err)
 		require.NoError(t, json.Unmarshal(data, &capturedInput))
 
-		assert.Equal(t, "bf-xyz", capturedInput.ID)
-		assert.Equal(t, "My Task", capturedInput.Title)
-		assert.Equal(t, "Do something", capturedInput.Description)
-		assert.Equal(t, 2, capturedInput.Priority)
-		assert.Equal(t, []string{"backend", "urgent"}, capturedInput.Tags)
+		assert.Equal(t, "bf-xyz", capturedInput.Rune["id"])
+		assert.Equal(t, "My Task", capturedInput.Rune["title"])
+		assert.Equal(t, "Do something", capturedInput.Rune["description"])
+		assert.Equal(t, "/tmp", capturedInput.Cwd)
 	})
 }
 
 func TestDispatchInputFromRune(t *testing.T) {
-	t.Run("converts rune detail map to DispatchInput", func(t *testing.T) {
+	t.Run("converts rune detail map to DispatchInput with full rune and cwd", func(t *testing.T) {
 		detail := map[string]any{
 			"id":          "bf-abc",
 			"title":       "Do work",
@@ -113,17 +115,11 @@ func TestDispatchInputFromRune(t *testing.T) {
 
 		input := dispatchInputFromRune(detail)
 
-		assert.Equal(t, "bf-abc", input.ID)
-		assert.Equal(t, "Do work", input.Title)
-		assert.Equal(t, "Some desc", input.Description)
-		assert.Equal(t, "open", input.Status)
-		assert.Equal(t, 1, input.Priority)
-		assert.Equal(t, []string{"alpha", "beta"}, input.Tags)
-		assert.Len(t, input.Notes, 1)
-		assert.Len(t, input.Dependencies, 1)
+		assert.Equal(t, detail, input.Rune)
+		assert.NotEmpty(t, input.Cwd)
 	})
 
-	t.Run("handles missing optional fields gracefully", func(t *testing.T) {
+	t.Run("passes entire detail map as rune", func(t *testing.T) {
 		detail := map[string]any{
 			"id":    "bf-minimal",
 			"title": "Minimal",
@@ -131,12 +127,8 @@ func TestDispatchInputFromRune(t *testing.T) {
 
 		input := dispatchInputFromRune(detail)
 
-		assert.Equal(t, "bf-minimal", input.ID)
-		assert.Equal(t, "", input.Description)
-		assert.Equal(t, 0, input.Priority)
-		assert.Nil(t, input.Tags)
-		assert.Nil(t, input.Notes)
-		assert.Nil(t, input.Dependencies)
+		assert.Equal(t, detail, input.Rune)
+		assert.NotEmpty(t, input.Cwd)
 	})
 }
 

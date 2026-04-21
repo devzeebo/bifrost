@@ -11,17 +11,8 @@ import (
 
 // DispatchInput is the rune data sent to the dispatcher script via stdin.
 type DispatchInput struct {
-	ID           string   `json:"id"`
-	Title        string   `json:"title"`
-	Description  string   `json:"description,omitempty"`
-	Status       string   `json:"status"`
-	Priority     int      `json:"priority"`
-	Branch       string   `json:"branch,omitempty"`
-	Tags         []string `json:"tags,omitempty"`
-	Notes        []any    `json:"notes,omitempty"`
-	Dependencies []any    `json:"dependencies,omitempty"`
-	ProjectDir   string   `json:"cwd,omitempty"`
-	RawDetail    map[string]any `json:"raw_detail,omitempty"`
+	Rune map[string]any `json:"rune"`
+	Cwd  string         `json:"cwd"`
 }
 
 // DispatchResult is the execution plan returned by the dispatcher script via stdout.
@@ -81,48 +72,13 @@ func (d *ScriptDispatcher) Dispatch(ctx context.Context, rune DispatchInput) (*D
 
 // dispatchInputFromRune converts a rune detail map (from the API) into a DispatchInput.
 func dispatchInputFromRune(detail map[string]any) DispatchInput {
-	input := DispatchInput{
-		ID:          stringField(detail, "id"),
-		Title:       stringField(detail, "title"),
-		Description: stringField(detail, "description"),
-		Status:      stringField(detail, "status"),
-		Branch:      stringField(detail, "branch"),
-	}
-
-	if p, ok := detail["priority"].(float64); ok {
-		input.Priority = int(p)
-	}
-
-	if tags, ok := detail["tags"].([]any); ok {
-		for _, t := range tags {
-			if s, ok := t.(string); ok {
-				input.Tags = append(input.Tags, s)
-			}
-		}
-	}
-
-	if notes, ok := detail["notes"].([]any); ok {
-		input.Notes = notes
-	}
-
-	if deps, ok := detail["dependencies"].([]any); ok {
-		input.Dependencies = deps
-	}
-
-	// Populate project directory (working directory at dispatch time)
-	var err error
-	input.ProjectDir, err = os.Getwd()
+	cwd, err := os.Getwd()
 	if err != nil {
-		input.ProjectDir = ""
+		cwd = ""
 	}
 
-	// Populate raw detail (full rune data from bf show)
-	input.RawDetail = detail
-
-	return input
-}
-
-func stringField(m map[string]any, key string) string {
-	s, _ := m[key].(string)
-	return s
+	return DispatchInput{
+		Rune: detail,
+		Cwd:  cwd,
+	}
 }

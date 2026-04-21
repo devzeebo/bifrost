@@ -103,10 +103,14 @@ def main() -> None:
     agent_name = sys.argv[1]
 
     try:
-        rune = json.load(sys.stdin)
+        agent_input = json.load(sys.stdin)
     except json.JSONDecodeError as exc:
         logger.error("Invalid JSON on stdin: %s", exc)
         sys.exit(1)
+
+    # Extract rune and cwd from agent input { rune, cwd }
+    rune = agent_input.get("rune", {})
+    cwd = agent_input.get("cwd") or _find_project_root()
 
     # Load agent registry (no watcher needed — single invocation)
     from agents.loader import registry
@@ -130,8 +134,6 @@ def main() -> None:
         )
         sys.exit(1)
 
-    # Extract cwd from rune if available, otherwise fall back to finding project root
-    cwd = _find_project_root()
     rune_id = rune.get("id", "unknown")
     verbose = _is_verbose()
     rune_json = json.dumps(rune)

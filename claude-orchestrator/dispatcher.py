@@ -23,10 +23,14 @@ def main() -> None:
         return
 
     try:
-        rune = json.load(sys.stdin)
+        dispatch_input = json.load(sys.stdin)
     except json.JSONDecodeError as exc:
         print(f"dispatcher: invalid JSON on stdin: {exc}", file=sys.stderr)
         sys.exit(1)
+
+    # Extract rune and cwd from DispatchInput { rune, cwd }
+    rune = dispatch_input.get("rune", {})
+    cwd = dispatch_input.get("cwd", "")
 
     tags: list[str] = rune.get("tags") or []
     agent_name: str | None = None
@@ -43,11 +47,17 @@ def main() -> None:
     script_dir = os.path.dirname(os.path.abspath(__file__))
     agent_script = os.path.join(script_dir, "agent.py")
 
+    # Pass { rune, cwd } to agent
+    agent_input = {
+        "rune": rune,
+        "cwd": cwd,
+    }
+
     _emit(
         {
             "command": "uv",
             "args": ["run", "--project", script_dir, agent_script, agent_name],
-            "stdin": json.dumps(rune),
+            "stdin": json.dumps(agent_input),
             "env": {},
         }
     )
