@@ -252,6 +252,12 @@ def _run_rune_start_hooks(
 
             # Positive error code = failure, stop immediately
             if result.returncode > 0:
+                # Log full output unredacted on failure
+                logger.error("RuneStart hook failed with exit code %d", result.returncode)
+                if result.stdout.strip():
+                    logger.error("RuneStart hook stdout:\n%s", result.stdout)
+                if result.stderr.strip():
+                    logger.error("RuneStart hook stderr:\n%s", result.stderr)
                 if result.stdout.strip():
                     parts.append(result.stdout.strip())
                 return "\n\n".join(parts), False, True
