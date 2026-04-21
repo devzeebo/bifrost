@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 )
 
@@ -19,6 +20,7 @@ type DispatchInput struct {
 	Tags         []string `json:"tags,omitempty"`
 	Notes        []any    `json:"notes,omitempty"`
 	Dependencies []any    `json:"dependencies,omitempty"`
+	ProjectDir   string   `json:"cwd,omitempty"`
 }
 
 // DispatchResult is the execution plan returned by the dispatcher script via stdout.
@@ -104,6 +106,13 @@ func dispatchInputFromRune(detail map[string]any) DispatchInput {
 
 	if deps, ok := detail["dependencies"].([]any); ok {
 		input.Dependencies = deps
+	}
+
+	// Populate project directory (working directory at dispatch time)
+	var err error
+	input.ProjectDir, err = os.Getwd()
+	if err != nil {
+		input.ProjectDir = ""
 	}
 
 	return input

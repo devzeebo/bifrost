@@ -130,7 +130,8 @@ def main() -> None:
         )
         sys.exit(1)
 
-    cwd = _find_project_root()
+    # Extract cwd from rune if available, otherwise fall back to finding project root
+    cwd = rune.get("cwd") or _find_project_root()
     rune_id = rune.get("id", "unknown")
     verbose = _is_verbose()
     rune_json = json.dumps(rune)
@@ -198,13 +199,14 @@ def _run_hook_command(
     """Run a hook command with rune JSON on stdin, using shell for expansion."""
     env = os.environ.copy()
     env["CLAUDE_PROJECT_DIR"] = project_dir
-    
-    # Construct the JSON structure with rune and last_agent_message
+
+    # Construct the JSON structure with rune, last_agent_message, and cwd
     hook_input = json.dumps({
         "rune": json.loads(rune_json),
-        "last_agent_message": last_agent_message
+        "last_agent_message": last_agent_message,
+        "cwd": project_dir
     })
-    
+
     return subprocess.run(
         command,
         shell=True,
@@ -514,7 +516,7 @@ async def _run_agent(
         # FAIL: If we didn't get a result, return False immediately
         if not got_result:
             logger.error("Agent %r produced no ResultMessage", agent_name)
-            return False
+            return False, False
 
         # FAIL: If stats is empty, we didn't really get a result
         if not stats or not isinstance(stats, dict):
@@ -523,7 +525,7 @@ async def _run_agent(
                 agent_name,
                 stats,
             )
-            return False
+            return False, False
 
         # FAIL: If we don't have all required stat keys, result is incomplete
         required_stat_keys = {
@@ -538,7 +540,7 @@ async def _run_agent(
                 agent_name,
                 required_stat_keys - set(stats.keys()),
             )
-            return False
+            return False, False
 
         # SUCCESS: We have a valid result. Now run hooks to verify everything is OK.
         hooks_passed, last_ns, skip_fulfill = await _run_rune_stop_hooks(

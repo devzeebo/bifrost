@@ -82,7 +82,7 @@ class TestAgentExecutionWithNoteAppending:
 
         with patch("agent.post_to_api") as mock_post:
             # Simulate successful agent completion
-            success = await _run_agent(
+            success, skip_fulfill = await _run_agent(
                 agent_name="test-agent",
                 agent_def=mock_agent_def,
                 system_prompt="System",
@@ -125,7 +125,7 @@ class TestAgentExecutionWithNoteAppending:
         mock_client.query = AsyncMock()
 
         with patch("agent.post_to_api") as mock_post:
-            success = await _run_agent(
+            success, skip_fulfill = await _run_agent(
                 agent_name="test-agent",
                 agent_def=mock_agent_def,
                 system_prompt="System",
