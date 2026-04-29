@@ -22,4 +22,4 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["agents"]
+packages = ["agents", "claude_orchestrator"]
