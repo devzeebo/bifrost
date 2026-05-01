@@ -1,5 +1,5 @@
 import { describe, expect, vi, beforeEach, test } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { RealmSelector } from "./RealmSelector";
 
 // Define types locally since they're not exported from lib files
@@ -87,7 +87,7 @@ describe("RealmSelector", () => {
   });
 
   describe("Realm Selection", () => {
-    test("displays all available realms as options", () => {
+    test("displays all available realms as options", async () => {
       vi.mocked(useRealm).mockReturnValue(
         createMockRealmValue({
           currentRealm: "test-realm",
@@ -102,9 +102,12 @@ describe("RealmSelector", () => {
       render(<RealmSelector />);
       fireEvent.click(screen.getByLabelText("Realm"));
       const listbox = screen.getByRole("listbox");
-      expect(within(listbox).getByText("Test Realm")).toBeInTheDocument();
-      expect(within(listbox).getByText("Other Realm")).toBeInTheDocument();
-      expect(within(listbox).getByText("Third Realm")).toBeInTheDocument();
+
+      await waitFor(() => {
+        expect(within(listbox).getByText("Test Realm")).toBeInTheDocument();
+        expect(within(listbox).getByText("Other Realm")).toBeInTheDocument();
+        expect(within(listbox).getByText("Third Realm")).toBeInTheDocument();
+      });
     });
 
     test("calls setCurrentRealm when a different realm is selected", async () => {
@@ -120,7 +123,10 @@ describe("RealmSelector", () => {
       render(<RealmSelector />);
       fireEvent.click(screen.getByLabelText("Realm"));
       const listbox = screen.getByRole("listbox");
-      fireEvent.click(within(listbox).getByRole("option", { name: "Other Realm" }));
+
+      await waitFor(() => {
+        fireEvent.click(within(listbox).getByRole("option", { name: "Other Realm" }));
+      });
 
       expect(mockSetCurrentRealm).toHaveBeenCalledWith("other-realm");
     });
@@ -156,7 +162,7 @@ describe("RealmSelector", () => {
       expect(screen.getByText("Test Realm")).toBeInTheDocument();
     });
 
-    test("handles single available realm", () => {
+    test("handles single available realm", async () => {
       vi.mocked(useRealm).mockReturnValue(
         createMockRealmValue({
           currentRealm: "test-realm",
@@ -168,7 +174,10 @@ describe("RealmSelector", () => {
       render(<RealmSelector />);
       fireEvent.click(screen.getByLabelText("Realm"));
       const listbox = screen.getByRole("listbox");
-      expect(within(listbox).getByText("Test Realm")).toBeInTheDocument();
+
+      await waitFor(() => {
+        expect(within(listbox).getByText("Test Realm")).toBeInTheDocument();
+      });
     });
   });
 });
