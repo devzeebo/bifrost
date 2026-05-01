@@ -4,7 +4,7 @@ import asyncio
 import logging
 from typing import AsyncIterator
 
-from interface_tasks import TaskSource, TaskDetail
+from interface_tasks import TaskSource
 
 from tasks_bifrost.api_client import BifrostAPIClient
 from tasks_bifrost.models import BifrostTask, BifrostTaskDetail
@@ -79,9 +79,7 @@ class BifrostTaskSource(TaskSource):
             BifrostTaskDetail with full task information
         """
         loop = asyncio.get_event_loop()
-        detail_data = await loop.run_in_executor(
-            None, self.api_client.fetch_rune_detail, task_id
-        )
+        detail_data = await loop.run_in_executor(None, self.api_client.fetch_rune_detail, task_id)
 
         if not detail_data:
             raise ValueError(f"Task {task_id} not found")
@@ -99,9 +97,7 @@ class BifrostTaskSource(TaskSource):
             True if task was successfully claimed
         """
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(
-            None, self.api_client.claim_rune, task_id, claimant
-        )
+        return await loop.run_in_executor(None, self.api_client.claim_rune, task_id, claimant)
 
     async def unclaim_task(self, task_id: str) -> bool:
         """Unclaim a task.
@@ -113,9 +109,7 @@ class BifrostTaskSource(TaskSource):
             True if task was successfully unclaimed
         """
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
-            None, self.api_client.unclaim_rune, task_id
-        )
+        result = await loop.run_in_executor(None, self.api_client.unclaim_rune, task_id)
         # Remove from seen set so we can pick it up again
         self._seen_runes.discard(task_id)
         return result
@@ -130,9 +124,7 @@ class BifrostTaskSource(TaskSource):
             True if task was successfully marked complete
         """
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
-            None, self.api_client.fulfill_rune, task_id
-        )
+        result = await loop.run_in_executor(None, self.api_client.fulfill_rune, task_id)
         # Remove from seen set
         self._seen_runes.discard(task_id)
         return result

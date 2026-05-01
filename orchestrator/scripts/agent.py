@@ -82,12 +82,8 @@ def main() -> int:
         model=catalog_entry.definition.model,
         prompt=catalog_entry.definition.prompt,
         tools=catalog_entry.definition.tools,
-        rune_start_hooks=[
-            hook_specs(command=h.command) for h in catalog_entry.hooks.rune_start
-        ],
-        rune_stop_hooks=[
-            hook_specs(command=h.command) for h in catalog_entry.hooks.rune_stop
-        ],
+        rune_start_hooks=[hook_specs(command=h.command) for h in catalog_entry.hooks.rune_start],
+        rune_stop_hooks=[hook_specs(command=h.command) for h in catalog_entry.hooks.rune_stop],
     )
 
     verbose = is_verbose()

@@ -7,8 +7,11 @@ import logging
 import os
 import subprocess
 from dataclasses import dataclass
-from dataclasses import fields as dataclass_fields
 from enum import Enum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from orchestrator.core.domain import RuneContext
 
 logger = logging.getLogger(__name__)
 
@@ -29,9 +32,9 @@ class RuneStartResult:
 
 class RuneStopOutcome(Enum):
     SUCCESS = "success"
-    SKIP_FULFILL = "skip_fulfill"   # exit -2
-    FOLLOW_UP = "follow_up"         # exit 1
-    BLOCKING_FAILURE = "blocking"   # exit 2
+    SKIP_FULFILL = "skip_fulfill"  # exit -2
+    FOLLOW_UP = "follow_up"  # exit 1
+    BLOCKING_FAILURE = "blocking"  # exit 2
 
 
 @dataclass(frozen=True)
@@ -60,7 +63,11 @@ class HookRunner:
         for hook in hooks:
             try:
                 result = self._run_command(hook.command, rune_dict, None)
-                reason = (result.stderr.strip() or result.stdout.strip()) if result.returncode != 0 else ""
+                reason = (
+                    (result.stderr.strip() or result.stdout.strip())
+                    if result.returncode != 0
+                    else ""
+                )
                 _log_hook("RuneStart", hook.command, result.returncode, reason)
 
                 if result.returncode == -2:
@@ -134,10 +141,12 @@ class HookRunner:
                     "A post-completion hook reported an issue and provided "
                     f"additional context. Please review and address it:\n\n{hook_output}"
                 )
-                results.append(RuneStopHookResult(
-                    outcome=RuneStopOutcome.FOLLOW_UP,
-                    message=follow_up_msg,
-                ))
+                results.append(
+                    RuneStopHookResult(
+                        outcome=RuneStopOutcome.FOLLOW_UP,
+                        message=follow_up_msg,
+                    )
+                )
                 break  # caller restarts from first hook after follow-up
 
             elif result.returncode == 2:
@@ -159,11 +168,13 @@ class HookRunner:
         env = os.environ.copy()
         env["CLAUDE_PROJECT_DIR"] = self.project_dir
 
-        hook_input = json.dumps({
-            "rune": rune_dict,
-            "last_agent_message": last_agent_message,
-            "cwd": self.project_dir,
-        })
+        hook_input = json.dumps(
+            {
+                "rune": rune_dict,
+                "last_agent_message": last_agent_message,
+                "cwd": self.project_dir,
+            }
+        )
 
         return subprocess.run(
             command,
@@ -191,4 +202,6 @@ def _log_hook(event: str, command: str, returncode: int, reason: str = "") -> No
         logger.info("hook:%s command=%s result=0", event, command)
     else:
         truncated = reason[:100] + ("..." if len(reason) > 100 else "")
-        logger.warning("hook:%s command=%s result=%d reason=%s", event, command, returncode, truncated)
+        logger.warning(
+            "hook:%s command=%s result=%d reason=%s", event, command, returncode, truncated
+        )

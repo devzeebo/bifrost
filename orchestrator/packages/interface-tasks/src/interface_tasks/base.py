@@ -1,7 +1,10 @@
 """Abstract task source interface for task providers."""
 
 from abc import ABC, abstractmethod
-from typing import AsyncIterator
+from typing import TYPE_CHECKING, AsyncIterator
+
+if TYPE_CHECKING:
+    from interface_tasks.types import Task, TaskDetail
 
 
 class TaskSource(ABC):

@@ -66,9 +66,7 @@ class RuneOrchestrator:
         logger.info("Running agent %r for task %s in %s", agent_name, rune_id, self.context.cwd)
 
         # --- RuneStart hooks ---
-        start_result = self.hook_runner.run_rune_start(
-            self.entry.rune_start_hooks, self.context
-        )
+        start_result = self.hook_runner.run_rune_start(self.entry.rune_start_hooks, self.context)
 
         if start_result.error:
             logger.error("RuneStart hook reported error, exiting with failure")
@@ -119,7 +117,9 @@ class RuneOrchestrator:
 
             if verdict == RuneStopVerdict.BLOCKING_FAILURE:
                 logger.error("RuneStop hook blocking failure for task %s", rune_id)
-                return OrchestrationResult(success=False, skip_fulfill=False, engine_result=cumulative_stats)
+                return OrchestrationResult(
+                    success=False, skip_fulfill=False, engine_result=cumulative_stats
+                )
 
             if verdict == RuneStopVerdict.FOLLOW_UP:
                 # Check if engine supports follow-up
@@ -128,18 +128,26 @@ class RuneOrchestrator:
                     last_message = follow_up_result.last_message
                     if cumulative_stats and follow_up_result.stats:
                         cumulative_stats = ExecutionStats(
-                            duration_ms=cumulative_stats.duration_ms + follow_up_result.stats.duration_ms,
-                            input_tokens=cumulative_stats.input_tokens + follow_up_result.stats.input_tokens,
-                            output_tokens=cumulative_stats.output_tokens + follow_up_result.stats.output_tokens,
-                            cache_read_tokens=cumulative_stats.cache_read_tokens + follow_up_result.stats.cache_read_tokens,
-                            cache_creation_tokens=cumulative_stats.cache_creation_tokens + follow_up_result.stats.cache_creation_tokens,
-                            total_cost_usd=cumulative_stats.total_cost_usd + follow_up_result.stats.total_cost_usd,
+                            duration_ms=cumulative_stats.duration_ms
+                            + follow_up_result.stats.duration_ms,
+                            input_tokens=cumulative_stats.input_tokens
+                            + follow_up_result.stats.input_tokens,
+                            output_tokens=cumulative_stats.output_tokens
+                            + follow_up_result.stats.output_tokens,
+                            cache_read_tokens=cumulative_stats.cache_read_tokens
+                            + follow_up_result.stats.cache_read_tokens,
+                            cache_creation_tokens=cumulative_stats.cache_creation_tokens
+                            + follow_up_result.stats.cache_creation_tokens,
+                            total_cost_usd=cumulative_stats.total_cost_usd
+                            + follow_up_result.stats.total_cost_usd,
                             num_turns=cumulative_stats.num_turns + follow_up_result.stats.num_turns,
                         )
                     continue
                 else:
                     logger.error("Engine does not support follow-up for task %s", rune_id)
-                    return OrchestrationResult(success=False, skip_fulfill=False, engine_result=cumulative_stats)
+                    return OrchestrationResult(
+                        success=False, skip_fulfill=False, engine_result=cumulative_stats
+                    )
 
             break  # SUCCESS or SKIP_FULFILL
 
@@ -150,7 +158,9 @@ class RuneOrchestrator:
             except Exception as exc:
                 logger.warning("Failed to append completion note: %s", exc)
 
-        return OrchestrationResult(success=True, skip_fulfill=skip_fulfill, engine_result=cumulative_stats)
+        return OrchestrationResult(
+            success=True, skip_fulfill=skip_fulfill, engine_result=cumulative_stats
+        )
 
 
 def _build_task_prompt(context: RuneContext) -> str:

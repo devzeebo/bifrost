@@ -44,7 +44,7 @@ async def test_claude_config_dir():
                     session_files = list(sessions_dir.glob("*.json"))
                     assert len(session_files) > 0, "No session files found"
 
-                    print(f"✓ CLAUDE_CONFIG_DIR works")
+                    print("✓ CLAUDE_CONFIG_DIR works")
                     print(f"  Sessions created in: {sessions_dir}")
                     print(f"  Session files: {len(session_files)}")
             finally:
@@ -53,7 +53,9 @@ async def test_claude_config_dir():
 
             # Verify the original value was restored
             current_value = os.environ.get("CLAUDE_CONFIG_DIR")
-            assert current_value == original_value, f"Expected {original_value}, got {current_value}"
+            assert current_value == original_value, (
+                f"Expected {original_value}, got {current_value}"
+            )
             print(f"✓ Original CLAUDE_CONFIG_DIR restored: {current_value}")
 
         finally:

@@ -21,10 +21,12 @@ def create_task_source(config: TaskSourceConfig) -> TaskSource:
     if config.type == "bifrost":
         from tasks_bifrost import BifrostTaskSourceConfig, BifrostTaskSource
 
-        bifrost_config = BifrostTaskSourceConfig.from_dict({
-            "type": config.type,
-            "settings": config.settings,
-        })
+        bifrost_config = BifrostTaskSourceConfig.from_dict(
+            {
+                "type": config.type,
+                "settings": config.settings,
+            }
+        )
 
         return BifrostTaskSource(
             base_url=bifrost_config.base_url,
@@ -51,10 +53,12 @@ def create_engine(config: EngineConfig, agent_entry) -> Engine:
     if config.type == "claude-code":
         from engine_claude_code import ClaudeCodeEngineConfig, ClaudeCodeEngine
 
-        engine_config = ClaudeCodeEngineConfig.from_dict({
-            "type": config.type,
-            "settings": config.settings,
-        })
+        engine_config = ClaudeCodeEngineConfig.from_dict(
+            {
+                "type": config.type,
+                "settings": config.settings,
+            }
+        )
 
         return ClaudeCodeEngine(
             entry=agent_entry,

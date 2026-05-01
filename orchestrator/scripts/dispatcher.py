@@ -9,7 +9,6 @@ Exit 0 always. Empty command = skip (unclaim) the rune.
 """
 
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -33,7 +32,7 @@ def main() -> None:
     agent_name: str | None = None
     for tag in tags:
         if tag.startswith("worker:"):
-            agent_name = tag[len("worker:"):]
+            agent_name = tag[len("worker:") :]
             break
 
     if not agent_name:
@@ -84,9 +83,7 @@ def _list_agents() -> None:
         if defn.tools:
             print(f"    tools:            {', '.join(defn.tools)}")
         if hooks.rune_start:
-            print(
-                f"    rune_start_hooks: {', '.join(str(p) for p in hooks.rune_start)}"
-            )
+            print(f"    rune_start_hooks: {', '.join(str(p) for p in hooks.rune_start)}")
         if hooks.rune_stop:
             print(f"    rune_stop_hooks:  {', '.join(str(p) for p in hooks.rune_stop)}")
 

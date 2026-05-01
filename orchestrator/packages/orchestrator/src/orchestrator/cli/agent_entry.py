@@ -1,9 +1,13 @@
 """CLI entry point for agent.py — thin coordinator, exits with correct codes."""
 
+from typing import TYPE_CHECKING, IO
+
 import json
 import logging
 import os
-from typing import IO
+
+if TYPE_CHECKING:
+    from orchestrator.core.orchestrator import AgentEntry
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +29,7 @@ def agent_main(argv: list[str], stdin_stream: IO) -> int:
     from orchestrator.cli.config import find_project_root, is_verbose
     from orchestrator.core.domain import RuneContext
     from orchestrator.core.hook_runner import HookRunner
-    from orchestrator.core.orchestrator import AgentEntry, RuneOrchestrator
+    from orchestrator.core.orchestrator import RuneOrchestrator
     from orchestrator.core.reporting import BifrostAPIClient
 
     rune_data = raw.get("rune") or {}

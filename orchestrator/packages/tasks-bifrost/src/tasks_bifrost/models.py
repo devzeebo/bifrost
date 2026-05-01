@@ -44,10 +44,12 @@ class BifrostTaskDetail(TaskDetail):
 
         dependencies = []
         for dep in data.get("dependencies", []):
-            dependencies.append(DependencyRef(
-                target_id=dep.get("target_id", ""),
-                relationship=dep.get("relationship", ""),
-            ))
+            dependencies.append(
+                DependencyRef(
+                    target_id=dep.get("target_id", ""),
+                    relationship=dep.get("relationship", ""),
+                )
+            )
 
         notes = []
         for note in data.get("notes", []):

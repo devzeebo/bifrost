@@ -174,7 +174,9 @@ async def _drain_messages(
             last_assistant_message = "\n".join(text_parts) if text_parts else None
 
         if verbose:
-            _log_verbose_message(task_id, message, AssistantMessage, TextBlock, ToolUseBlock, since_last_ms)
+            _log_verbose_message(
+                task_id, message, AssistantMessage, TextBlock, ToolUseBlock, since_last_ms
+            )
 
         if message_type_name in ("ResultMessage", "MockResultMessage"):
             total_ms = (now_ns - start_ns) // 1_000_000
@@ -227,7 +229,9 @@ async def _drain_messages(
     raise RuntimeError(f"Agent {agent_name!r} produced no ResultMessage")
 
 
-def _log_invocation(task_id: str, model: str | None, tools: list[str] | None, verbose: bool) -> None:
+def _log_invocation(
+    task_id: str, model: str | None, tools: list[str] | None, verbose: bool
+) -> None:
     model = model or "sonnet"
     parts = ["claude", f"--model {model}", "--permission-mode dontAsk"]
     if tools:

@@ -18,7 +18,7 @@ def parse_agent_file(path: Path) -> tuple[str, AgentEntry]:
         raise ValueError(f"No YAML frontmatter found in {path.name}")
 
     frontmatter_text = m.group(1)
-    body = text[m.end():].strip()
+    body = text[m.end() :].strip()
 
     fields: dict = yaml.safe_load(frontmatter_text) or {}
 
