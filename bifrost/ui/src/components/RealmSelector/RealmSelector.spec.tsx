@@ -1,5 +1,5 @@
 import { describe, expect, vi, beforeEach, test } from "vitest";
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { RealmSelector } from "./RealmSelector";
 
 // Define types locally since they're not exported from lib files
