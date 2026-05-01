@@ -1,0 +1,26 @@
+# Bifrost Orchestrator Configuration
+
+orchestrate:
+  # Task source configuration
+  task_source:
+    type: bifrost
+    settings:
+      base_url: http://localhost:8000
+      timeout: 30
+      poll_interval: 10
+
+  # Engine configuration
+  engine:
+    type: claude-code
+    settings:
+      claude_dir: ~/.claude
+      verbose: false
+
+  # General orchestration settings
+  poll_interval: 10  # Overall poll interval (seconds)
+  concurrency: 1  # Number of parallel workers
+  claimant: null  # Auto-detected from username if not set
+  dispatcher: ./scripts/dispatcher.py  # Path to dispatcher script
+
+  # Logging verbosity
+  logging: normal  # normal | verbose

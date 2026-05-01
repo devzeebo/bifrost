@@ -1,2 +1,4 @@
 .worktrees/
 devzeebo-orchestrator/
+
+**/__pycache__/**

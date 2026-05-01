@@ -1,0 +1,14 @@
+{
+  "go.goflags": ["-work"],
+  "gopls": {
+    "build.env": {
+      "GOWORK": "${workspaceFolder}/go.work"
+    }
+  },
+  "oxc.path.oxlint": "bifrost/ui/node_modules/.bin/oxlint",
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/__pycache__": true,
+    "**/.venv": true
+  }
+}
