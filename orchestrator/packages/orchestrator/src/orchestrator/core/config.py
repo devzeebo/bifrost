@@ -27,7 +27,6 @@ class OrchestratorConfig:
 
     task_source: TaskSourceConfig
     engine: EngineConfig
-    poll_interval: int = 10
     concurrency: int = 1
     claimant: str | None = None
     dispatcher: str | None = None
@@ -76,7 +75,6 @@ def load_config(project_dir: str | None = None) -> OrchestratorConfig:
     return OrchestratorConfig(
         task_source=task_source,
         engine=engine,
-        poll_interval=orchestrate.get("poll_interval", 10),
         concurrency=orchestrate.get("concurrency", 1),
         claimant=orchestrate.get("claimant"),
         dispatcher=orchestrate.get("dispatcher"),
@@ -99,7 +97,6 @@ def _default_config() -> OrchestratorConfig:
     return OrchestratorConfig(
         task_source=TaskSourceConfig(type="bifrost", settings={}),
         engine=EngineConfig(type="claude-code", settings={}),
-        poll_interval=10,
         concurrency=1,
         claimant=None,
         dispatcher=None,

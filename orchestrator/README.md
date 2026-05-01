@@ -85,7 +85,6 @@ orchestrate:
     settings:
       claude_dir: ~/.claude
 
-  poll_interval: 10
   concurrency: 1
 ```
 
