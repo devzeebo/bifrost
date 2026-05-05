@@ -2,3 +2,5 @@
 devzeebo-orchestrator/
 
 **/__pycache__/**
+
+bin/

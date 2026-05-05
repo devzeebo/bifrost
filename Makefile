@@ -2,7 +2,7 @@ BINARY_DIR := bin
 SERVER_BINARY := bifrost-server
 CLI_BINARY := bf
 UI_PORT := 5173
-
+MAKEFLAGS += -j6
 
 # All Go workspace modules (derived from go.work)
 ALL_MODULES := core domain domain/integration providers/sqlite server cli
