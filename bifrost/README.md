@@ -156,13 +156,47 @@ The package installs:
 - `/etc/bifrost/server.yaml` — config file (backup on upgrade)
 - `/var/lib/bifrost/` — data directory
 
+## Skills Integration
+
+Bifrost includes a skill for AI agents that plan and execute work using Bifrost runes. The skill provides structured workflows for any agent system that supports the skills standard.
+
+### What the Skill Does
+
+The `bifrost-rune-workflow` skill provides structured workflows for:
+
+- **Planning**: Create runes, group them into sagas (epics), set dependencies, and organize work
+- **Execution**: Find available runes, claim them, track progress, and fulfill tasks
+- **Agent Routing**: Use tags to route work to specialized agents (implementer, tester, debugger, etc.)
+- **Orchestration**: Automatically dispatch ready runes to appropriate agents
+
+### Core Concepts Covered
+
+- Rune lifecycle (draft → forge → open → claim → fulfill → seal)
+- Saga (epic) creation and child rune management
+- Dependency relationships (blocks, relates_to, duplicates, supersedes, replies_to)
+- Tag-based agent specialization and routing
+- Branch tracking and Git integration
+- Quality gates and completion workflows
+
+### Installation
+
+Install the skill directly from the Bifrost repository:
+
+```bash
+npx skills add https://raw.githubusercontent.com//devzeebo/bifrost/skills/bifrost-rune-workflow.md
+```
+
+This registers the skill for all detected agents and places it in `.agents/skills/bifrost-rune-workflow/skill.md`. Once installed, agents can load the skill using their skill-loading mechanism.
+
+See the [skill documentation](./skills/bifrost-rune-workflow.md) for complete usage details, command reference, and pitfalls.
+
 ## Glossary
 
-| Term      | Meaning                                        |
-|-----------|-------------------------------------------------|
-| **Rune**  | A work item (issue, task, bug, etc.)            |
-| **Saga**  | An epic; collection of related runes            |
-| **Realm** | A tenant; isolated namespace with credentials   |
+| Term      | Meaning                                      |
+|-----------|----------------------------------------------|
+| **Rune**  | A work item (issue, task, bug, etc.)         |
+| **Saga**  | An epic; collection of related runes         |
+| **Realm** | A tenant; isolated namespace with credentials |
 
 ## Documentation
 
