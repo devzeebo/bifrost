@@ -192,11 +192,11 @@ See the [skill documentation](./skills/bifrost-rune-workflow.md) for complete us
 
 ## Glossary
 
-|| Term      | Meaning                                        |
-||-----------|-------------------------------------------------|
-|| **Rune**  | A work item (issue, task, bug, etc.)            |
-|| **Saga**  | An epic; collection of related runes            |
-|| **Realm** | A tenant; isolated namespace with credentials   |
+| Term      | Meaning                                      |
+|-----------|----------------------------------------------|
+| **Rune**  | A work item (issue, task, bug, etc.)         |
+| **Saga**  | An epic; collection of related runes         |
+| **Realm** | A tenant; isolated namespace with credentials |
 
 ## Documentation
 
