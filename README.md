@@ -183,7 +183,7 @@ The `bifrost-rune-workflow` skill provides structured workflows for:
 Install the skill directly from the Bifrost repository:
 
 ```bash
-npx skills add https://github.com/devzeebo/bifrost/skills/bifrost-rune-workflow.md
+npx skills add https://raw.githubusercontent.com//devzeebo/bifrost/skills/bifrost-rune-workflow.md
 ```
 
 This registers the skill for all detected agents and places it in `.agents/skills/bifrost-rune-workflow/skill.md`. Once installed, agents can load the skill using their skill-loading mechanism.
