@@ -8,6 +8,10 @@ dependencies = [
     "pyyaml",
 ]
 
+[tools.uv.sources]
+interface-engine = { workspace = true }
+interface-tasks = { workspace = true }
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

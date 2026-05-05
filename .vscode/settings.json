@@ -1,5 +1,7 @@
 {
-  "go.goflags": ["-work"],
+  "go.goflags": [
+    "-work"
+  ],
   "gopls": {
     "build.env": {
       "GOWORK": "${workspaceFolder}/go.work"
@@ -10,5 +12,12 @@
     "**/node_modules": true,
     "**/__pycache__": true,
     "**/.venv": true
-  }
+  },
+  "python.analysis.extraPaths": [
+    "orchestrator/packages/orchestrator/src",
+    "orchestrator/packages/interface-engine/src",
+    "orchestrator/packages/engine-claude-code/src",
+    "orchestrator/packages/interface-tasks/src",
+    "orchestrator/packages/tasks-bifrost/src"
+  ]
 }

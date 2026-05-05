@@ -8,6 +8,9 @@ dependencies = [
     "watchdog",
 ]
 
+[tools.uv.sources]
+interface-engine = { workspace = true }
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

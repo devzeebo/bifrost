@@ -14,6 +14,8 @@ else
   GO_TARGETS := $(foreach m,$(ALL_MODULES),./$(m)/...)
 endif
 
+.DEFAULT_GOAL := help
+
 .PHONY: deps build build-server build-cli build-ui ui-dist \
         test test-go test-ui test-py \
         lint lint-go lint-ui lint-py \
