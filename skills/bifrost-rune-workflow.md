@@ -332,4 +332,4 @@ bf sweep                       Clean up unreferenced sealed/fulfilled runes
 - **Shattered runes are tombstones** — they cannot be recreated with the same ID
 - **`bf forge` on a saga recursively forges all children** — including shattered ones (skipped silently)
 - **`bf ready` excludes sagas by default** — use `--sagas` to include them
-- **Only one rune can be in_progress at a time** — follow the workflow: claim → work → fulfill before claiming another
+- **Only one rune can be claimed at a time** — follow the workflow: claim → work → fulfill before claiming another
