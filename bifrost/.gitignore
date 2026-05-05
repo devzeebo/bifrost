@@ -1,0 +1,15 @@
+bin/
+*.db
+.DS_Store
+*.exe
+node_modules
+.windsurf/
+ui/dist
+
+**/__pycache__
+
+# Ignore embedded UI dist artifacts but keep the folder
+server/admin/ui/*
+!server/admin/ui/.gitkeep
+
+.ai/

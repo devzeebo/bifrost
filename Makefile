@@ -2,7 +2,7 @@ BINARY_DIR := bin
 SERVER_BINARY := bifrost-server
 CLI_BINARY := bf
 UI_PORT := 5173
-
+MAKEFLAGS += -j6
 
 # All Go workspace modules (derived from go.work)
 ALL_MODULES := core domain domain/integration providers/sqlite server cli
@@ -15,8 +15,8 @@ else
 endif
 
 .PHONY: deps build build-server build-cli build-ui ui-dist \
-        test test-go test-ui \
-        lint lint-go lint-ui \
+        test test-go test-ui test-py \
+        lint lint-go lint-ui lint-py \
         vet tidy \
         dev prod docker clean list help
 
@@ -24,7 +24,7 @@ endif
 
 deps:
 	@echo "» installing ui dependencies"
-	cd ui && npm ci
+	cd bifrost/ui && npm ci
 
 # ── Build ─────────────────────────────────────────────────────────────────────
 
@@ -32,59 +32,67 @@ build: build-server build-cli
 
 ui-dist:
 	@echo "» building ui for production"
-	cd ui && npm run build
+	cd bifrost/ui && npm run build
 	@echo "» copying ui dist to server/admin/ui/"
-	rm -rf server/admin/ui
-	cp -r ui/dist/client server/admin/ui
+	rm -rf bifrost/server/admin/ui
+	cp -r bifrost/ui/dist/client bifrost/server/admin/ui
 	@echo "» ui embedded in server binary"
 
 build-server: ui-dist
 	@echo "» building server → $(BINARY_DIR)/$(SERVER_BINARY)"
-	go build -buildvcs=false -o $(BINARY_DIR)/$(SERVER_BINARY) ./server/cmd
+	cd bifrost && go build -buildvcs=false -o ../$(BINARY_DIR)/$(SERVER_BINARY) ./server/cmd
 
 build-cli:
 	@echo "» building cli → $(BINARY_DIR)/$(CLI_BINARY)"
-	go build -buildvcs=false -o $(BINARY_DIR)/$(CLI_BINARY) ./cli/cmd/bf
+	cd bifrost && go build -buildvcs=false -o ../$(BINARY_DIR)/$(CLI_BINARY) ./cli/cmd/bf
 	ln -sf $(CLI_BINARY) $(BINARY_DIR)/bifrost
 
 build-cli-debug:
 	@echo "» building cli (debug) → $(BINARY_DIR)/$(CLI_BINARY)"
-	go build -buildvcs=false -tags debug -o $(BINARY_DIR)/$(CLI_BINARY) ./cli/cmd/bf
+	cd bifrost && go build -buildvcs=false -tags debug -o ../$(BINARY_DIR)/$(CLI_BINARY) ./cli/cmd/bf
 	ln -sf $(CLI_BINARY) $(BINARY_DIR)/bifrost
 
 build-ui: ui-dist
 
 # ── Quality ───────────────────────────────────────────────────────────────────
 
-test: test-go test-ui
+test: test-go test-ui test-py
 
 test-go:
 	@echo "» go test $(ARGS) $(GO_TARGETS)"
-	go test -tags noui $(ARGS) $(GO_TARGETS)
+	cd bifrost && go test -tags noui $(ARGS) $(GO_TARGETS)
 
 test-ui:
 	@echo "» vitest run"
-	cd ui && npm run test -- --run
+	cd bifrost/ui && npm run test -- --run
 
-lint: lint-go lint-ui
+test-py:
+	@echo "» uv test"
+	cd orchestrator && uv run python -m pytest
+
+lint: lint-go lint-ui lint-py
 
 lint-go:
 	@echo "» golangci-lint run $(ARGS) $(GO_TARGETS)"
-	go tool golangci-lint run $(ARGS) --build-tags noui $(GO_TARGETS)
+	cd bifrost && go tool golangci-lint run $(ARGS) --build-tags noui $(GO_TARGETS)
 
 lint-ui:
 	@echo "» oxlint"
-	cd ui && npm run lint
+	cd bifrost/ui && npm run lint
+
+lint-py:
+	@echo "» uv run ruff"
+	cd orchestrator && uv run ruff check --fix . && uv run ruff format .
 
 vet:
 	@echo "» go vet $(ARGS) $(GO_TARGETS)"
-	go vet $(ARGS) $(GO_TARGETS)
+	cd bifrost && go vet $(ARGS) $(GO_TARGETS)
 
 tidy:
 ifdef MODULES
-	$(foreach m,$(MODULES),@echo "» go mod tidy  ($(m))" && cd $(m) && go mod tidy && cd $(CURDIR) &&) true
+	$(foreach m,$(MODULES),@echo "» go mod tidy  ($(m))" && cd bifrost/$(m) && go mod tidy && cd $(CURDIR) &&) true
 else
-	$(foreach m,$(ALL_MODULES),@echo "» go mod tidy  ($(m))" && cd $(m) && go mod tidy && cd $(CURDIR) &&) true
+	$(foreach m,$(ALL_MODULES),@echo "» go mod tidy  ($(m))" && cd bifrost/$(m) && go mod tidy && cd $(CURDIR) &&) true
 endif
 
 # ── Dev ───────────────────────────────────────────────────────────────────────
@@ -99,7 +107,7 @@ dev: build-server
 	SERVER_PID=$$!; \
 	sleep 1; \
 	echo "» starting Vike UI server on :$(UI_PORT) (proxies /api to :8080)..."; \
-	cd ui && npm run dev -- --port $(UI_PORT); \
+	cd bifrost/ui && npm run dev -- --port $(UI_PORT); \
 	kill $$SERVER_PID 2>/dev/null || true; \
 	wait $$SERVER_PID 2>/dev/null || true
 
