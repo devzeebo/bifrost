@@ -44,6 +44,7 @@ func NewHandlers(eventStore core.EventStore, projectionStore core.ProjectionStor
 	h.mux.HandleFunc("POST /unclaim-rune", h.UnclaimRune)
 	h.mux.HandleFunc("POST /fulfill-rune", h.FulfillRune)
 	h.mux.HandleFunc("POST /seal-rune", h.SealRune)
+	h.mux.HandleFunc("POST /fail-rune", h.FailRune)
 	h.mux.HandleFunc("POST /forge-rune", h.ForgeRune)
 	h.mux.HandleFunc("POST /add-dependency", h.AddDependency)
 	h.mux.HandleFunc("POST /remove-dependency", h.RemoveDependency)
@@ -99,6 +100,7 @@ func (h *Handlers) RegisterRoutes(mux *http.ServeMux, realmMiddleware, adminMidd
 	mux.Handle("POST /api/unclaim-rune", memberAuth(http.HandlerFunc(h.UnclaimRune)))
 	mux.Handle("POST /api/fulfill-rune", memberAuth(http.HandlerFunc(h.FulfillRune)))
 	mux.Handle("POST /api/seal-rune", memberAuth(http.HandlerFunc(h.SealRune)))
+	mux.Handle("POST /api/fail-rune", memberAuth(http.HandlerFunc(h.FailRune)))
 	mux.Handle("POST /api/forge-rune", memberAuth(http.HandlerFunc(h.ForgeRune)))
 	mux.Handle("POST /api/add-dependency", memberAuth(http.HandlerFunc(h.AddDependency)))
 	mux.Handle("POST /api/remove-dependency", memberAuth(http.HandlerFunc(h.RemoveDependency)))
@@ -242,6 +244,25 @@ func (h *Handlers) SealRune(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := domain.HandleSealRune(r.Context(), realmID, cmd, h.eventStore); err != nil {
+		handleDomainError(w, err)
+		return
+	}
+	h.runSyncQuietly(r)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) FailRune(w http.ResponseWriter, r *http.Request) {
+	realmID, ok := RealmIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusForbidden, "realm ID required")
+		return
+	}
+	var cmd domain.FailRune
+	if err := json.NewDecoder(r.Body).Decode(&cmd); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if err := domain.HandleFailRune(r.Context(), realmID, cmd, h.eventStore); err != nil {
 		handleDomainError(w, err)
 		return
 	}

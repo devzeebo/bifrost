@@ -72,6 +72,8 @@ func (p *RuneDetailProjector) Handle(ctx context.Context, event core.Event, stor
 		return p.handleForged(ctx, event, store)
 	case domain.EventRuneSealed:
 		return p.handleSealed(ctx, event, store)
+	case domain.EventRuneFailed:
+		return p.handleFailed(ctx, event, store)
 	case domain.EventRuneUnclaimed:
 		return p.handleUnclaimed(ctx, event, store)
 	case domain.EventDependencyAdded:
@@ -198,6 +200,20 @@ func (p *RuneDetailProjector) handleSealed(ctx context.Context, event core.Event
 		return err
 	}
 	detail.Status = "sealed"
+	detail.UpdatedAt = event.Timestamp
+	return store.Put(ctx, event.RealmID, "rune_detail", data.ID, detail)
+}
+
+func (p *RuneDetailProjector) handleFailed(ctx context.Context, event core.Event, store core.ProjectionStore) error {
+	var data domain.RuneFailed
+	if err := json.Unmarshal(event.Data, &data); err != nil {
+		return err
+	}
+	var detail RuneDetail
+	if err := store.Get(ctx, event.RealmID, "rune_detail", data.ID, &detail); err != nil {
+		return err
+	}
+	detail.Status = "failed"
 	detail.UpdatedAt = event.Timestamp
 	return store.Put(ctx, event.RealmID, "rune_detail", data.ID, detail)
 }

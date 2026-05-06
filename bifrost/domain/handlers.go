@@ -79,6 +79,8 @@ func RebuildRuneState(events []core.Event) RuneState {
 			state.Status = "open"
 		case EventRuneSealed:
 			state.Status = "sealed"
+		case EventRuneFailed:
+			state.Status = "failed"
 		case EventRuneShattered:
 			state.Status = "shattered"
 		}
@@ -195,6 +197,9 @@ func HandleUpdateRune(ctx context.Context, realmID string, cmd UpdateRune, store
 	if state.Status == "sealed" {
 		return fmt.Errorf("cannot update sealed rune %q", cmd.ID)
 	}
+	if state.Status == "failed" {
+		return fmt.Errorf("cannot update failed rune %q", cmd.ID)
+	}
 	if state.Status == "shattered" {
 		return fmt.Errorf("cannot update shattered rune %q", cmd.ID)
 	}
@@ -230,6 +235,9 @@ func HandleClaimRune(ctx context.Context, realmID string, cmd ClaimRune, store c
 	}
 	if state.Status == "sealed" {
 		return fmt.Errorf("cannot claim sealed rune %q", cmd.ID)
+	}
+	if state.Status == "failed" {
+		return fmt.Errorf("cannot claim failed rune %q", cmd.ID)
 	}
 	if state.Status == "shattered" {
 		return fmt.Errorf("cannot claim shattered rune %q", cmd.ID)
@@ -332,6 +340,9 @@ func HandleFulfillRune(ctx context.Context, realmID string, cmd FulfillRune, sto
 	if state.Status == "sealed" {
 		return fmt.Errorf("cannot fulfill sealed rune %q", cmd.ID)
 	}
+	if state.Status == "failed" {
+		return fmt.Errorf("cannot fulfill failed rune %q", cmd.ID)
+	}
 	if state.Status == "shattered" {
 		return fmt.Errorf("cannot fulfill shattered rune %q", cmd.ID)
 	}
@@ -371,6 +382,32 @@ func HandleSealRune(ctx context.Context, realmID string, cmd SealRune, store cor
 	streamID := runeStreamID(cmd.ID)
 	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
 		{EventType: EventRuneSealed, Data: sealed},
+	})
+	return err
+}
+
+func HandleFailRune(ctx context.Context, realmID string, cmd FailRune, store core.EventStore) error {
+	state, events, err := readAndRebuild(ctx, realmID, cmd.ID, store)
+	if err != nil {
+		return err
+	}
+	if !state.Exists {
+		return &core.NotFoundError{Entity: "rune", ID: cmd.ID}
+	}
+	if state.Status == "shattered" {
+		return fmt.Errorf("cannot fail shattered rune %q", cmd.ID)
+	}
+	if state.Status == "failed" {
+		return fmt.Errorf("rune %q is already failed", cmd.ID)
+	}
+
+	failed := RuneFailed(cmd)
+	noted := RuneNoted{RuneID: cmd.ID, Text: cmd.Reason}
+
+	streamID := runeStreamID(cmd.ID)
+	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
+		{EventType: EventRuneFailed, Data: failed},
+		{EventType: EventRuneNoted, Data: noted},
 	})
 	return err
 }
@@ -672,7 +709,7 @@ func isActiveRuneInProjection(ctx context.Context, realmID string, runeID string
 	if isNotFoundError(err) {
 		return false
 	}
-	return s.Status != "sealed" && s.Status != "fulfilled"
+	return s.Status != "sealed" && s.Status != "fulfilled" && s.Status != "failed"
 }
 
 func HandleAddACItem(ctx context.Context, realmID string, cmd AddACItem, store core.EventStore) error {
@@ -685,6 +722,9 @@ func HandleAddACItem(ctx context.Context, realmID string, cmd AddACItem, store c
 	}
 	if state.Status == "sealed" {
 		return fmt.Errorf("cannot add AC to sealed rune %q", cmd.RuneID)
+	}
+	if state.Status == "failed" {
+		return fmt.Errorf("cannot add AC to failed rune %q", cmd.RuneID)
 	}
 	if state.Status == "shattered" {
 		return fmt.Errorf("cannot add AC to shattered rune %q", cmd.RuneID)
@@ -735,6 +775,9 @@ func HandleUpdateACItem(ctx context.Context, realmID string, cmd UpdateACItem, s
 	if state.Status == "sealed" {
 		return fmt.Errorf("cannot update AC on sealed rune %q", cmd.RuneID)
 	}
+	if state.Status == "failed" {
+		return fmt.Errorf("cannot update AC on failed rune %q", cmd.RuneID)
+	}
 	if state.Status == "shattered" {
 		return fmt.Errorf("cannot update AC on shattered rune %q", cmd.RuneID)
 	}
@@ -781,6 +824,9 @@ func HandleRemoveACItem(ctx context.Context, realmID string, cmd RemoveACItem, s
 	}
 	if state.Status == "sealed" {
 		return fmt.Errorf("cannot remove AC from sealed rune %q", cmd.RuneID)
+	}
+	if state.Status == "failed" {
+		return fmt.Errorf("cannot remove AC from failed rune %q", cmd.RuneID)
 	}
 	if state.Status == "shattered" {
 		return fmt.Errorf("cannot remove AC from shattered rune %q", cmd.RuneID)

@@ -57,6 +57,8 @@ func (p *RuneSummaryProjector) Handle(ctx context.Context, event core.Event, sto
 		return p.handleForged(ctx, event, store)
 	case domain.EventRuneSealed:
 		return p.handleSealed(ctx, event, store)
+	case domain.EventRuneFailed:
+		return p.handleFailed(ctx, event, store)
 	case domain.EventRuneUnclaimed:
 		return p.handleUnclaimed(ctx, event, store)
 	case domain.EventRuneShattered:
@@ -161,6 +163,20 @@ func (p *RuneSummaryProjector) handleSealed(ctx context.Context, event core.Even
 		return err
 	}
 	summary.Status = "sealed"
+	summary.UpdatedAt = event.Timestamp
+	return store.Put(ctx, event.RealmID, "rune_summary", data.ID, summary)
+}
+
+func (p *RuneSummaryProjector) handleFailed(ctx context.Context, event core.Event, store core.ProjectionStore) error {
+	var data domain.RuneFailed
+	if err := json.Unmarshal(event.Data, &data); err != nil {
+		return err
+	}
+	var summary RuneSummary
+	if err := store.Get(ctx, event.RealmID, "rune_summary", data.ID, &summary); err != nil {
+		return err
+	}
+	summary.Status = "failed"
 	summary.UpdatedAt = event.Timestamp
 	return store.Put(ctx, event.RealmID, "rune_summary", data.ID, summary)
 }

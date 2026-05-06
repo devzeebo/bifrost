@@ -43,6 +43,11 @@ type SealRune struct {
 	Reason string `json:"reason,omitempty"`
 }
 
+type FailRune struct {
+	ID     string `json:"id"`
+	Reason string `json:"reason"`
+}
+
 type ShatterRune struct {
 	ID string `json:"id"`
 }

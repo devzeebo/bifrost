@@ -14,10 +14,10 @@
     "**/.venv": true
   },
   "python.analysis.extraPaths": [
-    "orchestrator/packages/orchestrator/src",
-    "orchestrator/packages/interface-engine/src",
     "orchestrator/packages/engine-claude-code/src",
+    "orchestrator/packages/interface-engine/src",
     "orchestrator/packages/interface-tasks/src",
+    "orchestrator/packages/orchestrator/src",
     "orchestrator/packages/tasks-bifrost/src"
   ]
 }
