@@ -54,6 +54,8 @@ func NewHandlers(eventStore core.EventStore, projectionStore core.ProjectionStor
 	h.mux.HandleFunc("POST /add-ac", h.AddAC)
 	h.mux.HandleFunc("POST /update-ac", h.UpdateAC)
 	h.mux.HandleFunc("POST /remove-ac", h.RemoveAC)
+	h.mux.HandleFunc("POST /update-rune-state", h.UpdateRuneState)
+	h.mux.HandleFunc("POST /clear-rune-state", h.ClearRuneState)
 	h.mux.HandleFunc("POST /shatter-rune", h.ShatterRune)
 	h.mux.HandleFunc("POST /sweep-runes", h.SweepRunes)
 	h.mux.HandleFunc("GET /runes", h.ListRunes)
@@ -109,6 +111,8 @@ func (h *Handlers) RegisterRoutes(mux *http.ServeMux, realmMiddleware, adminMidd
 	mux.Handle("POST /api/add-ac", memberAuth(http.HandlerFunc(h.AddAC)))
 	mux.Handle("POST /api/update-ac", memberAuth(http.HandlerFunc(h.UpdateAC)))
 	mux.Handle("POST /api/remove-ac", memberAuth(http.HandlerFunc(h.RemoveAC)))
+	mux.Handle("POST /api/update-rune-state", memberAuth(http.HandlerFunc(h.UpdateRuneState)))
+	mux.Handle("POST /api/clear-rune-state", memberAuth(http.HandlerFunc(h.ClearRuneState)))
 	mux.Handle("POST /api/shatter-rune", memberAuth(http.HandlerFunc(h.ShatterRune)))
 	mux.Handle("POST /api/sweep-runes", memberAuth(http.HandlerFunc(h.SweepRunes)))
 
@@ -573,6 +577,44 @@ func (h *Handlers) RemoveAC(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := domain.HandleRemoveACItem(r.Context(), realmID, cmd, h.eventStore); err != nil {
+		handleDomainError(w, err)
+		return
+	}
+	h.runSyncQuietly(r)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) UpdateRuneState(w http.ResponseWriter, r *http.Request) {
+	realmID, ok := RealmIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusForbidden, "realm ID required")
+		return
+	}
+	var cmd domain.UpdateRuneState
+	if err := json.NewDecoder(r.Body).Decode(&cmd); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if err := domain.HandleUpdateRuneState(r.Context(), realmID, cmd, h.eventStore); err != nil {
+		handleDomainError(w, err)
+		return
+	}
+	h.runSyncQuietly(r)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) ClearRuneState(w http.ResponseWriter, r *http.Request) {
+	realmID, ok := RealmIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusForbidden, "realm ID required")
+		return
+	}
+	var cmd domain.ClearRuneState
+	if err := json.NewDecoder(r.Body).Decode(&cmd); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if err := domain.HandleClearRuneState(r.Context(), realmID, cmd, h.eventStore); err != nil {
 		handleDomainError(w, err)
 		return
 	}
@@ -1093,6 +1135,12 @@ func handleDomainError(w http.ResponseWriter, err error) {
 		return
 	}
 
+	var badReqErr *core.BadRequestError
+	if errors.As(err, &badReqErr) {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	msg := err.Error()
 	if isValidationError(msg) {
 		writeError(w, http.StatusUnprocessableEntity, msg)
@@ -1109,6 +1157,7 @@ func isValidationError(msg string) bool {
 		"realm ",
 		"unknown ",
 		"AC ",
+		"invalid ",
 	}
 	for _, p := range prefixes {
 		if strings.HasPrefix(msg, p) {

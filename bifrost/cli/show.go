@@ -89,6 +89,11 @@ func NewShowCmd(clientFn func() *Client, out *bytes.Buffer) *ShowCmd {
 							}
 						}
 					}
+					if state, ok := result["state"].(map[string]any); ok && len(state) > 0 {
+						fmt.Fprintf(w, "State:\n")
+						pretty, _ := json.MarshalIndent(state, "  ", "  ")
+						fmt.Fprintf(w, "  %s\n", string(pretty))
+					}
 				}
 			})
 		},

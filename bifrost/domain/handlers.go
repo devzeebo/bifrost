@@ -26,11 +26,13 @@ type RuneState struct {
 	Tags        []string
 	Priority    int
 	Type        string
+	State       map[string]any
 	Exists      bool
 }
 
 func RebuildRuneState(events []core.Event) RuneState {
 	var state RuneState
+	state.State = make(map[string]any)
 	for _, evt := range events {
 		switch evt.EventType {
 		case EventRuneCreated:
@@ -83,6 +85,14 @@ func RebuildRuneState(events []core.Event) RuneState {
 			state.Status = "failed"
 		case EventRuneShattered:
 			state.Status = "shattered"
+		case EventRuneStateUpdated:
+			var data RuneStateUpdated
+			_ = json.Unmarshal(evt.Data, &data)
+			if state.State == nil {
+				state.State = make(map[string]any)
+			}
+			// Apply the patch to the current state
+			_, _ = MergePatch(state.State, data.Patch)
 		}
 	}
 	return state
@@ -860,6 +870,67 @@ func HandleRemoveACItem(ctx context.Context, realmID string, cmd RemoveACItem, s
 	streamID := runeStreamID(cmd.RuneID)
 	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
 		{EventType: EventRuneACRemoved, Data: acRemoved},
+	})
+	return err
+}
+
+func HandleUpdateRuneState(ctx context.Context, realmID string, cmd UpdateRuneState, store core.EventStore) error {
+	state, events, err := readAndRebuild(ctx, realmID, cmd.RuneID, store)
+	if err != nil {
+		return err
+	}
+	if !state.Exists {
+		return &core.NotFoundError{Entity: "rune", ID: cmd.RuneID}
+	}
+	if state.Status == "shattered" {
+		return &core.BadRequestError{Message: fmt.Sprintf("rune %q is shattered", cmd.RuneID)}
+	}
+
+	// Parse the patch JSON
+	var patch map[string]any
+	if err := json.Unmarshal([]byte(cmd.Patch), &patch); err != nil {
+		return fmt.Errorf("invalid patch JSON: %w", err)
+	}
+
+	// Validate patch is an object
+	if patch == nil {
+		return fmt.Errorf("invalid patch: must be a JSON object, not null")
+	}
+
+	// Create the event
+	stateUpdated := RuneStateUpdated{
+		RuneID: cmd.RuneID,
+		Patch:  patch,
+	}
+
+	streamID := runeStreamID(cmd.RuneID)
+	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
+		{EventType: EventRuneStateUpdated, Data: stateUpdated},
+	})
+	return err
+}
+
+func HandleClearRuneState(ctx context.Context, realmID string, cmd ClearRuneState, store core.EventStore) error {
+	state, events, err := readAndRebuild(ctx, realmID, cmd.RuneID, store)
+	if err != nil {
+		return err
+	}
+	if !state.Exists {
+		return &core.NotFoundError{Entity: "rune", ID: cmd.RuneID}
+	}
+	if state.Status == "shattered" {
+		return &core.BadRequestError{Message: fmt.Sprintf("rune %q is shattered", cmd.RuneID)}
+	}
+
+	// Empty patch clears all state
+	stateUpdated := RuneStateUpdated{
+		RuneID: cmd.RuneID,
+		Patch:  make(map[string]any),
+	}
+
+	streamID := runeStreamID(cmd.RuneID)
+	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
+		{EventType: EventRuneStateUpdated, Data: stateUpdated},
 	})
 	return err
 }

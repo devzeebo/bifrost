@@ -33,3 +33,12 @@ type NotFoundError struct {
 func (e *NotFoundError) Error() string {
 	return fmt.Sprintf("%s %q not found", e.Entity, e.ID)
 }
+
+// BadRequestError is returned when the request is invalid (400)
+type BadRequestError struct {
+	Message string
+}
+
+func (e *BadRequestError) Error() string {
+	return e.Message
+}

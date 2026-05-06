@@ -1,22 +1,23 @@
 package domain
 
 const (
-	EventRuneCreated       = "RuneCreated"
-	EventRuneUpdated       = "RuneUpdated"
-	EventRuneClaimed       = "RuneClaimed"
-	EventRuneFulfilled     = "RuneFulfilled"
-	EventRuneForged        = "RuneForged"
-	EventRuneSealed        = "RuneSealed"
-	EventRuneFailed        = "RuneFailed"
-	EventDependencyAdded   = "DependencyAdded"
-	EventDependencyRemoved = "DependencyRemoved"
-	EventRuneNoted         = "RuneNoted"
-	EventRuneUnclaimed     = "RuneUnclaimed"
-	EventRuneShattered     = "RuneShattered"
-	EventRuneRetroed       = "RuneRetroed"
-	EventRuneACAdded       = "RuneACAdded"
-	EventRuneACUpdated     = "RuneACUpdated"
-	EventRuneACRemoved     = "RuneACRemoved"
+	EventRuneCreated        = "RuneCreated"
+	EventRuneUpdated        = "RuneUpdated"
+	EventRuneClaimed        = "RuneClaimed"
+	EventRuneFulfilled      = "RuneFulfilled"
+	EventRuneForged         = "RuneForged"
+	EventRuneSealed         = "RuneSealed"
+	EventRuneFailed         = "RuneFailed"
+	EventDependencyAdded    = "DependencyAdded"
+	EventDependencyRemoved  = "DependencyRemoved"
+	EventRuneNoted          = "RuneNoted"
+	EventRuneUnclaimed      = "RuneUnclaimed"
+	EventRuneShattered      = "RuneShattered"
+	EventRuneRetroed        = "RuneRetroed"
+	EventRuneACAdded        = "RuneACAdded"
+	EventRuneACUpdated      = "RuneACUpdated"
+	EventRuneACRemoved      = "RuneACRemoved"
+	EventRuneStateUpdated   = "RuneStateUpdated"
 )
 
 const (
@@ -160,4 +161,9 @@ type RuneACUpdated struct {
 type RuneACRemoved struct {
 	RuneID string `json:"rune_id"`
 	ID     string `json:"id"`
+}
+
+type RuneStateUpdated struct {
+	RuneID string                 `json:"rune_id"`
+	Patch  map[string]interface{} `json:"patch"`
 }

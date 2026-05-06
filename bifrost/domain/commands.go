@@ -91,3 +91,13 @@ type RemoveACItem struct {
 	RuneID string `json:"rune_id"`
 	ID     string `json:"id"`
 }
+
+type UpdateRuneState struct {
+	RuneID   string `json:"rune_id"`
+	Patch    string `json:"patch"`
+	IsClear  bool   `json:"is_clear,omitempty"`
+}
+
+type ClearRuneState struct {
+	RuneID string `json:"rune_id"`
+}

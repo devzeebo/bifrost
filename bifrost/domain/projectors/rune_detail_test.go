@@ -786,3 +786,12 @@ func (tc *runeDetailTestContext) load_stored_detail() {
 		}
 	}
 }
+
+func (tc *runeDetailTestContext) get_stored_detail() *RuneDetail {
+	tc.t.Helper()
+	tc.load_stored_detail()
+	if tc.storedDetail == nil {
+		tc.t.Fatal("no detail was stored")
+	}
+	return tc.storedDetail
+}

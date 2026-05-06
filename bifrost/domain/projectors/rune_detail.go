@@ -40,6 +40,7 @@ type RuneDetail struct {
 	Notes              []NoteEntry     `json:"notes"`
 	RetroItems         []RetroEntry    `json:"retro_items"`
 	AcceptanceCriteria []ACEntry       `json:"acceptance_criteria"`
+	State              map[string]any  `json:"state"`
 	CreatedAt          time.Time       `json:"created_at"`
 	UpdatedAt          time.Time       `json:"updated_at"`
 }
@@ -92,6 +93,8 @@ func (p *RuneDetailProjector) Handle(ctx context.Context, event core.Event, stor
 		return p.handleACUpdated(ctx, event, store)
 	case domain.EventRuneACRemoved:
 		return p.handleACRemoved(ctx, event, store)
+	case domain.EventRuneStateUpdated:
+		return p.handleStateUpdated(ctx, event, store)
 	}
 	return nil
 }
@@ -115,6 +118,7 @@ func (p *RuneDetailProjector) handleCreated(ctx context.Context, event core.Even
 		Notes:              []NoteEntry{},
 		RetroItems:         []RetroEntry{},
 		AcceptanceCriteria: []ACEntry{},
+		State:              make(map[string]any),
 		CreatedAt:          event.Timestamp,
 		UpdatedAt:          event.Timestamp,
 	}
@@ -392,6 +396,27 @@ func (p *RuneDetailProjector) handleACRemoved(ctx context.Context, event core.Ev
 		}
 	}
 	detail.AcceptanceCriteria = filtered
+	detail.UpdatedAt = event.Timestamp
+	return store.Put(ctx, event.RealmID, "rune_detail", data.RuneID, detail)
+}
+
+func (p *RuneDetailProjector) handleStateUpdated(ctx context.Context, event core.Event, store core.ProjectionStore) error {
+	var data domain.RuneStateUpdated
+	if err := json.Unmarshal(event.Data, &data); err != nil {
+		return err
+	}
+	var detail RuneDetail
+	if err := store.Get(ctx, event.RealmID, "rune_detail", data.RuneID, &detail); err != nil {
+		return err
+	}
+	// Apply merge patch to state
+	if detail.State == nil {
+		detail.State = make(map[string]any)
+	}
+	_, err := domain.MergePatch(detail.State, data.Patch)
+	if err != nil {
+		return err
+	}
 	detail.UpdatedAt = event.Timestamp
 	return store.Put(ctx, event.RealmID, "rune_detail", data.RuneID, detail)
 }
