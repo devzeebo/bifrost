@@ -700,6 +700,85 @@ type BifrostTaskSourceConfig = {
 
 ---
 
+## Decision Records
+
+This section records decisions made during the development of the Bifrost Task Source. Each decision includes the question, the answer, and the rationale.
+
+### DR-1: Rune filtering in task source
+
+**Question**: Should the task source filter runes by worker tag, or should it yield all ready runes and let the orchestrator handle filtering?
+
+**Decision**: No. The task source should not do any rune filtering. If it's ready, it goes in the async generator.
+
+**Rationale**: Filtering is the orchestrator's responsibility, not the task source's. The task source's job is to provide ready runes from the backend system. The orchestrator framework has agent routing mechanisms that determine which worker should handle which task. Adding filtering to the task source creates unnecessary complexity and coupling between the task source and agent catalog.
+
+**Impact**: 
+- Remove `workerTagFilter` from configuration schema
+- Remove US-6 (Filter runes by agent worker tags)
+- Update FR-4 to remove worker tag filtering criteria
+- Remove FR-9 (Worker Tag Inference)
+
+---
+
+### DR-2: Task source responsibility for completion/failure handling
+
+**Question**: Is the task source responsible for determining whether an error is recoverable vs fatal and managing rune state accordingly?
+
+**Decision**: No. The task source is not responsible for this. The orchestrator either fulfills or fails it via `completeTask()` or `failTask()`.
+
+**Rationale**: The task source's job is to provide the interface for completion and failure. Determining the nature of the error and the appropriate response is the orchestrator's concern. The task source simply calls the appropriate Bifrost API based on which orchestrator method is invoked.
+
+**Impact**:
+- Remove error classification logic from FR-6
+- Simplify FR-6 to: call fulfill API on `completeTask()`, call unclaim API on `failTask()`
+- Remove exit code interpretation from task source
+
+---
+
+### DR-3: Polling interval default
+
+**Question**: What should the default polling interval be?
+
+**Decision**: 10 seconds.
+
+**Rationale**: Matches the orchestrator framework's default. Provides good balance between responsiveness and resource usage.
+
+**Impact**: Already specified in v1. No change needed.
+
+---
+
+### DR-4: Bifrost API version compatibility
+
+**Question**: How should the task source handle Bifrost API version changes?
+
+**Decision**: Don't worry about versioning. Assume it's all the correct versions.
+
+**Rationale**: The task source and Bifrost server are developed together. Version compatibility is managed at the deployment level, not in the task source code.
+
+**Impact**:
+- Remove version compatibility requirements from NFR-7
+- Remove OQ-4 from v2
+
+---
+
+### DR-5: Credential source and management
+
+**Question**: Where should the task source read credentials from?
+
+**Decision**: Read the server URL and realm from the `.bifrost.yaml` of the working repository. Read the credentials (PAT) for that repo from `~/.config/bifrost/credentials.yaml`.
+
+**Rationale**: This follows the Bifrost CLI's credential management pattern. The `.bifrost.yaml` in the working repo specifies which server and realm to use. The credentials file maps those to PATs. This avoids hardcoding PATs in orchestrator config and supports multiple realms/credentials.
+
+**Impact**:
+- Remove `pat` from `.orchestrator.yaml` configuration
+- Add logic to read `.bifrost.yaml` from `projectDir`
+- Add logic to read `~/.config/bifrost/credentials.yaml`
+- Update configuration schema to only include optional overrides
+- Update FR-1 configuration schema
+- Add credential resolution to FR-7 (Authentication)
+
+---
+
 ## Open Questions
 
 ### OQ-1: Worker tag inference vs. explicit requirement
