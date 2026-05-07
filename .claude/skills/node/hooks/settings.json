@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(npx *)",
+            "command": "echo '{\"hookSpecificOutput\":{\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"npx is forbidden. use a script defined in package.json and `npm run <script-name>` instead.\"}}'",
+            "decision": "deny",
+            "reason": "blah"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "references": [
+    {
+      "path": "./packages/cli"
+    },
+    {
+      "path": "./packages/core"
+    },
+    {
+      "path": "./packages/engine"
+    },
+    {
+      "path": "./packages/task-source"
+    }
+  ]
+}

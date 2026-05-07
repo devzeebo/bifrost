@@ -1,0 +1,21 @@
+#!/bin/bash
+
+set -e
+
+INPUT=$(cat)
+
+get_field() {
+  local field="$1"
+  local json="${2:-$INPUT}"
+  echo "$json" | jq -r ".$field // empty" 2>/dev/null || echo ""
+}
+
+deny() {
+  echo '{"hookSpecificOutput":{"hookEventName":"'$(get_field hook_event_name)'","permissionDecision":"deny","permissionDecisionReason":"'$1'"}}'
+}
+
+export -f get_field
+export -f deny
+export INPUT
+
+$CLAUDE_PROJECT_DIR/.claude/skills/$1/hooks/$(get_field hook_event_name).d/$2

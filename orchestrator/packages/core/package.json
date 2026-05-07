@@ -1,0 +1,20 @@
+{
+  "name": "@orchestrator/core",
+  "version": "1.0.0",
+  "description": "Core orchestration logic for Orchestrator Framework",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "vite build"
+  },
+  "dependencies": {
+    "gray-matter": "^4.0.3"
+  }
+}
