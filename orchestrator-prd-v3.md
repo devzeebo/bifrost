@@ -1,9 +1,9 @@
-# Unified Orchestrator PRD v2
+# Unified Orchestrator PRD v3
 
 **Status:** Draft  
 **Authors:** Eric Siebeneich, Matthew Wright, Alexander Reeves  
 **Date:** 2026-05-07  
-**Version:** 2.0
+**Version:** 3.0
 
 ---
 
@@ -153,6 +153,15 @@ Then the orchestrator dispatches the task without checking ownership
   And ownership is the task source's responsibility
 ```
 
+```
+Given the task source async iterator throws an error or terminates unexpectedly
+When the orchestrator detects the termination
+Then the orchestrator waits 1 minute
+  And creates a new Task Source instance with the same configuration
+  And calls watchTasks() again
+  And logs the reconnection attempt
+```
+
 ### US-3: Agent Operator - Dispatch agent on task
 
 **As an** agent operator  
@@ -226,6 +235,22 @@ Given a Start hook that writes data into taskState (e.g., snapshot-tests writes 
   And a Stop hook that reads that data (e.g., check-new-tests reads file hashes)
 When both hooks run within the same dispatch
 Then the Stop hook receives taskState as modified by all preceding hooks
+```
+
+```
+Given a hook with a timeout configured in AGENT.md frontmatter
+  And the hook execution exceeds the timeout
+When the timeout is exceeded
+Then the hook execution is terminated
+  And the hook is treated as having exited with code 2
+  And an error message is logged: "Hook {hookName} exceeded timeout of {timeout}ms"
+  And the UoW is marked as failed
+```
+
+```
+Given a hook without a timeout configured in AGENT.md frontmatter
+When the hook executes
+Then the default timeout of 300000ms (5 minutes) is applied
 ```
 
 ### US-5: First run installs repo scripts into the working repository
@@ -455,6 +480,21 @@ And the orchestrator logs the failure
 And the UoW is marked as failed
 ```
 
+```
+Given a hook completes successfully (exit code 0)
+When taskState is saved
+Then the save operation is atomic
+  And either the entire taskState is persisted or none is
+  And partial updates are not possible
+```
+
+```
+Given a hook fails or times out
+When execution terminates
+Then no taskState changes from that hook are persisted
+  And taskState reflects the state from the prior successful operation
+```
+
 ---
 
 ## Functional Requirements
@@ -479,6 +519,8 @@ The task source plugin is responsible for:
 - Ensuring tasks yielded via `watchTasks()` are not simultaneously yielded to other orchestrators
 - Not re-emitting tasks that have been marked as `FAILED`
 - Handling coordination via atomic claims, distributed locks, queue dequeue, or other mechanisms
+- Persisting task state according to its own requirements
+- Handling network connectivity and reconnection to its backend service
 
 ### FR-2: Engine Interface
 
@@ -517,7 +559,7 @@ The system MUST implement the `TaskStateStore` interface with the following meth
 - `async deleteTaskState(taskId: string): Promise<boolean>`: Delete taskState for a task
 - `async initializeTaskState(taskId: string, initialState: Record<string, unknown>): Promise<boolean>`: Initialize taskState for a new task
 
-TaskStateStore implementations MUST be thread-safe and support concurrent access.
+TaskStateStore implementations MUST be thread-safe and support concurrent access. Each operation MUST be atomic. The orchestrator does not implement additional consistency mechanisms.
 
 ### FR-4: Agent Definition File (AGENT.md)
 
@@ -532,6 +574,20 @@ Required frontmatter fields:
 | `tools` | string[] | Explicit allowlist of tools this agent may use |
 | `toolClasses` | string[] | Optional. Tool role types this agent requires. Informational — documents what must be available. |
 | `template.parameters` | object | Free-form YAML shape declaring the taskState structure this agent expects |
+| `hooks` | object | Optional. Hook specifications with timeout configuration |
+
+Hook spec format:
+```yaml
+hooks:
+  Start:
+    - name: validate-args
+      scriptPath: hooks/Start.d/validate-args.mjs
+      timeout: 300000  # optional, milliseconds
+  Stop:
+    - name: check-new-tests
+      scriptPath: hooks/Stop.d/check-new-tests.mjs
+      timeout: 120000  # optional, milliseconds
+```
 
 The `tools` list is a strict allowlist enforced by the runtime. Any tool not listed is denied regardless of what the prompt requests.
 
@@ -645,15 +701,17 @@ The rendered agent prompt is NOT included. Cross-hook state is communicated via 
 
 **Script format:** `.mjs` (ES module) or executable shell script. Executed via dynamic `import()` (Node.js) or subprocess (shell).
 
+**Timeout behavior:** If a hook exceeds its configured timeout, execution is terminated and the hook is treated as having exited with code 2 (fatal error). Partial state changes are not persisted.
+
 ### FR-11: Built-in Hook Specs
 
-| Hook | Lifecycle | Type | Purpose |
-|---|---|---|---|
-| `validate-args` | Start | framework | Assert all required taskState fields are non-empty per declared schema |
-| `snapshot-tests` | Start | framework | Hash existing test files into taskState |
-| `check-new-tests` | Stop | framework | Assert at least one new test was added since snapshot |
-| `lint` | Stop | repo script | Run project linter (resolved from repoConfig `linter` toolClass) |
-| `format` | Stop | repo script | Run project formatter (resolved from repoConfig `formatter` toolClass) |
+| Hook | Lifecycle | Type | Purpose | Default Timeout |
+|---|---|---|---|---|
+| `validate-args` | Start | framework | Assert all required taskState fields are non-empty per declared schema | 300000ms (5 min) |
+| `snapshot-tests` | Start | framework | Hash existing test files into taskState | 300000ms (5 min) |
+| `check-new-tests` | Stop | framework | Assert at least one new test was added since snapshot | 300000ms (5 min) |
+| `lint` | Stop | repo script | Run project linter (resolved from repoConfig `linter` toolClass) | 300000ms (5 min) |
+| `format` | Stop | repo script | Run project formatter (resolved from repoConfig `formatter` toolClass) | 300000ms (5 min) |
 
 Framework hooks run from the orchestrator's `packages/` context. Repo scripts are loaded from the working repository's `.ai/` directory via dynamic `import()`.
 
@@ -719,7 +777,19 @@ The orchestrator MUST execute the following sequence:
 16. Append completion note with telemetry
 17. Continue to next task
 
-### FR-15: Level Hierarchy Constraints
+### FR-15: Task Source Reconnection
+
+If the Task Source's `watchTasks()` async iterator terminates unexpectedly (throws error, completes, or crashes):
+
+1. Log the termination with error details if available
+2. Wait 1 minute (configurable in v2)
+3. Create a new Task Source instance using the same configuration
+4. Call `watchTasks()` on the new instance
+5. Continue normal task processing
+
+This reconnection loop continues indefinitely until the orchestrator receives an explicit shutdown signal.
+
+### FR-16: Level Hierarchy Constraints
 
 - Level 2 skills do not know about Level 3 task workflows.
 - Level 3 task agents do not know about Level 4 orchestrators and do not read repoConfig directly.
@@ -727,6 +797,9 @@ The orchestrator MUST execute the following sequence:
 - Level 4 orchestrator programs validate UoW `taskState` but do NOT derive or populate parameter values.
 - The `tools` allowlist is enforced by the runtime harness, not the prompt.
 - Task State Store provides the interface for persisting taskState without coupling to any specific backend.
+- The orchestrator does not enforce taskState size limits — this is the Task State Store's responsibility.
+- The orchestrator does not implement coordination (claiming, locking) — this is the Task Source's responsibility.
+- Task State Store operations are assumed to be atomic — the orchestrator does not implement additional consistency mechanisms.
 
 ---
 
@@ -736,7 +809,8 @@ The orchestrator MUST execute the following sequence:
 
 - Task source polling interval MUST be configurable (default 10 seconds)
 - API request timeout MUST be configurable (default 30 seconds)
-- Hook execution MUST complete within 5 minutes or be terminated
+- Hook execution timeout defaults to 5 minutes and is configurable per-hook in AGENT.md
+- Hook timeout MUST be enforced via process termination
 - Engine execution has no hardcoded timeout (managed by engine)
 - Task State Store operations MUST complete within 100ms for local stores, 500ms for remote stores
 - AGENT.md parsing completes in under 100ms for files under 10KB
@@ -744,35 +818,40 @@ The orchestrator MUST execute the following sequence:
 ### NFR-2: Reliability
 
 - The orchestrator MUST gracefully handle task source unavailability
+- The orchestrator MUST automatically attempt task source reconnection after 1-minute delay
 - The orchestrator MUST log all hook failures without crashing
 - The orchestrator MUST survive process restart and resume polling
 - Task State Store MUST be thread-safe and support concurrent access
 - Task State persistence failures MUST be logged and cause UoW failure
+- Hook timeouts MUST be enforced — a hung hook cannot block the orchestrator indefinitely
 
 ### NFR-3: Monitoring and Observability
 
 - All task source operations MUST be logged with task ID
-- All hook executions MUST be logged with command and exit code
+- All hook executions MUST be logged with command, exit code, and duration
 - Engine execution MUST log telemetry on completion
 - Task State Store operations MUST be logged with task ID
 - Log levels MUST be configurable (normal, verbose)
 - Structured JSON log entries for: git root resolution, agent load, taskState validation result, hook start, hook exit (with exit code and duration), agent dispatch
+- Task Source reconnection attempts MUST be logged
 
 ### NFR-4: Concurrency
 
 - The orchestrator MUST support configurable worker concurrency
 - Task Source MUST handle coordination (no built-in locking in orchestrator)
 - Task State Store MUST support concurrent reads and writes to the same task_id
+- Task State Store operations MUST be atomic per-operation
 
 ### NFR-5: Error Handling
 
 - Invalid JSON on stdin MUST result in exit code 1
 - Unknown agent name MUST result in UoW being marked as failed
 - Agent without model MUST result in UoW being marked as failed
-- Task source unavailability MUST be logged and retried
+- Task source async iterator termination MUST trigger reconnection logic
 - Hook execution exceptions MUST be caught, logged, and result in exit code 2
 - Task State Store unavailability MUST cause UoW failure with descriptive error
 - Every validation failure, hook exit-2, and parse error must name the specific field or file path that caused the failure, using dot-notation for nested fields
+- Hook timeouts MUST be logged with hook name and configured timeout value
 
 ### NFR-6: Install Idempotency
 
@@ -835,6 +914,10 @@ The orchestrator MUST execute the following sequence:
 - `agentName: string`, `hookName: string`, `lifecycle: "Start" | "Stop"`, `projectDir: string`
 - Occurs when: Hook is executed
 
+**ReconnectTaskSource**
+- `taskSourceType: string`, `reason: string`, `reconnectedAt: ISO8601`
+- Occurs when: Task Source async iterator terminates and orchestrator attempts reconnection
+
 **InstallRepoScripts**
 - `orchestratorName: string`, `projectDir: string`, `installedAt: ISO8601`
 - Occurs when: Repo scripts are installed to working repository
@@ -859,6 +942,9 @@ The orchestrator MUST execute the following sequence:
 **HookExecuted**
 - `agentName: string`, `hookName: string`, `lifecycle: "Start" | "Stop"`, `exitCode: 0 | 1 | 2`, `stdout: string`, `durationMs: number`, `executedAt: ISO8601`
 
+**HookTimedOut**
+- `agentName: string`, `hookName: string`, `lifecycle: "Start" | "Stop"`, `configuredTimeout: number`, `durationMs: number`, `executedAt: ISO8601`
+
 **AgentHalted**
 - `agentName: string`, `reason: string`, `haltedAt: ISO8601`
 
@@ -876,6 +962,12 @@ The orchestrator MUST execute the following sequence:
 
 **TaskStateInitialized**
 - `taskId: string`, `initialState: Record<string, unknown>`, `initializedAt: Date`
+
+**TaskSourceReconnecting**
+- `taskSourceType: string`, `reason: string`, `reattemptDelay: number`, `reattemptAt: ISO8601`
+
+**TaskSourceReconnected**
+- `taskSourceType: string`, `previousError: string`, `reconnectedAt: Date`
 
 ### Aggregates
 
@@ -931,6 +1023,7 @@ type HookSpec = {
   scriptPath: string      // relative to agent dir
   specPath: string        // path to .md Gherkin spec
   isRepoScript: boolean   // true = installed to working repo; false = runs from framework packages
+  timeout?: number        // milliseconds, optional
 }
 ```
 
@@ -974,6 +1067,7 @@ type DispatchRecord = {
     lifecycle: "Start" | "Stop"
     exitCode: number
     durationMs: number
+    timedOut: boolean
   }>
   outcome: "completed" | "halted"
   dispatchedAt: string
@@ -1018,6 +1112,11 @@ type DispatchRecord = {
 - Projection: `taskState` dict by `taskId`
 - Used by: Hook execution, follow-up loops
 
+**TaskSourceReconnectionHistoryQuery**
+- Question: What reconnection attempts have occurred for the task source?
+- Projection: List of `TaskSourceReconnecting` and `TaskSourceReconnected` events ordered by timestamp
+- Used by: Debugging connectivity issues
+
 ### Data Retention
 
 - Task events MUST be retained indefinitely (event sourcing)
@@ -1053,6 +1152,10 @@ type DispatchRecord = {
 - Orchestrator responsibility for taskState derivation: The orchestrator validates; it does not populate. Whatever produces the UoW — human, CI, or another agent — is responsible for all `taskState` values.
 - Repo script upgrade path: When a newer version of the orchestrator program ships an updated repo script, there is no automated mechanism to update already-installed copies in working repositories. Teams update repo scripts manually. A future version may introduce a hash-comparison check with an explicit overwrite command.
 - Malicious agent package supply chain: A compromised agent package could declare arbitrary dependencies installed into the shared orchestrator `node_modules`. The v1 mitigation is developer discipline — always review agent definitions and `package.json` before installing.
+- Task State size enforcement: The orchestrator does not enforce taskState size limits. Size limits, if any, are enforced by the Task State Store implementation.
+- Task State concurrency control: The orchestrator does not implement optimistic locking, versioning, or conflict resolution for taskState updates. Each `saveTaskState` operation is assumed to be atomic.
+- Task state persistence across orchestrator restarts: The orchestrator does not persist state across restarts. Persistence is the Task Source's responsibility.
+- Configurable reconnection delay: The reconnection delay is fixed at 1 minute for v1.
 
 ---
 
@@ -1086,182 +1189,27 @@ type DispatchRecord = {
 11. The orchestrator is always invoked from inside a valid git repository. The git root is the working repository; no other mechanism for specifying `projectDir` exists.
 12. Absent optional Handlebars tokens render as empty string. Prompt authors guard optional sections with `{{#if}}` blocks.
 13. Task State Store is available and reachable during hook execution. Unavailability causes UoW failure.
-14. Task State Store operations are atomic for single task_id writes.
+14. Task State Store operations are atomic for single task_id writes. The orchestrator does not implement additional consistency mechanisms.
 15. Configuration file exists: `.orchestrator.yaml` in project root or home directory.
-16. Network connectivity: Task source is reachable from orchestrator.
+16. Network connectivity: Task source is reachable from orchestrator. If not, reconnection logic is triggered.
 17. File system permissions: Orchestrator has read/write access to project directory.
 18. Shell availability: `/bin/sh` or compatible shell is available for hook execution.
 19. Idempotent hooks: Hooks are safe to run multiple times (follow-up loops).
-20. Hook timeouts: Hooks complete within reasonable time or are killed.
+20. Hook timeouts: Hooks complete within their configured timeout or are killed.
+21. Task Source handles all coordination (claiming, locking, queue semantics) to prevent duplicate task processing.
+22. Task Source is responsible for persisting its own state. The orchestrator does not persist task state across restarts.
+23. Task Source async iterator termination triggers automatic reconnection after 1-minute delay.
+24. Task State Store enforces any size limits. The orchestrator does not inspect taskState size.
 
 ### External System Assumptions
 
-- **Task Source**: Implements coordination (atomic claims, distributed locks, or queue semantics) to ensure tasks are not yielded to multiple orchestrators simultaneously. Does not re-emit failed tasks.
+- **Task Source**: Implements coordination (atomic claims, distributed locks, or queue semantics) to ensure tasks are not yielded to multiple orchestrators simultaneously. Does not re-emit failed tasks. Handles its own persistence requirements. Can be recreated if the async iterator terminates.
 - **AI Runtime**: Supports executing agents with context and returning structured results.
 - **Agent catalog format**: AGENT.md files following the specified schema for Level 3 agents.
-- **Task State Store backend**: Supports get/set/delete operations with appropriate performance characteristics.
-
----
-
-## Decisions
-
-This section records design decisions made to resolve the open questions below. These decisions establish clear boundaries between the orchestrator framework and its plugins, and inform the v3 iteration.
-
-### D-1: Task Source Concurrency
-
-**Decision:** Task Source coordination is entirely out of scope for the orchestrator framework.
-
-**Rationale:** The orchestrator consumes tasks via the `TaskSource.watchTasks()` async iterator. It does not manage claiming, locking, or queue semantics. The Task Source plugin developer is responsible for all coordination concerns.
-
-**Implications:**
-- Orchestrator implements no distributed locking
-- Orchestrator does not detect or handle duplicate task dispatch
-- Task Source plugins must ensure each task yielded to at most one consumer
-- Coordination for multiple orchestrator instances is the Task Source's responsibility
-
-### D-2: Task State Persistence and Reconnection
-
-**Decision:** Task state persistence is the Task Source's responsibility. Orchestrator recreates Task Source instance on iterator failure.
-
-**Rationale:** When the Task Source's async iterator dies (throws, crashes, disconnects), the orchestrator should reconnect automatically rather than requiring manual restart. Persistence of task state across restarts is the Task Source plugin's concern.
-
-**Behavior:**
-1. If `watchTasks()` async iterator terminates, wait 1 minute
-2. Create new Task Source instance with same configuration
-3. Call `watchTasks()` again
-4. Log the reconnection attempt
-5. Continue indefinitely until explicit shutdown
-
-**Implications:**
-- Orchestrator does not persist task state across restarts
-- Task Source must handle its own persistence requirements
-- Reconnection delay fixed at 1 minute for v1
-- Orchestrator does not distinguish error types — all trigger same retry logic
-
-### D-3: Task State Size Limits
-
-**Decision:** Orchestrator does not enforce taskState size limits. This is the Task State Store's responsibility.
-
-**Rationale:** The orchestrator treats taskState as an opaque object beyond parameter schema validation. Size limits, if any, are enforced by the Task State Store implementation.
-
-**Implications:**
-- Orchestrator does not validate taskState size
-- If Task State Store rejects due to size, UoW marked as failed
-- Different implementations may have different limits
-- Store error messages surfaced to task source
-
-### D-4: Task State Update Atomicity
-
-**Decision:** Task State Store operations are assumed to be atomic. Orchestrator implements no additional consistency mechanisms.
-
-**Rationale:** The `loadTaskState`/`saveTaskState` interface is treated as atomic. Either update succeeds or fails. Orchestrator does not implement transactions, versioning, or conflict resolution.
-
-**Implications:**
-- Each `saveTaskState` call is single atomic operation
-- Save failure = UoW marked as failed
-- Orchestrator does not retry failed saves
-- Concurrent writes follow Store's semantics (last-write-wins, error, etc.)
-
-### D-5: Hook Timeout Configuration and Handling
-
-**Decision:** Hook timeouts configured per-hook in AGENT.md frontmatter. Timeout results in exit code 2 (fatal error).
-
-**Configuration:**
-```yaml
-hooks:
-  Start:
-    - name: validate-args
-      scriptPath: hooks/Start.d/validate-args.mjs
-      timeout: 300000  # milliseconds, optional
-```
-
-**Behavior:**
-- Hook exceeds timeout = execution terminated
-- Treated as exit code 2 (fatal error)
-- Logged: "Hook {hookName} exceeded timeout of {timeout}ms"
-- UoW marked as failed
-- Default if not specified: 5 minutes (300000ms)
-
-**Implications:**
-- Each hook specifies own timeout
-- Orchestrator terminates execution at timeout (subprocess kill)
-- Partial state changes from timed-out hook not persisted
+- **Task State Store backend**: Supports get/set/delete operations with atomic operations and appropriate performance characteristics. Enforces size limits if any.
 
 ---
 
 ## Open Questions
 
-### OQ-1: Task State Store Concurrency
-
-**Ambiguity**: How should multiple concurrent hook executions coordinate access to the Task State Store to prevent race conditions?
-
-**Assumption**: Task State Store implementations provide atomic operations for single task_id updates. Race conditions are handled by last-write-wins semantics.
-
-**Ideal Solution**: Implement optimistic locking via version field in taskState. Each update includes version, and updates fail if version has changed. This prevents silent overwrites while supporting distributed execution.
-
-**Alternatives**:
-1. **Last-write-wins**: Simple but may lose updates (current assumption)
-2. **Pessimistic locking**: Lock task_id during dispatch (blocks parallelism)
-3. **Queue-based execution**: Single worker processes tasks sequentially (limits scalability)
-
-**Comparison**: Optimistic locking balances correctness with scalability. Last-write-wins is simple but risks data loss. Pessimistic locking eliminates race conditions but blocks parallelism. Queue-based execution is simple but doesn't leverage multi-instance capabilities. Optimistic locking provides the best balance for v1.
-
-### OQ-2: Task State Storage Backend for Offline Operations
-
-**Ambiguity**: Should taskState persist across orchestrator restarts? What happens if Task State Store is unavailable?
-
-**Assumption**: taskState persists across restarts. Task State Store unavailability causes UoW failure.
-
-**Ideal Solution**: Configurable persistence policy with three modes: `persist` (survives restarts), `ephemeral` (in-memory only), `hybrid` (file-based fallback for unavailability). Unavailability handling configurable: `fail` (current), `continue_with_warning`, `fallback_to_file`.
-
-**Alternatives**:
-1. **Always persist, fail on unavailable**: Current behavior, safe but may halt all work
-2. **In-memory only, survive restart via task source**: Complex but resilient
-3. **File-based fallback**: Adds complexity but provides resilience
-
-**Comparison**: Configurable persistence policy provides flexibility for different deployment scenarios. Always persist is safest but creates dependency. In-memory only simplifies but loses state on restart. File-based fallback provides resilience but adds implementation complexity. Configurable policy with fail default offers safety with option for resilience.
-
-### OQ-3: Task State Size Limits
-
-**Ambiguity**: Are there limits on taskState size? What happens when hooks store large amounts of data?
-
-**Assumption**: No explicit limits in v1. Large taskState may cause performance issues or store failures.
-
-**Ideal Solution**: Configurable size limits with enforcement at save time. Defaults: 1MB for in-memory store, 10MB for Redis, 100MB for file store. Exceeding limit causes UoW failure with descriptive error.
-
-**Alternatives**:
-1. **No limits**: Simple but risks resource exhaustion (current)
-2. **Hard limits**: Prevents resource exhaustion but may block legitimate use cases
-3. **Soft limits with warning**: Allows exceeding but warns on large taskState
-
-**Comparison**: Configurable limits with enforcement prevents resource exhaustion while allowing operators to adjust for their needs. No limits is risky. Hard limits may be too restrictive. Soft limits don't prevent problems. Configurable limits with reasonable defaults offers best balance.
-
-### OQ-4: Cross-Hook State Consistency
-
-**Ambiguity**: What happens when a hook fails midway through updating taskState? Is partial state saved?
-
-**Assumption**: taskState is saved only on successful hook completion (exit code 0). Failed hooks do not persist state changes.
-
-**Ideal Solution**: Transactional taskState updates within a hook execution. Either all changes persist or none do. Hook can explicitly commit mid-execution if needed.
-
-**Alternatives**:
-1. **Save only on success**: Current behavior, simple but prevents incremental progress
-2. **Save on each write**: Complex but provides more granular recovery
-3. **Explicit commit model**: Flexible but requires hook author awareness
-
-**Comparison**: Save only on success is simple and prevents inconsistent state. Save on each write provides recovery but may persist invalid state. Explicit commit model offers flexibility but increases complexity. Save on success is appropriate for v1; explicit commit can be added later if needed.
-
-### OQ-5: Hook Timeout Handling
-
-**Ambiguity**: What happens to taskState when a hook times out? Are partial changes persisted?
-
-**Assumption**: Hook timeout is treated as failure (exit code 2). No taskState changes are persisted.
-
-**Ideal Solution**: Configurable timeout policy: `rollback` (discard changes, current default), `commit` (persist partial changes), `checkpoint` (periodic commits during execution).
-
-**Alternatives**:
-1. **Always rollback**: Current behavior, safe but loses progress
-2. **Always commit**: Preserves progress but may persist inconsistent state
-3. **Configurable per hook**: Flexible but complex to configure
-
-**Comparison**: Always rollback is safest and simplest. Always commit risks inconsistent state. Configurable per hook provides flexibility but increases complexity. Always rollback with configurable timeout duration is appropriate for v1.
+None. All questions from v2 have been resolved and their answers incorporated into the requirements.
