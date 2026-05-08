@@ -12,13 +12,11 @@
     "test:typecheck": "tsc --project tsconfig.test.json --noEmit",
     "build": "npm run build --workspaces",
     "dev": "vitest --watch",
-    "lint": "oxlint . -c oxlint.config.ts",
+    "lint": "oxlint -c ../oxlint.config.ts",
     "format": "prettier . -w"
   },
   "devDependencies": {
     "@types/node": "^25.6.2",
-    "oxlint": "^1.63.0",
-    "prettier": "^3.8.3",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.11",

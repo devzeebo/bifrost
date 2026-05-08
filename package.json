@@ -1,0 +1,19 @@
+{
+  "name": "bifrost",
+  "private": "true",
+  "type": "module",
+  "devDependencies": {
+    "oxlint": "^1.63.0",
+    "prettier": "^3.8.3",
+    "typescript": "^6.0.3"
+  },
+  "workspaces": [
+    "orchestrator",
+    "bifrost/ui"
+  ],
+  "scripts": {
+    "lint": "npm run --workspaces lint --if-present",
+    "lint:file": "oxlint",
+    "format": "npm run --workspaces format --if-present"
+  }
+}

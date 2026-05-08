@@ -5,7 +5,6 @@
       "GOWORK": "${workspaceFolder}/go.work"
     }
   },
-  "oxc.path.oxlint": "orchestrator/node_modules/.bin/oxlint",
   "files.exclude": {
     "**/node_modules": true,
     "**/__pycache__": true,

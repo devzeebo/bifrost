@@ -1,0 +1,5 @@
+#!/bin/bash
+# matcher: Edit|Write
+###
+
+npm run lint:file $(get_field "tool_input.file_path")
