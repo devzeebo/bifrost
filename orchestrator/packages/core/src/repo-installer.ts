@@ -1,5 +1,5 @@
-import { mkdir, writeFile, readFile, stat } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { mkdir, writeFile, readFile, stat } from "node:fs/promises";
+import { join, resolve } from "node:path";
 
 export type AgentWithRepoScripts = {
   name: string;
@@ -22,11 +22,11 @@ export type AgentWithRepoScripts = {
 export const installRepoScripts = async (
   projectDir: string,
   agents: AgentWithRepoScripts[],
-  orchestratorPackagesPath: string
+  orchestratorPackagesPath: string,
 ): Promise<void> => {
   for (const agent of agents) {
-    for (const lifecycle of ['Start', 'Stop'] as const) {
-      const hooks = lifecycle === 'Start' ? agent.hooks.Start : agent.hooks.Stop;
+    for (const lifecycle of ["Start", "Stop"] as const) {
+      const hooks = lifecycle === "Start" ? agent.hooks.Start : agent.hooks.Stop;
 
       for (const hook of hooks) {
         // Skip framework hooks - only install repo scripts
@@ -36,7 +36,7 @@ export const installRepoScripts = async (
 
         // FR-9: Hook execution order within each .d/ directory: alphabetical by filename
         // Target path: .ai/<agent-name>/hooks/<lifecycle>.d/<hook-name>.mjs
-        const targetDir = resolve(projectDir, '.ai', agent.name, 'hooks', `${lifecycle}.d`);
+        const targetDir = resolve(projectDir, ".ai", agent.name, "hooks", `${lifecycle}.d`);
         const targetPath = resolve(targetDir, `${hook.name}.mjs`);
 
         // Check if script already exists (US-5: idempotency)
@@ -53,13 +53,13 @@ export const installRepoScripts = async (
         const sourcePath = resolve(orchestratorPackagesPath, agent.name, hook.scriptPath);
 
         // Read the source script content
-        const content = await readFile(sourcePath, 'utf-8');
+        const content = await readFile(sourcePath, "utf-8");
 
         // Create target directory
         await mkdir(targetDir, { recursive: true });
 
         // FR-8: Repo scripts are hard-copied (never symlinked)
-        await writeFile(targetPath, content, 'utf-8');
+        await writeFile(targetPath, content, "utf-8");
 
         console.log(`Installed: ${targetPath}`);
       }

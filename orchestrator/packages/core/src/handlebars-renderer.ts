@@ -1,4 +1,4 @@
-import Handlebars from 'handlebars';
+import Handlebars from "handlebars";
 
 /**
  * Render a Handlebars template with taskState values.

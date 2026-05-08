@@ -1,5 +1,5 @@
-import matter from 'gray-matter';
-import { AgentDefinition } from './types.js';
+import matter from "gray-matter";
+import { AgentDefinition } from "./types.js";
 
 /**
  * Extract all Handlebars tokens from a string.
@@ -14,7 +14,7 @@ const extractHandlebarsTokens = (content: string): Set<string> => {
   while ((match = simpleTokenRegex.exec(content)) !== null) {
     const token = match[1].trim();
     // Extract the base path (first part before any dots or spaces)
-    const basePath = token.split('.')[0].split(' ')[0];
+    const basePath = token.split(".")[0].split(" ")[0];
     tokens.add(basePath);
   }
 
@@ -22,7 +22,7 @@ const extractHandlebarsTokens = (content: string): Set<string> => {
   const blockTokenRegex = /\{\{#(?:if|unless|each)\s+([^}]+)\}\}/g;
   while ((match = blockTokenRegex.exec(content)) !== null) {
     const token = match[1].trim();
-    const basePath = token.split('.')[0].split(' ')[0];
+    const basePath = token.split(".")[0].split(" ")[0];
     tokens.add(basePath);
   }
 
@@ -38,12 +38,12 @@ const getDeclaredParameters = (params: Record<string, unknown>): Set<string> => 
 
   for (const key of Object.keys(params)) {
     // Remove the ? suffix for optional parameters
-    const baseKey = key.endsWith('?') ? key.slice(0, -1) : key;
+    const baseKey = key.endsWith("?") ? key.slice(0, -1) : key;
     declared.add(baseKey);
 
     // Recursively extract nested parameters
     const value = params[key];
-    if (typeof value === 'object' && value !== null) {
+    if (typeof value === "object" && value !== null) {
       const nestedParams = getDeclaredParameters(value as Record<string, unknown>);
       for (const nested of nestedParams) {
         declared.add(`${baseKey}.${nested}`);
@@ -66,18 +66,18 @@ export const parseAgentDefinition = (content: string): AgentDefinition | null =>
     const promptBody = parsed.content;
 
     // Validate required fields: name, description, tools
-    if (!data.name || typeof data.name !== 'string') {
-      console.error('Missing or invalid required field: name');
+    if (!data.name || typeof data.name !== "string") {
+      console.error("Missing or invalid required field: name");
       return null;
     }
 
-    if (!data.description || typeof data.description !== 'string') {
-      console.error('Missing or invalid required field: description');
+    if (!data.description || typeof data.description !== "string") {
+      console.error("Missing or invalid required field: description");
       return null;
     }
 
     if (!Array.isArray(data.tools)) {
-      console.error('Missing or invalid required field: tools');
+      console.error("Missing or invalid required field: tools");
       return null;
     }
 
@@ -101,9 +101,9 @@ export const parseAgentDefinition = (content: string): AgentDefinition | null =>
 
       // Check for parent paths (e.g., if using "context.prDescription", check if "context" or "context?" is declared)
       if (!isDeclared) {
-        const parts = token.split('.');
+        const parts = token.split(".");
         for (let i = parts.length; i > 0; i--) {
-          const parentPath = parts.slice(0, i).join('.');
+          const parentPath = parts.slice(0, i).join(".");
           if (declaredParams.has(parentPath) || declaredParams.has(`${parentPath}?`)) {
             isDeclared = true;
             break;
@@ -129,13 +129,13 @@ export const parseAgentDefinition = (content: string): AgentDefinition | null =>
 
     if (hooksData?.Start && Array.isArray(hooksData.Start)) {
       for (const hook of hooksData.Start) {
-        if (typeof hook === 'object' && hook !== null) {
+        if (typeof hook === "object" && hook !== null) {
           const hookObj = hook as Record<string, unknown>;
-          if (typeof hookObj.name === 'string' && typeof hookObj.scriptPath === 'string') {
+          if (typeof hookObj.name === "string" && typeof hookObj.scriptPath === "string") {
             hooks.Start.push({
               name: hookObj.name,
               scriptPath: hookObj.scriptPath,
-              timeout: typeof hookObj.timeout === 'number' ? hookObj.timeout : undefined,
+              timeout: typeof hookObj.timeout === "number" ? hookObj.timeout : undefined,
             });
           }
         }
@@ -144,13 +144,13 @@ export const parseAgentDefinition = (content: string): AgentDefinition | null =>
 
     if (hooksData?.Stop && Array.isArray(hooksData.Stop)) {
       for (const hook of hooksData.Stop) {
-        if (typeof hook === 'object' && hook !== null) {
+        if (typeof hook === "object" && hook !== null) {
           const hookObj = hook as Record<string, unknown>;
-          if (typeof hookObj.name === 'string' && typeof hookObj.scriptPath === 'string') {
+          if (typeof hookObj.name === "string" && typeof hookObj.scriptPath === "string") {
             hooks.Stop.push({
               name: hookObj.name,
               scriptPath: hookObj.scriptPath,
-              timeout: typeof hookObj.timeout === 'number' ? hookObj.timeout : undefined,
+              timeout: typeof hookObj.timeout === "number" ? hookObj.timeout : undefined,
             });
           }
         }
@@ -167,7 +167,7 @@ export const parseAgentDefinition = (content: string): AgentDefinition | null =>
       promptBody,
     };
   } catch (error) {
-    console.error('Failed to parse AGENT.md:', error);
+    console.error("Failed to parse AGENT.md:", error);
     return null;
   }
 };

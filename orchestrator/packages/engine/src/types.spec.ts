@@ -1,9 +1,9 @@
-import { describe, it, expect, vi } from 'vitest';
-import { EngineResult, ExecutionStats, EngineContext } from './types.js';
+import { describe, it, expect, vi } from "vitest";
+import { EngineResult, ExecutionStats, EngineContext } from "./types.js";
 
-describe('Engine Types', () => {
-  describe('ExecutionStats', () => {
-    it('should contain all required telemetry fields', () => {
+describe("Engine Types", () => {
+  describe("ExecutionStats", () => {
+    it("should contain all required telemetry fields", () => {
       // FR-2: ExecutionStats MUST contain
       const stats: ExecutionStats = {
         durationMs: 5000,
@@ -25,13 +25,13 @@ describe('Engine Types', () => {
     });
   });
 
-  describe('EngineResult', () => {
-    it('should contain success, skipFulfill, lastMessage, and stats', () => {
+  describe("EngineResult", () => {
+    it("should contain success, skipFulfill, lastMessage, and stats", () => {
       // FR-2: EngineResult MUST contain
       const result: EngineResult = {
         success: true,
         skipFulfill: false,
-        lastMessage: 'Task completed',
+        lastMessage: "Task completed",
         stats: {
           durationMs: 5000,
           inputTokens: 1000,
@@ -45,11 +45,11 @@ describe('Engine Types', () => {
 
       expect(result.success).toBe(true);
       expect(result.skipFulfill).toBe(false);
-      expect(result.lastMessage).toBe('Task completed');
+      expect(result.lastMessage).toBe("Task completed");
       expect(result.stats).toBeDefined();
     });
 
-    it('should allow null stats and lastMessage', () => {
+    it("should allow null stats and lastMessage", () => {
       const result: EngineResult = {
         success: false,
         skipFulfill: false,
@@ -63,23 +63,23 @@ describe('Engine Types', () => {
     });
   });
 
-  describe('EngineContext', () => {
-    it('should contain taskId, workingDir, agentName, taskState, metadata, setState, and verbose', () => {
+  describe("EngineContext", () => {
+    it("should contain taskId, workingDir, agentName, taskState, metadata, setState, and verbose", () => {
       const context: EngineContext = {
-        taskId: 'task-123',
-        workingDir: '/home/user/project',
-        agentName: 'reviewer',
+        taskId: "task-123",
+        workingDir: "/home/user/project",
+        agentName: "reviewer",
         taskState: { step: 1 },
-        metadata: { priority: 'high' },
+        metadata: { priority: "high" },
         setState: vi.fn().mockResolvedValue(undefined),
         verbose: true,
       };
 
-      expect(context.taskId).toBe('task-123');
-      expect(context.workingDir).toBe('/home/user/project');
-      expect(context.agentName).toBe('reviewer');
+      expect(context.taskId).toBe("task-123");
+      expect(context.workingDir).toBe("/home/user/project");
+      expect(context.agentName).toBe("reviewer");
       expect(context.taskState).toEqual({ step: 1 });
-      expect(context.metadata).toEqual({ priority: 'high' });
+      expect(context.metadata).toEqual({ priority: "high" });
       expect(context.setState).toBeDefined();
       expect(context.verbose).toBe(true);
     });

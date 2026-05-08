@@ -1,5 +1,5 @@
-import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 
 /**
  * Resolve the git repository root by walking up from the current directory.
@@ -13,15 +13,15 @@ export const resolveGitRoot = async (startPath: string): Promise<string | null> 
   let currentPath = resolve(startPath);
 
   // Walk up the directory tree
-  while (currentPath !== '/') {
-    const gitDir = resolve(currentPath, '.git');
+  while (currentPath !== "/") {
+    const gitDir = resolve(currentPath, ".git");
 
     if (existsSync(gitDir)) {
       return currentPath;
     }
 
     // Move up one directory
-    const parentPath = resolve(currentPath, '..');
+    const parentPath = resolve(currentPath, "..");
 
     // Prevent infinite loop
     if (parentPath === currentPath) {

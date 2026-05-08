@@ -1,10 +1,10 @@
-import pkg from './package.json';
+import pkg from "./package.json";
 // @ts-ignore
-import tsconfig from './tsconfig.json';
-import base from '../../vite.base';
+import tsconfig from "./tsconfig.json";
+import base from "../../vite.base";
 
 export default base({
-  name: 'cli',
+  name: "cli",
   pkg,
   tsconfig,
 });

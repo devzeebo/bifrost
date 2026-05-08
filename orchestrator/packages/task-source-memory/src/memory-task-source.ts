@@ -1,11 +1,11 @@
-import type { TaskSource, Task } from '@orchestrator/task-source';
+import type { TaskSource, Task } from "@orchestrator/task-source";
 
 type InternalTask = {
   id: string;
   agentId: string;
   taskState: Record<string, unknown>;
   metadata: Record<string, unknown>;
-  status: 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
+  status: "OPEN" | "IN_PROGRESS" | "COMPLETED" | "FAILED";
   error?: string;
 };
 
@@ -14,10 +14,10 @@ export class MemoryTaskSource implements TaskSource {
   #pending: Set<string> = new Set();
   #claimed: Set<string> = new Set();
 
-  async addTask(task: Omit<InternalTask, 'status'>): Promise<void> {
+  async addTask(task: Omit<InternalTask, "status">): Promise<void> {
     const internalTask: InternalTask = {
       ...task,
-      status: 'OPEN',
+      status: "OPEN",
     };
     this.#tasks.set(task.id, internalTask);
     this.#pending.add(task.id);
@@ -31,9 +31,9 @@ export class MemoryTaskSource implements TaskSource {
       for (const taskId of this.#pending) {
         if (!this.#claimed.has(taskId)) {
           const task = this.#tasks.get(taskId);
-          if (task && task.status === 'OPEN') {
+          if (task && task.status === "OPEN") {
             this.#claimed.add(taskId);
-            task.status = 'IN_PROGRESS';
+            task.status = "IN_PROGRESS";
 
             yield {
               id: task.id,
@@ -58,7 +58,7 @@ export class MemoryTaskSource implements TaskSource {
       throw new Error(`Task ${taskId} not found`);
     }
 
-    task.status = 'COMPLETED';
+    task.status = "COMPLETED";
     this.#pending.delete(taskId);
     this.#claimed.delete(taskId);
   }
@@ -69,7 +69,7 @@ export class MemoryTaskSource implements TaskSource {
       throw new Error(`Task ${taskId} not found`);
     }
 
-    task.status = 'FAILED';
+    task.status = "FAILED";
     task.error = error;
     this.#pending.delete(taskId);
     this.#claimed.delete(taskId);

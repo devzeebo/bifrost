@@ -1,4 +1,4 @@
-import { HookSpec } from './types.js';
+import { HookSpec } from "./types.js";
 
 export type HookExecutionContext = {
   projectDir: string;
@@ -33,9 +33,9 @@ const DEFAULT_HOOK_TIMEOUT = 300000; // 5 minutes in ms
  */
 export const executeHooks = async (
   hooks: HookSpec[],
-  lifecycle: 'Start' | 'Stop',
+  lifecycle: "Start" | "Stop",
   context: HookExecutionContext,
-  execFn: HookExecFunction
+  execFn: HookExecFunction,
 ): Promise<HookResult[]> => {
   const results: HookResult[] = [];
 
@@ -65,7 +65,7 @@ export const executeHooks = async (
       // 2 = Fatal error, halt, mark UoW as failed
       const fatal = exitCode === 2;
       const shouldProceed = exitCode !== 2;
-      const needsFollowUp = lifecycle === 'Stop' && exitCode === 1;
+      const needsFollowUp = lifecycle === "Stop" && exitCode === 1;
 
       results.push({
         hookName: hook.name,
@@ -90,7 +90,7 @@ export const executeHooks = async (
       results.push({
         hookName: hook.name,
         exitCode: 2,
-        stdout: '',
+        stdout: "",
         stderr: error instanceof Error ? error.message : String(error),
         durationMs,
         shouldProceed: false,

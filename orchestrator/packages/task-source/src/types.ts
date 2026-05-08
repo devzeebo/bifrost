@@ -1,10 +1,10 @@
 // Task Status enum - used by task source implementations internally
 export const TaskStatus = {
-  OPEN: 'OPEN',
-  IN_PROGRESS: 'IN_PROGRESS',
-  COMPLETED: 'COMPLETED',
-  FAILED: 'FAILED',
-  CANCELLED: 'CANCELLED',
+  OPEN: "OPEN",
+  IN_PROGRESS: "IN_PROGRESS",
+  COMPLETED: "COMPLETED",
+  FAILED: "FAILED",
+  CANCELLED: "CANCELLED",
 } as const;
 
 export type TaskStatus = (typeof TaskStatus)[keyof typeof TaskStatus];

@@ -1,12 +1,12 @@
-import type { AgentDefinition } from './types.js';
-import { validateTaskState } from './validator.js';
-import { executeHooks, type HookExecutionContext } from './hook-executor.js';
-import { renderPrompt } from './handlebars-renderer.js';
-import type { Task, TaskSource } from '@orchestrator/task-source';
-import type { Engine, EngineContext, EngineResult } from '@orchestrator/engine';
+import type { AgentDefinition } from "./types.js";
+import { validateTaskState } from "./validator.js";
+import { executeHooks, type HookExecutionContext } from "./hook-executor.js";
+import { renderPrompt } from "./handlebars-renderer.js";
+import type { Task, TaskSource } from "@orchestrator/task-source";
+import type { Engine, EngineContext, EngineResult } from "@orchestrator/engine";
 
 type OrchestrationResult = {
-  outcome: 'completed' | 'failed' | 'halted';
+  outcome: "completed" | "failed" | "halted";
   telemetry?: {
     durationMs: number;
     inputTokens: number;
@@ -43,15 +43,15 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
   const { task, agent, taskSource, engine, projectDir, hookExec } = options;
 
   const startTime = Date.now();
-  let totalTelemetry: EngineResult['stats'] = null;
+  let totalTelemetry: EngineResult["stats"] = null;
   let numTurns = 0;
 
   // Step 1: Validate taskState against agent parameter schema
   const validation = validateTaskState(task.taskState, agent.template.parameters);
 
   if (!validation.valid) {
-    await taskSource.failTask(task.id, validation.errors.join('; '));
-    return { outcome: 'failed', error: validation.errors.join('; ') };
+    await taskSource.failTask(task.id, validation.errors.join("; "));
+    return { outcome: "failed", error: validation.errors.join("; ") };
   }
 
   // Step 2: Execute pre-task hooks
@@ -61,15 +61,15 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
     taskState: task.taskState,
   };
 
-  const defaultHookExec: HookExecFn = async () => ({ exitCode: 0, stdout: '', stderr: '' });
+  const defaultHookExec: HookExecFn = async () => ({ exitCode: 0, stdout: "", stderr: "" });
   const execFn = hookExec ?? defaultHookExec;
 
-  const startHookResults = await executeHooks(agent.hooks.Start, 'Start', hookContext, execFn);
+  const startHookResults = await executeHooks(agent.hooks.Start, "Start", hookContext, execFn);
 
   for (const hook of startHookResults) {
     if (hook.fatal) {
       await taskSource.failTask(task.id, `Start hook ${hook.hookName} failed: ${hook.stderr}`);
-      return { outcome: 'failed', error: hook.stderr };
+      return { outcome: "failed", error: hook.stderr };
     }
   }
 
@@ -86,7 +86,7 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
 
   // Main execution loop (handles follow-ups)
   let maxFollowUps = 10;
-  let lastMessage = '';
+  let lastMessage = "";
 
   while (maxFollowUps-- > 0) {
     numTurns++;
@@ -110,10 +110,10 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
     lastMessage = engineResult.lastMessage || lastMessage;
 
     // Step 4: Execute post-task hooks
-    const stopHookResults = await executeHooks(agent.hooks.Stop, 'Stop', hookContext, execFn);
+    const stopHookResults = await executeHooks(agent.hooks.Stop, "Stop", hookContext, execFn);
 
     let needsFollowUp = false;
-    let followUpMessage = '';
+    let followUpMessage = "";
 
     for (const hook of stopHookResults) {
       if (hook.needsFollowUp) {
@@ -124,7 +124,7 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
 
       if (hook.fatal) {
         await taskSource.failTask(task.id, `Stop hook ${hook.hookName} failed: ${hook.stderr}`);
-        return { outcome: 'failed', error: hook.stderr };
+        return { outcome: "failed", error: hook.stderr };
       }
     }
 
@@ -157,7 +157,7 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
   const durationMs = Date.now() - startTime;
 
   return {
-    outcome: 'completed',
+    outcome: "completed",
     telemetry: totalTelemetry
       ? {
           ...totalTelemetry,

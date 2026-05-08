@@ -10,14 +10,14 @@ export type ValidationResult = {
  */
 export const validateTaskState = (
   taskState: Record<string, unknown>,
-  schema: Record<string, unknown>
+  schema: Record<string, unknown>,
 ): ValidationResult => {
   const errors: string[] = [];
 
   const validateValue = (value: unknown, schemaNode: unknown, path: string): void => {
     // If schemaNode is not an object, it's a scalar type hint - just check existence
-    if (typeof schemaNode !== 'object' || schemaNode === null) {
-      if (value === undefined || value === null || value === '') {
+    if (typeof schemaNode !== "object" || schemaNode === null) {
+      if (value === undefined || value === null || value === "") {
         errors.push(`Missing required parameter: ${path}`);
       }
       return;
@@ -27,12 +27,12 @@ export const validateTaskState = (
     const schemaObj = schemaNode as Record<string, unknown>;
 
     // If value is missing/null/empty, check if path is optional
-    if (value === undefined || value === null || value === '') {
+    if (value === undefined || value === null || value === "") {
       return; // Handled by parent check
     }
 
     // Value exists - validate its structure
-    if (typeof value !== 'object' || value === null) {
+    if (typeof value !== "object" || value === null) {
       // Value is scalar but schema expects object - already caught above
       return;
     }
@@ -41,14 +41,14 @@ export const validateTaskState = (
 
     // Recursively validate each schema key
     for (const [key, subSchema] of Object.entries(schemaObj)) {
-      const isOptional = key.endsWith('?');
+      const isOptional = key.endsWith("?");
       const baseKey = isOptional ? key.slice(0, -1) : key;
       const fullPath = path ? `${path}.${baseKey}` : baseKey;
 
       // Check if the key exists in value (with or without ? suffix)
       const subValue = valueObj[baseKey] ?? valueObj[key];
 
-      if (subValue === undefined || subValue === null || subValue === '') {
+      if (subValue === undefined || subValue === null || subValue === "") {
         if (!isOptional) {
           errors.push(`Missing required parameter: ${fullPath}`);
         }
@@ -60,13 +60,13 @@ export const validateTaskState = (
 
   // Validate each top-level schema parameter
   for (const [key, schemaNode] of Object.entries(schema)) {
-    const isOptional = key.endsWith('?');
+    const isOptional = key.endsWith("?");
     const baseKey = isOptional ? key.slice(0, -1) : key;
 
     // Check if parameter exists in taskState (with or without ? suffix)
     const value = taskState[baseKey] ?? taskState[key];
 
-    if (value === undefined || value === null || value === '') {
+    if (value === undefined || value === null || value === "") {
       if (!isOptional) {
         errors.push(`Missing required parameter: ${baseKey}`);
       }

@@ -1,12 +1,12 @@
-import type { Engine } from './interface.js';
-import type { EngineContext, EngineResult } from './types.js';
+import type { Engine } from "./interface.js";
+import type { EngineContext, EngineResult } from "./types.js";
 
 export type TestEngineConfig = {
   success?: boolean;
   lastMessage?: string;
   simulateError?: boolean;
   simulateDelay?: number; // milliseconds
-  mockStats?: Partial<EngineResult['stats']>;
+  mockStats?: Partial<EngineResult["stats"]>;
 };
 
 /**
@@ -19,7 +19,7 @@ export class TestEngine implements Engine {
   constructor(config: TestEngineConfig = {}) {
     this.#config = {
       success: true,
-      lastMessage: 'Test execution complete',
+      lastMessage: "Test execution complete",
       simulateError: false,
       simulateDelay: 0,
       mockStats: undefined,
@@ -35,12 +35,12 @@ export class TestEngine implements Engine {
 
     // Simulate error if configured
     if (this.#config.simulateError) {
-      throw new Error('Simulated engine error');
+      throw new Error("Simulated engine error");
     }
 
     const startTime = Date.now();
 
-    const defaultStats: EngineResult['stats'] = {
+    const defaultStats: EngineResult["stats"] = {
       durationMs: 0,
       inputTokens: 100,
       outputTokens: 50,
@@ -50,7 +50,7 @@ export class TestEngine implements Engine {
       numTurns: 1,
     };
 
-    const stats: EngineResult['stats'] = this.#config.mockStats
+    const stats: EngineResult["stats"] = this.#config.mockStats
       ? { ...defaultStats, ...this.#config.mockStats }
       : defaultStats;
 
@@ -70,7 +70,7 @@ export class TestEngine implements Engine {
       await new Promise((resolve) => setTimeout(resolve, this.#config.simulateDelay));
     }
 
-    const stats: EngineResult['stats'] = {
+    const stats: EngineResult["stats"] = {
       durationMs: this.#config.simulateDelay ?? 10,
       inputTokens: 50,
       outputTokens: 25,
