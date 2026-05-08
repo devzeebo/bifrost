@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { parseAgentDefinition } from './agent-parser.js'
+import { describe, it, expect } from 'vitest';
+import { parseAgentDefinition } from './agent-parser.js';
 
 describe('AGENT.md Parser - US-1', () => {
   describe('Valid AGENT.md parsing', () => {
@@ -33,19 +33,19 @@ hooks:
       scriptPath: hooks/Stop.d/check-new-tests.mjs
 ---
 You are a code reviewer. Review the changes for {{language.name}}.
-`
+`;
 
-      const agent = parseAgentDefinition(content)
+      const agent = parseAgentDefinition(content);
 
       // Then the agent name, description, tools, toolClasses, template parameter schema, and prompt body are all accessible
-      expect(agent).toBeDefined()
-      expect(agent?.name).toBe('reviewer')
-      expect(agent?.description).toBe('Code review agent')
-      expect(agent?.tools).toEqual(['readFile', 'edit'])
-      expect(agent?.toolClasses).toEqual(['linter'])
-      expect(agent?.template.parameters).toBeDefined()
-      expect(agent?.promptBody).toContain('You are a code reviewer')
-    })
+      expect(agent).toBeDefined();
+      expect(agent?.name).toBe('reviewer');
+      expect(agent?.description).toBe('Code review agent');
+      expect(agent?.tools).toEqual(['readFile', 'edit']);
+      expect(agent?.toolClasses).toEqual(['linter']);
+      expect(agent?.template.parameters).toBeDefined();
+      expect(agent?.promptBody).toContain('You are a code reviewer');
+    });
 
     it('should render Handlebars tokens from template.parameters', () => {
       const content = `---
@@ -59,12 +59,12 @@ template:
     framework: string
 ---
 Write {{language.name}} tests using {{framework}}.
-`
+`;
 
-      const agent = parseAgentDefinition(content)
-      expect(agent?.promptBody).toContain('Write {{language.name}} tests using {{framework}}')
-    })
-  })
+      const agent = parseAgentDefinition(content);
+      expect(agent?.promptBody).toContain('Write {{language.name}} tests using {{framework}}');
+    });
+  });
 
   describe('Required field validation', () => {
     it('should fail when name is missing', () => {
@@ -74,14 +74,14 @@ description: Test agent
 tools: []
 ---
 Test prompt
-`
+`;
 
       // When the orchestrator reads the file
-      const agent = parseAgentDefinition(content)
+      const agent = parseAgentDefinition(content);
 
       // Then parsing fails with a descriptive error naming the missing field
-      expect(agent).toBeNull()
-    })
+      expect(agent).toBeNull();
+    });
 
     it('should fail when description is missing', () => {
       const content = `---
@@ -89,11 +89,11 @@ name: test-agent
 tools: []
 ---
 Test prompt
-`
+`;
 
-      const agent = parseAgentDefinition(content)
-      expect(agent).toBeNull()
-    })
+      const agent = parseAgentDefinition(content);
+      expect(agent).toBeNull();
+    });
 
     it('should fail when tools is missing', () => {
       const content = `---
@@ -101,12 +101,12 @@ name: test-agent
 description: Test
 ---
 Test prompt
-`
+`;
 
-      const agent = parseAgentDefinition(content)
-      expect(agent).toBeNull()
-    })
-  })
+      const agent = parseAgentDefinition(content);
+      expect(agent).toBeNull();
+    });
+  });
 
   describe('Optional parameters (ending with ?)', () => {
     it('should mark field ending with ? as optional', () => {
@@ -122,15 +122,15 @@ template:
       notes?: string
 ---
 Test prompt {{context.prDescription}}
-`
+`;
 
-      const agent = parseAgentDefinition(content)
+      const agent = parseAgentDefinition(content);
 
       // When the parameter schema is parsed
       // Then that field is marked optional
-      expect(agent?.template.parameters['context?']).toBeDefined()
-    })
-  })
+      expect(agent?.template.parameters['context?']).toBeDefined();
+    });
+  });
 
   describe('Handlebars token validation', () => {
     it('should fail when prompt references undeclared Handlebars token', () => {
@@ -144,15 +144,15 @@ template:
     language: string
 ---
 Use the {{framework}} for {{language}}.
-`
+`;
 
       // When the AGENT.md is parsed
-      const agent = parseAgentDefinition(content)
+      const agent = parseAgentDefinition(content);
 
       // Then parsing fails identifying the undeclared token by name
-      expect(agent).toBeNull()
-    })
-  })
+      expect(agent).toBeNull();
+    });
+  });
 
   describe('Hook parsing', () => {
     it('should parse Start hooks', () => {
@@ -167,13 +167,13 @@ hooks:
       timeout: 120000
 ---
 Prompt
-`
+`;
 
-      const agent = parseAgentDefinition(content)
-      expect(agent?.hooks.Start).toHaveLength(1)
-      expect(agent?.hooks.Start[0].name).toBe('validate-args')
-      expect(agent?.hooks.Start[0].timeout).toBe(120000)
-    })
+      const agent = parseAgentDefinition(content);
+      expect(agent?.hooks.Start).toHaveLength(1);
+      expect(agent?.hooks.Start[0].name).toBe('validate-args');
+      expect(agent?.hooks.Start[0].timeout).toBe(120000);
+    });
 
     it('should parse Stop hooks', () => {
       const content = `---
@@ -186,11 +186,11 @@ hooks:
       scriptPath: hooks/Stop.d/check-new-tests.mjs
 ---
 Prompt
-`
+`;
 
-      const agent = parseAgentDefinition(content)
-      expect(agent?.hooks.Stop).toHaveLength(1)
-      expect(agent?.hooks.Stop[0].name).toBe('check-new-tests')
-    })
-  })
-})
+      const agent = parseAgentDefinition(content);
+      expect(agent?.hooks.Stop).toHaveLength(1);
+      expect(agent?.hooks.Stop[0].name).toBe('check-new-tests');
+    });
+  });
+});

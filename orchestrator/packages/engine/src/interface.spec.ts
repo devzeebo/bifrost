@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
-import { Engine } from './interface.js'
-import { EngineContext, EngineResult } from './types.js'
+import { describe, it, expect, vi } from 'vitest';
+import { Engine } from './interface.js';
+import { EngineContext, EngineResult } from './types.js';
 
 describe('Engine Interface', () => {
   describe('FR-2: Engine Interface', () => {
@@ -18,13 +18,13 @@ describe('Engine Interface', () => {
               cacheReadTokens: 0,
               cacheCreationTokens: 0,
               totalCostUsd: 0.01,
-              numTurns: 1
-            }
-          }
+              numTurns: 1,
+            },
+          };
         }
       }
 
-      const engine = new MockEngine()
+      const engine = new MockEngine();
       const context: EngineContext = {
         taskId: 'task-1',
         workingDir: '/test',
@@ -32,13 +32,13 @@ describe('Engine Interface', () => {
         taskState: {},
         metadata: {},
         setState: vi.fn().mockResolvedValue(undefined),
-        verbose: false
-      }
+        verbose: false,
+      };
 
-      const result = await engine.execute(context)
-      expect(result.success).toBe(true)
-      expect(result.lastMessage).toContain('test-agent')
-    })
+      const result = await engine.execute(context);
+      expect(result.success).toBe(true);
+      expect(result.lastMessage).toContain('test-agent');
+    });
 
     it('should require optional sendFollowUp method', async () => {
       class MockEngineWithFollowUp implements Engine {
@@ -47,8 +47,8 @@ describe('Engine Interface', () => {
             success: true,
             skipFulfill: false,
             lastMessage: 'Initial',
-            stats: null
-          }
+            stats: null,
+          };
         }
 
         async sendFollowUp(message: string): Promise<EngineResult> {
@@ -56,19 +56,19 @@ describe('Engine Interface', () => {
             success: true,
             skipFulfill: false,
             lastMessage: `Follow-up: ${message}`,
-            stats: null
-          }
+            stats: null,
+          };
         }
       }
 
-      const engine = new MockEngineWithFollowUp()
+      const engine = new MockEngineWithFollowUp();
 
       // sendFollowUp is optional - check if it exists
       if ('sendFollowUp' in engine) {
-        const result = await engine.sendFollowUp('Fix the lint errors')
-        expect(result.lastMessage).toContain('Follow-up')
+        const result = await engine.sendFollowUp('Fix the lint errors');
+        expect(result.lastMessage).toContain('Follow-up');
       }
-    })
+    });
 
     it('should allow engine without sendFollowUp', async () => {
       class MockEngine implements Engine {
@@ -77,12 +77,12 @@ describe('Engine Interface', () => {
             success: true,
             skipFulfill: false,
             lastMessage: 'Done',
-            stats: null
-          }
+            stats: null,
+          };
         }
       }
 
-      const engine: Engine = new MockEngine()
+      const engine: Engine = new MockEngine();
       const context: EngineContext = {
         taskId: 'task-1',
         workingDir: '/test',
@@ -90,13 +90,13 @@ describe('Engine Interface', () => {
         taskState: {},
         metadata: {},
         setState: vi.fn().mockResolvedValue(undefined),
-        verbose: false
-      }
-      const result = await engine.execute(context)
+        verbose: false,
+      };
+      const result = await engine.execute(context);
 
-      expect(result.success).toBe(true)
+      expect(result.success).toBe(true);
       // sendFollowUp is optional, so engine doesn't need it
-      expect('sendFollowUp' in engine).toBe(false)
-    })
-  })
-})
+      expect('sendFollowUp' in engine).toBe(false);
+    });
+  });
+});

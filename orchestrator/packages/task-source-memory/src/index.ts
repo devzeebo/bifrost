@@ -1,1 +1,1 @@
-export { MemoryTaskSource } from './memory-task-source.js'
+export { MemoryTaskSource } from './memory-task-source.js';

@@ -1,4 +1,4 @@
-import Handlebars from 'handlebars'
+import Handlebars from 'handlebars';
 
 /**
  * Render a Handlebars template with taskState values.
@@ -10,10 +10,7 @@ import Handlebars from 'handlebars'
  * @param taskState - The taskState values for substitution
  * @returns Rendered prompt string
  */
-export const renderPrompt = (
-  promptBody: string,
-  taskState: Record<string, unknown>
-): string => {
+export const renderPrompt = (promptBody: string, taskState: Record<string, unknown>): string => {
   // Register any custom helpers if needed
   // {{#if}} is built-in to Handlebars
 
@@ -21,9 +18,9 @@ export const renderPrompt = (
   // Handlebars.compile creates a template function that is deterministic
   const template = Handlebars.compile(promptBody, {
     strict: false, // Don't throw on missing variables - render as empty string
-    knownHelpers: { if: true } // Declare built-in helpers
-  })
+    knownHelpers: { if: true }, // Declare built-in helpers
+  });
 
   // Render with taskState - this operation is side-effect free
-  return template(taskState)
-}
+  return template(taskState);
+};

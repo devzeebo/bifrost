@@ -1,28 +1,30 @@
-import { HookSpec } from './types.js'
+import { HookSpec } from './types.js';
 
 export type HookExecutionContext = {
-  projectDir: string
-  params: Record<string, unknown>
-  taskState: Record<string, unknown>
-}
+  projectDir: string;
+  params: Record<string, unknown>;
+  taskState: Record<string, unknown>;
+};
 
 export type HookResult = {
-  hookName: string
-  exitCode: number
-  stdout: string
-  stderr: string
-  durationMs: number
-  shouldProceed: boolean
-  fatal: boolean
-  needsFollowUp: boolean
-  timedOut: boolean
-}
+  hookName: string;
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  durationMs: number;
+  shouldProceed: boolean;
+  fatal: boolean;
+  needsFollowUp: boolean;
+  timedOut: boolean;
+};
 
-type HookExecFunction = (
-  opts: { scriptPath: string; stdin: string; timeout: number }
-) => Promise<{ exitCode: number; stdout: string; stderr: string }>
+type HookExecFunction = (opts: {
+  scriptPath: string;
+  stdin: string;
+  timeout: number;
+}) => Promise<{ exitCode: number; stdout: string; stderr: string }>;
 
-const DEFAULT_HOOK_TIMEOUT = 300000 // 5 minutes in ms
+const DEFAULT_HOOK_TIMEOUT = 300000; // 5 minutes in ms
 
 /**
  * Execute hooks for a lifecycle phase (Start or Stop).
@@ -35,35 +37,35 @@ export const executeHooks = async (
   context: HookExecutionContext,
   execFn: HookExecFunction
 ): Promise<HookResult[]> => {
-  const results: HookResult[] = []
+  const results: HookResult[] = [];
 
   for (const hook of hooks) {
-    const startTime = Date.now()
-    const timeout = hook.timeout ?? DEFAULT_HOOK_TIMEOUT
+    const startTime = Date.now();
+    const timeout = hook.timeout ?? DEFAULT_HOOK_TIMEOUT;
 
     // FR-10: stdin format - projectDir, params, taskState (no rendered prompt)
     const stdin = JSON.stringify({
       projectDir: context.projectDir,
       params: context.params,
-      taskState: context.taskState
-    })
+      taskState: context.taskState,
+    });
 
     try {
       const { exitCode, stdout, stderr } = await execFn({
         scriptPath: hook.scriptPath,
         stdin,
-        timeout
-      })
+        timeout,
+      });
 
-      const durationMs = Date.now() - startTime
+      const durationMs = Date.now() - startTime;
 
       // FR-10: Exit codes
       // 0 = Success, proceed
       // 1 = Recoverable error, pass stdout as context, continue
       // 2 = Fatal error, halt, mark UoW as failed
-      const fatal = exitCode === 2
-      const shouldProceed = exitCode !== 2
-      const needsFollowUp = lifecycle === 'Stop' && exitCode === 1
+      const fatal = exitCode === 2;
+      const shouldProceed = exitCode !== 2;
+      const needsFollowUp = lifecycle === 'Stop' && exitCode === 1;
 
       results.push({
         hookName: hook.name,
@@ -74,15 +76,15 @@ export const executeHooks = async (
         shouldProceed,
         fatal,
         needsFollowUp,
-        timedOut: false
-      })
+        timedOut: false,
+      });
 
       // If hook returned fatal error, stop processing further hooks
       if (fatal) {
-        break
+        break;
       }
     } catch (error) {
-      const durationMs = Date.now() - startTime
+      const durationMs = Date.now() - startTime;
 
       // Hook execution exception - treat as fatal (exit code 2)
       results.push({
@@ -94,13 +96,13 @@ export const executeHooks = async (
         shouldProceed: false,
         fatal: true,
         needsFollowUp: false,
-        timedOut: true
-      })
+        timedOut: true,
+      });
 
       // Stop processing further hooks on timeout/error
-      break
+      break;
     }
   }
 
-  return results
-}
+  return results;
+};

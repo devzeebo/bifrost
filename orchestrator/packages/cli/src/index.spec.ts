@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { listAgents } from './index.js'
+import { describe, it, expect } from 'vitest';
+import { listAgents } from './index.js';
 
 describe('CLI - US-9: List Available Agents', () => {
   describe('--list-agents command', () => {
@@ -13,32 +13,32 @@ describe('CLI - US-9: List Available Agents', () => {
         model: 'claude-opus-4-7',
         hooks: {
           Start: [{ name: 'validate-args', scriptPath: '/hooks/validate-args.mjs' }],
-          Stop: [{ name: 'check-new-tests', scriptPath: '/hooks/check.mjs' }]
-        }
-      }
+          Stop: [{ name: 'check-new-tests', scriptPath: '/hooks/check.mjs' }],
+        },
+      };
 
       // When the orchestrator CLI is invoked with --list-agents
-      const output = await listAgents([mockAgent])
+      const output = await listAgents([mockAgent]);
 
       // Then each agent name is printed
-      expect(output).toContain('reviewer')
+      expect(output).toContain('reviewer');
       // And agent description is printed if present
-      expect(output).toContain('Code review agent')
+      expect(output).toContain('Code review agent');
       // And agent tools are printed as comma-separated list
-      expect(output).toContain('readFile, edit')
+      expect(output).toContain('readFile, edit');
       // And start_hooks are printed
-      expect(output).toContain('validate-args')
+      expect(output).toContain('validate-args');
       // And stop_hooks are printed
-      expect(output).toContain('check-new-tests')
-    })
+      expect(output).toContain('check-new-tests');
+    });
 
     it('should print "No agents found" when catalog is empty', async () => {
       // Given the agent catalog is empty
       // When the orchestrator CLI is invoked with --list-agents
-      const output = await listAgents([])
+      const output = await listAgents([]);
 
       // Then "No agents found." is printed
-      expect(output).toContain('No agents found')
-    })
-  })
-})
+      expect(output).toContain('No agents found');
+    });
+  });
+});
