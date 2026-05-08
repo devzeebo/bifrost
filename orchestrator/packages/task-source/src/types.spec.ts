@@ -1,10 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { TaskStatus, Task, TaskDetail } from './types.js'
+import { TaskStatus, Task } from './types.js'
 
 describe('TaskSource Types', () => {
   describe('TaskStatus enum', () => {
     it('should have all required status values', () => {
-      // FR-1: Task Status enum values
       expect(TaskStatus.OPEN).toBe('OPEN')
       expect(TaskStatus.IN_PROGRESS).toBe('IN_PROGRESS')
       expect(TaskStatus.COMPLETED).toBe('COMPLETED')
@@ -17,42 +16,27 @@ describe('TaskSource Types', () => {
     it('should create a valid Task with required fields', () => {
       const task: Task = {
         id: 'task-123',
-        title: 'Test Task',
-        description: 'Test Description',
-        status: TaskStatus.OPEN,
-        tags: ['worker:reviewer'],
-        claimant: null,
-        createdAt: new Date('2026-01-01'),
-        updatedAt: new Date('2026-01-01'),
-        priority: 1
+        agentId: 'agent-1',
+        taskState: { language: 'Python', step: 1 },
+        metadata: { priority: 'high', tags: ['bug'] }
       }
 
       expect(task.id).toBe('task-123')
-      expect(task.status).toBe(TaskStatus.OPEN)
-      expect(task.tags).toContain('worker:reviewer')
+      expect(task.agentId).toBe('agent-1')
+      expect(task.taskState).toEqual({ language: 'Python', step: 1 })
+      expect(task.metadata).toEqual({ priority: 'high', tags: ['bug'] })
     })
-  })
 
-  describe('TaskDetail type', () => {
-    it('should extend Task with additional fields', () => {
-      const detail: TaskDetail = {
-        id: 'task-123',
-        title: 'Test Task',
-        description: 'Test Description',
-        status: TaskStatus.OPEN,
-        tags: ['worker:reviewer'],
-        claimant: null,
-        createdAt: new Date('2026-01-01'),
-        updatedAt: new Date('2026-01-01'),
-        priority: 1,
-        dependencies: [],
-        notes: [],
-        acceptanceCriteria: [],
-        retro: []
+    it('should allow empty objects for taskState and metadata', () => {
+      const task: Task = {
+        id: 'task-1',
+        agentId: 'agent-1',
+        taskState: {},
+        metadata: {}
       }
 
-      expect(detail.dependencies).toEqual([])
-      expect(detail.notes).toEqual([])
+      expect(task.taskState).toEqual({})
+      expect(task.metadata).toEqual({})
     })
   })
 })

@@ -1,7 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
 import { orchestrate } from './orchestrator.js'
-import type { AgentDefinition, HookExecutionContext } from './types.js'
-import type { Task, TaskSource, Engine, EngineResult } from '@orchestrator/task-source'
+import type { AgentDefinition } from './types.js'
+import type { HookExecutionContext } from './hook-executor.js'
+import type { Task, TaskSource } from '@orchestrator/task-source'
+import type { Engine, EngineResult } from '@orchestrator/engine'
 
 describe('Orchestrator', () => {
   describe('task execution lifecycle', () => {

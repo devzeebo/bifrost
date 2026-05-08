@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { Engine } from './interface.js'
 import { EngineContext, EngineResult } from './types.js'
 
@@ -29,6 +29,9 @@ describe('Engine Interface', () => {
         taskId: 'task-1',
         workingDir: '/test',
         agentName: 'test-agent',
+        taskState: {},
+        metadata: {},
+        setState: vi.fn().mockResolvedValue(undefined),
         verbose: false
       }
 
@@ -69,7 +72,7 @@ describe('Engine Interface', () => {
 
     it('should allow engine without sendFollowUp', async () => {
       class MockEngine implements Engine {
-        async execute(): Promise<EngineResult> {
+        async execute(_context: EngineContext): Promise<EngineResult> {
           return {
             success: true,
             skipFulfill: false,
@@ -80,7 +83,16 @@ describe('Engine Interface', () => {
       }
 
       const engine: Engine = new MockEngine()
-      const result = await engine.execute()
+      const context: EngineContext = {
+        taskId: 'task-1',
+        workingDir: '/test',
+        agentName: 'test-agent',
+        taskState: {},
+        metadata: {},
+        setState: vi.fn().mockResolvedValue(undefined),
+        verbose: false
+      }
+      const result = await engine.execute(context)
 
       expect(result.success).toBe(true)
       // sendFollowUp is optional, so engine doesn't need it

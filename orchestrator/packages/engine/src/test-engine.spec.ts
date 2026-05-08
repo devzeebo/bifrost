@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { TestEngine } from './test-engine.js'
 import type { EngineContext } from './types.js'
 
@@ -11,6 +11,9 @@ describe('Test Engine', () => {
         taskId: 'task-1',
         workingDir: '/test/project',
         agentName: 'test-agent',
+        taskState: {},
+        metadata: {},
+        setState: vi.fn().mockResolvedValue(undefined),
         verbose: false
       }
 
@@ -29,6 +32,9 @@ describe('Test Engine', () => {
         taskId: 'task-1',
         workingDir: '/test',
         agentName: 'agent',
+        taskState: {},
+        metadata: {},
+        setState: vi.fn().mockResolvedValue(undefined),
         verbose: false
       }
 
@@ -68,6 +74,9 @@ describe('Test Engine', () => {
         taskId: 'task-1',
         workingDir: '/test',
         agentName: 'agent',
+        taskState: {},
+        metadata: {},
+        setState: vi.fn().mockResolvedValue(undefined),
         verbose: false
       }
 
@@ -88,6 +97,9 @@ describe('Test Engine', () => {
         taskId: 'task-1',
         workingDir: '/test',
         agentName: 'agent',
+        taskState: {},
+        metadata: {},
+        setState: vi.fn().mockResolvedValue(undefined),
         verbose: false
       }
 
@@ -106,6 +118,9 @@ describe('Test Engine', () => {
         taskId: 'task-1',
         workingDir: '/test',
         agentName: 'agent',
+        taskState: {},
+        metadata: {},
+        setState: vi.fn().mockResolvedValue(undefined),
         verbose: false
       }
 
@@ -113,7 +128,7 @@ describe('Test Engine', () => {
       await engine.execute(context)
       const duration = Date.now() - start
 
-      expect(duration).toBeGreaterThanOrEqual(95) // Allow some timing variance
+      expect(duration).toBeGreaterThanOrEqual(95)
     })
   })
 })

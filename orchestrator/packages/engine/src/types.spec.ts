@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { EngineResult, ExecutionStats, EngineContext } from './types.js'
 
 describe('Engine Types', () => {
@@ -64,18 +64,23 @@ describe('Engine Types', () => {
   })
 
   describe('EngineContext', () => {
-    it('should contain taskId, workingDir, agentName, and verbose', () => {
-      // FR-2: EngineContext MUST contain
+    it('should contain taskId, workingDir, agentName, taskState, metadata, setState, and verbose', () => {
       const context: EngineContext = {
         taskId: 'task-123',
         workingDir: '/home/user/project',
         agentName: 'reviewer',
+        taskState: { step: 1 },
+        metadata: { priority: 'high' },
+        setState: vi.fn().mockResolvedValue(undefined),
         verbose: true
       }
 
       expect(context.taskId).toBe('task-123')
       expect(context.workingDir).toBe('/home/user/project')
       expect(context.agentName).toBe('reviewer')
+      expect(context.taskState).toEqual({ step: 1 })
+      expect(context.metadata).toEqual({ priority: 'high' })
+      expect(context.setState).toBeDefined()
       expect(context.verbose).toBe(true)
     })
   })
