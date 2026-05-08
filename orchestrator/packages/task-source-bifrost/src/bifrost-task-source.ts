@@ -1,7 +1,7 @@
-import { CredentialLoader } from "./config/credential-loader.js";
-import { ConfigLoader } from "./config/config-loader.js";
-import { BifrostHttpClient } from "./client/bifrost-http-client.js";
 import type { ACEntry, BifrostTaskSourceConfig, DependencyRef, NoteEntry, RetroEntry, Task, TaskSource } from "@orchestrator/task-source";
+import { BifrostHttpClient } from "./client/bifrost-http-client.js";
+import { ConfigLoader } from "./config/config-loader.js";
+import { CredentialLoader } from "./config/credential-loader.js";
 
 export class BifrostTaskSource implements TaskSource {
   readonly #config: BifrostTaskSourceConfig;

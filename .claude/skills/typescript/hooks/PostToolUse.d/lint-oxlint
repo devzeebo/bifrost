@@ -2,4 +2,6 @@
 # matcher: Edit|Write
 ###
 
-npm run lint $(get_field "tool_input.file_path") || exit 2
+OUTPUT=$(npm run lint $(get_field "tool_input.file_path")) || {
+  block  "You MUST fix the following lint errors, even if you think they are unrelated to your changes:\n$OUTPUT"
+}

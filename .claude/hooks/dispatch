@@ -12,10 +12,19 @@ get_field() {
 
 deny() {
   echo '{"hookSpecificOutput":{"hookEventName":"'$(get_field hook_event_name)'","permissionDecision":"deny","permissionDecisionReason":"'$1'"}}'
+
+  exit 2
+}
+
+block() {
+  echo '{"hookSpecificOutput":{"hookEventName":"'$(get_field hook_event_name)'","decision":"block","reason":"'$1'"}}' >&2
+
+  exit 2
 }
 
 export -f get_field
 export -f deny
+export -f block
 export INPUT
 
 $CLAUDE_PROJECT_DIR/.claude/skills/$1/hooks/$(get_field hook_event_name).d/$2
