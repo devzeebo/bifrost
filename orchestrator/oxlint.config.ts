@@ -1,10 +1,19 @@
 import { defineConfig } from 'oxlint';
 
 export default defineConfig({
-  plugins: ['typescript', 'react'],
+  categories: {
+    correctness: 'error',
+    suspicious: 'error',
+    pedantic: 'error',
+    perf: 'error',
+    style: 'warn',
+    restriction: 'error',
+  },
+  plugins: ['typescript'],
   rules: {
-    'no-console': 'warn',
-    'no-unused-vars': 'error',
-    'react-hooks/exhaustive-deps': 'error',
+    'no-console': 'off',
+  },
+  options: {
+    typeAware: true,
   },
 });

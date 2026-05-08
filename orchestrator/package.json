@@ -12,7 +12,7 @@
     "test:typecheck": "tsc --project tsconfig.test.json --noEmit",
     "build": "npm run build -ws",
     "dev": "vitest --watch",
-    "lint": "oxlint",
+    "lint": "oxlint . -c oxlint.config.ts",
     "format": "prettier . -w"
   },
   "devDependencies": {
