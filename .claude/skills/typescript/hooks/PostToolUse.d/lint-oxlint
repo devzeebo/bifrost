@@ -2,4 +2,4 @@
 # matcher: Edit|Write
 ###
 
-npm run lint:file $(get_field "tool_input.file_path")
+npm run lint $(get_field "tool_input.file_path") || exit 2

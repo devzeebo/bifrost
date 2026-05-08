@@ -12,8 +12,8 @@
     "bifrost/ui"
   ],
   "scripts": {
-    "lint": "npm run --workspaces lint --if-present",
-    "lint:file": "oxlint",
+    "lint:all": "npm run --workspaces lint --if-present",
+    "lint": "oxlint",
     "format": "npm run --workspaces format --if-present"
   }
 }
