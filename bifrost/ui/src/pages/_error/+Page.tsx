@@ -56,13 +56,8 @@ export default function Page() {
         >
           {status}
         </div>
-        <h1 className="text-2xl font-bold mb-4 uppercase tracking-tight">
-          {title}
-        </h1>
-        <p
-          className="text-sm mb-6"
-          style={{ color: "var(--color-border)" }}
-        >
+        <h1 className="text-2xl font-bold mb-4 uppercase tracking-tight">{title}</h1>
+        <p className="text-sm mb-6" style={{ color: "var(--color-border)" }}>
           {message}
         </p>
         <Button

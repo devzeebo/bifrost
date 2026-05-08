@@ -138,7 +138,7 @@ function Page() {
         showToast(
           "Role Assignment Warning",
           "Account was created, but realm role assignment failed",
-          "warning"
+          "warning",
         );
       }
 
@@ -209,7 +209,7 @@ function Page() {
         style={{
           backgroundColor: "var(--color-bg)",
           border: "2px solid var(--color-border)",
-            boxShadow: "var(--shadow-soft)",
+          boxShadow: "var(--shadow-soft)",
         }}
       >
         {/* Step Title */}
@@ -263,10 +263,7 @@ function Page() {
                 }}
                 autoFocus
               />
-              <p
-                className="text-xs mt-2"
-                style={{ color: "var(--color-text-muted)" }}
-              >
+              <p className="text-xs mt-2" style={{ color: "var(--color-text-muted)" }}>
                 {form.username.length}/50 characters (minimum 2)
               </p>
             </div>
@@ -357,10 +354,7 @@ function Page() {
                 ))}
               </ToggleGroup>
 
-              <p
-                className="text-sm mb-6"
-                style={{ color: "var(--color-text-muted)" }}
-              >
+              <p className="text-sm mb-6" style={{ color: "var(--color-text-muted)" }}>
                 This account will be granted access to the selected realm with the chosen role.
               </p>
             </div>
@@ -368,10 +362,7 @@ function Page() {
 
           {step === 2 && (
             <div>
-              <p
-                className="text-sm mb-6"
-                style={{ color: "var(--color-text-muted)" }}
-              >
+              <p className="text-sm mb-6" style={{ color: "var(--color-text-muted)" }}>
                 Review the account details before creating.
               </p>
 
@@ -390,15 +381,24 @@ function Page() {
                   Account Summary
                 </h3>
                 <div className="space-y-4">
-                  <div className="flex justify-between items-center py-2 border-b border-dashed" style={{ borderColor: "var(--color-border)" }}>
+                  <div
+                    className="flex justify-between items-center py-2 border-b border-dashed"
+                    style={{ borderColor: "var(--color-border)" }}
+                  >
                     <span style={{ color: "var(--color-text-muted)" }}>Username</span>
                     <span className="font-bold text-lg">{form.username}</span>
                   </div>
-                  <div className="flex justify-between items-center py-2 border-b border-dashed" style={{ borderColor: "var(--color-border)" }}>
+                  <div
+                    className="flex justify-between items-center py-2 border-b border-dashed"
+                    style={{ borderColor: "var(--color-border)" }}
+                  >
                     <span style={{ color: "var(--color-text-muted)" }}>Realm</span>
                     <span className="font-mono text-sm">{form.realmId}</span>
                   </div>
-                  <div className="flex justify-between items-center py-2 border-b border-dashed" style={{ borderColor: "var(--color-border)" }}>
+                  <div
+                    className="flex justify-between items-center py-2 border-b border-dashed"
+                    style={{ borderColor: "var(--color-border)" }}
+                  >
                     <span style={{ color: "var(--color-text-muted)" }}>Role</span>
                     <span className="font-bold uppercase">{form.role}</span>
                   </div>
@@ -411,12 +411,9 @@ function Page() {
                 </div>
               </div>
 
-              <p
-                className="text-xs mt-4"
-                style={{ color: "var(--color-text-muted)" }}
-              >
-                A Personal Access Token (PAT) will be generated for this account. 
-                You can share it with the user to allow them to authenticate.
+              <p className="text-xs mt-4" style={{ color: "var(--color-text-muted)" }}>
+                A Personal Access Token (PAT) will be generated for this account. You can share it
+                with the user to allow them to authenticate.
               </p>
             </div>
           )}
@@ -472,11 +469,7 @@ function Page() {
               }
             }}
           >
-            {isSubmitting
-              ? "Creating..."
-              : step === STEPS.length - 1
-                ? "Create Account"
-                : "Next"}
+            {isSubmitting ? "Creating..." : step === STEPS.length - 1 ? "Create Account" : "Next"}
           </Button>
         </div>
       </div>

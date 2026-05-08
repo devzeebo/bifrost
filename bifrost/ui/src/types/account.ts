@@ -15,7 +15,6 @@ export interface PatEntry {
   last_used?: string;
 }
 
-
 export interface AdminAccountEntry {
   account_id: string;
   username: string;

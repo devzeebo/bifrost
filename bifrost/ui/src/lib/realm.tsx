@@ -1,10 +1,10 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import { api } from './api';
-import { useAuth } from './auth';
-import type { RealmListEntry } from '../types/realm';
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { api } from "./api";
+import { useAuth } from "./auth";
+import type { RealmListEntry } from "../types/realm";
 
-const STORAGE_KEY = 'bifrost-realm';
-const COOKIE_KEY = 'bifrost_selected_realm';
+const STORAGE_KEY = "bifrost-realm";
+const COOKIE_KEY = "bifrost_selected_realm";
 
 export type RealmOption = {
   id: string;
@@ -25,7 +25,7 @@ const sanitizeRealms = (realms: Array<string | null | undefined>): string[] => {
   const unique = new Set<string>();
 
   for (const realm of realms) {
-    if (!realm || realm === '_admin') {
+    if (!realm || realm === "_admin") {
       continue;
     }
     unique.add(realm);
@@ -38,7 +38,7 @@ const normalizeRealmOptions = (realms: Array<RealmOption | null | undefined>): R
   const byId = new Map<string, RealmOption>();
 
   for (const realm of realms) {
-    if (!realm || !realm.id || realm.id === '_admin') {
+    if (!realm || !realm.id || realm.id === "_admin") {
       continue;
     }
     byId.set(realm.id, {
@@ -51,12 +51,12 @@ const normalizeRealmOptions = (realms: Array<RealmOption | null | undefined>): R
 };
 
 const readRealmCookie = (): string | null => {
-  if (typeof document === 'undefined') {
+  if (typeof document === "undefined") {
     return null;
   }
 
   const cookie = document.cookie
-    .split(';')
+    .split(";")
     .map((entry) => entry.trim())
     .find((entry) => entry.startsWith(`${COOKIE_KEY}=`));
 
@@ -64,7 +64,7 @@ const readRealmCookie = (): string | null => {
     return null;
   }
 
-  const value = cookie.split('=').slice(1).join('=');
+  const value = cookie.split("=").slice(1).join("=");
   if (!value) {
     return null;
   }
@@ -73,7 +73,7 @@ const readRealmCookie = (): string | null => {
 };
 
 const persistRealm = (realm: string | null) => {
-  if (typeof document === 'undefined' || typeof localStorage === 'undefined') {
+  if (typeof document === "undefined" || typeof localStorage === "undefined") {
     return;
   }
 
@@ -105,7 +105,7 @@ export function RealmProvider({ children }: { children: ReactNode }) {
       const stored = localStorage.getItem(STORAGE_KEY);
       const cookieRealm = readRealmCookie();
       const preferredRealm = [stored, cookieRealm].find(
-        (realm): realm is string => typeof realm === 'string' && realms.includes(realm)
+        (realm): realm is string => typeof realm === "string" && realms.includes(realm),
       );
 
       if (preferredRealm) {
@@ -140,7 +140,7 @@ export function RealmProvider({ children }: { children: ReactNode }) {
         sessionRealmIds.map((realmId) => ({
           id: realmId,
           name: realmNames[realmId] || realmId,
-        }))
+        })),
       );
 
       try {
@@ -149,12 +149,12 @@ export function RealmProvider({ children }: { children: ReactNode }) {
           realms.map((realm) => {
             const value = realm as RealmListEntry & { realm_id?: string };
             const id = value.id || value.realm_id;
-            const resolvedId = id ?? '';
+            const resolvedId = id ?? "";
             return {
               id: resolvedId,
               name: value.name || realmNames[resolvedId] || resolvedId,
             };
-          })
+          }),
         );
 
         const filteredRealms =
@@ -191,7 +191,7 @@ export function RealmProvider({ children }: { children: ReactNode }) {
 export function useRealm() {
   const context = useContext(RealmContext);
   if (context === undefined) {
-    throw new Error('useRealm must be used within a RealmProvider');
+    throw new Error("useRealm must be used within a RealmProvider");
   }
   return context;
 }

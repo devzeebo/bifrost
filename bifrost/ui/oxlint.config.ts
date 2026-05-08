@@ -1,10 +1,10 @@
-import { defineConfig } from 'oxlint';
+import { defineConfig } from "oxlint";
 
 export default defineConfig({
-  plugins: ['typescript', 'react'],
+  plugins: ["typescript", "react"],
   rules: {
-    'no-console': 'warn',
-    'no-unused-vars': 'error',
-    'react-hooks/exhaustive-deps': 'error',
+    "no-console": "warn",
+    "no-unused-vars": "error",
+    "react-hooks/exhaustive-deps": "error",
   },
 });

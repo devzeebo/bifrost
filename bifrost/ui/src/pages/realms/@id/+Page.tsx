@@ -1,67 +1,67 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useState } from 'react';
-import { Button } from '@base-ui/react/button';
-import { Combobox } from '@base-ui/react/combobox';
-import { Dialog as BaseDialog } from '@base-ui/react/dialog';
-import { Select } from '@base-ui/react/select';
-import { navigate } from '@/lib/router';
-import { usePageContext } from 'vike-react/usePageContext';
-import { useAuth } from '../../../lib/auth';
-import { useToast } from '../../../lib/toast';
-import { api } from '../../../lib/api';
-import { Dialog } from '../../../components/Dialog/Dialog';
-import type { RealmDetail, RealmStatus } from '../../../types/realm';
-import type { RuneListItem, RuneStatus } from '../../../types/rune';
-import type { AdminAccountEntry } from '../../../types/account';
+import { useCallback, useEffect, useState } from "react";
+import { Button } from "@base-ui/react/button";
+import { Combobox } from "@base-ui/react/combobox";
+import { Dialog as BaseDialog } from "@base-ui/react/dialog";
+import { Select } from "@base-ui/react/select";
+import { navigate } from "@/lib/router";
+import { usePageContext } from "vike-react/usePageContext";
+import { useAuth } from "../../../lib/auth";
+import { useToast } from "../../../lib/toast";
+import { api } from "../../../lib/api";
+import { Dialog } from "../../../components/Dialog/Dialog";
+import type { RealmDetail, RealmStatus } from "../../../types/realm";
+import type { RuneListItem, RuneStatus } from "../../../types/rune";
+import type { AdminAccountEntry } from "../../../types/account";
 
 export { Page };
 
 const realmStatusColors: Record<RealmStatus, { bg: string; border: string; text: string }> = {
   active: {
-    bg: 'var(--color-green)',
-    border: 'var(--color-border)',
-    text: 'white',
+    bg: "var(--color-green)",
+    border: "var(--color-border)",
+    text: "white",
   },
   inactive: {
-    bg: 'var(--color-border)',
-    border: 'var(--color-border)',
-    text: 'white',
+    bg: "var(--color-border)",
+    border: "var(--color-border)",
+    text: "white",
   },
 };
 
 const runeStatusColors: Record<RuneStatus, { bg: string; border: string; text: string }> = {
   draft: {
-    bg: 'var(--color-bg)',
-    border: 'var(--color-border)',
-    text: 'var(--color-border)',
+    bg: "var(--color-bg)",
+    border: "var(--color-border)",
+    text: "var(--color-border)",
   },
   open: {
-    bg: 'var(--color-blue)',
-    border: 'var(--color-border)',
-    text: 'white',
+    bg: "var(--color-blue)",
+    border: "var(--color-border)",
+    text: "white",
   },
   in_progress: {
-    bg: 'var(--color-amber)',
-    border: 'var(--color-border)',
-    text: 'white',
+    bg: "var(--color-amber)",
+    border: "var(--color-border)",
+    text: "white",
   },
   fulfilled: {
-    bg: 'var(--color-green)',
-    border: 'var(--color-border)',
-    text: 'white',
+    bg: "var(--color-green)",
+    border: "var(--color-border)",
+    text: "white",
   },
   sealed: {
-    bg: 'var(--color-purple)',
-    border: 'var(--color-border)',
-    text: 'white',
+    bg: "var(--color-purple)",
+    border: "var(--color-border)",
+    text: "white",
   },
 };
 
 function Page() {
   const pageContext = usePageContext();
   const routeParams = pageContext.routeParams as Record<string, string | undefined>;
-  const realmId = routeParams?.id ?? routeParams?.['@id'] ?? routeParams?.['-id'] ?? '';
+  const realmId = routeParams?.id ?? routeParams?.["@id"] ?? routeParams?.["-id"] ?? "";
   const { isAuthenticated, realms: sessionRealmIds, realmNames, loading: authLoading } = useAuth();
   const { showToast } = useToast();
 
@@ -74,9 +74,9 @@ function Page() {
   const [isAssigning, setIsAssigning] = useState(false);
   const [availableAccounts, setAvailableAccounts] = useState<AdminAccountEntry[]>([]);
   const [realmMemberIds, setRealmMemberIds] = useState<string[]>([]);
-  const [accountFilter, setAccountFilter] = useState('');
-  const [selectedAccountId, setSelectedAccountId] = useState('');
-  const [selectedRole, setSelectedRole] = useState<'admin' | 'member' | 'viewer'>('member');
+  const [accountFilter, setAccountFilter] = useState("");
+  const [selectedAccountId, setSelectedAccountId] = useState("");
+  const [selectedRole, setSelectedRole] = useState<"admin" | "member" | "viewer">("member");
   const [memberToRemove, setMemberToRemove] = useState<{
     account_id: string;
     username: string;
@@ -85,7 +85,7 @@ function Page() {
 
   const normalizeRealmDetail = useCallback(
     (rawData: unknown): RealmDetail | null => {
-      if (!rawData || typeof rawData !== 'object') {
+      if (!rawData || typeof rawData !== "object") {
         return null;
       }
 
@@ -107,7 +107,7 @@ function Page() {
       }
 
       const memberCount =
-        typeof rawRealm.member_count === 'number'
+        typeof rawRealm.member_count === "number"
           ? rawRealm.member_count
           : Array.isArray(rawRealm.members)
             ? rawRealm.members.length
@@ -116,14 +116,14 @@ function Page() {
       return {
         id,
         name: rawRealm.name ?? realmNames[id] ?? id,
-        status: rawRealm.status === 'suspended' ? 'inactive' : 'active',
+        status: rawRealm.status === "suspended" ? "inactive" : "active",
         created_at: rawRealm.created_at ?? new Date(0).toISOString(),
-        description: rawRealm.description ?? '',
-        owner_id: rawRealm.owner_id ?? '',
+        description: rawRealm.description ?? "",
+        owner_id: rawRealm.owner_id ?? "",
         member_count: memberCount,
       };
     },
-    [realmNames]
+    [realmNames],
   );
 
   const toFallbackRealm = useCallback(
@@ -135,18 +135,18 @@ function Page() {
       return {
         id: targetRealmId,
         name: realmNames[targetRealmId] ?? targetRealmId,
-        status: 'active',
+        status: "active",
         created_at: new Date(0).toISOString(),
-        description: '',
-        owner_id: '',
+        description: "",
+        owner_id: "",
         member_count: 0,
       };
     },
-    [realmNames, sessionRealmIds]
+    [realmNames, sessionRealmIds],
   );
 
   const extractRealmMemberIds = useCallback((rawData: unknown): string[] => {
-    if (!rawData || typeof rawData !== 'object') {
+    if (!rawData || typeof rawData !== "object") {
       return [];
     }
 
@@ -157,11 +157,11 @@ function Page() {
 
     return rawMembers
       .map((entry) => {
-        if (!entry || typeof entry !== 'object') {
+        if (!entry || typeof entry !== "object") {
           return null;
         }
         const accountId = (entry as { account_id?: unknown }).account_id;
-        return typeof accountId === 'string' ? accountId : null;
+        return typeof accountId === "string" ? accountId : null;
       })
       .filter((accountId): accountId is string => accountId !== null);
   }, []);
@@ -170,7 +170,7 @@ function Page() {
     if (authLoading) return;
 
     if (!isAuthenticated) {
-      navigate('/login');
+      navigate("/login");
       return;
     }
 
@@ -197,7 +197,7 @@ function Page() {
         setRealmMemberIds([]);
         setAvailableAccounts([]);
         if (!fallbackRealm) {
-          showToast('Error', 'Failed to load realm', 'error');
+          showToast("Error", "Failed to load realm", "error");
         }
       } finally {
         setIsLoading(false);
@@ -222,15 +222,15 @@ function Page() {
     setIsLoading(true);
     try {
       await api.suspendRealm(
-        { realm_id: realm.id, reason: 'Suspended from realm details' },
-        realm.id
+        { realm_id: realm.id, reason: "Suspended from realm details" },
+        realm.id,
       );
-      showToast('Realm Suspended', `${realm.name} is now suspended`, 'success');
+      showToast("Realm Suspended", `${realm.name} is now suspended`, "success");
       setShowSuspendDialog(false);
       const realmData = await api.getRealm(realm.id);
       setRealm(normalizeRealmDetail(realmData) ?? toFallbackRealm(realm.id));
     } catch {
-      showToast('Error', 'Failed to suspend realm', 'error');
+      showToast("Error", "Failed to suspend realm", "error");
     } finally {
       setIsSuspending(false);
       setIsLoading(false);
@@ -250,22 +250,22 @@ function Page() {
           realm_id: realm.id,
           role: selectedRole,
         },
-        realm.id
+        realm.id,
       );
       showToast(
-        'Account Added',
+        "Account Added",
         `Assigned ${selectedRole} to ${selectedAccountId.trim()}`,
-        'success'
+        "success",
       );
       setShowAddAccountDialog(false);
-      setSelectedAccountId('');
-      setAccountFilter('');
+      setSelectedAccountId("");
+      setAccountFilter("");
       setIsLoading(true);
       const realmData = await api.getRealm(realm.id);
       setRealm(normalizeRealmDetail(realmData) ?? toFallbackRealm(realm.id));
       setRealmMemberIds(extractRealmMemberIds(realmData));
     } catch {
-      showToast('Error', 'Failed to add account to realm', 'error');
+      showToast("Error", "Failed to add account to realm", "error");
     } finally {
       setIsAssigning(false);
     }
@@ -283,9 +283,9 @@ function Page() {
           account_id: memberToRemove.account_id,
           realm_id: realm.id,
         },
-        realm.id
+        realm.id,
       );
-      showToast('Member Removed', `${memberToRemove.username} removed from realm`, 'success');
+      showToast("Member Removed", `${memberToRemove.username} removed from realm`, "success");
       setMemberToRemove(null);
       setIsLoading(true);
       const [realmData, accountsData] = await Promise.all([
@@ -296,7 +296,7 @@ function Page() {
       setRealmMemberIds(extractRealmMemberIds(realmData));
       setAvailableAccounts(Array.isArray(accountsData) ? accountsData : []);
     } catch {
-      showToast('Error', 'Failed to remove member', 'error');
+      showToast("Error", "Failed to remove member", "error");
     } finally {
       setIsRemovingMember(false);
     }
@@ -304,21 +304,21 @@ function Page() {
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   const formatShortDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
   };
 
@@ -328,9 +328,9 @@ function Page() {
         <div
           className="px-8 py-4 text-lg font-bold uppercase tracking-wider"
           style={{
-            backgroundColor: 'var(--color-bg)',
-            border: '2px solid var(--color-border)',
-            boxShadow: 'var(--shadow-soft)',
+            backgroundColor: "var(--color-bg)",
+            border: "2px solid var(--color-border)",
+            boxShadow: "var(--shadow-soft)",
           }}
         >
           Loading...
@@ -345,31 +345,31 @@ function Page() {
         <div
           className="p-8 text-center max-w-md"
           style={{
-            backgroundColor: 'var(--color-bg)',
-            border: '2px solid var(--color-border)',
-            boxShadow: 'var(--shadow-soft)',
+            backgroundColor: "var(--color-bg)",
+            border: "2px solid var(--color-border)",
+            boxShadow: "var(--shadow-soft)",
           }}
         >
           <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">Realm Not Found</h2>
-          <p className="text-sm mb-6" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="text-sm mb-6" style={{ color: "var(--color-text-muted)" }}>
             The realm you're looking for doesn't exist or you don't have access to it.
           </p>
           <Button
-            onClick={() => navigate('/realms')}
+            onClick={() => navigate("/realms")}
             className="px-6 py-3 text-sm font-bold uppercase tracking-wider transition-all duration-150"
             style={{
-              backgroundColor: 'var(--color-green)',
-              border: '2px solid var(--color-border)',
-              color: 'white',
-              boxShadow: 'var(--shadow-soft)',
+              backgroundColor: "var(--color-green)",
+              border: "2px solid var(--color-border)",
+              color: "white",
+              boxShadow: "var(--shadow-soft)",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = 'var(--shadow-soft-hover)';
-              e.currentTarget.style.transform = 'translate(2px, 2px)';
+              e.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
+              e.currentTarget.style.transform = "translate(2px, 2px)";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = 'var(--shadow-soft)';
-              e.currentTarget.style.transform = 'translate(0, 0)';
+              e.currentTarget.style.boxShadow = "var(--shadow-soft)";
+              e.currentTarget.style.transform = "translate(0, 0)";
             }}
           >
             Back to Realms
@@ -381,7 +381,7 @@ function Page() {
 
   const statusStyle = realmStatusColors[realm.status];
   const assignableAccounts = availableAccounts.filter(
-    (account) => !realmMemberIds.includes(account.account_id)
+    (account) => !realmMemberIds.includes(account.account_id),
   );
   const filteredAssignableAccounts = assignableAccounts.filter((account) => {
     if (!accountFilter.trim()) {
@@ -394,7 +394,7 @@ function Page() {
     );
   });
   const selectedAccount = assignableAccounts.find(
-    (account) => account.account_id === selectedAccountId
+    (account) => account.account_id === selectedAccountId,
   );
   const accountsById = new Map(availableAccounts.map((account) => [account.account_id, account]));
   const memberRows = realmMemberIds.map((accountId) => {
@@ -402,7 +402,7 @@ function Page() {
     return {
       account_id: accountId,
       username: account?.username ?? accountId,
-      role: account?.roles?.[realm.id] ?? '-',
+      role: account?.roles?.[realm.id] ?? "-",
     };
   });
 
@@ -412,9 +412,9 @@ function Page() {
       <div className="mb-8">
         <div className="grid grid-cols-[auto_1fr_auto] items-center gap-4">
           <Button
-            onClick={() => navigate('/realms')}
+            onClick={() => navigate("/realms")}
             className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wider transition-all duration-150 hover:translate-x-[-2px]"
-            style={{ color: 'var(--color-text-muted)' }}
+            style={{ color: "var(--color-text-muted)" }}
           >
             <span>&larr;</span>
             <span>Back to Realms</span>
@@ -433,13 +433,13 @@ function Page() {
             </span>
             <h1
               className="text-4xl font-bold tracking-tight uppercase"
-              style={{ color: 'var(--color-green)' }}
+              style={{ color: "var(--color-green)" }}
             >
               {realm.name}
             </h1>
             <span
               className="text-xs uppercase tracking-wider"
-              style={{ color: 'var(--color-text-muted)' }}
+              style={{ color: "var(--color-text-muted)" }}
             >
               ID: {realm.id}
             </span>
@@ -449,10 +449,10 @@ function Page() {
             onClick={() => navigate(`/realms/${realm.id}/edit`)}
             className="inline-flex h-9 w-9 items-center justify-center text-base font-bold"
             style={{
-              backgroundColor: 'var(--color-green)',
-              border: '2px solid var(--color-border)',
-              color: 'white',
-              boxShadow: 'var(--shadow-soft)',
+              backgroundColor: "var(--color-green)",
+              border: "2px solid var(--color-border)",
+              color: "white",
+              boxShadow: "var(--shadow-soft)",
             }}
             title="Edit Realm"
             aria-label="Edit realm"
@@ -470,15 +470,15 @@ function Page() {
         <div
           className="lg:col-span-2 p-6"
           style={{
-            backgroundColor: 'var(--color-bg)',
-            border: '2px solid var(--color-border)',
-            boxShadow: 'var(--shadow-soft)',
+            backgroundColor: "var(--color-bg)",
+            border: "2px solid var(--color-border)",
+            boxShadow: "var(--shadow-soft)",
           }}
         >
           {realm.description ? (
             <p className="text-base leading-relaxed whitespace-pre-wrap">{realm.description}</p>
           ) : (
-            <p className="text-base italic" style={{ color: 'var(--color-text-muted)' }}>
+            <p className="text-base italic" style={{ color: "var(--color-text-muted)" }}>
               No description provided
             </p>
           )}
@@ -490,16 +490,16 @@ function Page() {
           <div
             className="p-6"
             style={{
-              backgroundColor: 'var(--color-bg)',
-              border: '2px solid var(--color-border)',
-              boxShadow: 'var(--shadow-soft)',
+              backgroundColor: "var(--color-bg)",
+              border: "2px solid var(--color-border)",
+              boxShadow: "var(--shadow-soft)",
             }}
           >
             <div className="space-y-4">
               <div>
                 <div
                   className="text-xs uppercase tracking-wider block mb-1"
-                  style={{ color: 'var(--color-text-muted)' }}
+                  style={{ color: "var(--color-text-muted)" }}
                 >
                   Created
                 </div>
@@ -512,9 +512,9 @@ function Page() {
           <div
             className="p-6"
             style={{
-              backgroundColor: 'var(--color-bg)',
-              border: '2px solid var(--color-border)',
-              boxShadow: 'var(--shadow-soft)',
+              backgroundColor: "var(--color-bg)",
+              border: "2px solid var(--color-border)",
+              boxShadow: "var(--shadow-soft)",
             }}
           >
             <div className="space-y-3">
@@ -522,18 +522,18 @@ function Page() {
                 onClick={() => setShowSuspendDialog(true)}
                 className="w-full px-4 py-3 text-sm font-bold uppercase tracking-wider transition-all duration-150"
                 style={{
-                  backgroundColor: 'var(--color-red)',
-                  border: '2px solid var(--color-border)',
-                  color: 'white',
-                  boxShadow: 'var(--shadow-soft)',
+                  backgroundColor: "var(--color-red)",
+                  border: "2px solid var(--color-border)",
+                  color: "white",
+                  boxShadow: "var(--shadow-soft)",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.boxShadow = 'var(--shadow-soft-hover)';
-                  e.currentTarget.style.transform = 'translate(2px, 2px)';
+                  e.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
+                  e.currentTarget.style.transform = "translate(2px, 2px)";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.boxShadow = 'var(--shadow-soft)';
-                  e.currentTarget.style.transform = 'translate(0, 0)';
+                  e.currentTarget.style.boxShadow = "var(--shadow-soft)";
+                  e.currentTarget.style.transform = "translate(0, 0)";
                 }}
               >
                 Suspend Realm
@@ -548,29 +548,29 @@ function Page() {
           <div className="flex items-center gap-4">
             <h2
               className="text-2xl font-bold uppercase tracking-tight"
-              style={{ color: 'var(--color-green)' }}
+              style={{ color: "var(--color-green)" }}
             >
               Members
             </h2>
             <span
               className="text-sm uppercase tracking-widest"
-              style={{ color: 'var(--color-text-muted)' }}
+              style={{ color: "var(--color-text-muted)" }}
             >
               {memberRows.length} members
             </span>
           </div>
           <Button
             onClick={() => {
-              setSelectedAccountId('');
-              setAccountFilter('');
-              setSelectedRole('member');
+              setSelectedAccountId("");
+              setAccountFilter("");
+              setSelectedRole("member");
               setShowAddAccountDialog(true);
             }}
             className="px-3 py-2 text-xs font-bold uppercase tracking-wider"
             style={{
-              backgroundColor: 'var(--color-green)',
-              border: '2px solid var(--color-border)',
-              color: 'white',
+              backgroundColor: "var(--color-green)",
+              border: "2px solid var(--color-border)",
+              color: "white",
             }}
             title="Add account"
             aria-label="Add account"
@@ -581,16 +581,16 @@ function Page() {
 
         <div
           style={{
-            backgroundColor: 'var(--color-bg)',
-            border: '2px solid var(--color-border)',
-            boxShadow: 'var(--shadow-soft)',
+            backgroundColor: "var(--color-bg)",
+            border: "2px solid var(--color-border)",
+            boxShadow: "var(--shadow-soft)",
           }}
         >
           <div
             className="grid grid-cols-12 gap-4 px-4 py-3 text-xs font-bold uppercase tracking-wider"
             style={{
-              borderBottom: '2px solid var(--color-border)',
-              backgroundColor: 'var(--color-surface)',
+              borderBottom: "2px solid var(--color-border)",
+              backgroundColor: "var(--color-surface)",
             }}
           >
             <div className="col-span-3">Account ID</div>
@@ -600,7 +600,7 @@ function Page() {
           </div>
 
           {memberRows.length === 0 ? (
-            <div className="px-4 py-10 text-sm" style={{ color: 'var(--color-text-muted)' }}>
+            <div className="px-4 py-10 text-sm" style={{ color: "var(--color-text-muted)" }}>
               No members in this realm.
             </div>
           ) : (
@@ -610,8 +610,8 @@ function Page() {
                   key={member.account_id}
                   className="grid grid-cols-12 gap-4 px-4 py-4 items-center transition-all duration-150 hover:translate-x-[2px] border-l-4 border-l-transparent hover:bg-[var(--color-surface)] hover:border-l-[var(--color-green)]"
                   style={{
-                    borderBottom: '1px solid var(--color-border)',
-                    backgroundColor: 'var(--color-bg)',
+                    borderBottom: "1px solid var(--color-border)",
+                    backgroundColor: "var(--color-bg)",
                   }}
                 >
                   <button
@@ -622,7 +622,7 @@ function Page() {
                     <div className="col-span-3">
                       <span
                         className="text-xs font-mono"
-                        style={{ color: 'var(--color-text-muted)' }}
+                        style={{ color: "var(--color-text-muted)" }}
                       >
                         {member.account_id}
                       </span>
@@ -644,9 +644,9 @@ function Page() {
                       }
                       className="text-xs px-1 py-0 leading-none"
                       style={{
-                        backgroundColor: 'transparent',
-                        border: 'none',
-                        color: 'var(--color-text-muted)',
+                        backgroundColor: "transparent",
+                        border: "none",
+                        color: "var(--color-text-muted)",
                       }}
                       aria-label={`Remove ${member.username}`}
                       title="Remove member"
@@ -675,13 +675,13 @@ function Page() {
           <div className="flex items-center gap-4">
             <h2
               className="text-2xl font-bold uppercase tracking-tight"
-              style={{ color: 'var(--color-green)' }}
+              style={{ color: "var(--color-green)" }}
             >
               Runes
             </h2>
             <span
               className="text-sm uppercase tracking-widest"
-              style={{ color: 'var(--color-text-muted)' }}
+              style={{ color: "var(--color-text-muted)" }}
             >
               {runes.length} runes
             </span>
@@ -690,9 +690,9 @@ function Page() {
             onClick={() => navigate(`/runes/new?realm=${encodeURIComponent(realm.id)}`)}
             className="px-3 py-2 text-xs font-bold uppercase tracking-wider"
             style={{
-              backgroundColor: 'var(--color-green)',
-              border: '2px solid var(--color-border)',
-              color: 'white',
+              backgroundColor: "var(--color-green)",
+              border: "2px solid var(--color-border)",
+              color: "white",
             }}
             title="Add rune"
             aria-label="Add rune"
@@ -705,29 +705,29 @@ function Page() {
           <div
             className="p-8 text-center"
             style={{
-              backgroundColor: 'var(--color-bg)',
-              border: '2px solid var(--color-border)',
-              boxShadow: 'var(--shadow-soft)',
+              backgroundColor: "var(--color-bg)",
+              border: "2px solid var(--color-border)",
+              boxShadow: "var(--shadow-soft)",
             }}
           >
-            <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+            <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
               No runes in this realm yet.
             </p>
           </div>
         ) : (
           <div
             style={{
-              backgroundColor: 'var(--color-bg)',
-              border: '2px solid var(--color-border)',
-              boxShadow: 'var(--shadow-soft)',
+              backgroundColor: "var(--color-bg)",
+              border: "2px solid var(--color-border)",
+              boxShadow: "var(--shadow-soft)",
             }}
           >
             {/* Table Header */}
             <div
               className="grid grid-cols-12 gap-4 px-4 py-3 text-xs font-bold uppercase tracking-wider"
               style={{
-                borderBottom: '2px solid var(--color-border)',
-                backgroundColor: 'var(--color-surface)',
+                borderBottom: "2px solid var(--color-border)",
+                backgroundColor: "var(--color-surface)",
               }}
             >
               <div className="col-span-2">ID</div>
@@ -747,27 +747,27 @@ function Page() {
                     key={rune.id}
                     className="grid grid-cols-12 gap-4 px-4 py-4 items-center cursor-pointer transition-all duration-150 hover:translate-x-[2px]"
                     style={{
-                      borderBottom: '1px solid var(--color-border)',
-                      backgroundColor: 'var(--color-bg)',
-                      width: '100%',
-                      textAlign: 'left',
+                      borderBottom: "1px solid var(--color-border)",
+                      backgroundColor: "var(--color-bg)",
+                      width: "100%",
+                      textAlign: "left",
                     }}
                     onClick={() => navigate(`/runes/${rune.id}`)}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = 'var(--color-surface)';
-                      e.currentTarget.style.borderLeftWidth = '4px';
-                      e.currentTarget.style.borderLeftColor = 'var(--color-green)';
-                      e.currentTarget.style.borderLeftStyle = 'solid';
+                      e.currentTarget.style.backgroundColor = "var(--color-surface)";
+                      e.currentTarget.style.borderLeftWidth = "4px";
+                      e.currentTarget.style.borderLeftColor = "var(--color-green)";
+                      e.currentTarget.style.borderLeftStyle = "solid";
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'var(--color-bg)';
-                      e.currentTarget.style.borderLeftWidth = '0px';
+                      e.currentTarget.style.backgroundColor = "var(--color-bg)";
+                      e.currentTarget.style.borderLeftWidth = "0px";
                     }}
                   >
                     <div className="col-span-2">
                       <span
                         className="text-xs font-mono"
-                        style={{ color: 'var(--color-text-muted)' }}
+                        style={{ color: "var(--color-text-muted)" }}
                       >
                         {rune.id.slice(0, 8)}
                       </span>
@@ -784,14 +784,14 @@ function Page() {
                           color: runeStyle.text,
                         }}
                       >
-                        {rune.status.replace('_', ' ')}
+                        {rune.status.replace("_", " ")}
                       </span>
                     </div>
                     <div className="col-span-1">
                       <span className="text-sm font-bold">{rune.priority}</span>
                     </div>
                     <div className="col-span-2">
-                      <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                      <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
                         {formatShortDate(rune.created_at)}
                       </span>
                     </div>
@@ -808,7 +808,7 @@ function Page() {
         onClose={() => setShowSuspendDialog(false)}
         title="Suspend Realm"
         description={`Suspend "${realm.name}"? Suspended realms remain visible but no longer accept active work.`}
-        confirmLabel={isSuspending ? 'Suspending...' : 'Suspend'}
+        confirmLabel={isSuspending ? "Suspending..." : "Suspend"}
         cancelLabel="Cancel"
         onConfirm={handleSuspend}
         color="red"
@@ -821,9 +821,9 @@ function Page() {
         description={
           memberToRemove
             ? `Remove ${memberToRemove.username} (${memberToRemove.account_id}) from this realm?`
-            : 'Remove member from this realm?'
+            : "Remove member from this realm?"
         }
-        confirmLabel={isRemovingMember ? 'Removing...' : 'Remove'}
+        confirmLabel={isRemovingMember ? "Removing..." : "Remove"}
         cancelLabel="Cancel"
         onConfirm={handleRemoveMember}
         color="red"
@@ -836,9 +836,9 @@ function Page() {
             <BaseDialog.Popup
               className="w-full max-w-xl p-6"
               style={{
-                backgroundColor: 'var(--color-bg)',
-                border: '2px solid var(--color-border)',
-                boxShadow: 'var(--shadow-soft)',
+                backgroundColor: "var(--color-bg)",
+                border: "2px solid var(--color-border)",
+                boxShadow: "var(--shadow-soft)",
               }}
               aria-labelledby="assign-account-title"
               aria-describedby="assign-account-description"
@@ -848,14 +848,14 @@ function Page() {
                   <BaseDialog.Title
                     id="assign-account-title"
                     className="text-xl font-bold uppercase tracking-tight"
-                    style={{ color: 'var(--color-green)' }}
+                    style={{ color: "var(--color-green)" }}
                   >
                     Add Account to Realm
                   </BaseDialog.Title>
                   <BaseDialog.Description
                     id="assign-account-description"
                     className="text-sm mt-1"
-                    style={{ color: 'var(--color-text-muted)' }}
+                    style={{ color: "var(--color-text-muted)" }}
                   >
                     Select an account and assign a role in this realm.
                   </BaseDialog.Description>
@@ -865,14 +865,14 @@ function Page() {
                   <label
                     htmlFor="assign-account-combobox"
                     className="text-xs uppercase tracking-wider block mb-2 font-bold"
-                    style={{ color: 'var(--color-text-muted)' }}
+                    style={{ color: "var(--color-text-muted)" }}
                   >
                     Account
                   </label>
                   <Combobox.Root
                     value={selectedAccountId || null}
                     onValueChange={(value) => {
-                      if (typeof value === 'string') {
+                      if (typeof value === "string") {
                         setSelectedAccountId(value);
                       }
                     }}
@@ -883,9 +883,9 @@ function Page() {
                       placeholder="Search by username or account ID"
                       className="w-full px-3 py-2 text-sm outline-none"
                       style={{
-                        backgroundColor: 'var(--color-surface)',
-                        border: '2px solid var(--color-border)',
-                        color: 'var(--color-text)',
+                        backgroundColor: "var(--color-surface)",
+                        border: "2px solid var(--color-border)",
+                        color: "var(--color-text)",
                       }}
                     />
                     <Combobox.Portal>
@@ -893,10 +893,10 @@ function Page() {
                         <Combobox.Popup
                           className="z-[80] max-h-64 overflow-y-auto"
                           style={{
-                            backgroundColor: 'var(--color-bg)',
-                            border: '2px solid var(--color-border)',
-                            boxShadow: 'var(--shadow-soft)',
-                            width: 'var(--anchor-width)',
+                            backgroundColor: "var(--color-bg)",
+                            border: "2px solid var(--color-border)",
+                            boxShadow: "var(--shadow-soft)",
+                            width: "var(--anchor-width)",
                           }}
                         >
                           <Combobox.List>
@@ -905,12 +905,12 @@ function Page() {
                                 key={account.account_id}
                                 value={account.account_id}
                                 className="px-3 py-2 text-sm cursor-pointer"
-                                style={{ color: 'var(--color-text)' }}
+                                style={{ color: "var(--color-text)" }}
                               >
                                 {account.username}
                                 <span
                                   className="ml-2 text-xs"
-                                  style={{ color: 'var(--color-text-muted)' }}
+                                  style={{ color: "var(--color-text-muted)" }}
                                 >
                                   {account.account_id}
                                 </span>
@@ -919,7 +919,7 @@ function Page() {
                           </Combobox.List>
                           <Combobox.Empty
                             className="px-3 py-2 text-sm"
-                            style={{ color: 'var(--color-text-muted)' }}
+                            style={{ color: "var(--color-text-muted)" }}
                           >
                             No accounts available
                           </Combobox.Empty>
@@ -933,15 +933,15 @@ function Page() {
                   <label
                     htmlFor="assign-role"
                     className="text-xs uppercase tracking-wider block mb-2 font-bold"
-                    style={{ color: 'var(--color-text-muted)' }}
+                    style={{ color: "var(--color-text-muted)" }}
                   >
                     Role
                   </label>
                   <Select.Root
-                    items={{ viewer: 'viewer', member: 'member', admin: 'admin' }}
+                    items={{ viewer: "viewer", member: "member", admin: "admin" }}
                     value={selectedRole}
                     onValueChange={(value) => {
-                      if (value === 'admin' || value === 'member' || value === 'viewer') {
+                      if (value === "admin" || value === "member" || value === "viewer") {
                         setSelectedRole(value);
                       }
                     }}
@@ -950,9 +950,9 @@ function Page() {
                       id="assign-role"
                       className="w-full px-3 py-2 text-sm outline-none"
                       style={{
-                        backgroundColor: 'var(--color-surface)',
-                        border: '2px solid var(--color-border)',
-                        color: 'var(--color-text)',
+                        backgroundColor: "var(--color-surface)",
+                        border: "2px solid var(--color-border)",
+                        color: "var(--color-text)",
                       }}
                     >
                       <Select.Value placeholder="Select role" />
@@ -961,13 +961,13 @@ function Page() {
                       <Select.Positioner sideOffset={8} align="end">
                         <Select.Popup
                           style={{
-                            backgroundColor: 'var(--color-bg)',
-                            border: '2px solid var(--color-border)',
-                            boxShadow: 'var(--shadow-soft)',
+                            backgroundColor: "var(--color-bg)",
+                            border: "2px solid var(--color-border)",
+                            boxShadow: "var(--shadow-soft)",
                           }}
                         >
                           <Select.List>
-                            {(['viewer', 'member', 'admin'] as const).map((role) => (
+                            {(["viewer", "member", "admin"] as const).map((role) => (
                               <Select.Item
                                 key={role}
                                 value={role}
@@ -982,11 +982,11 @@ function Page() {
                       </Select.Positioner>
                     </Select.Portal>
                   </Select.Root>
-                  <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
+                  <p className="text-xs mt-2" style={{ color: "var(--color-text-muted)" }}>
                     Current: {selectedRole}
                     {selectedAccount
                       ? ` for ${selectedAccount.username} (${selectedAccount.account_id})`
-                      : ''}
+                      : ""}
                   </p>
                 </div>
 
@@ -994,9 +994,9 @@ function Page() {
                   <BaseDialog.Close
                     className="px-4 py-2 text-sm font-semibold"
                     style={{
-                      backgroundColor: 'var(--color-bg)',
-                      border: '2px solid var(--color-border)',
-                      color: 'var(--color-text)',
+                      backgroundColor: "var(--color-bg)",
+                      border: "2px solid var(--color-border)",
+                      color: "var(--color-text)",
                     }}
                   >
                     Cancel
@@ -1006,12 +1006,12 @@ function Page() {
                     disabled={selectedAccountId.trim().length === 0 || isAssigning}
                     className="px-4 py-2 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{
-                      backgroundColor: 'var(--color-green)',
-                      border: '2px solid var(--color-border)',
-                      color: 'white',
+                      backgroundColor: "var(--color-green)",
+                      border: "2px solid var(--color-border)",
+                      color: "white",
                     }}
                   >
-                    {isAssigning ? 'Adding...' : 'Add'}
+                    {isAssigning ? "Adding..." : "Add"}
                   </Button>
                 </div>
               </div>

@@ -140,9 +140,7 @@ function Page() {
             boxShadow: "var(--shadow-soft)",
           }}
         >
-          <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">
-            No Realms Found
-          </h2>
+          <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">No Realms Found</h2>
           <p className="text-sm mb-6" style={{ color: "var(--color-text-muted)" }}>
             You don't have access to any realms yet. Contact your administrator.
           </p>
@@ -172,12 +170,9 @@ function Page() {
               className="px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-150"
               style={{
                 backgroundColor:
-                  statusFilter === filter.value
-                    ? "var(--color-amber)"
-                    : "var(--color-bg)",
+                  statusFilter === filter.value ? "var(--color-amber)" : "var(--color-bg)",
                 border: "2px solid var(--color-border)",
-                color:
-                  statusFilter === filter.value ? "white" : "var(--color-text)",
+                color: statusFilter === filter.value ? "white" : "var(--color-text)",
                 boxShadow: "var(--shadow-soft)",
               }}
             >
@@ -212,14 +207,12 @@ function Page() {
         </div>
       </div>
 
-
-
       {/* Runes Table */}
       <div
         style={{
           backgroundColor: "var(--color-bg)",
           border: "2px solid var(--color-border)",
-            boxShadow: "var(--shadow-soft)",
+          boxShadow: "var(--shadow-soft)",
         }}
       >
         {/* Table Header */}
@@ -290,9 +283,7 @@ function Page() {
                     </span>
                   </div>
                   <div className="col-span-4">
-                    <span className="font-medium truncate block">
-                      {rune.title}
-                    </span>
+                    <span className="font-medium truncate block">{rune.title}</span>
                   </div>
                   <div className="col-span-2">
                     <span
@@ -306,7 +297,10 @@ function Page() {
                     </span>
                   </div>
                   <div className="col-span-3">
-                    <span className="text-xs font-mono" style={{ color: "var(--color-text-muted)" }}>
+                    <span
+                      className="text-xs font-mono"
+                      style={{ color: "var(--color-text-muted)" }}
+                    >
                       {(() => {
                         const claimant = rune.claimant_username || rune.claimant || "";
                         return claimant && claimant !== "<nil>" ? claimant : "-";
@@ -335,10 +329,7 @@ function Page() {
                     </span>
                   </div>
                   <div className="col-span-1">
-                    <span
-                      className="text-xs"
-                      style={{ color: "var(--color-text-muted)" }}
-                    >
+                    <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
                       {formatDate(rune.created_at)}
                     </span>
                   </div>

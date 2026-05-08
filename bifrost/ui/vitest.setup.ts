@@ -1,9 +1,8 @@
 /// <reference types="vitest" />
 import "@testing-library/jest-dom/vitest";
 
-
 // Mock window.matchMedia for components that use it
-Object.defineProperty(window, 'matchMedia', {
+Object.defineProperty(window, "matchMedia", {
   writable: true,
   value: (query: string) => ({
     matches: false,

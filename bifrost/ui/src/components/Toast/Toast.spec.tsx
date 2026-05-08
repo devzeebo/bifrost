@@ -6,9 +6,7 @@ import { type Toast as ToastType } from "@/lib/toast";
 describe("Toast", () => {
   const mockOnRemove = vi.fn();
 
-  const createMockToast = (
-    overrides: Partial<ToastType> = {},
-  ): ToastType => ({
+  const createMockToast = (overrides: Partial<ToastType> = {}): ToastType => ({
     id: "test-123",
     title: "Test Toast",
     description: "This is a test toast message",
@@ -38,9 +36,7 @@ describe("Toast", () => {
         description: "Operation completed successfully",
       });
       render(<Toast toast={toast} onRemove={mockOnRemove} />);
-      expect(
-        screen.getByText("Operation completed successfully"),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Operation completed successfully")).toBeInTheDocument();
     });
 
     test("does not render description when not provided", () => {

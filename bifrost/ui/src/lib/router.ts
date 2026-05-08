@@ -5,10 +5,7 @@ const UI_PREFIX = "/ui";
 export function toUIPath(path: string): string {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
 
-  if (
-    normalizedPath === UI_PREFIX ||
-    normalizedPath.startsWith(`${UI_PREFIX}/`)
-  ) {
+  if (normalizedPath === UI_PREFIX || normalizedPath.startsWith(`${UI_PREFIX}/`)) {
     return normalizedPath;
   }
 

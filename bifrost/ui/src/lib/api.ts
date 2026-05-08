@@ -5,12 +5,7 @@ import type {
   CreateAdminRequest,
   CreateAdminResponse,
 } from "../types/session";
-import type {
-  RuneListItem,
-  RuneDetail,
-  CreateRuneRequest,
-  RuneRelationship,
-} from "../types/rune";
+import type { RuneListItem, RuneDetail, CreateRuneRequest, RuneRelationship } from "../types/rune";
 import type {
   RealmListEntry,
   RealmDetail,
@@ -25,7 +20,7 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
-    public data?: unknown
+    public data?: unknown,
   ) {
     super(message);
     this.name = "ApiError";
@@ -39,10 +34,7 @@ export class ApiClient {
     this.baseUrl = baseUrl;
   }
 
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
+  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const apiUrl = `${this.baseUrl}${API_PREFIX}${endpoint}`;
     const headers: HeadersInit = {
       "Content-Type": "application/json",
@@ -64,11 +56,7 @@ export class ApiClient {
       } catch {
         data = undefined;
       }
-      throw new ApiError(
-        response.status,
-        `Request failed: ${response.statusText}`,
-        data
-      );
+      throw new ApiError(response.status, `Request failed: ${response.statusText}`, data);
     }
 
     if (response.status === 204) {
@@ -89,7 +77,9 @@ export class ApiClient {
     };
   }
 
-  private normalizeRuneDetail(raw: RuneDetail | (Partial<RuneDetail> & { id: string })): RuneDetail {
+  private normalizeRuneDetail(
+    raw: RuneDetail | (Partial<RuneDetail> & { id: string }),
+  ): RuneDetail {
     const normalizeDependencies = (dependencies: unknown): RuneRelationship[] => {
       if (!Array.isArray(dependencies)) {
         return [];
@@ -224,7 +214,7 @@ export class ApiClient {
         {
           method: "GET",
           headers: this.withRealmHeader(realmId),
-        }
+        },
       );
       return this.normalizeRuneDetail(detail);
     } catch (error) {
@@ -247,11 +237,14 @@ export class ApiClient {
     });
   }
 
-  async addDependency(request: {
-    rune_id: string;
-    target_id: string;
-    relationship: string;
-  }, realmId?: string): Promise<void> {
+  async addDependency(
+    request: {
+      rune_id: string;
+      target_id: string;
+      relationship: string;
+    },
+    realmId?: string,
+  ): Promise<void> {
     return this.request("/add-dependency", {
       method: "POST",
       body: JSON.stringify(request),
@@ -259,11 +252,14 @@ export class ApiClient {
     });
   }
 
-  async removeDependency(request: {
-    rune_id: string;
-    target_id: string;
-    relationship: string;
-  }, realmId?: string): Promise<void> {
+  async removeDependency(
+    request: {
+      rune_id: string;
+      target_id: string;
+      relationship: string;
+    },
+    realmId?: string,
+  ): Promise<void> {
     return this.request("/remove-dependency", {
       method: "POST",
       body: JSON.stringify(request),
@@ -311,11 +307,7 @@ export class ApiClient {
     });
   }
 
-  async updateRune(
-    realmId: string,
-    runeId: string,
-    updates: Partial<RuneDetail>
-  ): Promise<void> {
+  async updateRune(realmId: string, runeId: string, updates: Partial<RuneDetail>): Promise<void> {
     const command: {
       id: string;
       title?: string;
@@ -398,7 +390,10 @@ export class ApiClient {
     };
   }
 
-  async suspendRealm(request: { realm_id: string; reason?: string }, realmId?: string): Promise<void> {
+  async suspendRealm(
+    request: { realm_id: string; reason?: string },
+    realmId?: string,
+  ): Promise<void> {
     void realmId;
     return this.request("/suspend-realm", {
       method: "POST",
@@ -409,7 +404,7 @@ export class ApiClient {
 
   async assignRole(
     request: { account_id: string; realm_id: string; role: string },
-    realmId?: string
+    realmId?: string,
   ): Promise<void> {
     return this.request("/assign-role", {
       method: "POST",
@@ -420,7 +415,7 @@ export class ApiClient {
 
   async revokeRole(
     request: { account_id: string; realm_id: string },
-    realmId?: string
+    realmId?: string,
   ): Promise<void> {
     return this.request("/revoke-role", {
       method: "POST",
@@ -437,18 +432,12 @@ export class ApiClient {
   }
 
   async getAccount(realmId: string, accountId: string): Promise<AccountListEntry> {
-    return this.request<AccountListEntry>(
-      `/realms/${realmId}/accounts/${accountId}`,
-      {
-        method: "GET",
-      }
-    );
+    return this.request<AccountListEntry>(`/realms/${realmId}/accounts/${accountId}`, {
+      method: "GET",
+    });
   }
 
-  async createAccount(
-    realmId: string,
-    request: { username: string }
-  ): Promise<AccountListEntry> {
+  async createAccount(realmId: string, request: { username: string }): Promise<AccountListEntry> {
     return this.request<AccountListEntry>(`/realms/${realmId}/accounts`, {
       method: "POST",
       body: JSON.stringify(request),
@@ -467,7 +456,6 @@ export class ApiClient {
       method: "GET",
     });
   }
-
 
   async createAdminAccount(username: string): Promise<{ account_id: string; pat: string }> {
     return this.request<{ account_id: string; pat: string }>("/create-account", {

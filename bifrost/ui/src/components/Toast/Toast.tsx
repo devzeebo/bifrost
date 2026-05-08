@@ -29,13 +29,9 @@ export function Toast({ toast, onRemove }: ToastItemProps) {
       <div className="flex items-start gap-3">
         <span className="text-lg">{iconStyles[toast.type]}</span>
         <div className="flex-1">
-          <div className="font-semibold text-gray-900 dark:text-gray-100">
-            {toast.title}
-          </div>
+          <div className="font-semibold text-gray-900 dark:text-gray-100">{toast.title}</div>
           {toast.description && (
-            <div className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-              {toast.description}
-            </div>
+            <div className="text-sm text-gray-600 dark:text-gray-300 mt-1">{toast.description}</div>
           )}
         </div>
         <button

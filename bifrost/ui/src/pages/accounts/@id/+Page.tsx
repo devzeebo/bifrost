@@ -85,7 +85,9 @@ function Page() {
   const [isAssigningRole, setIsAssigningRole] = useState(false);
   const [realmFilter, setRealmFilter] = useState("");
   const [selectedRealmId, setSelectedRealmId] = useState("");
-  const [selectedRole, setSelectedRole] = useState<"owner" | "admin" | "member" | "viewer">("member");
+  const [selectedRole, setSelectedRole] = useState<"owner" | "admin" | "member" | "viewer">(
+    "member",
+  );
 
   const [roleToRemove, setRoleToRemove] = useState<RoleToRemove | null>(null);
   const [isRemovingRole, setIsRemovingRole] = useState(false);
@@ -102,7 +104,12 @@ function Page() {
 
   const toFallbackAccount = useCallback(
     (targetAccountId: string): AdminAccountEntry | null => {
-      if (!targetAccountId || !currentAccountId || !username || targetAccountId !== currentAccountId) {
+      if (
+        !targetAccountId ||
+        !currentAccountId ||
+        !username ||
+        targetAccountId !== currentAccountId
+      ) {
         return null;
       }
 
@@ -116,7 +123,7 @@ function Page() {
         created_at: new Date(0).toISOString(),
       };
     },
-    [currentAccountId, username, realms, roles]
+    [currentAccountId, username, realms, roles],
   );
 
   const loadAccount = useCallback(async () => {
@@ -198,7 +205,7 @@ function Page() {
 
     for (const realm of availableRealms) {
       const normalizedName = realm.name.trim();
-      if (!map.has(realm.id) || normalizedName.length > 0 && normalizedName !== realm.id) {
+      if (!map.has(realm.id) || (normalizedName.length > 0 && normalizedName !== realm.id)) {
         map.set(realm.id, normalizedName || realm.id);
       }
     }
@@ -276,20 +283,20 @@ function Page() {
           realm_id: selectedRealmId,
           role: selectedRole,
         },
-        selectedRealmId
+        selectedRealmId,
       );
 
       if (existingRole) {
         showToast(
           "Role Updated",
           `${account.username} now has ${selectedRole} role in ${selectedRealm?.name ?? selectedRealmId}`,
-          "success"
+          "success",
         );
       } else {
         showToast(
           "Role Added",
           `${account.username} assigned ${selectedRole} role in ${selectedRealm?.name ?? selectedRealmId}`,
-          "success"
+          "success",
         );
       }
 
@@ -316,13 +323,13 @@ function Page() {
           account_id: account.account_id,
           realm_id: roleToRemove.realmId,
         },
-        roleToRemove.realmId
+        roleToRemove.realmId,
       );
 
       showToast(
         "Role Removed",
         `Removed ${roleToRemove.role} role for ${account.username} in ${roleToRemove.realmName}`,
-        "success"
+        "success",
       );
       setRoleToRemove(null);
       await loadAccount();
@@ -487,7 +494,6 @@ function Page() {
     return `${value.slice(0, 8)}...${value.slice(-4)}`;
   };
 
-
   return (
     <div className="min-h-[calc(100vh-56px)] p-6">
       <div className="mb-8">
@@ -584,19 +590,28 @@ function Page() {
 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>
+              <span
+                className="text-sm uppercase tracking-wider"
+                style={{ color: "var(--color-text-muted)" }}
+              >
                 Active PATs
               </span>
               <span className="text-2xl font-bold">{activePATs}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>
+              <span
+                className="text-sm uppercase tracking-wider"
+                style={{ color: "var(--color-text-muted)" }}
+              >
                 Total PATs
               </span>
               <span className="text-2xl font-bold">{totalPATs}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>
+              <span
+                className="text-sm uppercase tracking-wider"
+                style={{ color: "var(--color-text-muted)" }}
+              >
                 Realms
               </span>
               <span className="text-2xl font-bold">{roleRows.length}</span>
@@ -624,10 +639,16 @@ function Page() {
         <div className="mt-8">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">
-              <h2 className="text-2xl font-bold uppercase tracking-tight" style={{ color: "var(--color-blue)" }}>
+              <h2
+                className="text-2xl font-bold uppercase tracking-tight"
+                style={{ color: "var(--color-blue)" }}
+              >
                 Personal Access Tokens
               </h2>
-              <span className="text-sm uppercase tracking-widest" style={{ color: "var(--color-text-muted)" }}>
+              <span
+                className="text-sm uppercase tracking-widest"
+                style={{ color: "var(--color-text-muted)" }}
+              >
                 {pats.length} pat{pats.length !== 1 ? "s" : ""}
               </span>
             </div>
@@ -677,9 +698,10 @@ function Page() {
             ) : (
               <div>
                 {pats.map((pat) => {
-                  const patPreview = pat.token_preview && pat.token_preview.trim().length > 0
-                    ? pat.token_preview
-                    : abbreviateSecret(pat.id);
+                  const patPreview =
+                    pat.token_preview && pat.token_preview.trim().length > 0
+                      ? pat.token_preview
+                      : abbreviateSecret(pat.id);
                   const canDelete = pats.length > 1;
 
                   return (
@@ -691,7 +713,10 @@ function Page() {
                         backgroundColor: "var(--color-bg)",
                       }}
                     >
-                      <div className="col-span-3 text-xs font-mono" style={{ color: "var(--color-text-muted)" }}>
+                      <div
+                        className="col-span-3 text-xs font-mono"
+                        style={{ color: "var(--color-text-muted)" }}
+                      >
                         {pat.id}
                       </div>
                       <div className="col-span-3 text-sm">{pat.label?.trim() || "-"}</div>
@@ -715,7 +740,13 @@ function Page() {
                           aria-label={`Remove PAT ${pat.id}`}
                           title={canDelete ? "Remove PAT" : "Cannot remove last PAT"}
                         >
-                          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true">
+                          <svg
+                            viewBox="0 0 24 24"
+                            width="12"
+                            height="12"
+                            fill="currentColor"
+                            aria-hidden="true"
+                          >
                             <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.41L10.59 12 5.7 16.89a1 1 0 1 0 1.41 1.41L12 13.41l4.89 4.89a1 1 0 0 0 1.41-1.41L13.41 12l4.89-4.89a1 1 0 0 0 0-1.4z" />
                           </svg>
                         </Button>
@@ -817,7 +848,10 @@ function Page() {
                       onClick={() => navigate(`/realms/${row.realmId}`)}
                     >
                       <div className="col-span-3">
-                        <span className="text-xs font-mono" style={{ color: "var(--color-text-muted)" }}>
+                        <span
+                          className="text-xs font-mono"
+                          style={{ color: "var(--color-text-muted)" }}
+                        >
                           {row.realmId}
                         </span>
                       </div>
@@ -855,7 +889,13 @@ function Page() {
                           aria-label={`Remove ${row.role} role in ${row.realmName}`}
                           title="Remove role"
                         >
-                          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true">
+                          <svg
+                            viewBox="0 0 24 24"
+                            width="12"
+                            height="12"
+                            fill="currentColor"
+                            aria-hidden="true"
+                          >
                             <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.41L10.59 12 5.7 16.89a1 1 0 1 0 1.41 1.41L12 13.41l4.89 4.89a1 1 0 0 0 1.41-1.41L13.41 12l4.89-4.89a1 1 0 0 0 0-1.4z" />
                           </svg>
                         </Button>
@@ -918,7 +958,8 @@ function Page() {
                   >
                     Create Personal Access Token
                   </BaseDialog.Title>
-                    Create a new token and copy it immediately. This token will not be retrievable again.
+                  Create a new token and copy it immediately. This token will not be retrievable
+                  again.
                 </div>
 
                 {newPATValue ? (
@@ -929,7 +970,10 @@ function Page() {
                       border: "2px solid var(--color-border)",
                     }}
                   >
-                    <div className="text-xs uppercase tracking-wider mb-2" style={{ color: "var(--color-text-muted)" }}>
+                    <div
+                      className="text-xs uppercase tracking-wider mb-2"
+                      style={{ color: "var(--color-text-muted)" }}
+                    >
                       New PAT (shown once)
                     </div>
                     <div className="flex items-center gap-2">
@@ -1061,7 +1105,8 @@ function Page() {
                     className="text-sm mt-1"
                     style={{ color: "var(--color-text-muted)" }}
                   >
-                    Assigning a role to a realm with an existing role will overwrite the existing role.
+                    Assigning a role to a realm with an existing role will overwrite the existing
+                    role.
                   </BaseDialog.Description>
                 </div>
 
@@ -1149,7 +1194,12 @@ function Page() {
                     items={{ viewer: "viewer", member: "member", admin: "admin", owner: "owner" }}
                     value={selectedRole}
                     onValueChange={(value) => {
-                      if (value === "owner" || value === "admin" || value === "member" || value === "viewer") {
+                      if (
+                        value === "owner" ||
+                        value === "admin" ||
+                        value === "member" ||
+                        value === "viewer"
+                      ) {
                         setSelectedRole(value);
                       }
                     }}
@@ -1191,7 +1241,8 @@ function Page() {
                     </Select.Portal>
                   </Select.Root>
                   <p className="text-xs mt-2" style={{ color: "var(--color-text-muted)" }}>
-                    Current role: {selectedRealmId ? account.roles[selectedRealmId] ?? "none" : "none"}
+                    Current role:{" "}
+                    {selectedRealmId ? (account.roles[selectedRealmId] ?? "none") : "none"}
                   </p>
                 </div>
 

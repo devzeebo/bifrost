@@ -82,7 +82,8 @@ const buildIndicatorGradient = (navWidth: number, labelRanges: LabelRange[]): st
   }
 
   if (cursor < navWidth) {
-    const lastColor = segments[segments.length - 1]?.color ?? NAV_LINKS[NAV_LINKS.length - 1]?.color;
+    const lastColor =
+      segments[segments.length - 1]?.color ?? NAV_LINKS[NAV_LINKS.length - 1]?.color;
     if (lastColor) {
       colorStops.push(`${lastColor} ${navWidth}px`);
     }
@@ -155,15 +156,10 @@ export function TopNav({ currentPath }: TopNavProps) {
   useEffect(() => {
     const rawPath = currentPath ?? window.location.pathname;
     const path = toUIPath(rawPath);
-    const index = NAV_LINKS.findIndex(
-      (link) => {
-        const uiHref = toUIPath(link.href);
-        return (
-          uiHref === path ||
-          (uiHref !== toUIPath("/") && path.startsWith(uiHref))
-        );
-      }
-    );
+    const index = NAV_LINKS.findIndex((link) => {
+      const uiHref = toUIPath(link.href);
+      return uiHref === path || (uiHref !== toUIPath("/") && path.startsWith(uiHref));
+    });
     setActiveIndex(index >= 0 ? index : 0);
   }, [currentPath]);
 
@@ -181,17 +177,21 @@ export function TopNav({ currentPath }: TopNavProps) {
   return (
     <nav className="top-nav">
       {/* Logo */}
-      <a href="/ui/" className="top-nav__logo" onClick={(e) => { e.preventDefault(); navigate("/ui/"); }}>
+      <a
+        href="/ui/"
+        className="top-nav__logo"
+        onClick={(e) => {
+          e.preventDefault();
+          navigate("/ui/");
+        }}
+      >
         <span className="top-nav__logo-text bifrost-logo-text">Bifrost</span>
       </a>
 
       {/* Navigation Links with Rainbow Indicator */}
       <div className="top-nav__links-container" ref={navRef}>
-        <div
-          className="top-nav__indicator"
-          style={indicatorStyle}
-        />
-        
+        <div className="top-nav__indicator" style={indicatorStyle} />
+
         {/* Nav links */}
         {NAV_LINKS.map((link, index) => (
           <button

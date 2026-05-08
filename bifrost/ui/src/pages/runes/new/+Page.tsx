@@ -47,7 +47,9 @@ function Page() {
   const visibleRealms =
     availableRealms.length > 0 ? availableRealms : realms.filter((realmId) => realmId !== "_admin");
   const selectedRealm =
-    currentRealm && visibleRealms.includes(currentRealm) ? currentRealm : (visibleRealms[0] ?? null);
+    currentRealm && visibleRealms.includes(currentRealm)
+      ? currentRealm
+      : (visibleRealms[0] ?? null);
 
   const [form, setForm] = useState<FormData>(initialForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -142,7 +144,9 @@ function Page() {
     (form.status === "draft" || form.status === "open");
 
   const runesById = new Map(existingRunes.map((rune) => [rune.id, rune]));
-  const selectedRelationshipIds = new Set(selectedRelationships.map((relationship) => relationship.targetId));
+  const selectedRelationshipIds = new Set(
+    selectedRelationships.map((relationship) => relationship.targetId),
+  );
   const filteredRunes = existingRunes.filter((rune) => {
     if (selectedRelationshipIds.has(rune.id)) {
       return false;
@@ -169,7 +173,9 @@ function Page() {
   };
 
   const removeRelationship = (targetId: string) => {
-    setSelectedRelationships((prev) => prev.filter((relationship) => relationship.targetId !== targetId));
+    setSelectedRelationships((prev) =>
+      prev.filter((relationship) => relationship.targetId !== targetId),
+    );
   };
 
   const handleSubmit = async () => {
@@ -195,11 +201,14 @@ function Page() {
       const rune = await api.createRune(request, selectedRealm);
 
       const relationshipRequests = selectedRelationships.map((relationship) =>
-        api.addDependency({
-          rune_id: rune.id,
-          target_id: relationship.targetId,
-          relationship: relationship.direction === "depends_on" ? "blocked_by" : "blocks",
-        }, selectedRealm)
+        api.addDependency(
+          {
+            rune_id: rune.id,
+            target_id: relationship.targetId,
+            relationship: relationship.direction === "depends_on" ? "blocked_by" : "blocks",
+          },
+          selectedRealm,
+        ),
       );
 
       const linkResults = await Promise.allSettled(relationshipRequests);
@@ -210,7 +219,7 @@ function Page() {
         showToast(
           "Relationship Warning",
           `${failedLinkCount} relationship link${failedLinkCount > 1 ? "s" : ""} failed to save`,
-          "warning"
+          "warning",
         );
       }
 
@@ -256,7 +265,10 @@ function Page() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="space-y-6">
             <div>
-              <label htmlFor="new-rune-title" className="text-xs uppercase tracking-wider block mb-2 font-bold">
+              <label
+                htmlFor="new-rune-title"
+                className="text-xs uppercase tracking-wider block mb-2 font-bold"
+              >
                 Title
               </label>
               <Input
@@ -276,7 +288,10 @@ function Page() {
             </div>
 
             <div>
-              <label htmlFor="new-rune-description" className="text-xs uppercase tracking-wider block mb-2 font-bold">
+              <label
+                htmlFor="new-rune-description"
+                className="text-xs uppercase tracking-wider block mb-2 font-bold"
+              >
                 Description
               </label>
               <textarea
@@ -295,7 +310,10 @@ function Page() {
             </div>
 
             <div>
-              <label htmlFor="new-rune-branch" className="text-xs uppercase tracking-wider block mb-2 font-bold">
+              <label
+                htmlFor="new-rune-branch"
+                className="text-xs uppercase tracking-wider block mb-2 font-bold"
+              >
                 Branch
               </label>
               <Input
@@ -316,7 +334,10 @@ function Page() {
 
           <div className="space-y-6">
             <div>
-              <label htmlFor="realm-select" className="text-xs uppercase tracking-wider block mb-3 font-bold">
+              <label
+                htmlFor="realm-select"
+                className="text-xs uppercase tracking-wider block mb-3 font-bold"
+              >
                 Realm
               </label>
               <RealmSelector />
@@ -395,9 +416,7 @@ function Page() {
                   border: "1px solid var(--color-border)",
                 }}
               >
-                <h3 className="text-xs uppercase tracking-wider font-bold mb-3">
-                  Relationships
-                </h3>
+                <h3 className="text-xs uppercase tracking-wider font-bold mb-3">Relationships</h3>
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   <button
                     type="button"
@@ -405,7 +424,9 @@ function Page() {
                     className="px-3 py-2 text-xs font-bold uppercase tracking-wider"
                     style={{
                       backgroundColor:
-                        relationshipDirection === "depends_on" ? "var(--color-amber)" : "var(--color-bg)",
+                        relationshipDirection === "depends_on"
+                          ? "var(--color-amber)"
+                          : "var(--color-bg)",
                       border: "2px solid var(--color-border)",
                       color: relationshipDirection === "depends_on" ? "white" : "var(--color-text)",
                     }}
@@ -418,9 +439,12 @@ function Page() {
                     className="px-3 py-2 text-xs font-bold uppercase tracking-wider"
                     style={{
                       backgroundColor:
-                        relationshipDirection === "depended_on_by" ? "var(--color-amber)" : "var(--color-bg)",
+                        relationshipDirection === "depended_on_by"
+                          ? "var(--color-amber)"
+                          : "var(--color-bg)",
                       border: "2px solid var(--color-border)",
-                      color: relationshipDirection === "depended_on_by" ? "white" : "var(--color-text)",
+                      color:
+                        relationshipDirection === "depended_on_by" ? "white" : "var(--color-text)",
                     }}
                   >
                     Depended On By
@@ -467,7 +491,10 @@ function Page() {
                               </Combobox.Item>
                             ))}
                           </Combobox.List>
-                          <Combobox.Empty className="px-3 py-2 text-sm" style={{ color: "var(--color-text-muted)" }}>
+                          <Combobox.Empty
+                            className="px-3 py-2 text-sm"
+                            style={{ color: "var(--color-text-muted)" }}
+                          >
                             No matching runes.
                           </Combobox.Empty>
                         </Combobox.Popup>
@@ -489,7 +516,10 @@ function Page() {
                   </Button>
                 </div>
 
-                <ScrollArea.Root className="mt-3 max-h-44" style={{ border: "1px solid var(--color-border)" }}>
+                <ScrollArea.Root
+                  className="mt-3 max-h-44"
+                  style={{ border: "1px solid var(--color-border)" }}
+                >
                   <ScrollArea.Viewport className="max-h-44 overflow-auto">
                     <ScrollArea.Content className="space-y-2 p-2">
                       {selectedRelationships.length === 0 ? (

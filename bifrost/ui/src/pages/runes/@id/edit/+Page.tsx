@@ -140,12 +140,18 @@ function Page() {
           boxShadow: "var(--shadow-soft)",
         }}
       >
-        <h1 className="text-3xl font-bold uppercase tracking-tight" style={{ color: "var(--color-amber)" }}>
+        <h1
+          className="text-3xl font-bold uppercase tracking-tight"
+          style={{ color: "var(--color-amber)" }}
+        >
           Edit Rune
         </h1>
 
         <div>
-          <label htmlFor="rune-edit-title" className="text-xs uppercase tracking-wider block mb-2 font-bold">
+          <label
+            htmlFor="rune-edit-title"
+            className="text-xs uppercase tracking-wider block mb-2 font-bold"
+          >
             Title
           </label>
           <Input
@@ -162,7 +168,10 @@ function Page() {
         </div>
 
         <div>
-          <label htmlFor="rune-edit-description" className="text-xs uppercase tracking-wider block mb-2 font-bold">
+          <label
+            htmlFor="rune-edit-description"
+            className="text-xs uppercase tracking-wider block mb-2 font-bold"
+          >
             Description
           </label>
           <textarea
@@ -181,7 +190,10 @@ function Page() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="rune-edit-priority" className="text-xs uppercase tracking-wider block mb-2 font-bold">
+            <label
+              htmlFor="rune-edit-priority"
+              className="text-xs uppercase tracking-wider block mb-2 font-bold"
+            >
               Priority (1-4)
             </label>
             <Input
@@ -192,7 +204,10 @@ function Page() {
               value={String(form.priority)}
               onChange={(e) => {
                 const value = Number(e.target.value);
-                setForm((prev) => ({ ...prev, priority: Number.isFinite(value) ? value : prev.priority }));
+                setForm((prev) => ({
+                  ...prev,
+                  priority: Number.isFinite(value) ? value : prev.priority,
+                }));
               }}
               className="w-full px-4 py-3 text-base outline-none"
               style={{
@@ -204,7 +219,10 @@ function Page() {
           </div>
 
           <div>
-            <label htmlFor="rune-edit-branch" className="text-xs uppercase tracking-wider block mb-2 font-bold">
+            <label
+              htmlFor="rune-edit-branch"
+              className="text-xs uppercase tracking-wider block mb-2 font-bold"
+            >
               Branch
             </label>
             <Input

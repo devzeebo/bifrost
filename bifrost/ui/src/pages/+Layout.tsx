@@ -8,7 +8,8 @@ export { Layout };
 
 function Layout({ children }: { children: ReactNode }) {
   const pageContext = usePageContext();
-  const isAuthlessPage = pageContext.urlPathname === "/login" || pageContext.urlPathname === "/onboarding";
+  const isAuthlessPage =
+    pageContext.urlPathname === "/login" || pageContext.urlPathname === "/onboarding";
 
   return (
     <>

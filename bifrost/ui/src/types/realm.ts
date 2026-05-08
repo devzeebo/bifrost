@@ -1,4 +1,4 @@
-export type RealmStatus = 'active' | 'inactive';
+export type RealmStatus = "active" | "inactive";
 
 export interface RealmListEntry {
   id: string;

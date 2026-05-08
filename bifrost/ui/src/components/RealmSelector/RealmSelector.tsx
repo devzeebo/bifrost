@@ -10,7 +10,7 @@ export function RealmSelector() {
   const selectedRealm =
     currentRealm && availableRealms.includes(currentRealm)
       ? currentRealm
-      : availableRealms[0] ?? "";
+      : (availableRealms[0] ?? "");
   const items = Object.fromEntries(options.map((option) => [option.id, option.name]));
 
   if (isLoading) {

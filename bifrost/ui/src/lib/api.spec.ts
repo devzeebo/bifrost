@@ -42,7 +42,7 @@ describe("ApiClient", () => {
           },
           body: JSON.stringify(loginRequest),
           credentials: "include",
-        })
+        }),
       );
       expect(result).toEqual(sessionInfo);
     });
@@ -75,7 +75,7 @@ describe("ApiClient", () => {
         expect.objectContaining({
           method: "POST",
           credentials: "include",
-        })
+        }),
       );
     });
   });
@@ -102,7 +102,7 @@ describe("ApiClient", () => {
         expect.objectContaining({
           method: "GET",
           credentials: "include",
-        })
+        }),
       );
       expect(result).toEqual(sessionInfo);
     });
@@ -137,7 +137,7 @@ describe("ApiClient", () => {
         expect.objectContaining({
           method: "GET",
           credentials: "include",
-        })
+        }),
       );
       expect(result).toEqual(onboardingResponse);
     });
@@ -168,7 +168,7 @@ describe("ApiClient", () => {
           method: "POST",
           body: JSON.stringify(createAdminRequest),
           credentials: "include",
-        })
+        }),
       );
       expect(result).toEqual(createAdminResponse);
     });
@@ -177,8 +177,26 @@ describe("ApiClient", () => {
   describe("getRunes", () => {
     test("sends GET request to /api/runes with realm header", async () => {
       const runes = [
-        { id: "1", title: "Rune 1", status: "open" as const, priority: 1, realm_id: "test-realm", created_at: "", updated_at: "", tags: [] },
-        { id: "2", title: "Rune 2", status: "open" as const, priority: 1, realm_id: "test-realm", created_at: "", updated_at: "", tags: [] },
+        {
+          id: "1",
+          title: "Rune 1",
+          status: "open" as const,
+          priority: 1,
+          realm_id: "test-realm",
+          created_at: "",
+          updated_at: "",
+          tags: [],
+        },
+        {
+          id: "2",
+          title: "Rune 2",
+          status: "open" as const,
+          priority: 1,
+          realm_id: "test-realm",
+          created_at: "",
+          updated_at: "",
+          tags: [],
+        },
       ];
 
       mockFetch.mockResolvedValueOnce({
@@ -196,11 +214,10 @@ describe("ApiClient", () => {
             "X-Bifrost-Realm": "test-realm",
           }),
           credentials: "include",
-        })
+        }),
       );
       expect(result).toEqual(runes);
     });
-
   });
 
   describe("getRunes tag normalization", () => {
@@ -258,11 +275,10 @@ describe("ApiClient", () => {
             "X-Bifrost-Realm": "test-realm",
           }),
           credentials: "include",
-        })
+        }),
       );
       expect(result).toEqual(rune);
     });
-
   });
 
   describe("createRune", () => {
@@ -297,7 +313,7 @@ describe("ApiClient", () => {
           method: "POST",
           body: JSON.stringify(createRuneRequest),
           credentials: "include",
-        })
+        }),
       );
       expect(result).toEqual(rune);
     });
@@ -324,7 +340,7 @@ describe("ApiClient", () => {
           method: "POST",
           body: JSON.stringify(request),
           credentials: "include",
-        })
+        }),
       );
     });
   });
@@ -349,7 +365,7 @@ describe("ApiClient", () => {
             "X-Bifrost-Realm": "test-realm",
           }),
           credentials: "include",
-        })
+        }),
       );
     });
 
@@ -367,7 +383,7 @@ describe("ApiClient", () => {
         "/api/update-rune",
         expect.objectContaining({
           body: JSON.stringify({ id: "1", tags: ["backend", "urgent"] }),
-        })
+        }),
       );
     });
   });
@@ -390,7 +406,7 @@ describe("ApiClient", () => {
             "X-Bifrost-Realm": "test-realm",
           }),
           credentials: "include",
-        })
+        }),
       );
     });
   });
@@ -414,7 +430,7 @@ describe("ApiClient", () => {
         expect.objectContaining({
           method: "GET",
           credentials: "include",
-        })
+        }),
       );
       expect(result).toEqual(realms);
     });
@@ -443,7 +459,7 @@ describe("ApiClient", () => {
           headers: expect.objectContaining({
             "X-Bifrost-Realm": "1",
           }),
-        })
+        }),
       );
       expect(result).toEqual(realm);
     });
@@ -470,7 +486,7 @@ describe("ApiClient", () => {
           method: "POST",
           body: JSON.stringify(createRealmRequest),
           credentials: "include",
-        })
+        }),
       );
       expect(result).toEqual({ id: "1", name: "New Realm" });
     });
@@ -495,7 +511,7 @@ describe("ApiClient", () => {
         expect.objectContaining({
           method: "GET",
           credentials: "include",
-        })
+        }),
       );
       expect(result).toEqual(accounts);
     });
@@ -520,7 +536,7 @@ describe("ApiClient", () => {
         expect.objectContaining({
           method: "GET",
           credentials: "include",
-        })
+        }),
       );
       expect(result).toEqual(account);
     });
@@ -547,7 +563,7 @@ describe("ApiClient", () => {
           method: "POST",
           body: JSON.stringify(createAccountRequest),
           credentials: "include",
-        })
+        }),
       );
       expect(result).toEqual(account);
     });
@@ -572,7 +588,7 @@ describe("ApiClient", () => {
         expect.objectContaining({
           method: "GET",
           credentials: "include",
-        })
+        }),
       );
       expect(result).toEqual(adminAccounts);
     });
@@ -598,7 +614,7 @@ describe("ApiClient", () => {
           method: "POST",
           body: JSON.stringify({ username: "newadmin" }),
           credentials: "include",
-        })
+        }),
       );
       expect(result).toEqual(response);
     });
@@ -625,7 +641,7 @@ describe("ApiClient", () => {
           method: "POST",
           body: JSON.stringify(request),
           credentials: "include",
-        })
+        }),
       );
     });
   });
@@ -650,7 +666,7 @@ describe("ApiClient", () => {
           method: "POST",
           body: JSON.stringify({ account_id: "123" }),
           credentials: "include",
-        })
+        }),
       );
       expect(result).toEqual(response);
     });
@@ -675,7 +691,7 @@ describe("ApiClient", () => {
         expect.objectContaining({
           method: "GET",
           credentials: "include",
-        })
+        }),
       );
       expect(result).toEqual(pats);
     });
@@ -696,7 +712,7 @@ describe("ApiClient", () => {
           method: "POST",
           body: JSON.stringify({ account_id: "123", pat_id: "pat-1" }),
           credentials: "include",
-        })
+        }),
       );
     });
   });
@@ -755,7 +771,7 @@ describe("ApiClient", () => {
 
       expect(mockFetch).toHaveBeenCalledWith(
         "https://custom.example.com/api/realm?id=1",
-        expect.any(Object)
+        expect.any(Object),
       );
     });
 
@@ -769,10 +785,7 @@ describe("ApiClient", () => {
 
       await apiClient.getRealm("1");
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        "/api/realm?id=1",
-        expect.any(Object)
-      );
+      expect(mockFetch).toHaveBeenCalledWith("/api/realm?id=1", expect.any(Object));
     });
   });
 });

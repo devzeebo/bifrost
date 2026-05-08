@@ -19,9 +19,7 @@ vi.mock("../../lib/realm", () => ({
 import { useRealm } from "../../lib/realm";
 
 // Helper function to create complete RealmContextValue mock
-const createMockRealmValue = (
-  overrides: Partial<RealmContextValue> = {},
-): RealmContextValue => ({
+const createMockRealmValue = (overrides: Partial<RealmContextValue> = {}): RealmContextValue => ({
   currentRealm: "test-realm",
   setCurrentRealm: vi.fn(),
   availableRealms: ["test-realm", "other-realm"],
@@ -40,13 +38,9 @@ describe("RealmSelector", () => {
 
   describe("Loading State", () => {
     test("shows loading message when isLoading is true", () => {
-      vi.mocked(useRealm).mockReturnValue(
-        createMockRealmValue({ isLoading: true }),
-      );
+      vi.mocked(useRealm).mockReturnValue(createMockRealmValue({ isLoading: true }));
       render(<RealmSelector />);
-      expect(
-        screen.getByText("Loading realms..."),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Loading realms...")).toBeInTheDocument();
     });
   });
 

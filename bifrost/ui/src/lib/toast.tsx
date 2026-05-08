@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  type ReactNode,
-} from "react";
+import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 import { Toast as BaseToast } from "@base-ui/react/toast";
 
 export type ToastType = "success" | "error" | "info" | "warning";
@@ -66,12 +60,15 @@ export function ToastProvider({ children }: ToastProviderProps) {
         timeout: 10000,
       });
     },
-    [toastManager]
+    [toastManager],
   );
 
-  const removeToast = useCallback((id: string) => {
-    toastManager.close(id);
-  }, [toastManager]);
+  const removeToast = useCallback(
+    (id: string) => {
+      toastManager.close(id);
+    },
+    [toastManager],
+  );
 
   return (
     <ToastContext.Provider value={{ showToast }}>
@@ -95,7 +92,7 @@ function ToastViewport({ removeToast }: ToastViewportProps) {
       <BaseToast.Viewport className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2">
         {managedToasts.toasts.map((toast) => {
           const data = (toast.data as Partial<Toast> | undefined) ?? {};
-          const type = data.type ?? ((toast.type as ToastType | undefined) ?? "info");
+          const type = data.type ?? (toast.type as ToastType | undefined) ?? "info";
           const title =
             typeof data.title === "string"
               ? data.title

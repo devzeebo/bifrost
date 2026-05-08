@@ -31,7 +31,6 @@ export interface RuneListItem {
   updated_at: string;
 }
 
-
 export interface RuneDetail extends RuneListItem {
   description: string;
   branch?: string;

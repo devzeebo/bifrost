@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 
 export interface WizardStep {
   title: string;
@@ -11,13 +11,9 @@ export interface WizardProps {
   colors?: string[];
 }
 
-const DEFAULT_COLORS = ['#ef4444', '#3b82f6', '#22c55e', '#a855f7'];
+const DEFAULT_COLORS = ["#ef4444", "#3b82f6", "#22c55e", "#a855f7"];
 
-export const Wizard: React.FC<WizardProps> = ({
-  steps,
-  onComplete,
-  colors = DEFAULT_COLORS
-}) => {
+export const Wizard: React.FC<WizardProps> = ({ steps, onComplete, colors = DEFAULT_COLORS }) => {
   const [currentStep, setCurrentStep] = useState(0);
 
   const isLastStep = currentStep === steps.length - 1;
@@ -55,58 +51,51 @@ export const Wizard: React.FC<WizardProps> = ({
               <div
                 className="step-number"
                 style={{
-                  backgroundColor: isActive || isCompleted ? getStepColor(index) : '#f5f5f5',
-                  borderColor: isActive || isCompleted ? getStepColor(index) : '#000000',
-                  color: isActive || isCompleted ? '#ffffff' : '#000000',
+                  backgroundColor: isActive || isCompleted ? getStepColor(index) : "#f5f5f5",
+                  borderColor: isActive || isCompleted ? getStepColor(index) : "#000000",
+                  color: isActive || isCompleted ? "#ffffff" : "#000000",
                 }}
               >
-                {isCompleted ? '✓' : index + 1}
+                {isCompleted ? "✓" : index + 1}
               </div>
               <div
                 className="step-title"
                 style={{
-                  color: isActive ? getStepColor(index) : isUpcoming ? '#999999' : '#000000',
-                  fontWeight: isActive ? 'bold' : 'normal',
+                  color: isActive ? getStepColor(index) : isUpcoming ? "#999999" : "#000000",
+                  fontWeight: isActive ? "bold" : "normal",
                 }}
               >
                 {step.title}
               </div>
-              {index < steps.length - 1 && (
-                <div className="step-connector" />
-              )}
+              {index < steps.length - 1 && <div className="step-connector" />}
             </div>
           );
         })}
       </div>
 
       {/* Step Content */}
-      <div className="wizard-content">
-        {steps[currentStep].content}
-      </div>
+      <div className="wizard-content">{steps[currentStep].content}</div>
 
       {/* Navigation Buttons */}
       <div className="wizard-navigation">
         {!isFirstStep && (
-          <button
-            onClick={handleBack}
-            className="wizard-button wizard-button-back"
-            type="button"
-          >
+          <button onClick={handleBack} className="wizard-button wizard-button-back" type="button">
             ← Back
           </button>
         )}
 
         <button
           onClick={handleNext}
-          className={`wizard-button ${isLastStep ? 'wizard-button-done' : 'wizard-button-next'}`}
+          className={`wizard-button ${isLastStep ? "wizard-button-done" : "wizard-button-next"}`}
           type="button"
         >
-          {isLastStep ? 'Done →' : 'Next →'}
+          {isLastStep ? "Done →" : "Next →"}
         </button>
       </div>
 
-      <style dangerouslySetInnerHTML={{
-        __html: `
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
           .wizard {
             display: flex;
             flex-direction: column;
@@ -226,8 +215,9 @@ export const Wizard: React.FC<WizardProps> = ({
           .wizard-button-done:hover {
             background: #16a34a;
           }
-        `
-      }} />
+        `,
+        }}
+      />
     </div>
   );
 };
