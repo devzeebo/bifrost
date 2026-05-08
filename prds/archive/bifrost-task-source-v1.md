@@ -579,3 +579,59 @@ Per Orchestrator "Assumptions" section and Bifrost-specific assumptions:
 2. skipFulfill is not supported — forces agents to always fulfill or fail
 
 **Comparison:** The ideal solution preserves work done during execution while allowing deferred completion. This supports multi-stage workflows where an agent completes a phase but leaves the rune open for follow-up work.
+
+---
+
+## Decisions and Feedback
+
+This section records decisions made during PRD review and feedback for future iterations.
+
+### Decisions
+
+**D1: Task State Persistence Granularity**
+- **Decision:** setState() is called immediately on every engine invocation. No batching, no debouncing.
+- **Rationale:** Bifrost's update-rune-state API is designed for atomic state updates. Real-time visibility is more valuable than API call optimization for this use case.
+- **Made:** 2026-05-08
+
+**D2: Claim Coordination**
+- **Decision:** Claims are managed entirely by Bifrost. The plugin calls POST /api/claim-rune before yielding a task. No additional coordination logic in the plugin.
+- **Rationale:** Bifrost provides atomic claim semantics. Duplicating this logic in the plugin would be redundant and error-prone.
+- **Made:** 2026-05-08
+
+**D3: Orphaned Claim Recovery**
+- **Decision:** Out of scope for the task source plugin. Orphaned or stalled claims are an operational concern, not a plugin concern.
+- **Rationale:** The plugin's responsibility ends at the API boundary. Recovery mechanisms belong in Bifrost or operational tooling.
+- **Made:** 2026-05-08
+
+**D4: Agent Tag Format**
+- **Decision:** Use `agent:<agent-id>` format where `<agent-id>` matches the orchestrator's agent catalog.
+- **Rationale:** Simple, extensible, aligns with Bifrost's existing tag system.
+- **Made:** 2026-05-08
+
+**D5: Polling Strategy**
+- **Decision:** Short-polling with exponential backoff (1s base, 30s max). No long-polling, no webhooks in v1.
+- **Rationale:** Bifrost API doesn't support long-polling in v1. Short-polling is sufficient and requires no Bifrost changes.
+- **Made:** 2026-05-08
+
+**D6: skipFulfill Handling**
+- **Decision:** The task source plugin is unaware of skipFulfill. It's an orchestrator concern, not a task source concern.
+- **Rationale:** The orchestrator decides whether to call completeTask() based on EngineResult.skipFulfill. The task source only handles the calls it receives.
+- **Made:** 2026-05-08
+
+### Feedback for v2
+
+**FB1: TaskDetail Removal**
+- TaskDetail is not a separate type in @orchestrator/task-source. The Task type is the only exported type.
+- **Action:** Remove FR-3 and all references to TaskDetail. Dependencies, notes, AC, and retro belong in Task.metadata if needed.
+
+**FB2: Credential Loading**
+- Token should be loaded from Bifrost's credential store (`~/.bifrost-credentials`), not from an explicit config setting.
+- **Action:** Update FR-7 to remove `token` from configuration. Add credential loading logic.
+
+**FB3: API vs Database**
+- Plugin should call HTTP API endpoints, not query database projections directly.
+- **Action:** Remove SQL queries from "Query Projections" section. Emphasize HTTP API usage throughout.
+
+**FB4: Open Questions Resolution**
+- All open questions have been resolved and recorded as decisions above.
+- **Action:** Remove "Open Questions" section or convert to "Resolved Questions" for historical reference.
