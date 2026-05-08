@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { join, mkdir, randomBytes, rm, writeFile } from "node:fs/promises";
-import { ConfigLoader } from "./config-loader";
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { randomBytes } from "node:crypto";
+import { loadConfig } from "./config-loader";
 
 describe("ConfigLoader", () => {
   let tempDir = "";
@@ -21,8 +23,7 @@ describe("ConfigLoader", () => {
       const yamlContent = "url: https://bifrost.example.com\nrealm: my-project\n";
       await writeFile(configPath, yamlContent, "utf-8");
 
-      const loader = new ConfigLoader();
-      const config = await loader.load(tempDir);
+      const config = await loadConfig(tempDir);
 
       expect(config).toEqual({
         url: "https://bifrost.example.com",
@@ -31,18 +32,16 @@ describe("ConfigLoader", () => {
     });
 
     it("should throw when .bifrost.yaml is missing", async () => {
-      const loader = new ConfigLoader();
-
-      await expect(loader.load(tempDir)).rejects.toThrow();
+      
+      await expect(loadConfig(tempDir)).rejects.toThrow();
     });
 
     it("should throw when url is missing", async () => {
       const yamlContent = "realm: my-project\n";
       await writeFile(configPath, yamlContent, "utf-8");
 
-      const loader = new ConfigLoader();
-
-      await expect(loader.load(tempDir)).rejects.toThrow(
+      
+      await expect(loadConfig(tempDir)).rejects.toThrow(
         "Invalid .bifrost.yaml: missing url or realm",
       );
     });
@@ -51,9 +50,8 @@ describe("ConfigLoader", () => {
       const yamlContent = "url: https://bifrost.example.com\n";
       await writeFile(configPath, yamlContent, "utf-8");
 
-      const loader = new ConfigLoader();
-
-      await expect(loader.load(tempDir)).rejects.toThrow(
+      
+      await expect(loadConfig(tempDir)).rejects.toThrow(
         "Invalid .bifrost.yaml: missing url or realm",
       );
     });
@@ -62,17 +60,15 @@ describe("ConfigLoader", () => {
       const invalidYaml = "url: https://bifrost.example.com\nrealm: [unclosed\n";
       await writeFile(configPath, invalidYaml, "utf-8");
 
-      const loader = new ConfigLoader();
-
-      await expect(loader.load(tempDir)).rejects.toThrow();
+      
+      await expect(loadConfig(tempDir)).rejects.toThrow();
     });
 
     it("should load with trailing slash in URL", async () => {
       const yamlContent = "url: https://bifrost.example.com/\nrealm: my-project\n";
       await writeFile(configPath, yamlContent, "utf-8");
 
-      const loader = new ConfigLoader();
-      const config = await loader.load(tempDir);
+      const config = await loadConfig(tempDir);
 
       expect(config.url).toBe("https://bifrost.example.com/");
     });

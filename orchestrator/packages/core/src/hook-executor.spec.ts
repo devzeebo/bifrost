@@ -102,7 +102,7 @@ describe("Hook Executor - US-4", () => {
 
       const mockExec = vi.fn().mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
 
-      await executeHooks(hooks, "Start", context, mockExec);
+      await executeHooks({ hooks, lifecycle: "Start", context, execFn: mockExec });
 
       // Hook receives JSON containing: projectDir, params, taskState
       expect(mockExec).toHaveBeenCalledWith(
@@ -122,7 +122,7 @@ describe("Hook Executor - US-4", () => {
 
       const mockExec = vi.fn().mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
 
-      await executeHooks(hooks, "Start", context, mockExec);
+      await executeHooks({ hooks, lifecycle: "Start", context, execFn: mockExec });
 
       // The rendered prompt is NOT present in stdin
       const callArgs = mockExec.mock.calls[0];
@@ -142,7 +142,7 @@ describe("Hook Executor - US-4", () => {
 
       const mockExec = vi.fn().mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
 
-      await executeHooks(hooks, "Start", context, mockExec);
+      await executeHooks({ hooks, lifecycle: "Start", context, execFn: mockExec });
 
       // Default timeout of 300000ms (5 minutes) is applied
       expect(mockExec).toHaveBeenCalledWith(
@@ -162,7 +162,7 @@ describe("Hook Executor - US-4", () => {
 
       const mockExec = vi.fn().mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
 
-      await executeHooks(hooks, "Start", context, mockExec);
+      await executeHooks({ hooks, lifecycle: "Start", context, execFn: mockExec });
 
       expect(mockExec).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -200,7 +200,7 @@ describe("Hook Executor - US-4", () => {
 
       const mockExec = vi.fn().mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
 
-      const results = await executeHooks(hooks, "Stop", context, mockExec);
+      const results = await executeHooks({ hooks, lifecycle: "Stop", context, execFn: mockExec });
 
       expect(results).toHaveLength(1);
       expect(results[0].hookName).toBe("check-new-tests");
@@ -220,7 +220,7 @@ describe("Hook Executor - US-4", () => {
         stderr: "",
       });
 
-      const results = await executeHooks(hooks, "Stop", context, mockExec);
+      const results = await executeHooks({ hooks, lifecycle: "Stop", context, execFn: mockExec });
 
       // Exit code 1 returns stdout to agent for remediation (follow-up loop)
       expect(results[0].needsFollowUp).toBe(true);

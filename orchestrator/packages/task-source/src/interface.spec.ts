@@ -26,7 +26,7 @@ describe("TaskSource Interface", () => {
         }
       }
 
-      const source = MockTaskSource;
+      const source = new MockTaskSource();
       const tasks = source.watchTasks();
 
       for await (const task of tasks) {

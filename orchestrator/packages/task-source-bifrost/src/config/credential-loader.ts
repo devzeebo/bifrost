@@ -12,7 +12,7 @@ export class CredentialLoader {
     const content = await readFile(credentialsPath, "utf-8");
     const credentials = parse(content) as unknown;
 
-    if (!this.isValidCredentials(credentials)) {
+    if (!CredentialLoader.isValidCredentials(credentials)) {
       throw new Error("Invalid credentials.yaml: missing credentials map");
     }
 

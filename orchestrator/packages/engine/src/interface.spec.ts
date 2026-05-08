@@ -10,7 +10,7 @@ describe("Engine Interface", () => {
           return {
             success: true,
             skipFulfill: false,
-            lastMessage: "Executed",
+            lastMessage: "test-agent executed",
             stats: {
               durationMs: 1000,
               inputTokens: 100,
@@ -24,7 +24,7 @@ describe("Engine Interface", () => {
         }
       }
 
-      const engine = MockEngine;
+      const engine = new MockEngine();
       const context: EngineContext = {
         taskId: "task-1",
         workingDir: "/test",

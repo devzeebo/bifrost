@@ -8,7 +8,7 @@ import type {
   TaskSource,
 } from "@orchestrator/task-source";
 import { BifrostHttpClient } from "./client/bifrost-http-client";
-import { ConfigLoader } from "./config/config-loader";
+import { loadConfig } from "./config/config-loader";
 import { CredentialLoader } from "./config/credential-loader";
 
 export class BifrostTaskSource implements TaskSource {
@@ -30,8 +30,7 @@ export class BifrostTaskSource implements TaskSource {
       return;
     }
 
-    const configLoader = new ConfigLoader();
-    const bifrostConfig = await configLoader.load();
+    const bifrostConfig = await loadConfig();
 
     const credentialLoader = new CredentialLoader();
     const token = await credentialLoader.loadToken(bifrostConfig.url);

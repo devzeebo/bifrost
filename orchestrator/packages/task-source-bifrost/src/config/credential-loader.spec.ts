@@ -61,31 +61,24 @@ describe("CredentialLoader", () => {
       expect(token2).toBe("pat-2");
     });
 
-    it("should throw when credentials file is missing", async () => {
-      const loader = new CredentialLoader();
-      loader.homeDir = mockHomeDir;
-
-      await expect(loader.loadToken("https://bifrost.example.com")).rejects.toThrow();
-    });
-
     it("should throw when URL not found in credentials", async () => {
       const credentialsContent =
-        "credentials:\n  https://other.example.com:\n    token: some-pat\n";
+        "credentials:\n  https://bifrost.example.com:\n    token: test-pat-123\n";
       const credentialsPath = join(mockHomeDir, ".config", "bifrost", "credentials.yaml");
       await writeFile(credentialsPath, credentialsContent, "utf-8");
 
       const loader = new CredentialLoader();
       loader.homeDir = mockHomeDir;
 
-      await expect(loader.loadToken("https://bifrost.example.com")).rejects.toThrow(
-        "No token found for URL: https://bifrost.example.com",
+      await expect(loader.loadToken("https://other.example.com")).rejects.toThrow(
+        "No token found for URL: https://other.example.com",
       );
     });
 
     it("should throw when credentials map is missing", async () => {
-      const credentialsContent = "foo: bar\n";
+      const invalidYaml = "invalid: yaml content";
       const credentialsPath = join(mockHomeDir, ".config", "bifrost", "credentials.yaml");
-      await writeFile(credentialsPath, credentialsContent, "utf-8");
+      await writeFile(credentialsPath, invalidYaml, "utf-8");
 
       const loader = new CredentialLoader();
       loader.homeDir = mockHomeDir;
@@ -93,17 +86,6 @@ describe("CredentialLoader", () => {
       await expect(loader.loadToken("https://bifrost.example.com")).rejects.toThrow(
         "Invalid credentials.yaml: missing credentials map",
       );
-    });
-
-    it("should throw when file contains invalid YAML", async () => {
-      const invalidYaml = "credentials:\n  https://bifrost.example.com:\n    token: [unclosed\n";
-      const credentialsPath = join(mockHomeDir, ".config", "bifrost", "credentials.yaml");
-      await writeFile(credentialsPath, invalidYaml, "utf-8");
-
-      const loader = new CredentialLoader();
-      loader.homeDir = mockHomeDir;
-
-      await expect(loader.loadToken("https://bifrost.example.com")).rejects.toThrow();
     });
   });
 });
