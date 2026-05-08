@@ -32,7 +32,7 @@ export default ({
           /node_modules/,
         ],
       },
-      target: "node20",
+      target: "node24",
       emptyOutDir: true,
     },
   });

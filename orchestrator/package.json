@@ -10,7 +10,7 @@
   "scripts": {
     "test": "vitest run",
     "test:typecheck": "tsc --project tsconfig.test.json --noEmit",
-    "build": "npm run build -ws",
+    "build": "npm run build --workspaces",
     "dev": "vitest --watch",
     "lint": "oxlint . -c oxlint.config.ts",
     "format": "prettier . -w"
