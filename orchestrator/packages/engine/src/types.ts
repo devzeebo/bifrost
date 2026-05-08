@@ -1,8 +1,10 @@
-// FR-2: EngineContext MUST contain
 export type EngineContext = {
   taskId: string
   workingDir: string
   agentName: string
+  taskState: Record<string, unknown>
+  metadata: Record<string, unknown>
+  setState: (newState: Record<string, unknown>) => Promise<void>
   verbose: boolean
 }
 

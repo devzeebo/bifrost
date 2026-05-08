@@ -1,4 +1,5 @@
-import type { Engine, EngineContext, EngineResult } from './types.js'
+import type { Engine } from './interface.js'
+import type { EngineContext, EngineResult } from './types.js'
 
 export type TestEngineConfig = {
   success?: boolean
@@ -39,9 +40,8 @@ export class TestEngine implements Engine {
 
     const startTime = Date.now()
 
-    // Generate mock telemetry
-    const stats: EngineResult['stats'] = this.#config.mockStats ?? {
-      durationMs: this.#config.simulateDelay ?? 10,
+    const defaultStats: EngineResult['stats'] = {
+      durationMs: 0,
       inputTokens: 100,
       outputTokens: 50,
       cacheReadTokens: 10,
@@ -50,10 +50,11 @@ export class TestEngine implements Engine {
       numTurns: 1
     }
 
-    // Override duration based on actual execution time
-    if (!this.#config.mockStats) {
-      stats.durationMs = Date.now() - startTime
-    }
+    const stats: EngineResult['stats'] = this.#config.mockStats
+      ? { ...defaultStats, ...this.#config.mockStats }
+      : defaultStats
+
+    stats.durationMs = Date.now() - startTime
 
     return {
       success: this.#config.success ?? true,

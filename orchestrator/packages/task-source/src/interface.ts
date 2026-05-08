@@ -1,16 +1,13 @@
-import { Task, TaskDetail } from './types.js'
+import { Task } from './types.js'
 
-// FR-1: Task Source Interface
 export type TaskSource = {
-  // Yield available tasks. Task source responsible for coordination.
+  // Yield tasks with ALL data needed
   watchTasks: () => AsyncGenerator<Task>
 
-  // Retrieve full task details
-  getTaskDetail: (taskId: string) => Promise<TaskDetail | null>
+  // Report completion/failure
+  completeTask: (taskId: string) => Promise<void>
+  failTask: (taskId: string, error: string) => Promise<void>
 
-  // Mark task as fulfilled
-  completeTask: (taskId: string) => Promise<boolean>
-
-  // Mark task as failed
-  failTask: (taskId: string, error: string) => Promise<boolean>
+  // Engine calls this to persist state updates during execution
+  setState: (taskId: string, taskState: Record<string, unknown>) => Promise<void>
 }

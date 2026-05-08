@@ -3,40 +3,32 @@ import { orchestrate } from './orchestrator.js'
 import type { AgentDefinition, HookExecutionContext } from './types.js'
 import type { Task, TaskSource, Engine, EngineResult } from '@orchestrator/task-source'
 
-describe('Orchestrator Lifecycle - FR-14', () => {
-  describe('US-3: Agent Operator - Dispatch agent on task', () => {
-    it('should execute full orchestration lifecycle successfully', async () => {
-      // Given a task is yielded from the task source
+describe('Orchestrator', () => {
+  describe('task execution lifecycle', () => {
+    it('should validate taskState → execute pre-hooks → invoke engine → execute post-hooks → report success', async () => {
+      // Given a task with valid taskState
       const task: Task = {
         id: 'task-1',
-        title: 'Review code',
-        description: 'Review PR #123',
-        status: 'OPEN' as const,
-        tags: ['worker:reviewer'],
-        claimant: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        priority: 1
+        agentId: 'agent-1',
+        taskState: { language: 'Python' },
+        metadata: { priority: 'high' }
       }
 
-      // And the agent is configured in the agent catalog
       const agent: AgentDefinition = {
         name: 'reviewer',
         description: 'Code review agent',
         tools: ['readFile', 'edit'],
         toolClasses: [],
-        template: { parameters: { language: { name: 'string' } } },
+        template: { parameters: { language: { type: 'string' } } },
         hooks: { Start: [], Stop: [] },
-        promptBody: 'Review the {{language.name}} code.'
+        promptBody: 'Review the code.'
       }
-
-      const taskState = { language: { name: 'Python' } }
 
       const mockTaskSource: TaskSource = {
         watchTasks: async function* () { yield task },
-        getTaskDetail: vi.fn().mockResolvedValue(null),
-        completeTask: vi.fn().mockResolvedValue(true),
-        failTask: vi.fn().mockResolvedValue(true)
+        completeTask: vi.fn().mockResolvedValue(undefined),
+        failTask: vi.fn().mockResolvedValue(undefined),
+        setState: vi.fn().mockResolvedValue(undefined)
       }
 
       const mockEngine: Engine = {
@@ -56,58 +48,45 @@ describe('Orchestrator Lifecycle - FR-14', () => {
         })
       }
 
-      // When the orchestrator receives the task
+      // When orchestrating
       const result = await orchestrate({
         task,
         agent,
-        taskState,
         taskSource: mockTaskSource,
         engine: mockEngine,
         projectDir: '/test/project'
       })
 
-      // Then Start hooks are executed (none in this case)
-      // And the reviewer agent is invoked
-      expect(mockEngine.execute).toHaveBeenCalled()
-
-      // And Stop hooks are executed (none in this case)
-      // And the task is marked complete
+      // Then validation passes, hooks execute, engine runs, task completes
       expect(result.outcome).toBe('completed')
+      expect(mockEngine.execute).toHaveBeenCalled()
       expect(mockTaskSource.completeTask).toHaveBeenCalledWith('task-1')
     })
 
-    it('should mark task as failed when taskState validation fails', async () => {
-      // Given a task's taskState fails agent schema validation
+    it('should fail task when taskState validation fails', async () => {
+      // Given a task with invalid taskState
       const task: Task = {
         id: 'task-2',
-        title: 'Test',
-        description: null,
-        status: 'OPEN' as const,
-        tags: ['worker:test'],
-        claimant: null,
-        createdAt: null,
-        updatedAt: null,
-        priority: 1
+        agentId: 'agent-1',
+        taskState: {}, // Missing required 'language' parameter
+        metadata: {}
       }
 
       const agent: AgentDefinition = {
-        name: 'test',
-        description: 'Test agent',
+        name: 'reviewer',
+        description: 'Code review agent',
         tools: [],
         toolClasses: [],
-        template: { parameters: { language: { name: 'string' } } },
+        template: { parameters: { language: { type: 'string' } } },
         hooks: { Start: [], Stop: [] },
-        promptBody: 'Test'
+        promptBody: 'Review the code.'
       }
-
-      // Missing required language parameter
-      const taskState = {}
 
       const mockTaskSource: TaskSource = {
         watchTasks: async function* () { yield task },
-        getTaskDetail: vi.fn().mockResolvedValue(null),
-        completeTask: vi.fn().mockResolvedValue(true),
-        failTask: vi.fn().mockResolvedValue(true)
+        completeTask: vi.fn().mockResolvedValue(undefined),
+        failTask: vi.fn().mockResolvedValue(undefined),
+        setState: vi.fn().mockResolvedValue(undefined)
       }
 
       const mockEngine: Engine = {
@@ -119,24 +98,197 @@ describe('Orchestrator Lifecycle - FR-14', () => {
         })
       }
 
-      // When the orchestrator receives the task
+      // When orchestrating
       const result = await orchestrate({
         task,
         agent,
-        taskState,
         taskSource: mockTaskSource,
         engine: mockEngine,
         projectDir: '/test/project'
       })
 
-      // Then the task is marked as failed
+      // Then task fails, engine not called
       expect(result.outcome).toBe('failed')
-      expect(mockTaskSource.failTask).toHaveBeenCalledWith('task-2', expect.stringContaining('Missing required parameter'))
+      expect(mockTaskSource.failTask).toHaveBeenCalledWith('task-2', expect.stringContaining('language'))
       expect(mockEngine.execute).not.toHaveBeenCalled()
     })
 
-    it('should trigger follow-up when Stop hook returns exit code 1', async () => {
-      // Given Stop hooks that report issues (exit code 1)
+    it('should pass setState callback to engine', async () => {
+      const task: Task = {
+        id: 'task-1',
+        agentId: 'agent-1',
+        taskState: { step: 1 },
+        metadata: {}
+      }
+
+      const agent: AgentDefinition = {
+        name: 'test',
+        description: 'Test',
+        tools: [],
+        toolClasses: [],
+        template: { parameters: {} },
+        hooks: { Start: [], Stop: [] },
+        promptBody: 'Test'
+      }
+
+      const mockTaskSource: TaskSource = {
+        watchTasks: async function* () { yield task },
+        completeTask: vi.fn().mockResolvedValue(undefined),
+        failTask: vi.fn().mockResolvedValue(undefined),
+        setState: vi.fn().mockResolvedValue(undefined)
+      }
+
+      let capturedSetState: ((state: Record<string, unknown>) => Promise<void>) | null = null
+
+      const mockEngine: Engine = {
+        execute: vi.fn().mockImplementation(async (context) => {
+          capturedSetState = context.setState
+          return {
+            success: true,
+            skipFulfill: false,
+            lastMessage: 'Done',
+            stats: null
+          }
+        })
+      }
+
+      await orchestrate({
+        task,
+        agent,
+        taskSource: mockTaskSource,
+        engine: mockEngine,
+        projectDir: '/test/project'
+      })
+
+      // Engine receives setState callback
+      expect(capturedSetState).toBeDefined()
+
+      // Calling setState persists to task source
+      await capturedSetState!({ step: 2 })
+      expect(mockTaskSource.setState).toHaveBeenCalledWith('task-1', { step: 2 })
+    })
+
+    it('should fail task when Start hook returns fatal error', async () => {
+      const task: Task = {
+        id: 'task-1',
+        agentId: 'agent-1',
+        taskState: {},
+        metadata: {}
+      }
+
+      const agent: AgentDefinition = {
+        name: 'test',
+        description: 'Test',
+        tools: [],
+        toolClasses: [],
+        template: { parameters: {} },
+        hooks: {
+          Start: [{ name: 'fatal-hook', scriptPath: '/fatal.mjs', timeout: 30000 }],
+          Stop: []
+        },
+        promptBody: 'Test'
+      }
+
+      const mockTaskSource: TaskSource = {
+        watchTasks: async function* () { yield task },
+        completeTask: vi.fn().mockResolvedValue(undefined),
+        failTask: vi.fn().mockResolvedValue(undefined),
+        setState: vi.fn().mockResolvedValue(undefined)
+      }
+
+      const mockEngine: Engine = {
+        execute: vi.fn().mockResolvedValue({
+          success: true,
+          skipFulfill: false,
+          lastMessage: 'Done',
+          stats: null
+        })
+      }
+
+      const mockExec = vi.fn().mockResolvedValue({
+        exitCode: 2, // Fatal
+        stdout: '',
+        stderr: 'Fatal error'
+      })
+
+      const result = await orchestrate({
+        task,
+        agent,
+        taskSource: mockTaskSource,
+        engine: mockEngine,
+        projectDir: '/test/project',
+        hookExec: mockExec
+      })
+
+      expect(result.outcome).toBe('failed')
+      expect(mockTaskSource.failTask).toHaveBeenCalledWith('task-1', expect.stringContaining('fatal-hook'))
+      expect(mockEngine.execute).not.toHaveBeenCalled()
+    })
+
+    it('should fail task when Stop hook returns fatal error', async () => {
+      const task: Task = {
+        id: 'task-1',
+        agentId: 'agent-1',
+        taskState: {},
+        metadata: {}
+      }
+
+      const agent: AgentDefinition = {
+        name: 'test',
+        description: 'Test',
+        tools: [],
+        toolClasses: [],
+        template: { parameters: {} },
+        hooks: {
+          Start: [],
+          Stop: [{ name: 'fatal-hook', scriptPath: '/fatal.mjs', timeout: 30000 }]
+        },
+        promptBody: 'Test'
+      }
+
+      const mockTaskSource: TaskSource = {
+        watchTasks: async function* () { yield task },
+        completeTask: vi.fn().mockResolvedValue(undefined),
+        failTask: vi.fn().mockResolvedValue(undefined),
+        setState: vi.fn().mockResolvedValue(undefined)
+      }
+
+      const mockEngine: Engine = {
+        execute: vi.fn().mockResolvedValue({
+          success: true,
+          skipFulfill: false,
+          lastMessage: 'Done',
+          stats: null
+        })
+      }
+
+      const mockExec = vi.fn().mockResolvedValue({
+        exitCode: 2, // Fatal
+        stdout: '',
+        stderr: 'Fatal error'
+      })
+
+      const result = await orchestrate({
+        task,
+        agent,
+        taskSource: mockTaskSource,
+        engine: mockEngine,
+        projectDir: '/test/project',
+        hookExec: mockExec
+      })
+
+      expect(result.outcome).toBe('failed')
+      expect(mockTaskSource.failTask).toHaveBeenCalledWith('task-1', expect.stringContaining('fatal-hook'))
+    })
+
+    it('should support follow-up loop when Stop hook returns exit code 1', async () => {
+      const task: Task = {
+        id: 'task-1',
+        agentId: 'agent-1',
+        taskState: {},
+        metadata: {}
+      }
+
       const agent: AgentDefinition = {
         name: 'test',
         description: 'Test',
@@ -150,61 +302,44 @@ describe('Orchestrator Lifecycle - FR-14', () => {
         promptBody: 'Test'
       }
 
-      const task: Task = {
-        id: 'task-3',
-        title: 'Test',
-        description: null,
-        status: 'OPEN' as const,
-        tags: ['worker:test'],
-        claimant: null,
-        createdAt: null,
-        updatedAt: null,
-        priority: 1
-      }
-
-      const taskState = {}
-
       const mockTaskSource: TaskSource = {
         watchTasks: async function* () { yield task },
-        getTaskDetail: vi.fn().mockResolvedValue(null),
-        completeTask: vi.fn().mockResolvedValue(true),
-        failTask: vi.fn().mockResolvedValue(true)
-      }
-
-      const engineResult: EngineResult = {
-        success: true,
-        skipFulfill: false,
-        lastMessage: 'Done',
-        stats: null
+        completeTask: vi.fn().mockResolvedValue(undefined),
+        failTask: vi.fn().mockResolvedValue(undefined),
+        setState: vi.fn().mockResolvedValue(undefined)
       }
 
       const mockEngine: Engine = {
         execute: vi.fn()
-          .mockResolvedValueOnce(engineResult)
           .mockResolvedValueOnce({
-            ...engineResult,
-            lastMessage: 'Fixed lint issues'
+            success: true,
+            skipFulfill: false,
+            lastMessage: 'First run',
+            stats: null
+          })
+          .mockResolvedValueOnce({
+            success: true,
+            skipFulfill: false,
+            lastMessage: 'Second run',
+            stats: null
           })
       }
 
       const mockExec = vi.fn()
-        .mockResolvedValueOnce({ exitCode: 1, stdout: 'Lint errors', stderr: '' })
+        .mockResolvedValueOnce({ exitCode: 1, stdout: 'Fix lint issues', stderr: '' })
         .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '' })
 
-      // When orchestrating
       const result = await orchestrate({
         task,
         agent,
-        taskState,
         taskSource: mockTaskSource,
         engine: mockEngine,
         projectDir: '/test/project',
         hookExec: mockExec
       })
 
-      // Then follow-up is triggered (engine called twice)
-      expect(mockEngine.execute).toHaveBeenCalledTimes(2)
       expect(result.outcome).toBe('completed')
+      expect(mockEngine.execute).toHaveBeenCalledTimes(2)
     })
   })
 })

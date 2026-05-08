@@ -3,7 +3,7 @@
 **Status:** Draft
 **Authors:** Eric Siebeneich
 **Date:** 2026-05-07
-**Version:** 2.0
+**Version:** 3.0
 
 ---
 
@@ -25,7 +25,7 @@ The **Bifrost Task Source** is a plugin implementation of the Orchestrator Frame
 - **PAT**: Personal Access Token used for authentication with Bifrost
 - **Orchestrator**: TypeScript-based distributed task execution system that coordinates AI agents
 - **taskState**: Free-form object containing all context for a single task execution
-- **projectDir**: Git root of the working repository, resolved automatically by the orchestrator
+- **projectDir**: Git root of the working repository, resolved automatically by the orchestrator and passed to task source constructor
 
 ### Problem
 
@@ -45,14 +45,15 @@ With the Bifrost Task Source plugin, Sarah configures her orchestrator instances
 
 1. Reads server URL and realm from `.bifrost.yaml` in the working repository
 2. Reads PAT credentials from `~/.config/bifrost/credentials.yaml`
-3. Polls for runes in the `open` state that are ready for work
+3. Polls for runes in the `open` state that are ready for work (unblocked)
 4. Uses Bifrost's native claim API to ensure exclusive ownership (no duplicate work)
 5. Yields all ready runes via async iterator (no filtering)
 6. Maps Bifrost runes to orchestrator Tasks with full metadata (tags, dependencies, notes)
-7. Executes agents via the orchestrator framework
-8. Calls fulfill or unclaim API based on orchestrator's `completeTask()` or `failTask()` calls
-9. Handles Bifrost server unavailability with retry on next poll interval
-10. Emits structured telemetry for every operation (claim, execution, completion)
+7. Stores and retrieves task state via TaskStateStore interface
+8. Executes agents via the orchestrator framework
+9. Calls fulfill or fail API based on orchestrator's `completeTask()` or `failTask()` calls
+10. Handles Bifrost server unavailability with retry on next poll interval
+11. Emits structured telemetry for every operation (claim, execution, completion)
 
 Marcus removes his fragile scripts. The orchestrator instances now coordinate seamlessly through Bifrost's claim semantics. When a rune is completed, its state is automatically updated—developers see real-time progress in the Bifrost UI. Sarah can deploy multiple orchestrator instances knowing they won't duplicate work. The system is reliable, observable, and requires no custom glue code.
 
@@ -95,11 +96,31 @@ Then the BifrostTaskSource uses "orchestrator-prod-1" as the claimant identifier
 ```
 
 ```
+Given .orchestrator.yaml does not specify claimant
+When the orchestrator loads configuration
+Then the BifrostTaskSource uses the system username from os.userInfo().username as the claimant
+```
+
+```
 Given .orchestrator.yaml contains optional overrides
 And orchestrate.task_source.settings.baseUrl is "https://custom.bifrost.com"
 And .bifrost.yaml contains a different baseUrl
 When the orchestrator loads configuration
 Then the BifrostTaskSource uses the override from .orchestrator.yaml
+```
+
+```
+Given .bifrost.yaml does not exist in projectDir
+When the orchestrator attempts to create the BifrostTaskSource
+Then an error is thrown indicating .bifrost.yaml is missing
+And the orchestrator does not start
+```
+
+```
+Given ~/.config/bifrost/credentials.yaml does not exist
+When the orchestrator attempts to create the BifrostTaskSource
+Then an error is thrown indicating credentials are missing
+And the orchestrator does not start
 ```
 
 ### US-2: Poll for ready runes and claim them
@@ -125,16 +146,6 @@ When the orchestrator receives the rune
 Then the Bifrost Task Source claims the rune via Bifrost's claim API
 And the rune state in Bifrost transitions to "claimed"
 And the claimant field is set to the configured claimant identifier
-```
-
-```
-Given two orchestrator instances poll simultaneously
-And the same rune is ready for work
-When both instances attempt to claim the rune
-Then only one instance successfully claims the rune
-And the other instance receives a conflict error
-And the conflict error is logged
-And the unsuccessful instance does not process the rune
 ```
 
 ```
@@ -181,7 +192,7 @@ And TaskDetail.notes contains all NoteEntry entries
 Given a Bifrost rune with branch tracking enabled
 And the rune is associated with branch "feature/fix-login"
 When the rune is mapped to an orchestrator Task
-Then Task.metadata contains the branch name
+Then Task.taskState contains { branch: "feature/fix-login" }
 And agents can access the branch information via taskState
 ```
 
@@ -199,16 +210,14 @@ And the agent execution completed successfully
 When the orchestrator calls completeTask(taskId)
 Then the Bifrost Task Source calls Bifrost's fulfill API
 And the rune state transitions to "fulfilled"
-And the method returns true
 ```
 
 ```
 Given a rune has been claimed and processed
-And the agent execution failed
+And the agent execution failed with error "Test timeout after 5 minutes"
 When the orchestrator calls failTask(taskId, error)
-Then the Bifrost Task Source calls Bifrost's unclaim API
+Then the Bifrost Task Source calls Bifrost's fail API with reason "Test timeout after 5 minutes"
 And the rune state transitions to "open"
-And the method returns true
 ```
 
 ```
@@ -217,6 +226,12 @@ When the orchestrator calls completeTask(taskId)
 Then the method throws an error
 And the orchestrator logs the failure
 And the orchestrator marks the task as failed in its own records
+```
+
+```
+Given completeTask is called for a rune that is already fulfilled
+When the Bifrost API acknowledges the operation
+Then the method returns without error (Bifrost guarantees idempotency)
 ```
 
 ### US-5: Handle Bifrost server unavailability
@@ -275,15 +290,37 @@ Then a log entry is emitted with: rune ID, claimant, timestamp
 ```
 
 ```
-Given the Bifrost Task Source fails to claim a rune due to conflict
-When the conflict error is received
-Then a log entry is emitted with: rune ID, conflict reason, current claimant
+Given the Bifrost Task Source completes or fails a rune
+When the fulfill/fail API call succeeds
+Then a log entry is emitted with: rune ID, operation, timestamp
+```
+
+### US-7: Store and retrieve task state
+
+**As an** orchestrator framework
+**I want** the task source to store and retrieve task state
+**So that** hooks and agents can share data across executions
+
+**Acceptance Criteria:**
+
+```
+Given a hook writes taskState.snapshotTests = { "test.js": "hash123" }
+When the hook completes
+Then the task source persists the taskState via TaskStateStore
 ```
 
 ```
-Given the Bifrost Task Source completes or fails a rune
-When the fulfill/unclaim API call succeeds
-Then a log entry is emitted with: rune ID, operation, timestamp
+Given a subsequent hook needs to read taskState
+When the hook executes
+Then the task source loads the persisted taskState from TaskStateStore
+And the hook receives the updated taskState via stdin
+```
+
+```
+Given the TaskStateStore is unavailable
+When a task state operation is attempted
+Then an error is thrown
+And the orchestrator marks the UoW as failed
 ```
 
 ---
@@ -300,40 +337,48 @@ orchestrate:
     type: "bifrost"
     settings:
       # Optional overrides for values from .bifrost.yaml
-      baseUrl: string              # Override Bifrost server URL
+      url: string                  # Override Bifrost server URL
       realm: string                # Override realm name
-      claimant: string             # Claimant identifier (required)
+      claimant: string             # Claimant identifier (defaults to system username)
       pollInterval: number         # Polling interval in milliseconds (default: 10000)
       timeout: number              # Request timeout in milliseconds (default: 30000)
 ```
 
 The task source MUST read from:
-- `.bifrost.yaml` in `projectDir` for default `baseUrl` and `realm`
+- `.bifrost.yaml` in `projectDir` for default `url` and `realm`
 - `~/.config/bifrost/credentials.yaml` for PAT authentication
 
 Configuration priority: `.orchestrator.yaml` settings override `.bifrost.yaml` values.
 
-**.bifrost.yaml resolution behavior**:
-- If `.bifrost.yaml` doesn't exist in `projectDir`: throw an error at task source construction
-- If `.bifrost.yaml` exists but is missing `baseUrl` or `realm` fields: throw an error at task source construction
-- If both `.orchestrator.yaml` overrides are provided and `.bifrost.yaml` is missing: use the overrides (this is valid)
-- If only one of `baseUrl` or `realm` is overridden and the other is missing from `.bifrost.yaml`: throw an error
-
 **Configuration validation**:
 - All validation occurs at task source construction time
-- Invalid values (negative pollInterval, empty claimant, etc.) throw an error
-- The task source does not start polling if configuration is invalid
+- Invalid configuration throws an error
+- The task source is not created if validation fails
+
+**Missing configuration behavior**:
+- If `.bifrost.yaml` doesn't exist in `projectDir`: throw error with clear message
+- If `.bifrost.yaml` exists but is missing required fields: throw error with clear message
+- If `credentials.yaml` doesn't exist: throw error with clear message
+- If no matching credential entry is found: throw error with clear message
+- If files are malformed (invalid YAML): throw error with clear message
 
 ### FR-2: BifrostTaskSource Implementation
 
-The Bifrost Task Source MUST implement the `TaskSource` interface:
+The Bifrost Task Source MUST implement the `TaskSource` and `TaskStateStore` interfaces:
 
 ```typescript
 export type TaskSource = {
   watchTasks: () => AsyncGenerator<Task>
   getTaskDetail: (taskId: string) => Promise<TaskDetail | null>
-  completeTask: (taskId: string) => Promise<boolean>
-  failTask: (taskId: string, error: string) => Promise<boolean>
+  completeTask: (taskId: string) => Promise<void>
+  failTask: (taskId: string, error: string) => Promise<void>
+}
+
+export type TaskStateStore = {
+  loadTaskState: (taskId: string) => Promise<Record<string, unknown> | null>
+  saveTaskState: (taskId: string, taskState: Record<string, unknown>) => Promise<void>
+  deleteTaskState: (taskId: string) => Promise<void>
+  initializeTaskState: (taskId: string, initialState: Record<string, unknown>) => Promise<void>
 }
 ```
 
@@ -343,7 +388,7 @@ The BifrostTaskSource constructor MUST accept:
 constructor(config: BifrostTaskSourceConfig, projectDir: string)
 ```
 
-The `projectDir` parameter is the git root of the working repository, used to locate `.bifrost.yaml`. This is provided by the orchestrator framework at task source instantiation.
+The `projectDir` parameter is the git root of the working repository, provided by the orchestrator framework at task source instantiation. This is an orchestrator framework feature that passes the resolved project directory to all task sources.
 
 ### FR-3: Rune to Task Mapping
 
@@ -360,76 +405,98 @@ The Bifrost Task Source MUST map Bifrost runes to orchestrator Tasks with the fo
 | `created_at` | `createdAt` | Date parsing |
 | `updated_at` | `updatedAt` | Date parsing |
 | `priority` | `priority` | Direct mapping |
-| `branch` | `metadata.branch` | Stored in metadata object |
+| `branch` | Stored in taskState as `taskState.branch` | Passed via TaskStateStore |
+
+The task source MUST NOT modify tags. The orchestrator framework handles worker tag routing.
 
 ### FR-4: Ready Rune Query
 
 The Bifrost Task Source MUST query for runes that meet ALL of the following criteria:
 
 - `state == "open"` (rune is ready to be claimed)
-- All dependency runes in the `blocks` relationship are in state `fulfilled` or `sealed`
+- `blocked == "false"` (all dependency runes in the `blocks` relationship are in state `fulfilled` or `sealed`)
 - No circular dependencies exist (enforced by Bifrost)
+- `is_saga == "false"` (exclude sagas, only return individual runes)
 
-The query MUST use Bifrost's `bf ready` equivalent API endpoint.
+The query MUST use Bifrost's HTTP API:
+```
+GET /api/runes?status=open&blocked=false&is_saga=false
+Headers: Authorization: Bearer {pat}, X-Bifrost-Realm: {realm}
+```
 
 The task source MUST NOT filter runes by any criteria including worker tags. All ready runes are yielded to the orchestrator.
 
 ### FR-5: Claim Semantics
 
-The Bifrost Task Source MUST use Bifrost's native claim API to atomically claim runes. The claim operation MUST:
+The Bifrost Task Source MUST use Bifrost's HTTP API to claim runes:
 
-- Be atomic (no race conditions between multiple orchestrator instances)
-- Set the rune state to `claimed`
-- Set the rune's claimant field to the configured claimant identifier
-- Return an error if the rune is already claimed by another claimant
+```
+POST /api/claim-rune
+Headers: Authorization: Bearer {pat}, X-Bifrost-Realm: {realm}
+Body: { "id": string, "claimant": string }
+Response: 204 No Content on success
+```
 
-On claim conflict (409 Conflict response from Bifrost API):
-- Log the conflict with rune ID, attempted claimant, and current claimant
-- NOT yield the rune to the orchestrator (skip it silently in the async iterator)
-- Continue polling for other ready runes
-- The conflict is logged but does not terminate the async iterator
+The claim operation is atomic. Bifrost's event-sourced design prevents race conditions at the server level.
+
+If a claim fails with a domain error (rune not in correct state, etc.), the rune is NOT yielded to the orchestrator. The task source logs the failure and continues polling.
 
 ### FR-6: Completion and Failure Handling
 
 The Bifrost Task Source MUST provide methods for the orchestrator to signal completion or failure:
 
 - `completeTask(taskId)`: Calls Bifrost's fulfill API. Transitions rune to `fulfilled` state.
-- `failTask(taskId, error)`: Calls Bifrost's unclaim API with the error message as the reason. Transitions rune back to `open` state.
+- `failTask(taskId, error)`: Calls Bifrost's fail API with the error message as the reason. Transitions rune back to `open` state.
 
-The `error` parameter in `failTask` MUST be passed as the `reason` field in the unclaim API request body. The error message is also logged.
+Both methods return `Promise<void>` and throw on error.
 
-The task source MUST NOT classify errors or determine whether errors are recoverable. That is the orchestrator's responsibility.
+**Fulfill API**:
+```
+POST /api/fulfill-rune
+Headers: Authorization: Bearer {pat}, X-Bifrost-Realm: {realm}
+Body: { "id": string }
+Response: 204 No Content
+```
 
-**Return value semantics**:
-- Returns `true` if the Bifrost API acknowledged the operation
-- Returns `false` if the rune was not in the expected state (e.g., fulfill on already-fulfilled rune)
-- Throws an error if the Bifrost server is unreachable or the request times out
+**Fail API**:
+```
+POST /api/fail-rune
+Headers: Authorization: Bearer {pat}, X-Bifrost-Realm: {realm}
+Body: { "id": string, "reason": string }
+Response: 204 No Content
+```
+
+The task source MUST NOT classify errors. That is the orchestrator's responsibility.
+
+**Error handling**:
+- Network errors: throw error
+- HTTP 4xx/5xx: throw error with message
+- Bifrost guarantees idempotency: calling fulfill on an already-fulfilled rune succeeds without error
 
 ### FR-7: Authentication and Credentials
 
 The Bifrost Task Source MUST authenticate using Bearer token authentication:
 
-- Read credentials from `~/.config/bifrost/credentials.yaml`
-- Include the PAT in the `Authorization` header as `Bearer <pat>`
+- Read credentials from `~/.config/bifrost/credentials.yaml` (or `$XDG_CONFIG_HOME/bifrost/credentials.yaml`)
+- Include the PAT in the `Authorization` header as `Bearer {pat}`
 - Include the realm name in the `X-Bifrost-Realm` header
-- Handle 401/403 responses by logging authentication failures
+- Handle 401/403 responses by logging authentication failures and continuing polling
 
 The credentials file format matches the Bifrost CLI format:
 
 ```yaml
 # ~/.config/bifrost/credentials.yaml
 credentials:
-  - server: "https://bifrost.example.com"
-    realm: "my-project"
+  "https://bifrost.example.com":
     token: "the-pat-token"
 ```
 
-Credentials are resolved by matching `server` and `realm` from `.bifrost.yaml` (or overrides) to the entries in the credentials file.
+Credentials are resolved by matching the normalized `url` from `.bifrost.yaml` (or override) to the keys in the `credentials` map. URL normalization removes trailing slashes.
 
 **Credential resolution failure behavior**:
-- If `credentials.yaml` doesn't exist: throw an error at task source construction
-- If no matching credential entry is found: throw an error at task source construction
-- If the file is malformed (invalid YAML): throw an error at task source construction
+- If `credentials.yaml` doesn't exist: throw error at construction
+- If no matching credential entry is found: throw error at construction
+- If the file is malformed (invalid YAML): throw error at construction
 - The error MUST clearly indicate which file or credential lookup failed
 
 ### FR-8: Reconnection Behavior
@@ -443,12 +510,13 @@ If the Bifrost server becomes unreachable, the Bifrost Task Source MUST:
 
 The `watchTasks()` async iterator MUST NOT terminate on network errors.
 
-### FR-9: Branch Metadata
+### FR-9: Branch and TaskState Handling
 
 If a Bifrost rune has an associated Git branch, the Bifrost Task Source MUST:
 
-- Include the branch name in `Task.metadata.branch`
-- Agents can access this via `taskState.metadata.branch` for checkout operations
+- Store the branch name in taskState via `saveTaskState(taskId, { branch: branchName })`
+- Subsequent loads of taskState will include the branch field
+- Agents can access this via taskState for checkout operations
 
 ### FR-10: Dependency Mapping
 
@@ -456,11 +524,11 @@ Bifrost dependency relationships MUST be mapped to orchestrator TaskDetail:
 
 | Bifrost Relationship | TaskDetail.dependencies[] |
 |----------------------|---------------------------|
-| `blocks` | `{ taskId, type: "blocks" }` |
+| `blocks` / `blocked_by` | `{ taskId, type: "blocks" }` |
 | `relates_to` | `{ taskId, type: "relates_to" }` |
-| `duplicates` | `{ taskId, type: "duplicates" }` |
-| `supersedes` | `{ taskId, type: "supersedes" }` |
-| `replies_to` | `{ taskId, type: "replies_to" }` |
+| `duplicates` / `duplicated_by` | `{ taskId, type: "duplicates" }` |
+| `supersedes` / `superseded_by` | `{ taskId, type: "supersedes" }` |
+| `replies_to` / `replied_to_by` | `{ taskId, type: "replies_to" }` |
 
 ### FR-11: Notes and Retro Mapping
 
@@ -468,6 +536,50 @@ Bifrost notes and retro entries MUST be mapped to TaskDetail:
 
 - Notes → `TaskDetail.notes[]` with `{ id, content, createdAt }`
 - Retro entries → `TaskDetail.retro[]` with `{ id, content, createdAt }`
+
+### FR-12: TaskStateStore Implementation
+
+The Bifrost Task Source MUST implement the `TaskStateStore` interface using Bifrost's rune state API:
+
+**Load**:
+```
+GET /api/rune?id={taskId}
+Response: 200 OK with rune detail including state field
+```
+
+**Save**:
+```
+POST /api/update-rune-state
+Body: { "id": string, "state": Record<string, unknown> }
+```
+
+**Delete**:
+```
+POST /api/clear-rune-state
+Body: { "id": string }
+```
+
+**Initialize**:
+```
+POST /api/update-rune-state
+Body: { "id": string, "state": Record<string, unknown> }
+```
+
+The taskState is stored as a free-form JSON object in the rune's `state` field in Bifrost.
+
+### FR-13: Claimant Default
+
+If `claimant` is not provided in the configuration, the task source MUST default to the system username using Node.js `os.userInfo().username`.
+
+### FR-14: Get Rune Detail
+
+The task source MUST implement `getTaskDetail` using:
+
+```
+GET /api/rune?id={runeId}
+Headers: Authorization: Bearer {pat}, X-Bifrost-Realm: {realm}
+Response: 200 OK with full rune detail, 404 Not Found
+```
 
 ---
 
@@ -484,27 +596,27 @@ Bifrost notes and retro entries MUST be mapped to TaskDetail:
 
 - The Bifrost Task Source MUST handle Bifrost server unavailability without crashing
 - The Bifrost Task Source MUST log all failures without terminating the async iterator
-- Claim conflicts MUST be handled gracefully (no duplicate work)
+- Bifrost's atomic claim operations prevent duplicate work
 - Network errors MUST be logged and retried on next poll
 
 ### NFR-3: Monitoring and Observability
 
 - All Bifrost API calls MUST be logged with: endpoint, status code, duration
 - All claim operations MUST be logged with: rune ID, claimant, success/failure
-- All fulfill/unclaim operations MUST be logged with: rune ID, result
+- All fulfill/fail operations MUST be logged with: rune ID, result
 - Poll operations MUST be logged with: realm, ready rune count
 - Reconnection events MUST be logged
 
 ### NFR-4: Concurrency
 
 - Multiple orchestrator instances MUST be able to poll simultaneously
-- Bifrost's claim API ensures only one instance claims each rune
+- Bifrost's atomic claim operations ensure only one instance claims each rune
 - No additional locking is required in the Bifrost Task Source
 
 ### NFR-5: Error Handling
 
 - Authentication failures (401/403) MUST be logged and polling must continue
-- Invalid credential configuration MUST be detected and logged on startup
+- Invalid configuration MUST throw at construction
 - Realm not found MUST be logged and polling must continue
 - Malformed API responses MUST be logged and the rune must be skipped
 
@@ -514,6 +626,12 @@ Bifrost notes and retro entries MUST be mapped to TaskDetail:
 - PATs MUST NOT be logged under any circumstances
 - The Bifrost Task Source MUST validate SSL certificates
 - Credential file permissions SHOULD be restricted (user-readable only)
+
+### NFR-7: Idempotency
+
+- The task source MUST be idempotent for all operations
+- Bifrost guarantees idempotency for claim, fulfill, and fail operations
+- Repeated calls to `completeTask` on an already-fulfilled rune succeed without error
 
 ---
 
@@ -530,16 +648,32 @@ Bifrost notes and retro entries MUST be mapped to TaskDetail:
 - Occurs when: Ready rune is identified
 
 **MapRuneToTask**
-- `rune: BifrostRune`
+- `rune: BifrostRune`, `projectDir: string`
 - Occurs when: Claimed rune is yielded to orchestrator
 
 **FulfillRune**
 - `runeId: string`
 - Occurs when: Orchestrator calls completeTask()
 
-**UnclaimRune**
-- `runeId: string`, `error: string`
+**FailRune**
+- `runeId: string`, `reason: string`
 - Occurs when: Orchestrator calls failTask()
+
+**LoadTaskState**
+- `runeId: string`
+- Occurs when: Hook or agent needs to read taskState
+
+**SaveTaskState**
+- `runeId: string`, `taskState: Record<string, unknown>`
+- Occurs when: Hook modifies taskState
+
+**DeleteTaskState**
+- `runeId: string`
+- Occurs when: Task is completed and state should be cleaned up
+
+**InitializeTaskState**
+- `runeId: string`, `initialState: Record<string, unknown>`
+- Occurs when: Task is claimed for the first time
 
 ### Events
 
@@ -549,14 +683,11 @@ Bifrost notes and retro entries MUST be mapped to TaskDetail:
 **RuneClaimed**
 - `runeId: string`, `claimant: string`, `claimedAt: ISO8601`
 
-**RuneClaimConflict**
-- `runeId: string`, `attemptedBy: string`, `currentClaimant: string`, `conflictAt: ISO8601`
-
 **RuneFulfilled**
 - `runeId: string`, `claimant: string`, `fulfilledAt: ISO8601`
 
-**RuneUnclaimed**
-- `runeId: string`, `reason: string`, `unclaimedAt: ISO8601`
+**RuneFailed**
+- `runeId: string`, `claimant: string`, `reason: string`, `failedAt: ISO8601`
 
 **BifrostApiCallFailed**
 - `endpoint: string`, `statusCode: number`, `error: string`, `timestamp: ISO8601`
@@ -568,7 +699,13 @@ Bifrost notes and retro entries MUST be mapped to TaskDetail:
 - `baseUrl: string`, `downtimeDuration: number`, `reconnectedAt: ISO8601`
 
 **CredentialResolutionFailed**
-- `server: string`, `realm: string`, `reason: string`, `timestamp: ISO8601`
+- `server: string`, `reason: string`, `timestamp: ISO8601`
+
+**TaskStateLoaded**
+- `runeId: string`, `keys: string[]`, `loadedAt: ISO8601`
+
+**TaskStateSaved**
+- `runeId: string`, `keys: string[]`, `savedAt: ISO8601`
 
 ### Aggregates
 
@@ -581,11 +718,12 @@ type BifrostRune = {
   state: RuneState
   tags: string[]
   claimant: string | null
-  createdAt: Date
-  updatedAt: Date
+  created_at: Date
+  updated_at: Date
   priority: number
   branch: string | null
-  realmId: string
+  realm_id: string
+  parent_id: string | null
 }
 
 type RuneState = "draft" | "forged" | "open" | "claimed" | "fulfilled" | "sealed"
@@ -596,40 +734,23 @@ type RuneState = "draft" | "forged" | "open" | "claimed" | "fulfilled" | "sealed
 type BifrostRuneDetail = BifrostRune & {
   dependencies: BifrostDependency[]
   notes: BifrostNote[]
-  acceptanceCriteria: BifrostAC[]
+  acceptance_criteria: BifrostAC[]
   retro: BifrostRetroEntry[]
+  state: Record<string, unknown>  // Free-form taskState
 }
 
 type BifrostDependency = {
-  taskId: string
-  type: "blocks" | "relates_to" | "duplicates" | "supersedes" | "replies_to"
-}
-
-type BifrostNote = {
-  id: string
-  content: string
-  createdAt: Date
-}
-
-type BifrostAC = {
-  id: string
-  criteria: string
-  satisfied: boolean
-}
-
-type BifrostRetroEntry = {
-  id: string
-  content: string
-  createdAt: Date
+  target_id: string
+  relationship: "blocked_by" | "relates_to" | "duplicated_by" | "superseded_by" | "replied_to_by"
 }
 ```
 
 **BifrostTaskSourceConfig**
 ```typescript
 type BifrostTaskSourceConfig = {
-  baseUrl?: string              // Optional override
+  url?: string                  // Optional override
   realm?: string                // Optional override
-  claimant: string              // Required
+  claimant?: string             // Optional, defaults to system username
   pollInterval: number          // Default: 10000
   timeout: number               // Default: 30000
 }
@@ -638,17 +759,17 @@ type BifrostTaskSourceConfig = {
 **BifrostRepoConfig** (from `.bifrost.yaml`)
 ```typescript
 type BifrostRepoConfig = {
-  baseUrl: string
-  realm: string
+  url: string                   // Bifrost server URL
+  realm: string                 // Realm name (required)
+  orchestrate?: OrchestrateConfig
+  api_key?: string              // Deprecated, use credentials.yaml
 }
 ```
 
 **BifrostCredentialsFile** (from `~/.config/bifrost/credentials.yaml`)
 ```typescript
 type BifrostCredentialsFile = {
-  credentials: Array<{
-    server: string
-    realm: string
+  credentials: Record<string, {   // URL is key
     token: string
   }>
 }
@@ -658,28 +779,23 @@ type BifrostCredentialsFile = {
 
 **ReadyRunesQuery**
 - Question: Which runes in this realm are ready to be claimed?
-- Projection: List of `BifrostRune` filtered by state="open", satisfied dependencies, realm
+- API Call: `GET /api/runes?status=open&blocked=false&is_saga=false`
 - Used by: Poll operation
 
 **RuneDetailQuery**
 - Question: What is the full detail for a specific rune?
-- Projection: `BifrostRuneDetail` by rune ID
+- API Call: `GET /api/rune?id={runeId}`
 - Used by: getTaskDetail, agent context
 
-**ClaimantStatusQuery**
-- Question: Which runes are currently claimed by this orchestrator instance?
-- Projection: List of `BifrostRune` filtered by claimant and state="claimed"
-- Used by: Status reporting, recovery
-
 **CredentialLookupQuery**
-- Question: What PAT should be used for this server/realm combination?
-- Projection: Single credential entry matching server and realm
+- Question: What PAT should be used for this server URL?
+- Projection: Single credential entry matching normalized URL
 - Used by: Authentication
 
 ### Data Retention
 
-- Bifrost Task Source does NOT persist data locally
-- All rune state is stored in Bifrost server
+- Task state is persisted in Bifrost rune's `state` field
+- Bifrost Task Source does NOT persist data separately
 - Event logs for telemetry follow orchestrator framework retention policy (90 days)
 
 ---
@@ -690,7 +806,7 @@ type BifrostCredentialsFile = {
 - Custom claim semantics (uses Bifrost's built-in claim API)
 - Multi-realm polling (one task source instance = one realm)
 - Rune creation from the orchestrator (runes are created externally)
-- Saga-level orchestration (individual runes only)
+- Saga-level orchestration (individual runes only, sagas excluded via `is_saga=false`)
 - Automatic retry on failure (orchestrator decides, task source just follows orders)
 - Bifrost server administration (no realm/account management from task source)
 - Migration tools (no import from other task systems)
@@ -701,6 +817,7 @@ type BifrostCredentialsFile = {
 - Worker tag filtering (orchestrator's responsibility, not task source)
 - Worker tag inference (orchestrator's responsibility)
 - Error classification (orchestrator's responsibility)
+- Claim conflict handling (Bifrost guarantees no conflicts at server level)
 
 ---
 
@@ -713,6 +830,7 @@ type BifrostCredentialsFile = {
 | Bifrost Server | Rune management backend | Current |
 | Orchestrator Framework | Core orchestration system | 1.0 |
 | TypeScript Runtime | Task source execution | ≥ 24 |
+| Node.js os module | System username discovery | Built-in |
 | Node.js fs module | Reading .bifrost.yaml and credentials.yaml | Built-in |
 | Node.js fetch API | HTTP requests to Bifrost | Built-in |
 
@@ -723,19 +841,21 @@ type BifrostCredentialsFile = {
 3. Bifrost server's claim API is atomic and prevents duplicate claims
 4. The realm specified in .bifrost.yaml exists
 5. Network connectivity allows periodic polling at the configured interval
-6. Bifrost server's `bf ready` equivalent API endpoint exists and returns ready runes
-7. Bifrost server supports fulfill and unclaim API endpoints
+6. Bifrost server's HTTP API is available and returns ready runes
+7. Bifrost server supports fulfill and fail API endpoints
 8. Time synchronization between orchestrator and Bifrost server is adequate (clock skew < 1 minute)
-9. The orchestrator framework provides the TaskSource interface contract
-10. The orchestrator automatically resolves `projectDir` from git root
-11. `.bifrost.yaml` exists in the working repository
-12. `~/.config/bifrost/credentials.yaml` exists and contains valid credentials
+9. The orchestrator framework provides the TaskSource and TaskStateStore interfaces
+10. The orchestrator automatically resolves `projectDir` from git root and passes it to task source constructor
+11. `.bifrost.yaml` exists in the working repository (fatal if missing)
+12. `~/.config/bifrost/credentials.yaml` exists and contains valid credentials (fatal if missing)
 13. The orchestrator handles worker tag routing, not the task source
+14. Bifrost guarantees idempotency for all operations
+15. Bifrost guarantees atomicity and prevents claim conflicts at the server level
 
 ### External System Assumptions
 
-- **Bifrost Server**: Provides HTTP API for rune CRUD operations, claim/unclaim, fulfill, and ready query. Supports PAT authentication and realm-scoped queries.
-- **Orchestrator Framework**: Provides TaskSource interface, defines Task and TaskDetail types, handles agent dispatch, manages hook execution, automatically resolves projectDir.
+- **Bifrost Server**: Provides HTTP API for rune CRUD operations, claim/fail, fulfill, and ready query. Supports PAT authentication and realm-scoped queries. Guarantees idempotency, atomicity, and eventual consistency.
+- **Orchestrator Framework**: Provides TaskSource and TaskStateStore interfaces, defines Task and TaskDetail types, handles agent dispatch, manages hook execution, automatically resolves projectDir and passes to task source constructor.
 
 ---
 
@@ -783,29 +903,21 @@ This section records decisions made during the development of the Bifrost Task S
 
 **Rationale**: This follows the Bifrost CLI's credential management pattern. The `.bifrost.yaml` in the working repo specifies which server and realm to use. The credentials file maps those to PATs. This avoids hardcoding PATs in orchestrator config and supports multiple realms/credentials.
 
----
-
 ### DR-6: .bifrost.yaml and credentials.yaml formats from source code
 
 **Question**: What are the actual file formats for `.bifrost.yaml` and `credentials.yaml`?
 
 **Decision**: Use formats from Bifrost source code (`cli/config.go`, `cli/credentials.go`).
 
-**Rationale**: Bifrost CLI is the reference implementation. Task source must match exactly for interoperability.
-
-**Impact**: Corrected field names and structure in Appendices A and B.
-
----
+**Rationale**: Bifrost CLI is the reference implementation. Task source must match exactly for interoperability. See Appendix A and B for exact formats.
 
 ### DR-7: Claimant identifier defaults to system username
 
 **Question**: What is the default claimant if not provided in configuration?
 
-**Decision**: Use system username from `whoami` bash command (Node.js equivalent: `os.userInfo().username`).
+**Decision**: Use system username from `os.userInfo().username` (Node.js equivalent of Go's `user.Current().Username`).
 
-**Rationale**: Matches Bifrost CLI behavior (`user.Current().Username` in Go). Provides sensible default while allowing override.
-
----
+**Rationale**: Matches Bifrost CLI behavior. Provides sensible default while allowing override.
 
 ### DR-8: Credential resolution failures are fatal
 
@@ -815,8 +927,6 @@ This section records decisions made during the development of the Bifrost Task S
 
 **Rationale**: Continuing without credentials would pollute Bifrost with anonymous claims. Fail fast is better.
 
----
-
 ### DR-9: .bifrost.yaml missing is fatal
 
 **Question**: What happens when `.bifrost.yaml` doesn't exist or is malformed?
@@ -825,27 +935,21 @@ This section records decisions made during the development of the Bifrost Task S
 
 **Rationale**: The task source cannot function without knowing which server and realm to connect to. Fail fast.
 
----
-
-### DR-10: projectDir parameter is new orchestrator feature
+### DR-10: projectDir parameter is orchestrator framework feature
 
 **Question**: How does the task source receive `projectDir`?
 
-**Decision**: Gap in orchestrator definition. Add `projectDir` parameter to task source constructor as a new orchestrator framework feature.
+**Decision**: The orchestrator framework passes `projectDir` to the task source constructor. This is a new orchestrator framework feature.
 
-**Rationale**: Task sources need access to working repository for config files. This is orchestrator framework's responsibility to provide.
+**Rationale**: Task sources need access to working repository for config files. The orchestrator already resolves projectDir for hooks; it should also pass it to task sources.
 
----
+### DR-11: TaskStateStore interface for task metadata
 
-### DR-11: TaskState Store interface for task metadata
+**Question**: What is `Task.metadata` and how is it shared?
 
-**Question**: What is `Task.metadata` and how is it shared between orchestrator and task source?
+**Decision**: Task source implements `TaskStateStore` interface for storing/retrieving per-task state. The orchestrator and task source share task state through this interface. Data is stored in Bifrost's rune `state` field.
 
-**Decision**: Gap in orchestrator definition. Task source implements `TaskStateStore` interface for storing/retrieving per-task metadata. Orchestrator and task source share task state through this interface.
-
-**Rationale**: Task metadata (like branch) needs persistence across hook executions. The task source is responsible for the storage backend, orchestrator provides the data.
-
----
+**Rationale**: Task metadata needs persistence across hook executions. Making the task source responsible for storage (via Bifrost) keeps the interface clean and data co-located with the task.
 
 ### DR-12: failTask passes error as reason to Bifrost fail command
 
@@ -853,9 +957,7 @@ This section records decisions made during the development of the Bifrost Task S
 
 **Decision**: Pass it as the `reason` field in Bifrost's `/api/fail-rune` command.
 
-**Rationale**: Bifrost's `FailRune` command has a `Reason` field. The error message provides diagnostic value.
-
----
+**Rationale**: Bifrost's `FailRune` command has a `Reason` field. The error message provides diagnostic value for developers.
 
 ### DR-13: No claim conflict handling needed
 
@@ -865,17 +967,13 @@ This section records decisions made during the development of the Bifrost Task S
 
 **Rationale**: Bifrost's event-sourced design with single-stream claims prevents race conditions at the server level. The task source can trust claim operations succeed or fail with genuine errors.
 
----
-
 ### DR-14: Remove boolean return from completion methods
 
 **Question**: Should `completeTask` and `failTask` return `Promise<boolean>`?
 
-**Decision**: No. Remove boolean return. Methods only throw on failure. Bifrost guarantees idempotency, atomicity, and eventual consistency.
+**Decision**: No. Return `Promise<void>`. Methods only throw on failure. Bifrost guarantees idempotency, atomicity, and eventual consistency.
 
 **Rationale**: Boolean returns create ambiguity about failure modes. Throwing is clearer. Bifrost's design ensures operations either succeed or throw.
-
----
 
 ### DR-15: Configuration validation at construction time
 
@@ -887,164 +985,6 @@ This section records decisions made during the development of the Bifrost Task S
 
 ---
 
-## Open Questions
-
-### OQ-1: .bifrost.yaml file format specification
-
-**Ambiguity**: FR-1 states the task source reads `baseUrl` and `realm` from `.bifrost.yaml`, but the file format is not specified anywhere in the document.
-
-**Assumed format**:
-```yaml
-baseUrl: "https://bifrost.example.com"
-realm: "my-project"
-```
-
-**Questions**:
-1. Is this the actual format? Does `.bifrost.yaml` use different field names?
-2. Is `baseUrl` even in `.bifrost.yaml`, or is it configured elsewhere (server config)?
-3. What other fields might be in `.bifrost.yaml` that we should ignore?
-
-**Impact**: Critical for implementation. Wrong field names will cause credential resolution to fail.
-
----
-
-### OQ-2: Bifrost HTTP API endpoint contracts
-
-**Ambiguity**: FR-4, FR-5, FR-6 reference "bf ready equivalent API", "claim API", "fulfill API", "unclaim API" but actual HTTP endpoints and request/response formats are not specified.
-
-**Questions**:
-1. What is the HTTP path for each operation? (e.g., `GET /api/v1/runes/ready`, `POST /api/v1/runes/{id}/claim`)
-2. What are the request body formats?
-3. What are the response formats?
-4. What HTTP status codes indicate success vs. various failure modes?
-5. How is the claimant identifier passed to the claim API?
-
-**Impact**: Critical. Cannot implement without knowing actual API contracts.
-
----
-
-### OQ-3: Claimant identifier generation and format
-
-**Ambiguity**: FR-1 requires `claimant: string` in config, but doesn't specify what this value should be or how it's generated.
-
-**Questions**:
-1. Is the claimant a user-chosen string (hostname, orchestrator instance name)?
-2. Is there a format requirement (UUID, DNS name)?
-3. Must claimant be unique across all orchestrator instances?
-4. What happens if two orchestrator instances use the same claimant?
-
-**Impact**: Medium. Duplicate claimants could cause coordination issues.
-
----
-
-### OQ-4: Credential resolution failure behavior
-
-**Ambiguity**: FR-7 describes reading from `~/.config/bifrost/credentials.yaml`, but doesn't specify behavior when credentials aren't found.
-
-**Questions**:
-1. What happens if `credentials.yaml` doesn't exist?
-2. What happens if no credential matches the server/realm combination?
-3. What happens if the file is malformed (invalid YAML)?
-4. Should the task source fail fast on startup, or log and continue?
-
-**Impact**: Critical. Needs clear failure mode specification.
-
----
-
-### OQ-5: .bifrost.yaml missing or malformed behavior
-
-**Ambiguity**: Assumption 11 states `.bifrost.yaml` exists, but doesn't specify behavior if it doesn't.
-
-**Questions**:
-1. What if `.bifrost.yaml` doesn't exist in `projectDir`?
-2. What if it exists but is missing required fields?
-3. What if both `.orchestrator.yaml` overrides and `.bifrost.yaml` are missing - is this fatal?
-4. Should we fall back to `.orchestrator.yaml` only, or fail?
-
-**Impact**: High. Need to define graceful degradation vs. hard failure.
-
----
-
-### OQ-6: projectDir access mechanism
-
-**Ambiguity**: The `TaskSource` interface (FR-2) doesn't include `projectDir` as a parameter, but FR-1 and FR-7 reference reading files from `projectDir`.
-
-**Questions**:
-1. How does the task source receive `projectDir`? Is it passed to the constructor?
-2. Is `projectDir` resolved once at startup, or can it change during operation?
-3. What if the orchestrator runs from outside a git repository (no projectDir)?
-
-**Impact**: High. Cannot implement file reading without knowing how projectDir is provided.
-
----
-
-### OQ-7: Task.metadata type specification
-
-**Ambiguity**: FR-3 specifies `branch` goes into `Task.metadata.branch`, but the structure of `Task.metadata` is not defined.
-
-**Questions**:
-1. Is `Task.metadata` a free-form `Record<string, unknown>`?
-2. Are there other metadata fields beyond `branch`?
-3. Does the orchestrator framework define `Task.metadata`, or is it task-source-specific?
-
-**Impact**: Medium. Affects type safety and serialization.
-
----
-
-### OQ-8: failTask error message handling
-
-**Ambiguity**: The interface specifies `failTask(taskId: string, error: string)`, but doesn't specify what happens to the error message.
-
-**Questions**:
-1. Is the error message added as a note on the rune in Bifrost?
-2. Is it just logged?
-3. Is it passed to the unclaim API body?
-4. Should the error message be truncated if too long?
-
-**Impact**: Medium. Affects debugging and user experience.
-
----
-
-### OQ-9: Claim conflict handling in watchTasks
-
-**Ambiguity**: FR-5 states "On claim conflict, the Bifrost Task Source MUST log the conflict and NOT yield the rune to the orchestrator." This conflicts with US-2 AC which says the unsuccessful instance "receives a conflict error."
-
-**Questions**:
-1. Does the conflicting rune get silently skipped, or is an error emitted?
-2. If an error, is it a logged error or thrown from the async iterator?
-3. Should the task source track conflicts and alert if conflicts are frequent?
-
-**Impact**: Medium. Affects observability and operational debugging.
-
----
-
-### OQ-10: completeTask/failTask partial failure modes
-
-**Ambiguity**: FR-6 specifies `completeTask` and `failTask` return `Promise<boolean>`, but doesn't specify what `false` means vs. throwing an error.
-
-**Questions**:
-1. Does `false` mean "Bifrost acknowledged but state didn't change"?
-2. Does `false` mean "network error but operation might have succeeded"?
-3. When should the method throw vs. return false?
-4. Should the orchestrator retry on `false`?
-
-**Impact**: High. Affects orchestrator's retry and error handling logic.
-
----
-
-### OQ-11: Configuration validation timing
-
-**Ambiguity**: FR-1 through FR-11 specify configuration, but not when validation occurs.
-
-**Questions**:
-1. Is configuration validated at task source construction time, or on first API call?
-2. Which validation errors should prevent startup vs. be logged warnings?
-3. If `.orchestrator.yaml` has invalid values (negative pollInterval), what happens?
-
-**Impact**: Medium. Affects startup behavior and diagnosability.
-
----
-
 ## Appendices
 
 ### Appendix A: .bifrost.yaml Schema
@@ -1053,62 +993,123 @@ The `.bifrost.yaml` file in the working repository specifies the Bifrost server 
 
 ```yaml
 # .bifrost.yaml
-baseUrl: "https://bifrost.example.com"  # Bifrost server URL
-realm: "my-project"                       # Realm name for this repository
+url: "https://bifrost.example.com"  # Bifrost server URL
+realm: "my-project"                   # Realm name (required)
+orchestrate:                          # Optional orchestrator config
+  dispatcher: "echo"
+  claimant: ""
+  poll_interval: "10s"
+  concurrency: 1
+api_key: "deprecated-token"           # DEPRECATED: Use credentials.yaml instead
 ```
 
-Additional fields may be present in the file but are ignored by the task source.
+**Notes**:
+- Field is `url`, not `baseUrl`
+- `realm` is required
+- `api_key` is deprecated; use `credentials.yaml`
+- Task source ignores `orchestrate` section (that's for Bifrost CLI's orchestrate command)
 
-### Appendix B: Bifrost HTTP API Endpoints
+### Appendix B: ~/.config/bifrost/credentials.yaml Schema
 
-The following HTTP endpoints are used by the Bifrost Task Source:
+The credentials file stores PATs mapped by server URL.
 
-**Ready Runes Query**
+```yaml
+# ~/.config/bifrost/credentials.yaml (or $XDG_CONFIG_HOME/bifrost/credentials.yaml)
+credentials:
+  "https://bifrost.example.com":
+    token: "the-pat-token"
+  "https://other-bifrost.example.com":
+    token: "another-token"
 ```
-GET /api/v1/runes?state=open&realm={realm}
-Headers: Authorization: Bearer {pat}, X-Bifrost-Realm: {realm}
-Response: 200 OK with array of BifrostRune
+
+**Notes**:
+- Top-level key is `credentials`
+- Server URLs are map keys (not values)
+- URLs are normalized (trailing slashes removed) for matching
+- Token values are the actual PAT strings
+
+### Appendix C: Bifrost HTTP API Endpoints
+
+The task source uses these Bifrost HTTP API endpoints:
+
+**List Ready Runes**
+```
+GET /api/runes?status=open&blocked=false&is_saga=false
+Headers: 
+  Authorization: Bearer {pat}
+  X-Bifrost-Realm: {realm}
+Response: 200 OK with array of rune objects
 ```
 
 **Claim Rune**
 ```
-POST /api/v1/runes/{runeId}/claim
-Headers: Authorization: Bearer {pat}, X-Bifrost-Realm: {realm}
-Body: { "claimant": string }
-Response: 200 OK on success, 409 Conflict on claim conflict
+POST /api/claim-rune
+Headers:
+  Authorization: Bearer {pat}
+  X-Bifrost-Realm: {realm}
+Body: { "id": string, "claimant": string }
+Response: 204 No Content on success, 4xx on error
 ```
 
 **Get Rune Detail**
 ```
-GET /api/v1/runes/{runeId}
-Headers: Authorization: Bearer {pat}, X-Bifrost-Realm: {realm}
-Response: 200 OK with BifrostRuneDetail, 404 Not Found
+GET /api/rune?id={runeId}
+Headers:
+  Authorization: Bearer {pat}
+  X-Bifrost-Realm: {realm}
+Response: 200 OK with rune detail object, 404 Not Found
 ```
 
 **Fulfill Rune**
 ```
-POST /api/v1/runes/{runeId}/fulfill
-Headers: Authorization: Bearer {pat}, X-Bifrost-Realm: {realm}
-Response: 200 OK
+POST /api/fulfill-rune
+Headers:
+  Authorization: Bearer {pat}
+  X-Bifrost-Realm: {realm}
+Body: { "id": string }
+Response: 204 No Content
 ```
 
-**Unclaim Rune**
+**Fail Rune**
 ```
-POST /api/v1/runes/{runeId}/unclaim
-Headers: Authorization: Bearer {pat}, X-Bifrost-Realm: {realm}
-Body: { "reason": string }
-Response: 200 OK
+POST /api/fail-rune
+Headers:
+  Authorization: Bearer {pat}
+  X-Bifrost-Realm: {realm}
+Body: { "id": string, "reason": string }
+Response: 204 No Content
 ```
 
-### Appendix C: HTTP Status Codes
+**Update Rune State (TaskStateStore)**
+```
+POST /api/update-rune-state
+Headers:
+  Authorization: Bearer {pat}
+  X-Bifrost-Realm: {realm}
+Body: { "id": string, "state": Record<string, unknown> }
+Response: 204 No Content
+```
+
+**Clear Rune State**
+```
+POST /api/clear-rune-state
+Headers:
+  Authorization: Bearer {pat}
+  X-Bifrost-Realm: {realm}
+Body: { "id": string }
+Response: 204 No Content
+```
+
+### Appendix D: HTTP Status Codes
 
 | Status | Meaning | Task Source Behavior |
 |--------|---------|---------------------|
-| 200 OK | Success | Proceed |
+| 204 No Content | Success | Proceed |
 | 401 Unauthorized | Invalid PAT | Log error, continue polling |
 | 403 Forbidden | Insufficient permissions | Log error, continue polling |
 | 404 Not Found | Rune not found | Return null from getTaskDetail |
-| 409 Conflict | Rune already claimed | Log conflict, skip rune |
+| 409 Conflict | Domain constraint violation | Log error, skip rune |
+| 422 Unprocessable Entity | Validation error | Log error, skip rune |
 | 500+ Server Error | Bifrost server error | Log error, retry on next poll |
 
 ---

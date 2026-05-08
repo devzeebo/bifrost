@@ -1,29 +1,10 @@
-import { defineConfig } from 'vite'
-import dts from 'vite-plugin-dts'
+import pkg from './package.json'
+// @ts-ignore
+import tsconfig from './tsconfig.json'
+import base from '../../vite.base'
 
-export default defineConfig({
-  plugins: [
-    dts({
-      tsconfigPath: './tsconfig.json',
-      rollupTypes: true,
-    }),
-  ],
-  build: {
-    lib: {
-      entry: './src/index.ts',
-      name: 'Cli',
-      formats: ['es'],
-      fileName: 'index',
-    },
-    rollupOptions: {
-      external: ['@orchestrator/core'],
-      output: {
-        globals: {
-          '@orchestrator/core': 'Core',
-        },
-      },
-    },
-    target: 'esnext',
-    emptyOutDir: true,
-  },
+export default base({
+  name: 'cli',
+  pkg,
+  tsconfig
 })

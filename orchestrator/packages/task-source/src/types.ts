@@ -1,4 +1,4 @@
-// FR-1: Task Status enum values
+// Task Status enum - used by task source implementations internally
 export const TaskStatus = {
   OPEN: 'OPEN',
   IN_PROGRESS: 'IN_PROGRESS',
@@ -9,17 +9,12 @@ export const TaskStatus = {
 
 export type TaskStatus = (typeof TaskStatus)[keyof typeof TaskStatus]
 
-// FR-1: Task aggregate
+// Minimal Task type - orchestrator treats metadata as opaque
 export type Task = {
   id: string
-  title: string
-  description: string | null
-  status: TaskStatus
-  tags: string[]
-  claimant: string | null
-  createdAt: Date | null
-  updatedAt: Date | null
-  priority: number
+  agentId: string
+  taskState: Record<string, unknown>
+  metadata: Record<string, unknown>
 }
 
 // FR-1: TaskDetail extends Task

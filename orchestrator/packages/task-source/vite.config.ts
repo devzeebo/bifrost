@@ -1,27 +1,10 @@
-import { defineConfig } from 'vite'
-import dts from 'vite-plugin-dts'
+import pkg from './package.json'
+// @ts-ignore
+import tsconfig from './tsconfig.json'
+import base from '../../vite.base'
 
-export default defineConfig({
-  plugins: [
-    dts({
-      tsconfigPath: './tsconfig.json',
-      rollupTypes: true,
-    }),
-  ],
-  build: {
-    lib: {
-      entry: './src/index.ts',
-      name: 'TaskSource',
-      formats: ['es'],
-      fileName: 'index',
-    },
-    rollupOptions: {
-      external: [],
-      output: {
-        globals: {},
-      },
-    },
-    target: 'esnext',
-    emptyOutDir: true,
-  },
+export default base({
+  name: 'task-source',
+  pkg,
+  tsconfig
 })
