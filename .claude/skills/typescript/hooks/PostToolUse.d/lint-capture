@@ -1,0 +1,9 @@
+#!/bin/bash
+# matcher: Edit|Write
+###
+
+FILE_NAME=$(get_field "tool_input.file_path")
+
+echo "$FILE_NAME" >> $(sentinal lint)
+
+sort -u $(sentinal lint) -o $(sentinal lint)

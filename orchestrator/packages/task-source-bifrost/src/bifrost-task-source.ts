@@ -1,4 +1,12 @@
-import type { ACEntry, BifrostTaskSourceConfig, DependencyRef, NoteEntry, RetroEntry, Task, TaskSource } from "@orchestrator/task-source";
+import type {
+  ACEntry,
+  BifrostTaskSourceConfig,
+  DependencyRef,
+  NoteEntry,
+  RetroEntry,
+  Task,
+  TaskSource,
+} from "@orchestrator/task-source";
 import { BifrostHttpClient } from "./client/bifrost-http-client.js";
 import { ConfigLoader } from "./config/config-loader.js";
 import { CredentialLoader } from "./config/credential-loader.js";
@@ -6,17 +14,21 @@ import { CredentialLoader } from "./config/credential-loader.js";
 export class BifrostTaskSource implements TaskSource {
   readonly #config: BifrostTaskSourceConfig;
   #client: BifrostHttpClient | null = null;
-  #initialized: boolean = false;
+  #initialized = false;
 
-  constructor(config: BifrostTaskSourceConfig = {}) {
+  public constructor(config: BifrostTaskSourceConfig = {}) {
     this.#config = {
       pollInterval: config.pollInterval ?? 1000,
       maxPollInterval: config.maxPollInterval ?? 30000,
     };
+    
+    Object.freeze(this.#config);
   }
 
   async #initialize(): Promise<void> {
-    if (this.#initialized) return;
+    if (this.#initialized) {
+      return;
+    }
 
     const configLoader = new ConfigLoader();
     const bifrostConfig = await configLoader.load();
@@ -30,20 +42,28 @@ export class BifrostTaskSource implements TaskSource {
 
   async #getClient(): Promise<BifrostHttpClient> {
     await this.#initialize();
-    return this.#client!;
+    if (!this.#client) {
+      throw new Error("Client not initialized");
+    }
+    return this.#client;
   }
 
-  async *watchTasks(): AsyncGenerator<Task> {
+  /* eslint-disable @typescript-eslint/no-await-in-loop, @typescript-eslint/no-continue */
+  public async *watchTasks(): AsyncGenerator<Task> {
     const client = await this.#getClient();
-    let pollInterval = this.#config.pollInterval!;
+    const defaultPollInterval = this.#config.pollInterval ?? 1000;
+    const maxPollInterval = this.#config.maxPollInterval ?? 30000;
+    let pollInterval = defaultPollInterval;
 
     while (true) {
       try {
         const readyRunes = await client.getReadyRunes();
 
         for (const rune of readyRunes) {
-          const agentId = this.#extractAgentId(rune.tags);
-          if (!agentId) continue;
+          const agentId = BifrostTaskSource.extractAgentId(rune.tags);
+          if (!agentId) {
+            continue;
+          }
 
           try {
             await client.claimRune(rune.id);
@@ -55,32 +75,33 @@ export class BifrostTaskSource implements TaskSource {
           }
 
           const detail = await client.getRune(rune.id);
-          pollInterval = this.#config.pollInterval!;
+          pollInterval = defaultPollInterval;
 
-          yield this.#mapToTask(detail, agentId);
+          yield BifrostTaskSource.mapToTask(detail, agentId);
           return;
         }
 
-        pollInterval = Math.min(pollInterval * 2, this.#config.maxPollInterval!);
+        pollInterval = Math.min(pollInterval * 2, maxPollInterval);
         const jitter = pollInterval * 0.2 * (Math.random() * 2 - 1);
-        await this.#sleep(pollInterval + jitter);
+        await BifrostTaskSource.sleep(pollInterval + jitter);
       } catch {
-        await this.#sleep(pollInterval);
+        await BifrostTaskSource.sleep(pollInterval);
       }
     }
   }
+  /* eslint-enable @typescript-eslint/no-await-in-loop, @typescript-eslint/no-continue */
 
-  async completeTask(taskId: string): Promise<void> {
+  public async completeTask(taskId: string): Promise<void> {
     const client = await this.#getClient();
     await client.fulfillRune(taskId);
   }
 
-  async failTask(taskId: string, error: string): Promise<void> {
+  public async failTask(taskId: string, error: string): Promise<void> {
     const client = await this.#getClient();
     await client.failRune(taskId, error);
   }
 
-  async setState(taskId: string, taskState: Record<string, unknown>): Promise<void> {
+  public async setState(taskId: string, taskState: Record<string, unknown>): Promise<void> {
     try {
       const client = await this.#getClient();
       await client.updateRuneState(taskId, taskState);
@@ -89,13 +110,15 @@ export class BifrostTaskSource implements TaskSource {
     }
   }
 
-  #extractAgentId(tags: string[]): string | null {
+  public static extractAgentId(tags: string[]): string | null {
     const agentTag = tags.find((tag) => tag.startsWith("agent:"));
-    if (!agentTag) return null;
+    if (!agentTag) {
+      return null;
+    }
     return agentTag.slice(6);
   }
 
-  #mapToTask(
+  public static mapToTask(
     rune: {
       id: string;
       title: string;
@@ -107,7 +130,7 @@ export class BifrostTaskSource implements TaskSource {
       assignee_id?: string;
       tags: string[];
       created_at: string;
-      dependencies: Array<{ target_id: string; relationship: string }>;
+      dependencies: { target_id: string; relationship: string }[];
     },
     agentId: string,
   ): Task {
@@ -135,7 +158,7 @@ export class BifrostTaskSource implements TaskSource {
     };
   }
 
-  #sleep(ms: number): Promise<void> {
+  public static sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

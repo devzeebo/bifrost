@@ -12,13 +12,24 @@
         ]
       }
     ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/dispatch typescript lint-oxlint"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/dispatch typescript lint-oxlint"
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/dispatch typescript lint-capture"
           }
         ]
       }
