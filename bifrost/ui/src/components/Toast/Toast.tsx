@@ -1,8 +1,9 @@
 "use client";
 
-import { type Toast, ToastType } from "@/lib/toast";
+import type { ToastType } from "@/lib/toast";
+import { type Toast } from "@/lib/toast";
 
-interface ToastItemProps {
+type ToastItemProps = {
   toast: Toast;
   onRemove: (id: string) => void;
 }

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { renderPrompt } from "./handlebars-renderer.js";
 
 describe("Handlebars Prompt Renderer", () => {

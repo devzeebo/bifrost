@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { parseAgentDefinition } from "./agent-parser.js";
 
 describe("AGENT.md Parser - US-1", () => {

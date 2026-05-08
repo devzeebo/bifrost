@@ -7,7 +7,7 @@ export default ({
   pkg,
 }: {
   name: string;
-  tsconfig: { references?: Array<{ path: string }> };
+  tsconfig: { references?: { path: string }[] };
   pkg: Record<string, unknown>;
 }) =>
   defineConfig({

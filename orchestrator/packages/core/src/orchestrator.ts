@@ -1,6 +1,6 @@
 import type { AgentDefinition } from "./types.js";
 import { validateTaskState } from "./validator.js";
-import { executeHooks, type HookExecutionContext } from "./hook-executor.js";
+import { type HookExecutionContext, executeHooks } from "./hook-executor.js";
 import { renderPrompt } from "./handlebars-renderer.js";
 import type { Task, TaskSource } from "@orchestrator/task-source";
 import type { Engine, EngineContext, EngineResult } from "@orchestrator/engine";

@@ -1,13 +1,13 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { homedir } from "node:os";
 import { parse } from "yaml";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { BifrostCredentials } from "../types.js";
 
 export class CredentialLoader {
-  homeDir: string = process.env.BIFROST_TEST_HOME ?? homedir();
+  public homeDir: string = process.env.BIFROST_TEST_HOME ?? homedir();
 
-  async loadToken(url: string): Promise<string> {
+  public async loadToken(url: string): Promise<string> {
     const credentialsPath = join(this.homeDir, ".config", "bifrost", "credentials.yaml");
     const content = await readFile(credentialsPath, "utf-8");
     const credentials = parse(content) as unknown;
@@ -16,7 +16,7 @@ export class CredentialLoader {
       throw new Error("Invalid credentials.yaml: missing credentials map");
     }
 
-    const normalizedUrl = this.normalizeUrl(url);
+    const normalizedUrl = CredentialLoader.normalizeUrl(url);
     const entry = credentials.credentials[normalizedUrl];
 
     if (!entry || typeof entry.token !== "string") {
@@ -26,7 +26,7 @@ export class CredentialLoader {
     return entry.token;
   }
 
-  private isValidCredentials(
+  private static isValidCredentials(
     credentials: unknown,
   ): credentials is BifrostCredentials {
     return (
@@ -37,7 +37,7 @@ export class CredentialLoader {
     );
   }
 
-  private normalizeUrl(url: string): string {
+  private static normalizeUrl(url: string): string {
     return url.replace(/\/$/, "");
   }
 }

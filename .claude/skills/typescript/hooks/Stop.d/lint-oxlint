@@ -1,8 +1,10 @@
 #!/bin/bash
 ###
 
-if [[ "$(wc -l <$(sentinal lint))" -gt 0 ]]; then
-  OUTPUT=$(cat $(sentinal lint) | xargs npm run lint) || {
+SENTINEL=$(sentinel lint-ts)
+
+if [[ "$(wc -l <$SENTINEL)" -gt 0 ]]; then
+  OUTPUT=$(cat $SENTINEL | xargs npm run lint -- --fix) || {
     block  "You MUST fix the following lint errors, even if you think they are unrelated to your changes:\n$OUTPUT"
   }
 fi

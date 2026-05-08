@@ -1,4 +1,4 @@
-import { describe, expect, vi, beforeEach, afterEach, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { ApiClient, ApiError } from "./api";
 
 describe("ApiClient", () => {

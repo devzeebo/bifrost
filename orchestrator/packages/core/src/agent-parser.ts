@@ -1,5 +1,5 @@
 import matter from "gray-matter";
-import { AgentDefinition } from "./types.js";
+import type { AgentDefinition } from "./types.js";
 
 /**
  * Extract all Handlebars tokens from a string.
@@ -120,8 +120,8 @@ export const parseAgentDefinition = (content: string): AgentDefinition | null =>
     // Parse hooks
     const hooksData = data.hooks as Record<string, unknown> | undefined;
     const hooks: {
-      Start: Array<{ name: string; scriptPath: string; timeout?: number }>;
-      Stop: Array<{ name: string; scriptPath: string; timeout?: number }>;
+      Start: { name: string; scriptPath: string; timeout?: number }[];
+      Stop: { name: string; scriptPath: string; timeout?: number }[];
     } = {
       Start: [],
       Stop: [],

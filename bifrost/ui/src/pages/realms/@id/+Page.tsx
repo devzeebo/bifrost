@@ -167,7 +167,7 @@ function Page() {
   }, []);
 
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading) {return;}
 
     if (!isAuthenticated) {
       navigate("/login");
@@ -216,7 +216,7 @@ function Page() {
   ]);
 
   const handleSuspend = async () => {
-    if (!realm) return;
+    if (!realm) {return;}
 
     setIsSuspending(true);
     setIsLoading(true);

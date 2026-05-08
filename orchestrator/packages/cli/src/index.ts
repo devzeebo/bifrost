@@ -8,8 +8,8 @@ export type AgentDisplayInfo = {
   model?: string;
   tools?: string[];
   hooks?: {
-    Start: Array<{ name: string }>;
-    Stop: Array<{ name: string }>;
+    Start: { name: string }[];
+    Stop: { name: string }[];
   };
 };
 

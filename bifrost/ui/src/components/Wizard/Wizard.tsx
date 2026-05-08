@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 
-export interface WizardStep {
+export type WizardStep = {
   title: string;
   content: React.ReactNode;
 }
 
-export interface WizardProps {
+export type WizardProps = {
   steps: WizardStep[];
   onComplete: () => void;
   colors?: string[];
@@ -33,9 +33,7 @@ export const Wizard: React.FC<WizardProps> = ({ steps, onComplete, colors = DEFA
     }
   };
 
-  const getStepColor = (stepIndex: number) => {
-    return colors[stepIndex % colors.length] || colors[0];
-  };
+  const getStepColor = (stepIndex: number) => colors[stepIndex % colors.length] || colors[0];
 
   return (
     <div className="wizard">

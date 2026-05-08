@@ -162,7 +162,7 @@ function Page() {
   ]);
 
   useEffect(() => {
-    if (authLoading || realmLoading) return;
+    if (authLoading || realmLoading) {return;}
 
     if (!isAuthenticated) {
       navigate("/login");
@@ -178,7 +178,7 @@ function Page() {
   }, [loadClaimantUsername]);
 
   const handleShatter = async () => {
-    if (!rune || !effectiveRealm) return;
+    if (!rune || !effectiveRealm) {return;}
 
     setIsMutating(true);
     try {
@@ -204,7 +204,7 @@ function Page() {
   const canShatter = runeStatus === "sealed" || runeStatus === "fulfilled";
 
   const handleForge = async () => {
-    if (!effectiveRealm || !rune) return;
+    if (!effectiveRealm || !rune) {return;}
 
     setIsMutating(true);
     try {
@@ -220,7 +220,7 @@ function Page() {
   };
 
   const handleClaim = async () => {
-    if (!effectiveRealm || !rune || !accountId) return;
+    if (!effectiveRealm || !rune || !accountId) {return;}
 
     setIsMutating(true);
     try {
@@ -236,7 +236,7 @@ function Page() {
   };
 
   const handleAssign = async () => {
-    if (!effectiveRealm || !rune) return;
+    if (!effectiveRealm || !rune) {return;}
     const target = assignTarget.trim();
     if (!target) {
       showToast("Error", "Enter an account ID to assign", "error");
@@ -257,7 +257,7 @@ function Page() {
   };
 
   const handleFulfill = async () => {
-    if (!effectiveRealm || !rune) return;
+    if (!effectiveRealm || !rune) {return;}
 
     setIsMutating(true);
     try {
@@ -273,7 +273,7 @@ function Page() {
   };
 
   const handleSeal = async () => {
-    if (!effectiveRealm || !rune) return;
+    if (!effectiveRealm || !rune) {return;}
 
     setIsMutating(true);
     try {

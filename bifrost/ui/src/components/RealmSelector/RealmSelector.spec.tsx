@@ -1,4 +1,4 @@
-import { describe, expect, vi, beforeEach, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { RealmSelector } from "./RealmSelector";
 
@@ -7,7 +7,7 @@ type RealmContextValue = {
   currentRealm: string | null;
   setCurrentRealm: (realm: string | null) => void;
   availableRealms: string[];
-  realmOptions: Array<{ id: string; name: string }>;
+  realmOptions: { id: string; name: string }[];
   isLoading: boolean;
 };
 

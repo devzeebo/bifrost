@@ -1,7 +1,7 @@
-import { describe, expect, vi, test } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, expect, test, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { Toast } from "./Toast";
-import { type Toast as ToastType } from "@/lib/toast";
+import type { Toast as ToastType } from "@/lib/toast";
 
 describe("Toast", () => {
   const mockOnRemove = vi.fn();

@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
-import { Engine } from "./interface.js";
-import { EngineContext, EngineResult } from "./types.js";
+import { describe, expect, it, vi } from "vitest";
+import type { Engine } from "./interface.js";
+import type { EngineContext, EngineResult } from "./types.js";
 
 describe("Engine Interface", () => {
   describe("FR-2: Engine Interface", () => {

@@ -1,4 +1,4 @@
-import { describe, expect, vi, beforeEach, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { TopNav } from "./TopNav";
 

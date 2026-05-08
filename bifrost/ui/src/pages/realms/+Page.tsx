@@ -76,7 +76,7 @@ function Page() {
   );
 
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading) {return;}
 
     if (!isAuthenticated) {
       navigate("/login");

@@ -1,5 +1,5 @@
-import { describe, expect, vi, beforeEach, test } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { Wizard } from "./Wizard";
 
 describe("Wizard", () => {

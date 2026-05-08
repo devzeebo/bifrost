@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
-import { executeHooks, HookExecutionContext } from "./hook-executor.js";
+import { describe, expect, it, vi } from "vitest";
+import type { HookExecutionContext } from "./hook-executor.js";
+import { executeHooks } from "./hook-executor.js";
 
 describe("Hook Executor - US-4", () => {
   describe("Start hooks execution", () => {
@@ -126,7 +127,7 @@ describe("Hook Executor - US-4", () => {
 
       // The rendered prompt is NOT present in stdin
       const callArgs = mockExec.mock.calls[0];
-      const stdin = callArgs[0].stdin;
+      const {stdin} = callArgs[0];
       expect(stdin).not.toContain("prompt");
     });
   });

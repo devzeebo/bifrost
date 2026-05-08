@@ -1,13 +1,13 @@
 export type AccountStatus = "active" | "inactive";
 
-export interface AccountListEntry {
+export type AccountListEntry = {
   id: string;
   username: string;
   status: AccountStatus;
   created_at: string;
 }
 
-export interface PatEntry {
+export type PatEntry = {
   id: string;
   label?: string;
   token_preview?: string;
@@ -15,7 +15,7 @@ export interface PatEntry {
   last_used?: string;
 }
 
-export interface AdminAccountEntry {
+export type AdminAccountEntry = {
   account_id: string;
   username: string;
   status: AccountStatus;

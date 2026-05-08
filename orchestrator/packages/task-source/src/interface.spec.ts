@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
-import { TaskSource } from "./interface.js";
+import { describe, expect, it, vi } from "vitest";
+import type { TaskSource } from "./interface.js";
 import type { Task } from "./types.js";
 
 describe("TaskSource Interface", () => {

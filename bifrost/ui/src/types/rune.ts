@@ -16,7 +16,7 @@ export type RuneRelationship = {
   relationship: RuneRelationshipType | string;
 };
 
-export interface RuneListItem {
+export type RuneListItem = {
   id: string;
   title: string;
   status: RuneStatus;
@@ -31,16 +31,16 @@ export interface RuneListItem {
   updated_at: string;
 }
 
-export interface RuneDetail extends RuneListItem {
+export type RuneDetail = {
   description: string;
   branch?: string;
   saga_id?: string;
   assignee_id?: string;
   dependencies: RuneRelationship[];
   tags: string[];
-}
+} & RuneListItem
 
-export interface CreateRuneRequest {
+export type CreateRuneRequest = {
   title: string;
   description?: string;
   priority: number;

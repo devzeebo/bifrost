@@ -1,4 +1,4 @@
-export interface SessionInfo {
+export type SessionInfo = {
   account_id: string;
   username: string;
   realms: string[];
@@ -7,7 +7,7 @@ export interface SessionInfo {
   realm_names?: Record<string, string>;
 }
 
-export interface LoginRequest {
+export type LoginRequest = {
   pat: string;
   remember_me?: boolean;
 }

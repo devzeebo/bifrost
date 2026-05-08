@@ -2,7 +2,7 @@
 
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 
-interface DialogProps {
+type DialogProps = {
   open: boolean;
   onClose: () => void;
   title: string;

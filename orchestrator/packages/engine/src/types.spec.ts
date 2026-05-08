@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
-import { EngineResult, ExecutionStats, EngineContext } from "./types.js";
+import { describe, expect, it, vi } from "vitest";
+import type { EngineContext, EngineResult, ExecutionStats } from "./types.js";
 
 describe("Engine Types", () => {
   describe("ExecutionStats", () => {

@@ -1,16 +1,16 @@
 import type {
-  SessionInfo,
-  LoginRequest,
-  OnboardingCheckResponse,
   CreateAdminRequest,
   CreateAdminResponse,
+  LoginRequest,
+  OnboardingCheckResponse,
+  SessionInfo,
 } from "../types/session";
-import type { RuneListItem, RuneDetail, CreateRuneRequest, RuneRelationship } from "../types/rune";
+import type { CreateRuneRequest, RuneDetail, RuneListItem, RuneRelationship } from "../types/rune";
 import type {
-  RealmListEntry,
-  RealmDetail,
   CreateRealmRequest,
   CreateRealmResponse,
+  RealmDetail,
+  RealmListEntry,
 } from "../types/realm";
 import type { AccountListEntry, AdminAccountEntry, PatEntry } from "../types/account";
 
@@ -48,7 +48,7 @@ export class ApiClient {
         credentials: "include",
       });
 
-    let response = await makeRequest(apiUrl);
+    const response = await makeRequest(apiUrl);
     if (!response.ok) {
       let data: unknown;
       try {

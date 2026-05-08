@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@base-ui/react/button";
 import { Input } from "@base-ui/react/input";
 import { navigate } from "@/lib/router";
@@ -219,7 +219,7 @@ function Page() {
 
 // Custom wizard with validation
 type WizardWithValidationProps = {
-  steps: Array<{ title: string; content: React.ReactNode }>;
+  steps: { title: string; content: React.ReactNode }[];
   colors: string[];
   onComplete: () => void | Promise<void>;
   onValidateStep: (stepIndex: number) => Promise<boolean>;
@@ -240,7 +240,7 @@ function WizardWithValidation({
   const isFirstStep = currentStep === 0;
 
   const handleNext = async () => {
-    if (isValidating || isCompleting) return;
+    if (isValidating || isCompleting) {return;}
 
     setIsValidating(true);
     try {
@@ -263,9 +263,7 @@ function WizardWithValidation({
     }
   };
 
-  const getStepColor = (stepIndex: number) => {
-    return colors[stepIndex % colors.length] ?? colors[0];
-  };
+  const getStepColor = (stepIndex: number) => colors[stepIndex % colors.length] ?? colors[0];
 
   return (
     <div className="wizard">

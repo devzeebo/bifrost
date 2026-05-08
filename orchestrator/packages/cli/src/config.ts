@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { resolve, join } from "node:path";
+import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { parse as yamlParse } from "yaml";
 

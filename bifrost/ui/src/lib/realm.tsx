@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { type ReactNode, createContext, useContext, useEffect, useState } from "react";
 import { api } from "./api";
 import { useAuth } from "./auth";
 import type { RealmListEntry } from "../types/realm";
@@ -11,7 +11,7 @@ export type RealmOption = {
   name: string;
 };
 
-interface RealmContextValue {
+type RealmContextValue = {
   currentRealm: string | null;
   setCurrentRealm: (realm: string | null) => void;
   availableRealms: string[];
@@ -21,7 +21,7 @@ interface RealmContextValue {
 
 const RealmContext = createContext<RealmContextValue | undefined>(undefined);
 
-const sanitizeRealms = (realms: Array<string | null | undefined>): string[] => {
+const sanitizeRealms = (realms: (string | null | undefined)[]): string[] => {
   const unique = new Set<string>();
 
   for (const realm of realms) {
@@ -34,7 +34,7 @@ const sanitizeRealms = (realms: Array<string | null | undefined>): string[] => {
   return Array.from(unique);
 };
 
-const normalizeRealmOptions = (realms: Array<RealmOption | null | undefined>): RealmOption[] => {
+const normalizeRealmOptions = (realms: (RealmOption | null | undefined)[]): RealmOption[] => {
   const byId = new Map<string, RealmOption>();
 
   for (const realm of realms) {
@@ -96,7 +96,7 @@ export function RealmProvider({ children }: { children: ReactNode }) {
 
   // Load available realms and restore persisted realm
   useEffect(() => {
-    const applyRealmSelection = (rawRealms: Array<RealmOption | null | undefined>) => {
+    const applyRealmSelection = (rawRealms: (RealmOption | null | undefined)[]) => {
       const options = normalizeRealmOptions(rawRealms);
       const realms = options.map((option) => option.id);
       setRealmOptions(options);

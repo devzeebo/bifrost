@@ -22,18 +22,18 @@ block() {
   exit 2
 }
 
-sentinal() {
+sentinel() {
   SESSION_ID=$(get_field "session_id")
 
   mkdir -p /tmp/.claude
 
-  echo "/tmp/.claude/$SESSION_ID.$1.sentinal"
+  echo "/tmp/.claude/$SESSION_ID.$1.sentinel"
 }
 
 export -f get_field
 export -f deny
 export -f block
-export -f sentinal
+export -f sentinel
 export INPUT
 
 $CLAUDE_PROJECT_DIR/.claude/skills/$1/hooks/$(get_field hook_event_name).d/$2

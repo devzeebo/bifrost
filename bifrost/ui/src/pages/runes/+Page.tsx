@@ -35,7 +35,7 @@ function Page() {
       : (effectiveRealms[0] ?? null);
 
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading) {return;}
 
     if (!isAuthenticated) {
       navigate("/login");

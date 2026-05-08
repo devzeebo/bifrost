@@ -16,6 +16,7 @@ export default defineConfig({
     "no-magic-numbers": "off",
     "sort-keys": "off",
     "no-underscore-dangle": "off",
+    "consistent-type-definitions": ["error", "type"],
   },
   overrides: [
     {

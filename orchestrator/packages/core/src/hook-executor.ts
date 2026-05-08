@@ -1,4 +1,4 @@
-import { HookSpec } from "./types.js";
+import type { HookSpec } from "./types.js";
 
 export type HookExecutionContext = {
   projectDir: string;

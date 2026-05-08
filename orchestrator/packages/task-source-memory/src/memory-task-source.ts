@@ -1,4 +1,4 @@
-import type { TaskSource, Task } from "@orchestrator/task-source";
+import type { Task, TaskSource } from "@orchestrator/task-source";
 
 type InternalTask = {
   id: string;
@@ -10,9 +10,9 @@ type InternalTask = {
 };
 
 export class MemoryTaskSource implements TaskSource {
-  #tasks: Map<string, InternalTask> = new Map();
-  #pending: Set<string> = new Set();
-  #claimed: Set<string> = new Set();
+  #tasks = new Map<string, InternalTask>();
+  #pending = new Set<string>();
+  #claimed = new Set<string>();
 
   async addTask(task: Omit<InternalTask, "status">): Promise<void> {
     const internalTask: InternalTask = {

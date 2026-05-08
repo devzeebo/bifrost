@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { validateTaskState } from "./validator.js";
 
 describe("Template Parameters Validator - US-6", () => {

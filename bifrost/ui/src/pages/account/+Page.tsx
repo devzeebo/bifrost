@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@base-ui/react/button";
 import { navigate } from "@/lib/router";
 import { useAuth } from "../../lib/auth";
@@ -32,7 +32,7 @@ function Page() {
   const { showToast } = useToast();
 
   const fetchPATs = useCallback(async () => {
-    if (!accountId) return;
+    if (!accountId) {return;}
 
     setIsLoadingPATs(true);
     try {
@@ -46,7 +46,7 @@ function Page() {
   }, [accountId, showToast]);
 
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading) {return;}
 
     if (!isAuthenticated) {
       navigate("/login");
@@ -57,7 +57,7 @@ function Page() {
   }, [authLoading, isAuthenticated, fetchPATs]);
 
   const handleCreatePAT = async () => {
-    if (!accountId) return;
+    if (!accountId) {return;}
 
     setIsCreatingPAT(true);
     try {
@@ -73,7 +73,7 @@ function Page() {
   };
 
   const handleRevokePAT = async (patId: string) => {
-    if (!accountId) return;
+    if (!accountId) {return;}
 
     setRevokingPATId(patId);
     try {

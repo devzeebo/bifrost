@@ -1,11 +1,11 @@
-import { mkdir, writeFile, readFile, stat } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 export type AgentWithRepoScripts = {
   name: string;
   hooks: {
-    Start: Array<{ name: string; scriptPath: string; isRepoScript: boolean }>;
-    Stop: Array<{ name: string; scriptPath: string; isRepoScript: boolean }>;
+    Start: { name: string; scriptPath: string; isRepoScript: boolean }[];
+    Stop: { name: string; scriptPath: string; isRepoScript: boolean }[];
   };
 };
 

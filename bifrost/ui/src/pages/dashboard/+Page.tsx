@@ -11,7 +11,7 @@ import type { RuneListItem, RuneStatus } from "../../types/rune";
 
 export { Page };
 
-interface StatCard {
+type StatCard = {
   label: string;
   value: number;
   color: string;
@@ -31,7 +31,7 @@ function Page() {
       : (effectiveRealms[0] ?? null);
 
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading) {return;}
 
     if (!isAuthenticated) {
       navigate("/login");

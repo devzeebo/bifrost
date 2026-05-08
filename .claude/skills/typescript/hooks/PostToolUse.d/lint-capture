@@ -3,7 +3,8 @@
 ###
 
 FILE_NAME=$(get_field "tool_input.file_path")
+SENTINEL=$(sentinel lint-ts)
 
-echo "$FILE_NAME" >> $(sentinal lint)
+echo "$FILE_NAME" >> $SENTINEL
 
-sort -u $(sentinal lint) -o $(sentinal lint)
+sort -u $SENTINEL -o $SENTINEL

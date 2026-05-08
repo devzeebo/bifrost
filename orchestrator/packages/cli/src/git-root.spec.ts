@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { resolveGitRoot } from "./git-root.js";
 
 describe("Git Root Resolution - US-10", () => {

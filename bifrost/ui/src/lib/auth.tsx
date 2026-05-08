@@ -1,8 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { type ReactNode, createContext, useCallback, useContext, useEffect, useState } from "react";
 import { api } from "./api";
-import type { SessionInfo, LoginRequest } from "../types/session";
+import type { LoginRequest, SessionInfo } from "../types/session";
 
-interface AuthContextValue {
+type AuthContextValue = {
   isAuthenticated: boolean;
   accountId: string | null;
   username: string | null;
@@ -17,7 +17,7 @@ interface AuthContextValue {
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
 
-interface AuthProviderProps {
+type AuthProviderProps = {
   children: ReactNode;
 }
 

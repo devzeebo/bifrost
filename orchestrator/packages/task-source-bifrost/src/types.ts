@@ -24,10 +24,10 @@ export type ReadyRune = {
   updated_at: string;
 };
 
-export type RuneDetail = ReadyRune & {
+export type RuneDetail = {
   description: string;
   branch?: string;
   saga_id?: string;
   assignee_id?: string;
-  dependencies: Array<{ target_id: string; relationship: string }>;
-};
+  dependencies: { target_id: string; relationship: string }[];
+} & ReadyRune;

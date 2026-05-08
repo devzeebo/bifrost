@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { orchestrate } from "./orchestrator.js";
 import type { AgentDefinition } from "./types.js";
 import type { HookExecutionContext } from "./hook-executor.js";
@@ -27,7 +27,7 @@ describe("Orchestrator", () => {
       };
 
       const mockTaskSource: TaskSource = {
-        watchTasks: async function* () {
+        async *watchTasks () {
           yield task;
         },
         completeTask: vi.fn().mockResolvedValue(undefined),
@@ -87,7 +87,7 @@ describe("Orchestrator", () => {
       };
 
       const mockTaskSource: TaskSource = {
-        watchTasks: async function* () {
+        async *watchTasks () {
           yield task;
         },
         completeTask: vi.fn().mockResolvedValue(undefined),
@@ -141,7 +141,7 @@ describe("Orchestrator", () => {
       };
 
       const mockTaskSource: TaskSource = {
-        watchTasks: async function* () {
+        async *watchTasks () {
           yield task;
         },
         completeTask: vi.fn().mockResolvedValue(undefined),
@@ -201,7 +201,7 @@ describe("Orchestrator", () => {
       };
 
       const mockTaskSource: TaskSource = {
-        watchTasks: async function* () {
+        async *watchTasks () {
           yield task;
         },
         completeTask: vi.fn().mockResolvedValue(undefined),
@@ -263,7 +263,7 @@ describe("Orchestrator", () => {
       };
 
       const mockTaskSource: TaskSource = {
-        watchTasks: async function* () {
+        async *watchTasks () {
           yield task;
         },
         completeTask: vi.fn().mockResolvedValue(undefined),
@@ -324,7 +324,7 @@ describe("Orchestrator", () => {
       };
 
       const mockTaskSource: TaskSource = {
-        watchTasks: async function* () {
+        async *watchTasks () {
           yield task;
         },
         completeTask: vi.fn().mockResolvedValue(undefined),
