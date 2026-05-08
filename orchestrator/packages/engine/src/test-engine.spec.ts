@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { TestEngine } from "./test-engine.js";
-import type { EngineContext } from "./types.js";
+import { TestEngine } from "./test-engine";
+import type { EngineContext } from "./types";
 
 describe("Test Engine", () => {
   describe("Basic execution", () => {
@@ -13,7 +13,7 @@ describe("Test Engine", () => {
         agentName: "test-agent",
         taskState: {},
         metadata: {},
-        setState: vi.fn().mockResolvedValue(undefined),
+        setState: vi.fn().mockResolvedValue(null),
         verbose: false,
       };
 
@@ -34,7 +34,7 @@ describe("Test Engine", () => {
         agentName: "agent",
         taskState: {},
         metadata: {},
-        setState: vi.fn().mockResolvedValue(undefined),
+        setState: vi.fn().mockResolvedValue(null),
         verbose: false,
       };
 
@@ -76,7 +76,7 @@ describe("Test Engine", () => {
         agentName: "agent",
         taskState: {},
         metadata: {},
-        setState: vi.fn().mockResolvedValue(undefined),
+        setState: vi.fn().mockResolvedValue(null),
         verbose: false,
       };
 
@@ -99,7 +99,7 @@ describe("Test Engine", () => {
         agentName: "agent",
         taskState: {},
         metadata: {},
-        setState: vi.fn().mockResolvedValue(undefined),
+        setState: vi.fn().mockResolvedValue(null),
         verbose: false,
       };
 
@@ -120,7 +120,7 @@ describe("Test Engine", () => {
         agentName: "agent",
         taskState: {},
         metadata: {},
-        setState: vi.fn().mockResolvedValue(undefined),
+        setState: vi.fn().mockResolvedValue(null),
         verbose: false,
       };
 

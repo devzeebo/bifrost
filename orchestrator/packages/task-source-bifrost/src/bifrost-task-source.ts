@@ -7,9 +7,9 @@ import type {
   Task,
   TaskSource,
 } from "@orchestrator/task-source";
-import { BifrostHttpClient } from "./client/bifrost-http-client.js";
-import { ConfigLoader } from "./config/config-loader.js";
-import { CredentialLoader } from "./config/credential-loader.js";
+import { BifrostHttpClient } from "./client/bifrost-http-client";
+import { ConfigLoader } from "./config/config-loader";
+import { CredentialLoader } from "./config/credential-loader";
 
 export class BifrostTaskSource implements TaskSource {
   readonly #config: BifrostTaskSourceConfig;
@@ -21,7 +21,7 @@ export class BifrostTaskSource implements TaskSource {
       pollInterval: config.pollInterval ?? 1000,
       maxPollInterval: config.maxPollInterval ?? 30000,
     };
-    
+
     Object.freeze(this.#config);
   }
 

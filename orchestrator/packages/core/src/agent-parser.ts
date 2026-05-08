@@ -1,5 +1,5 @@
 import matter from "gray-matter";
-import type { AgentDefinition } from "./types.js";
+import type { AgentDefinition } from "./types";
 
 /**
  * Extract all Handlebars tokens from a string.
@@ -10,11 +10,11 @@ const extractHandlebarsTokens = (content: string): Set<string> => {
 
   // Match simple tokens: {{variableName}}
   const simpleTokenRegex = /\{\{([^#/][^}]*)\}\}/g;
-  let match;
+  let match: RegExpMatchArray | null = null;
   while ((match = simpleTokenRegex.exec(content)) !== null) {
     const token = match[1].trim();
     // Extract the base path (first part before any dots or spaces)
-    const basePath = token.split(".")[0].split(" ")[0];
+    const [basePath] = token.split(".")[0].split(" ");
     tokens.add(basePath);
   }
 
@@ -22,7 +22,7 @@ const extractHandlebarsTokens = (content: string): Set<string> => {
   const blockTokenRegex = /\{\{#(?:if|unless|each)\s+([^}]+)\}\}/g;
   while ((match = blockTokenRegex.exec(content)) !== null) {
     const token = match[1].trim();
-    const basePath = token.split(".")[0].split(" ")[0];
+    const [basePath] = token.split(".")[0].split(" ");
     tokens.add(basePath);
   }
 
@@ -58,6 +58,7 @@ const getDeclaredParameters = (params: Record<string, unknown>): Set<string> => 
  * Parse AGENT.md file with YAML frontmatter.
  * Returns null if parsing fails or required fields are missing.
  */
+// oxlint-disable-next-line complexity
 export const parseAgentDefinition = (content: string): AgentDefinition | null => {
   try {
     const parsed = matter(content);
@@ -102,8 +103,8 @@ export const parseAgentDefinition = (content: string): AgentDefinition | null =>
       // Check for parent paths (e.g., if using "context.prDescription", check if "context" or "context?" is declared)
       if (!isDeclared) {
         const parts = token.split(".");
-        for (let i = parts.length; i > 0; i--) {
-          const parentPath = parts.slice(0, i).join(".");
+        for (let index = parts.length; index > 0; index -= 2) {
+          const parentPath = parts.slice(0, index).join(".");
           if (declaredParams.has(parentPath) || declaredParams.has(`${parentPath}?`)) {
             isDeclared = true;
             break;
@@ -135,7 +136,7 @@ export const parseAgentDefinition = (content: string): AgentDefinition | null =>
             hooks.Start.push({
               name: hookObj.name,
               scriptPath: hookObj.scriptPath,
-              timeout: typeof hookObj.timeout === "number" ? hookObj.timeout : undefined,
+              timeout: typeof hookObj.timeout === "number" ? hookObj.timeout : void 0,
             });
           }
         }
@@ -150,7 +151,7 @@ export const parseAgentDefinition = (content: string): AgentDefinition | null =>
             hooks.Stop.push({
               name: hookObj.name,
               scriptPath: hookObj.scriptPath,
-              timeout: typeof hookObj.timeout === "number" ? hookObj.timeout : undefined,
+              timeout: typeof hookObj.timeout === "number" ? hookObj.timeout : void 0,
             });
           }
         }

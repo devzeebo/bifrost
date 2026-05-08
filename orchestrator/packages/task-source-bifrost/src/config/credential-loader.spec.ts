@@ -2,10 +2,10 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
-import { CredentialLoader } from "./credential-loader.js";
+import { CredentialLoader } from "./credential-loader";
 
 describe("CredentialLoader", () => {
-  let mockHomeDir: string;
+  let mockHomeDir = "";
 
   beforeEach(async () => {
     mockHomeDir = join("/tmp", `bifrost-test-${randomBytes(8).toString("hex")}`);
@@ -65,9 +65,7 @@ describe("CredentialLoader", () => {
       const loader = new CredentialLoader();
       loader.homeDir = mockHomeDir;
 
-      await expect(
-        loader.loadToken("https://bifrost.example.com"),
-      ).rejects.toThrow();
+      await expect(loader.loadToken("https://bifrost.example.com")).rejects.toThrow();
     });
 
     it("should throw when URL not found in credentials", async () => {
@@ -79,9 +77,9 @@ describe("CredentialLoader", () => {
       const loader = new CredentialLoader();
       loader.homeDir = mockHomeDir;
 
-      await expect(
-        loader.loadToken("https://bifrost.example.com"),
-      ).rejects.toThrow("No token found for URL: https://bifrost.example.com");
+      await expect(loader.loadToken("https://bifrost.example.com")).rejects.toThrow(
+        "No token found for URL: https://bifrost.example.com",
+      );
     });
 
     it("should throw when credentials map is missing", async () => {
@@ -92,9 +90,9 @@ describe("CredentialLoader", () => {
       const loader = new CredentialLoader();
       loader.homeDir = mockHomeDir;
 
-      await expect(
-        loader.loadToken("https://bifrost.example.com"),
-      ).rejects.toThrow("Invalid credentials.yaml: missing credentials map");
+      await expect(loader.loadToken("https://bifrost.example.com")).rejects.toThrow(
+        "Invalid credentials.yaml: missing credentials map",
+      );
     });
 
     it("should throw when file contains invalid YAML", async () => {
@@ -105,9 +103,7 @@ describe("CredentialLoader", () => {
       const loader = new CredentialLoader();
       loader.homeDir = mockHomeDir;
 
-      await expect(
-        loader.loadToken("https://bifrost.example.com"),
-      ).rejects.toThrow();
+      await expect(loader.loadToken("https://bifrost.example.com")).rejects.toThrow();
     });
   });
 });

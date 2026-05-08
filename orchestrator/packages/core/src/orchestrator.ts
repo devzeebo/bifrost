@@ -1,9 +1,8 @@
-import type { AgentDefinition } from "./types.js";
-import { validateTaskState } from "./validator.js";
-import { type HookExecutionContext, executeHooks } from "./hook-executor.js";
-import { renderPrompt } from "./handlebars-renderer.js";
+import type { AgentDefinition } from "./types";
+import { validateTaskState } from "./validator";
 import type { Task, TaskSource } from "@orchestrator/task-source";
 import type { Engine, EngineContext, EngineResult } from "@orchestrator/engine";
+import { type HookExecutionContext, executeHooks } from "./hook-executor";
 
 type OrchestrationResult = {
   outcome: "completed" | "failed" | "halted";
@@ -64,10 +63,16 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
   const defaultHookExec: HookExecFn = async () => ({ exitCode: 0, stdout: "", stderr: "" });
   const execFn = hookExec ?? defaultHookExec;
 
-  const startHookResults = await executeHooks(agent.hooks.Start, "Start", hookContext, execFn);
+  const startHookResults = await executeHooks({
+    hooks: agent.hooks.Start,
+    lifecycle: "Start",
+    context: hookContext,
+    execFn,
+  });
 
   for (const hook of startHookResults) {
     if (hook.fatal) {
+      // oxlint-disable-next-line no-await-in-loop
       await taskSource.failTask(task.id, `Start hook ${hook.hookName} failed: ${hook.stderr}`);
       return { outcome: "failed", error: hook.stderr };
     }
@@ -88,9 +93,10 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
   let maxFollowUps = 10;
   let lastMessage = "";
 
-  while (maxFollowUps-- > 0) {
-    numTurns++;
+  while ((maxFollowUps -= 1) > 0) {
+    numTurns += 1;
 
+    // oxlint-disable-next-line no-await-in-loop
     const engineResult: EngineResult = await engine.execute(engineContext);
 
     if (engineResult.stats) {
@@ -110,7 +116,13 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
     lastMessage = engineResult.lastMessage || lastMessage;
 
     // Step 4: Execute post-task hooks
-    const stopHookResults = await executeHooks(agent.hooks.Stop, "Stop", hookContext, execFn);
+    // oxlint-disable-next-line no-await-in-loop
+    const stopHookResults = await executeHooks({
+      hooks: agent.hooks.Stop,
+      lifecycle: "Stop",
+      context: hookContext,
+      execFn,
+    });
 
     let needsFollowUp = false;
     let followUpMessage = "";
@@ -123,6 +135,7 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
       }
 
       if (hook.fatal) {
+        // oxlint-disable-next-line no-await-in-loop
         await taskSource.failTask(task.id, `Stop hook ${hook.hookName} failed: ${hook.stderr}`);
         return { outcome: "failed", error: hook.stderr };
       }
@@ -133,6 +146,7 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
     }
 
     if (engine.sendFollowUp) {
+      // oxlint-disable-next-line no-await-in-loop
       const followUpResult = await engine.sendFollowUp(followUpMessage);
       if (followUpResult.stats) {
         if (!totalTelemetry) {
@@ -147,7 +161,7 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
           totalTelemetry.numTurns += followUpResult.stats.numTurns;
         }
       }
-      numTurns++;
+      numTurns += 1;
     }
   }
 

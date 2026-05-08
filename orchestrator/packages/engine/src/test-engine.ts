@@ -1,5 +1,5 @@
-import type { Engine } from "./interface.js";
-import type { EngineContext, EngineResult } from "./types.js";
+import type { EngineContext, EngineResult } from "./types";
+import type { Engine } from "./interface";
 
 export type TestEngineConfig = {
   success?: boolean;
@@ -16,18 +16,18 @@ export type TestEngineConfig = {
 export class TestEngine implements Engine {
   #config: TestEngineConfig;
 
-  constructor(config: TestEngineConfig = {}) {
+  public constructor(config: TestEngineConfig = {}) {
     this.#config = {
       success: true,
       lastMessage: "Test execution complete",
       simulateError: false,
       simulateDelay: 0,
-      mockStats: undefined,
+      mockStats: null,
       ...config,
     };
   }
 
-  async execute(context: EngineContext): Promise<EngineResult> {
+  public async execute(context: EngineContext): Promise<EngineResult> {
     // Apply simulated delay if configured
     if (this.#config.simulateDelay && this.#config.simulateDelay > 0) {
       await new Promise((resolve) => setTimeout(resolve, this.#config.simulateDelay));
@@ -50,9 +50,7 @@ export class TestEngine implements Engine {
       numTurns: 1,
     };
 
-    const stats: EngineResult["stats"] = this.#config.mockStats
-      ? { ...defaultStats, ...this.#config.mockStats }
-      : defaultStats;
+    const stats: EngineResult["stats"] = { ...defaultStats, ...this.#config.mockStats };
 
     stats.durationMs = Date.now() - startTime;
 
@@ -64,7 +62,7 @@ export class TestEngine implements Engine {
     };
   }
 
-  async sendFollowUp(message: string): Promise<EngineResult> {
+  public async sendFollowUp(message: string): Promise<EngineResult> {
     // Apply simulated delay if configured
     if (this.#config.simulateDelay && this.#config.simulateDelay > 0) {
       await new Promise((resolve) => setTimeout(resolve, this.#config.simulateDelay));
@@ -91,7 +89,7 @@ export class TestEngine implements Engine {
   /**
    * Update engine configuration.
    */
-  setConfig(config: Partial<TestEngineConfig>): void {
+  public setConfig(config: Partial<TestEngineConfig>): void {
     this.#config = { ...this.#config, ...config };
   }
 }

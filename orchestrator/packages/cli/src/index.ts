@@ -1,7 +1,5 @@
 #!/usr/bin/env node
 
-import type { AgentDefinition } from "@orchestrator/core";
-
 export type AgentDisplayInfo = {
   name: string;
   description?: string;
@@ -40,12 +38,12 @@ export const listAgents = async (agents: AgentDisplayInfo[]): Promise<string> =>
     }
 
     if (agent.hooks?.Start && agent.hooks.Start.length > 0) {
-      const startHooks = agent.hooks.Start.map((h) => h.name).join(", ");
+      const startHooks = agent.hooks.Start.map((hook) => hook.name).join(", ");
       lines.push(`  Start Hooks: ${startHooks}`);
     }
 
     if (agent.hooks?.Stop && agent.hooks.Stop.length > 0) {
-      const stopHooks = agent.hooks.Stop.map((h) => h.name).join(", ");
+      const stopHooks = agent.hooks.Stop.map((hook) => hook.name).join(", ");
       lines.push(`  Stop Hooks: ${stopHooks}`);
     }
 
@@ -55,9 +53,9 @@ export const listAgents = async (agents: AgentDisplayInfo[]): Promise<string> =>
   return lines.join("\n");
 };
 
-export function run() {
+export const run = (): void => {
   console.log("Orchestrator CLI");
-}
+};
 
-export * from "./git-root.js";
-export * from "./config.js";
+export * from "./git-root";
+export * from "./config";

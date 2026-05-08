@@ -17,6 +17,7 @@ export const validateTaskState = (
   const validateValue = (value: unknown, schemaNode: unknown, path: string): void => {
     // If schemaNode is not an object, it's a scalar type hint - just check existence
     if (typeof schemaNode !== "object" || schemaNode === null) {
+      // oxlint-disable-next-line no-undefined
       if (value === undefined || value === null || value === "") {
         errors.push(`Missing required parameter: ${path}`);
       }
@@ -27,7 +28,8 @@ export const validateTaskState = (
     const schemaObj = schemaNode as Record<string, unknown>;
 
     // If value is missing/null/empty, check if path is optional
-    if (value === undefined || value === null || value === "") {
+      // oxlint-disable-next-line no-undefined
+      if (value === undefined || value === null || value === "") {
       return; // Handled by parent check
     }
 
@@ -42,12 +44,23 @@ export const validateTaskState = (
     // Recursively validate each schema key
     for (const [key, subSchema] of Object.entries(schemaObj)) {
       const isOptional = key.endsWith("?");
-      const baseKey = isOptional ? key.slice(0, -1) : key;
-      const fullPath = path ? `${path}.${baseKey}` : baseKey;
+      let baseKey = "";
+      if (isOptional) {
+        baseKey = key.slice(0, -1);
+      } else {
+        baseKey = key;
+      }
+      let fullPath = "";
+      if (path) {
+        fullPath = `${path}.${baseKey}`;
+      } else {
+        fullPath = baseKey;
+      }
 
       // Check if the key exists in value (with or without ? suffix)
       const subValue = valueObj[baseKey] ?? valueObj[key];
 
+      // oxlint-disable-next-line no-undefined
       if (subValue === undefined || subValue === null || subValue === "") {
         if (!isOptional) {
           errors.push(`Missing required parameter: ${fullPath}`);
@@ -66,6 +79,7 @@ export const validateTaskState = (
     // Check if parameter exists in taskState (with or without ? suffix)
     const value = taskState[baseKey] ?? taskState[key];
 
+    // oxlint-disable-next-line no-undefined
     if (value === undefined || value === null || value === "") {
       if (!isOptional) {
         errors.push(`Missing required parameter: ${baseKey}`);

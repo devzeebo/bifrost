@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import { parse } from "yaml";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { BifrostCredentials } from "../types.js";
+import type { BifrostCredentials } from "../types";
 
 export class CredentialLoader {
   public homeDir: string = process.env.BIFROST_TEST_HOME ?? homedir();
@@ -26,9 +26,7 @@ export class CredentialLoader {
     return entry.token;
   }
 
-  private static isValidCredentials(
-    credentials: unknown,
-  ): credentials is BifrostCredentials {
+  private static isValidCredentials(credentials: unknown): credentials is BifrostCredentials {
     return (
       typeof credentials === "object" &&
       credentials !== null &&

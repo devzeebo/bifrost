@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MemoryTaskSource } from "./memory-task-source.js";
+import { MemoryTaskSource } from "./memory-task-source";
 
 describe("MemoryTaskSource", () => {
   describe("watchTasks", () => {
@@ -55,7 +55,7 @@ describe("MemoryTaskSource", () => {
 
       let yieldedCount = 0;
       for await (const _task of source.watchTasks()) {
-        yieldedCount++;
+        yieldedCount += 1;
       }
 
       expect(yieldedCount).toBe(1);

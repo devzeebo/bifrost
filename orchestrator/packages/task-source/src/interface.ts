@@ -1,4 +1,4 @@
-import type { Task } from "./types.js";
+import type { Task } from "./types";
 
 export type TaskSource = {
   // Yield tasks with ALL data needed

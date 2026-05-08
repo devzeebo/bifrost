@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { BifrostHttpClient } from "./bifrost-http-client.js";
+import { BifrostHttpClient } from "./bifrost-http-client";
 
 describe("BifrostHttpClient", () => {
-  let client: BifrostHttpClient;
-  let mockFetch: ReturnType<typeof vi.fn>;
+  let client = new BifrostHttpClient("https://bifrost.example.com", "test-realm", "test-token");
+  let mockFetch = vi.fn();
 
   beforeEach(() => {
     mockFetch = vi.fn();
@@ -53,7 +53,9 @@ describe("BifrostHttpClient", () => {
         statusText: "Internal Server Error",
       });
 
-      await expect(client.getReadyRunes()).rejects.toThrow("Bifrost API error: 500 Internal Server Error");
+      await expect(client.getReadyRunes()).rejects.toThrow(
+        "Bifrost API error: 500 Internal Server Error",
+      );
     });
   });
 
@@ -86,7 +88,7 @@ describe("BifrostHttpClient", () => {
         statusText: "Conflict",
       });
 
-      const error = await client.claimRune("rune-1").catch((e) => e);
+      const error = await client.claimRune("rune-1").catch((err) => err);
 
       expect(error).toBeInstanceOf(Error);
       expect((error as Error).message).toBe("Rune already claimed");
@@ -161,7 +163,7 @@ describe("BifrostHttpClient", () => {
         statusText: "Not Found",
       });
 
-      const error = await client.getRune("unknown").catch((e) => e);
+      const error = await client.getRune("unknown").catch((err) => err);
 
       expect(error).toBeInstanceOf(Error);
       expect((error as Error).message).toBe("Rune not found");
@@ -177,7 +179,9 @@ describe("BifrostHttpClient", () => {
         "test-token",
       );
 
-      expect((clientWithSlash as any).baseUrl).toBe("https://bifrost.example.com");
+      expect((clientWithSlash as unknown as { baseUrl: string }).baseUrl).toBe(
+        "https://bifrost.example.com",
+      );
     });
   });
 });

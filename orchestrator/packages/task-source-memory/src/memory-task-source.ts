@@ -14,7 +14,7 @@ export class MemoryTaskSource implements TaskSource {
   #pending = new Set<string>();
   #claimed = new Set<string>();
 
-  async addTask(task: Omit<InternalTask, "status">): Promise<void> {
+  public async addTask(task: Omit<InternalTask, "status">): Promise<void> {
     const internalTask: InternalTask = {
       ...task,
       status: "OPEN",
@@ -23,7 +23,7 @@ export class MemoryTaskSource implements TaskSource {
     this.#pending.add(task.id);
   }
 
-  async *watchTasks(): AsyncGenerator<Task> {
+  public async *watchTasks(): AsyncGenerator<Task> {
     const maxIterations = 100;
     let iterations = 0;
 
@@ -47,12 +47,14 @@ export class MemoryTaskSource implements TaskSource {
         }
       }
 
+      // oxlint-disable-next-line no-await-in-loop
       await new Promise((resolve) => setTimeout(resolve, 50));
+      // oxlint-disable-next-line no-plusplus
       iterations++;
     }
   }
 
-  async completeTask(taskId: string): Promise<void> {
+  public async completeTask(taskId: string): Promise<void> {
     const task = this.#tasks.get(taskId);
     if (!task) {
       throw new Error(`Task ${taskId} not found`);
@@ -63,7 +65,7 @@ export class MemoryTaskSource implements TaskSource {
     this.#claimed.delete(taskId);
   }
 
-  async failTask(taskId: string, error: string): Promise<void> {
+  public async failTask(taskId: string, error: string): Promise<void> {
     const task = this.#tasks.get(taskId);
     if (!task) {
       throw new Error(`Task ${taskId} not found`);
@@ -75,7 +77,7 @@ export class MemoryTaskSource implements TaskSource {
     this.#claimed.delete(taskId);
   }
 
-  async setState(taskId: string, taskState: Record<string, unknown>): Promise<void> {
+  public async setState(taskId: string, taskState: Record<string, unknown>): Promise<void> {
     const task = this.#tasks.get(taskId);
     if (!task) {
       throw new Error(`Task ${taskId} not found`);
@@ -84,15 +86,15 @@ export class MemoryTaskSource implements TaskSource {
     task.taskState = { ...taskState };
   }
 
-  getInternalTask(taskId: string): InternalTask | undefined {
+  public getInternalTask(taskId: string): InternalTask | undefined {
     return this.#tasks.get(taskId);
   }
 
-  getAllTasks(): InternalTask[] {
+  public getAllTasks(): InternalTask[] {
     return Array.from(this.#tasks.values());
   }
 
-  clear(): void {
+  public clear(): void {
     this.#tasks.clear();
     this.#pending.clear();
     this.#claimed.clear();

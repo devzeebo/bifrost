@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import type { EngineContext, EngineResult, ExecutionStats } from "./types.js";
+import { describe, expect, it } from "vitest";
+import type { EngineContext, EngineResult, ExecutionStats } from "./types";
 
 describe("Engine Types", () => {
   describe("ExecutionStats", () => {
@@ -71,7 +71,7 @@ describe("Engine Types", () => {
         agentName: "reviewer",
         taskState: { step: 1 },
         metadata: { priority: "high" },
-        setState: vi.fn().mockResolvedValue(undefined),
+        setState: vi.fn().mockResolvedValue(),
         verbose: true,
       };
 

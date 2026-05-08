@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
-import { installRepoScripts } from "./repo-installer.js";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { describe, expect, it, vi } from "vitest";
+import { installRepoScripts } from "./repo-installer";
 
 vi.mock("node:fs/promises");
 
@@ -34,8 +34,8 @@ describe("Repo Script Installer - US-5", () => {
 
       vi.mocked(readFile).mockResolvedValue(mockScriptContent);
       vi.mocked(stat).mockRejectedValue(new Error("File not found"));
-      vi.mocked(mkdir).mockResolvedValue(undefined);
-      vi.mocked(writeFile).mockResolvedValue(undefined);
+      vi.mocked(mkdir).mockResolvedValue();
+      vi.mocked(writeFile).mockResolvedValue();
 
       // When the orchestrator runs against the working repository for the first time
       await installRepoScripts("/test/project", agents, "/orchestrator/packages");
@@ -79,7 +79,7 @@ describe("Repo Script Installer - US-5", () => {
     });
 
     it("should log each installed path", async () => {
-      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => void 0);
 
       const agents = [
         {
@@ -124,7 +124,9 @@ describe("Repo Script Installer - US-5", () => {
       ];
 
       vi.mocked(readFile).mockResolvedValue("new content");
-      vi.mocked(stat).mockResolvedValue({ isFile: () => true } as any);
+      vi.mocked(stat).mockResolvedValue({ isFile: () => true } as unknown as Awaited<
+        ReturnType<typeof stat>
+      >);
 
       // Clear previous calls
       vi.clearAllMocks();
@@ -137,7 +139,7 @@ describe("Repo Script Installer - US-5", () => {
     });
 
     it("should log that script is already present", async () => {
-      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => void 0);
 
       const agents = [
         {
@@ -152,7 +154,9 @@ describe("Repo Script Installer - US-5", () => {
       ];
 
       vi.mocked(readFile).mockResolvedValue("content");
-      vi.mocked(stat).mockResolvedValue({ isFile: () => true } as any);
+      vi.mocked(stat).mockResolvedValue({ isFile: () => true } as unknown as Awaited<
+        ReturnType<typeof stat>
+      >);
 
       vi.clearAllMocks();
 

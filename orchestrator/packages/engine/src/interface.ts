@@ -1,4 +1,4 @@
-import type { EngineContext, EngineResult } from "./types.js";
+import type { EngineContext, EngineResult } from "./types";
 
 // FR-2: Engine Interface
 export type Engine = {

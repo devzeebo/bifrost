@@ -4,7 +4,10 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 
-async function createTestSource() {
+const createTestSource = async (): Promise<{
+  source: BifrostTaskSource;
+  cleanup: () => Promise<void>;
+}> => {
   const tempDir = join("/tmp", `bifrost-test-${randomBytes(8).toString("hex")}`);
   await mkdir(tempDir, { recursive: true });
 
@@ -21,13 +24,13 @@ async function createTestSource() {
   process.chdir(tempDir);
   process.env.BIFROST_TEST_HOME = homeDir;
 
-  const { BifrostTaskSource } = await import("./bifrost-task-source.js");
+  const { BifrostTaskSource } = await import("./bifrost-task-source");
 
   return {
     source: new BifrostTaskSource(),
-    cleanup: async () => {
+    cleanup: async (): Promise<void> => {
       process.chdir(originalCwd);
-      if (originalHome === undefined) {
+      if (originalHome === void 0) {
         delete process.env.BIFROST_TEST_HOME;
       } else {
         process.env.BIFROST_TEST_HOME = originalHome;
@@ -35,7 +38,7 @@ async function createTestSource() {
       await rm(tempDir, { recursive: true, force: true });
     },
   };
-}
+};
 
 describe("BifrostTaskSource - Integration Tests", () => {
   beforeEach(() => {
@@ -130,8 +133,8 @@ describe("BifrostTaskSource - Integration Tests", () => {
     it("should yield task with correct structure", async () => {
       const { source, cleanup } = await createTestSource();
 
-      const fetchCalls: any[] = [];
-      global.fetch = vi.fn((...args: any[]) => {
+      const fetchCalls: unknown[] = [];
+      global.fetch = vi.fn((...args: unknown[]) => {
         fetchCalls.push(args);
         const callCount = fetchCalls.length;
 
@@ -177,9 +180,9 @@ describe("BifrostTaskSource - Integration Tests", () => {
         });
       });
 
-      let task: Task | undefined;
-      for await (const t of source.watchTasks()) {
-        task = t;
+      let task: Task | null = null;
+      for await (const taskItem of source.watchTasks()) {
+        task = taskItem;
         break;
       }
 
@@ -200,8 +203,8 @@ describe("BifrostTaskSource - Integration Tests", () => {
     it("should claim rune before yielding task", async () => {
       const { source, cleanup } = await createTestSource();
 
-      const fetchCalls: any[] = [];
-      global.fetch = vi.fn((...args: any[]) => {
+      const fetchCalls: unknown[] = [];
+      global.fetch = vi.fn((...args: unknown[]) => {
         fetchCalls.push(args);
         const callCount = fetchCalls.length;
 

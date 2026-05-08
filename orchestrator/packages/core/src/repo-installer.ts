@@ -1,5 +1,5 @@
+import { resolve } from "node:path";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
 
 export type AgentWithRepoScripts = {
   name: string;
@@ -26,11 +26,13 @@ export const installRepoScripts = async (
 ): Promise<void> => {
   for (const agent of agents) {
     for (const lifecycle of ["Start", "Stop"] as const) {
+      // oxlint-disable-next-line no-ternary
       const hooks = lifecycle === "Start" ? agent.hooks.Start : agent.hooks.Stop;
 
       for (const hook of hooks) {
         // Skip framework hooks - only install repo scripts
         if (!hook.isRepoScript) {
+          // oxlint-disable-next-line no-continue
           continue;
         }
 
@@ -40,12 +42,18 @@ export const installRepoScripts = async (
         const targetPath = resolve(targetDir, `${hook.name}.mjs`);
 
         // Check if script already exists (US-5: idempotency)
+        let exists = false;
         try {
+          // oxlint-disable-next-line no-await-in-loop
           await stat(targetPath);
           console.log(`Already present: ${targetPath}`);
-          continue;
+          exists = true;
         } catch {
           // File doesn't exist, proceed with installation
+        }
+        if (exists) {
+          // oxlint-disable-next-line no-continue
+          continue;
         }
 
         // FR-9: Repo scripts are provided in agent package at hooks/<lifecycle>.d/<hook-name>.mjs
@@ -53,12 +61,15 @@ export const installRepoScripts = async (
         const sourcePath = resolve(orchestratorPackagesPath, agent.name, hook.scriptPath);
 
         // Read the source script content
+        // oxlint-disable-next-line no-await-in-loop
         const content = await readFile(sourcePath, "utf-8");
 
         // Create target directory
+        // oxlint-disable-next-line no-await-in-loop
         await mkdir(targetDir, { recursive: true });
 
         // FR-8: Repo scripts are hard-copied (never symlinked)
+        // oxlint-disable-next-line no-await-in-loop
         await writeFile(targetPath, content, "utf-8");
 
         console.log(`Installed: ${targetPath}`);

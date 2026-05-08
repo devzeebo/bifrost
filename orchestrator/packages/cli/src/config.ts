@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 import { homedir } from "node:os";
 import { parse as yamlParse } from "yaml";
 
@@ -55,7 +55,7 @@ export const loadConfig = async (projectDir: string): Promise<OrchestratorConfig
   const projectConfigPath = resolve(projectDir, ".orchestrator.yaml");
   const homeConfigPath = resolve(homedir(), ".orchestrator.yaml");
 
-  let configContent: string;
+  let configContent = "";
 
   try {
     configContent = await readFile(projectConfigPath, "utf-8");
@@ -96,9 +96,9 @@ export const loadConfig = async (projectDir: string): Promise<OrchestratorConfig
   const taskStateStoreSettings = (taskStateStore?.settings as Record<string, unknown>) || {};
 
   // Parse optional fields with defaults
-  const concurrency = typeof orchestrate.concurrency === "number" ? orchestrate.concurrency : 1;
-  const claimant = typeof orchestrate.claimant === "string" ? orchestrate.claimant : null;
-  const logging = (orchestrate.logging === "verbose" ? "verbose" : "normal") as
+  const concurrency = typeof orchestrate.concurrency === "number" ? orchestrate.concurrency : 1; // oxlint-disable-line no-ternary
+  const claimant = typeof orchestrate.claimant === "string" ? orchestrate.claimant : null; // oxlint-disable-line no-ternary
+  const logging = (orchestrate.logging === "verbose" ? "verbose" : "normal") as // oxlint-disable-line no-ternary
     | "normal"
     | "verbose";
 

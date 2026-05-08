@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { listAgents } from "./index.js";
+import { listAgents } from "./index";
 
 describe("CLI - US-9: List Available Agents", () => {
   describe("--list-agents command", () => {

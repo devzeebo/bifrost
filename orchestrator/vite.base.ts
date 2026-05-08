@@ -1,15 +1,17 @@
-import { defineConfig } from "vite";
+import { type UserConfig, defineConfig } from "vite";
 import dts from "vite-plugin-dts";
+
+type ViteBaseOptions = {
+  name: string;
+  tsconfig: { references?: { path: string }[] };
+  pkg: Record<string, unknown>;
+};
 
 export default ({
   name,
   tsconfig,
   pkg,
-}: {
-  name: string;
-  tsconfig: { references?: { path: string }[] };
-  pkg: Record<string, unknown>;
-}) =>
+}: ViteBaseOptions): UserConfig =>
   defineConfig({
     plugins: [
       dts({
@@ -27,7 +29,7 @@ export default ({
         external: [
           ...Object.keys(("dependencies" in pkg && pkg.dependencies) ?? {}),
           ...Object.keys(("peerDependencies" in pkg && pkg.peerDependencies) ?? {}),
-          ...(("references" in tsconfig && tsconfig.references) || []).map((x: any) => x.path),
+          ...(("references" in tsconfig && tsconfig.references) || []).map((ref: { path: string }) => ref.path),
           /^node:.*$/,
           /node_modules/,
         ],

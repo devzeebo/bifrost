@@ -1,9 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
-import { orchestrate } from "./orchestrator.js";
-import type { AgentDefinition } from "./types.js";
-import type { HookExecutionContext } from "./hook-executor.js";
+import { describe, expect, it } from "vitest";
+import { orchestrate } from "./orchestrator";
+import type { AgentDefinition } from "./types";
 import type { Task, TaskSource } from "@orchestrator/task-source";
-import type { Engine, EngineResult } from "@orchestrator/engine";
+import type { Engine } from "@orchestrator/engine";
 
 describe("Orchestrator", () => {
   describe("task execution lifecycle", () => {
@@ -27,12 +26,15 @@ describe("Orchestrator", () => {
       };
 
       const mockTaskSource: TaskSource = {
-        async *watchTasks () {
+        async *watchTasks(): AsyncGenerator<Task> {
           yield task;
         },
-        completeTask: vi.fn().mockResolvedValue(undefined),
-        failTask: vi.fn().mockResolvedValue(undefined),
-        setState: vi.fn().mockResolvedValue(undefined),
+        // oxlint-disable-next-line no-empty-function
+        completeTask: vi.fn().mockResolvedValue(),
+        // oxlint-disable-next-line no-empty-function
+        failTask: vi.fn().mockResolvedValue(),
+        // oxlint-disable-next-line no-empty-function
+        setState: vi.fn().mockResolvedValue(),
       };
 
       const mockEngine: Engine = {
@@ -87,12 +89,15 @@ describe("Orchestrator", () => {
       };
 
       const mockTaskSource: TaskSource = {
-        async *watchTasks () {
+        async *watchTasks(): AsyncGenerator<Task> {
           yield task;
         },
-        completeTask: vi.fn().mockResolvedValue(undefined),
-        failTask: vi.fn().mockResolvedValue(undefined),
-        setState: vi.fn().mockResolvedValue(undefined),
+        // oxlint-disable-next-line no-empty-function
+        completeTask: vi.fn().mockResolvedValue(),
+        // oxlint-disable-next-line no-empty-function
+        failTask: vi.fn().mockResolvedValue(),
+        // oxlint-disable-next-line no-empty-function
+        setState: vi.fn().mockResolvedValue(),
       };
 
       const mockEngine: Engine = {
@@ -141,12 +146,12 @@ describe("Orchestrator", () => {
       };
 
       const mockTaskSource: TaskSource = {
-        async *watchTasks () {
+        async *watchTasks(): AsyncGenerator<Task> {
           yield task;
         },
-        completeTask: vi.fn().mockResolvedValue(undefined),
-        failTask: vi.fn().mockResolvedValue(undefined),
-        setState: vi.fn().mockResolvedValue(undefined),
+        completeTask: vi.fn().mockResolvedValue(),
+        failTask: vi.fn().mockResolvedValue(),
+        setState: vi.fn().mockResolvedValue(),
       };
 
       let capturedSetState: ((state: Record<string, unknown>) => Promise<void>) | null = null;
@@ -201,12 +206,12 @@ describe("Orchestrator", () => {
       };
 
       const mockTaskSource: TaskSource = {
-        async *watchTasks () {
+        async *watchTasks(): AsyncGenerator<Task> {
           yield task;
         },
-        completeTask: vi.fn().mockResolvedValue(undefined),
-        failTask: vi.fn().mockResolvedValue(undefined),
-        setState: vi.fn().mockResolvedValue(undefined),
+        completeTask: vi.fn().mockResolvedValue(),
+        failTask: vi.fn().mockResolvedValue(),
+        setState: vi.fn().mockResolvedValue(),
       };
 
       const mockEngine: Engine = {
@@ -263,12 +268,12 @@ describe("Orchestrator", () => {
       };
 
       const mockTaskSource: TaskSource = {
-        async *watchTasks () {
+        async *watchTasks(): AsyncGenerator<Task> {
           yield task;
         },
-        completeTask: vi.fn().mockResolvedValue(undefined),
-        failTask: vi.fn().mockResolvedValue(undefined),
-        setState: vi.fn().mockResolvedValue(undefined),
+        completeTask: vi.fn().mockResolvedValue(),
+        failTask: vi.fn().mockResolvedValue(),
+        setState: vi.fn().mockResolvedValue(),
       };
 
       const mockEngine: Engine = {
@@ -324,12 +329,12 @@ describe("Orchestrator", () => {
       };
 
       const mockTaskSource: TaskSource = {
-        async *watchTasks () {
+        async *watchTasks(): AsyncGenerator<Task> {
           yield task;
         },
-        completeTask: vi.fn().mockResolvedValue(undefined),
-        failTask: vi.fn().mockResolvedValue(undefined),
-        setState: vi.fn().mockResolvedValue(undefined),
+        completeTask: vi.fn().mockResolvedValue(),
+        failTask: vi.fn().mockResolvedValue(),
+        setState: vi.fn().mockResolvedValue(),
       };
 
       const mockEngine: Engine = {

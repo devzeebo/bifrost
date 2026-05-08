@@ -1,7 +1,7 @@
 import pkg from "./package.json";
 // @ts-ignore
-import tsconfig from "./tsconfig.json";
 import base from "../../vite.base";
+import tsconfig from "./tsconfig.json";
 
 export default base({
   name: "core",

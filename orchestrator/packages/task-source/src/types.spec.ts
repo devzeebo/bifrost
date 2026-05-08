@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Task } from "./types.js";
-import { TaskStatus } from "./types.js";
+import { type Task, TaskStatus } from "./types";
 
 describe("TaskSource Types", () => {
   describe("TaskStatus enum", () => {

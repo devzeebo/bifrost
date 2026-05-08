@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { HookExecutionContext } from "./hook-executor.js";
-import { executeHooks } from "./hook-executor.js";
+import { type HookExecutionContext, executeHooks } from "./hook-executor";
 
 describe("Hook Executor - US-4", () => {
   describe("Start hooks execution", () => {
@@ -23,7 +22,7 @@ describe("Hook Executor - US-4", () => {
       const mockExec = vi.fn().mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
 
       // When the agent is dispatched
-      const results = await executeHooks(hooks, "Start", context, mockExec);
+      const results = await executeHooks({ hooks, lifecycle: "Start", context, execFn: mockExec });
 
       // Then each Start hook executes in declaration order
       expect(results).toHaveLength(1);
@@ -41,7 +40,7 @@ describe("Hook Executor - US-4", () => {
 
       const mockExec = vi.fn().mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
 
-      const results = await executeHooks(hooks, "Start", context, mockExec);
+      const results = await executeHooks({ hooks, lifecycle: "Start", context, execFn: mockExec });
 
       // Exit code 0 allows the agent to proceed
       expect(results[0].shouldProceed).toBe(true);
@@ -61,7 +60,7 @@ describe("Hook Executor - US-4", () => {
         stderr: "",
       });
 
-      const results = await executeHooks(hooks, "Start", context, mockExec);
+      const results = await executeHooks({ hooks, lifecycle: "Start", context, execFn: mockExec });
 
       // Exit code 1 passes hook stdout to agent as warning and continues
       expect(results[0].exitCode).toBe(1);
@@ -83,7 +82,7 @@ describe("Hook Executor - US-4", () => {
         stderr: "Validation failed",
       });
 
-      const results = await executeHooks(hooks, "Start", context, mockExec);
+      const results = await executeHooks({ hooks, lifecycle: "Start", context, execFn: mockExec });
 
       // Exit code 2 halts the agent, marks UoW as failed
       expect(results[0].exitCode).toBe(2);
@@ -127,7 +126,7 @@ describe("Hook Executor - US-4", () => {
 
       // The rendered prompt is NOT present in stdin
       const callArgs = mockExec.mock.calls[0];
-      const {stdin} = callArgs[0];
+      const { stdin } = callArgs[0];
       expect(stdin).not.toContain("prompt");
     });
   });
@@ -182,7 +181,7 @@ describe("Hook Executor - US-4", () => {
 
       const mockExec = vi.fn().mockRejectedValue(new Error("Timeout"));
 
-      const results = await executeHooks(hooks, "Start", context, mockExec);
+      const results = await executeHooks({ hooks, lifecycle: "Start", context, execFn: mockExec });
 
       // Hook execution is terminated and treated as exit code 2
       expect(results[0].fatal).toBe(true);

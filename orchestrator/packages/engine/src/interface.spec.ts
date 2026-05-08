@@ -1,16 +1,16 @@
+// oxlint-disable class-methods-use-this -- mocks
 import { describe, expect, it, vi } from "vitest";
-import type { Engine } from "./interface.js";
-import type { EngineContext, EngineResult } from "./types.js";
+import type { Engine, EngineContext, EngineResult } from "./interface";
 
 describe("Engine Interface", () => {
   describe("FR-2: Engine Interface", () => {
     it("should require execute method", async () => {
       class MockEngine implements Engine {
-        async execute(context: EngineContext): Promise<EngineResult> {
+        public async execute(_context: EngineContext): Promise<EngineResult> {
           return {
             success: true,
             skipFulfill: false,
-            lastMessage: `Executed ${context.agentName}`,
+            lastMessage: "Executed",
             stats: {
               durationMs: 1000,
               inputTokens: 100,
@@ -24,14 +24,14 @@ describe("Engine Interface", () => {
         }
       }
 
-      const engine = new MockEngine();
+      const engine = MockEngine;
       const context: EngineContext = {
         taskId: "task-1",
         workingDir: "/test",
         agentName: "test-agent",
         taskState: {},
         metadata: {},
-        setState: vi.fn().mockResolvedValue(undefined),
+        setState: vi.fn().mockResolvedValue(void 0),
         verbose: false,
       };
 
@@ -42,7 +42,7 @@ describe("Engine Interface", () => {
 
     it("should require optional sendFollowUp method", async () => {
       class MockEngineWithFollowUp implements Engine {
-        async execute(): Promise<EngineResult> {
+        public async execute(): Promise<EngineResult> {
           return {
             success: true,
             skipFulfill: false,
@@ -51,7 +51,7 @@ describe("Engine Interface", () => {
           };
         }
 
-        async sendFollowUp(message: string): Promise<EngineResult> {
+        public async sendFollowUp(message: string): Promise<EngineResult> {
           return {
             success: true,
             skipFulfill: false,
@@ -72,7 +72,7 @@ describe("Engine Interface", () => {
 
     it("should allow engine without sendFollowUp", async () => {
       class MockEngine implements Engine {
-        async execute(_context: EngineContext): Promise<EngineResult> {
+        public async execute(_context: EngineContext): Promise<EngineResult> {
           return {
             success: true,
             skipFulfill: false,
@@ -89,7 +89,7 @@ describe("Engine Interface", () => {
         agentName: "test-agent",
         taskState: {},
         metadata: {},
-        setState: vi.fn().mockResolvedValue(undefined),
+        setState: vi.fn().mockResolvedValue(void 0),
         verbose: false,
       };
       const result = await engine.execute(context);

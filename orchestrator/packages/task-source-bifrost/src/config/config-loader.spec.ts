@@ -1,12 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mkdir, rm, writeFile } from "node:fs/promises";
-import { randomBytes } from "node:crypto";
-import { join } from "node:path";
-import { ConfigLoader } from "./config-loader.js";
+import { join, mkdir, randomBytes, rm, writeFile } from "node:fs/promises";
+import { ConfigLoader } from "./config-loader";
 
 describe("ConfigLoader", () => {
-  let tempDir: string;
-  let configPath: string;
+  let tempDir = "";
+  let configPath = "";
 
   beforeEach(async () => {
     tempDir = join("/tmp", `bifrost-test-${randomBytes(8).toString("hex")}`);

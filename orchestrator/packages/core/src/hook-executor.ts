@@ -1,4 +1,4 @@
-import type { HookSpec } from "./types.js";
+import type { HookSpec } from "./types";
 
 export type HookExecutionContext = {
   projectDir: string;
@@ -31,12 +31,15 @@ const DEFAULT_HOOK_TIMEOUT = 300000; // 5 minutes in ms
  * US-4: Project Maintainer - Extend Agent with Hooks
  * FR-10: Hook Contract
  */
-export const executeHooks = async (
-  hooks: HookSpec[],
-  lifecycle: "Start" | "Stop",
-  context: HookExecutionContext,
-  execFn: HookExecFunction,
-): Promise<HookResult[]> => {
+type ExecuteHooksOptions = {
+  hooks: HookSpec[];
+  lifecycle: "Start" | "Stop";
+  context: HookExecutionContext;
+  execFn: HookExecFunction;
+};
+
+export const executeHooks = async (options: ExecuteHooksOptions): Promise<HookResult[]> => {
+  const { hooks, lifecycle, context, execFn } = options;
   const results: HookResult[] = [];
 
   for (const hook of hooks) {
@@ -51,6 +54,7 @@ export const executeHooks = async (
     });
 
     try {
+      // oxlint-disable-next-line no-await-in-loop
       const { exitCode, stdout, stderr } = await execFn({
         scriptPath: hook.scriptPath,
         stdin,
@@ -91,7 +95,7 @@ export const executeHooks = async (
         hookName: hook.name,
         exitCode: 2,
         stdout: "",
-        stderr: error instanceof Error ? error.message : String(error),
+        stderr: error instanceof Error ? error.message : String(error), // oxlint-disable-line no-ternary
         durationMs,
         shouldProceed: false,
         fatal: true,

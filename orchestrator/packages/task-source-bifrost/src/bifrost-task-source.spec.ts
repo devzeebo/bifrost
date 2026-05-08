@@ -4,7 +4,10 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 
-async function createTestSource() {
+const createTestSource = async (): Promise<{
+  source: BifrostTaskSource;
+  cleanup: () => Promise<void>;
+}> => {
   const tempDir = join("/tmp", `bifrost-test-${randomBytes(8).toString("hex")}`);
   await mkdir(tempDir, { recursive: true });
 
@@ -21,13 +24,13 @@ async function createTestSource() {
   process.chdir(tempDir);
   process.env.BIFROST_TEST_HOME = homeDir;
 
-  const { BifrostTaskSource } = await import("./bifrost-task-source.js");
+  const { BifrostTaskSource } = await import("./bifrost-task-source");
 
   return {
     source: new BifrostTaskSource(),
-    cleanup: async () => {
+    cleanup: async (): Promise<void> => {
       process.chdir(originalCwd);
-      if (originalHome === undefined) {
+      if (originalHome === void 0) {
         delete process.env.BIFROST_TEST_HOME;
       } else {
         process.env.BIFROST_TEST_HOME = originalHome;
@@ -35,7 +38,7 @@ async function createTestSource() {
       await rm(tempDir, { recursive: true, force: true });
     },
   };
-}
+};
 
 describe("BifrostTaskSource", () => {
   beforeEach(() => {
@@ -47,7 +50,8 @@ describe("BifrostTaskSource", () => {
     it("should yield task for rune with agent:implementer tag", async () => {
       const { source, cleanup } = await createTestSource();
 
-      global.fetch = vi.fn()
+      global.fetch = vi
+        .fn()
         .mockResolvedValueOnce({
           ok: true,
           json: async () => [
@@ -85,8 +89,8 @@ describe("BifrostTaskSource", () => {
 
       const tasks: Task[] = [];
 
-      for await (const task of source.watchTasks()) {
-        tasks.push(task);
+      for await (const taskItem of source.watchTasks()) {
+        tasks.push(taskItem);
         break;
       }
 
@@ -101,7 +105,7 @@ describe("BifrostTaskSource", () => {
 
       let callCount = 0;
       global.fetch = vi.fn(() => {
-        callCount++;
+        callCount += 1;
         if (callCount === 1) {
           return Promise.resolve({
             ok: true,
@@ -127,9 +131,9 @@ describe("BifrostTaskSource", () => {
 
       const tasks: Task[] = [];
 
-      void (async () => {
-        for await (const task of source.watchTasks()) {
-          tasks.push(task);
+      void (async (): Promise<void> => {
+        for await (const taskItem of source.watchTasks()) {
+          tasks.push(taskItem);
         }
       })();
 
@@ -144,7 +148,8 @@ describe("BifrostTaskSource", () => {
     it("should use first agent tag when multiple exist", async () => {
       const { source, cleanup } = await createTestSource();
 
-      global.fetch = vi.fn()
+      global.fetch = vi
+        .fn()
         .mockResolvedValueOnce({
           ok: true,
           json: async () => [
@@ -182,8 +187,8 @@ describe("BifrostTaskSource", () => {
 
       const tasks: Task[] = [];
 
-      for await (const task of source.watchTasks()) {
-        tasks.push(task);
+      for await (const taskItem of source.watchTasks()) {
+        tasks.push(taskItem);
         break;
       }
 
@@ -283,7 +288,8 @@ describe("BifrostTaskSource", () => {
     it("should map rune detail to task with all required fields", async () => {
       const { source, cleanup } = await createTestSource();
 
-      global.fetch = vi.fn()
+      global.fetch = vi
+        .fn()
         .mockResolvedValueOnce({
           ok: true,
           json: async () => [
@@ -325,10 +331,10 @@ describe("BifrostTaskSource", () => {
           }),
         });
 
-      let task: Task | undefined;
+      let task: Task | null = null;
 
-      for await (const t of source.watchTasks()) {
-        task = t;
+      for await (const taskItem of source.watchTasks()) {
+        task = taskItem;
         break;
       }
 

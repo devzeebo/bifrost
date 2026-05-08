@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderPrompt } from "./handlebars-renderer.js";
+import { renderPrompt } from "./handlebars-renderer";
 
 describe("Handlebars Prompt Renderer", () => {
   describe("FR-14: Render Handlebars prompt with taskState values", () => {

@@ -1,12 +1,22 @@
-import { describe, expect, it, vi } from "vitest";
-import type { TaskSource } from "./interface.js";
-import type { Task } from "./types.js";
+// oxlint-disable class-methods-use-this -- mock
+import { describe, expect, it } from "vitest";
+import type { Task } from "./types";
+import type { TaskSource } from "./interface";
 
 describe("TaskSource Interface", () => {
   describe("FR-1: Task Source Interface", () => {
     it("should require watchTasks method returning AsyncIterator", async () => {
       class MockTaskSource implements TaskSource {
-        async *watchTasks(): AsyncGenerator<Task> {
+        public completeTask(): Promise<void> {
+          return Promise.resolve();
+        }
+        public failTask(): Promise<void> {
+          return Promise.resolve();
+        }
+        public setState(): Promise<void> {
+          return Promise.resolve();
+        }
+        public async *watchTasks(): AsyncGenerator<Task> {
           yield {
             id: "task-1",
             agentId: "agent-1",
@@ -14,15 +24,9 @@ describe("TaskSource Interface", () => {
             metadata: { priority: "high" },
           };
         }
-
-        async completeTask(_taskId: string): Promise<void> {}
-
-        async failTask(_taskId: string, _error: string): Promise<void> {}
-
-        async setState(_taskId: string, _taskState: Record<string, unknown>): Promise<void> {}
       }
 
-      const source = new MockTaskSource();
+      const source = MockTaskSource;
       const tasks = source.watchTasks();
 
       for await (const task of tasks) {
@@ -36,7 +40,8 @@ describe("TaskSource Interface", () => {
 
     it("should require completeTask method", async () => {
       const source: TaskSource = {
-        async *watchTasks() {
+        // eslint-disable-next-line require-yield
+        async *watchTasks(): AsyncGenerator<Task> {
           yield {
             id: "task-1",
             agentId: "agent-1",
@@ -44,8 +49,11 @@ describe("TaskSource Interface", () => {
             metadata: {},
           };
         },
+        // oxlint-disable-next-line no-empty-function
         async completeTask(_taskId: string): Promise<void> {},
+        // oxlint-disable-next-line no-empty-function
         async failTask(_taskId: string, _error: string): Promise<void> {},
+        // oxlint-disable-next-line no-empty-function
         async setState(_taskId: string, _taskState: Record<string, unknown>): Promise<void> {},
       };
 
@@ -54,7 +62,8 @@ describe("TaskSource Interface", () => {
 
     it("should require failTask method", async () => {
       const source: TaskSource = {
-        async *watchTasks() {
+        // eslint-disable-next-line require-yield
+        async *watchTasks(): AsyncGenerator<Task> {
           yield {
             id: "task-1",
             agentId: "agent-1",
@@ -62,8 +71,11 @@ describe("TaskSource Interface", () => {
             metadata: {},
           };
         },
+        // oxlint-disable-next-line no-empty-function
         async completeTask(_taskId: string): Promise<void> {},
+        // oxlint-disable-next-line no-empty-function
         async failTask(_taskId: string, _error: string): Promise<void> {},
+        // oxlint-disable-next-line no-empty-function
         async setState(_taskId: string, _taskState: Record<string, unknown>): Promise<void> {},
       };
 
@@ -72,7 +84,8 @@ describe("TaskSource Interface", () => {
 
     it("should require setState method", async () => {
       const source: TaskSource = {
-        async *watchTasks() {
+        // eslint-disable-next-line require-yield
+        async *watchTasks(): AsyncGenerator<Task> {
           yield {
             id: "task-1",
             agentId: "agent-1",
@@ -80,8 +93,11 @@ describe("TaskSource Interface", () => {
             metadata: {},
           };
         },
+        // oxlint-disable-next-line no-empty-function
         async completeTask(_taskId: string): Promise<void> {},
+        // oxlint-disable-next-line no-empty-function
         async failTask(_taskId: string, _error: string): Promise<void> {},
+        // oxlint-disable-next-line no-empty-function
         async setState(_taskId: string, _taskState: Record<string, unknown>): Promise<void> {},
       };
 

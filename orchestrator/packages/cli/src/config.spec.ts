@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { loadConfig } from "./config.js";
+import { loadConfig } from "./config";
 import { readFile } from "node:fs/promises";
 
 vi.mock("node:fs/promises");

@@ -1,5 +1,6 @@
+// oxlint-disable-next-line class-methods-use-this
 import { describe, expect, it } from "vitest";
-import { parseAgentDefinition } from "./agent-parser.js";
+import { parseAgentDefinition } from "./agent-parser";
 
 describe("AGENT.md Parser - US-1", () => {
   describe("Valid AGENT.md parsing", () => {

@@ -1,3 +1,3 @@
-export * from "./types.js";
-export * from "./interface.js";
-export * from "./test-engine.js";
+export * from "./types";
+export * from "./interface";
+export * from "./test-engine";

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateTaskState } from "./validator.js";
+import { validateTaskState } from "./validator";
 
 describe("Template Parameters Validator - US-6", () => {
   describe("Required parameter validation", () => {

@@ -10,31 +10,31 @@ export const TaskStatus = {
 export type TaskStatus = (typeof TaskStatus)[keyof typeof TaskStatus];
 
 // Minimal Task type - orchestrator treats metadata as opaque
-export interface Task {
+export type Task = {
   id: string;
   agentId: string;
   taskState: Record<string, unknown>;
   metadata: Record<string, unknown>;
 }
 
-export interface DependencyRef {
+export type DependencyRef = {
   taskId: string;
   type: string;
 }
 
-export interface NoteEntry {
+export type NoteEntry = {
   id: string;
   content: string;
   createdAt: Date;
 }
 
-export interface ACEntry {
+export type ACEntry = {
   id: string;
   criteria: string;
   satisfied: boolean;
 }
 
-export interface RetroEntry {
+export type RetroEntry = {
   id: string;
   content: string;
   createdAt: Date;
