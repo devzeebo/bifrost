@@ -1,9 +1,9 @@
-# Unified Orchestrator PRD v3
+# Unified Orchestrator PRD v4
 
 **Status:** Draft  
 **Authors:** Eric Siebeneich, Matthew Wright, Alexander Reeves  
-**Date:** 2026-05-07  
-**Version:** 3.0
+**Date:** 2026-05-08  
+**Version:** 4.0
 
 ---
 
@@ -11,7 +11,7 @@
 
 ### Product Description
 
-The **Orchestrator Framework** is a TypeScript-based distributed task execution system that coordinates **AI agents** to perform work across multiple projects. It provides a plugin architecture with **Task Sources** (providers of work), **Engines** (executors of work), and **Task State Stores** (task state persistence), connected by a core orchestration layer that manages task lifecycle, state transitions, and telemetry.
+The **Orchestrator Framework** is a TypeScript-based distributed task execution system that coordinates **AI agents** to perform work across multiple projects. It provides a plugin architecture with **Task Sources** (providers of work) and **Engines** (executors of work), connected by a core orchestration layer that manages task lifecycle and telemetry.
 
 The system implements a **multi-level AI factory model**:
 
@@ -22,18 +22,16 @@ The system implements a **multi-level AI factory model**:
 
 **Key Terms:**
 
-- **Task**: A unit of work to be executed by an agent, containing title, description, tags, and metadata
+- **Task**: Minimal unit of work containing `id`, `agentId`, `taskState`, and `metadata`
 - **Agent**: An AI worker with specific capabilities (model, tools, prompt) that executes tasks
 - **AGENT.md**: Markdown file with YAML frontmatter that fully describes a Level 3 agent's contract
 - **taskState**: Free-form object containing all context for a single task execution, including language, framework, and cross-hook state
-- **Task Source**: Plugin that discovers, claims, and fulfills tasks from an external system (e.g., API, database, queue)
+- **Task Source**: Plugin that yields tasks via async iterator and handles coordination, state persistence, and completion reporting
 - **Engine**: Plugin that executes tasks using a specific mechanism (e.g., AI runtime, CLI tool)
-- **Task State Store**: Plugin that persists and retrieves taskState across hook executions
 - **Hook**: Shell command or Node.js script executed before (Start) or after (Stop) agent execution
 - **repo script**: Hook script that belongs to a specific working repository, installed to `.ai/<agent>/hooks/`
 - **repoConfig**: YAML file committed to working repository declaring languages and tools
 - **toolClass**: Role identifier (formatter, linter, testFramework, build) for tool resolution
-- **Claimant**: Identifier for the agent instance currently working on a task
 - **projectDir**: Git root of the working repository, resolved automatically
 - **Orchestration**: The process of coordinating hooks, engine execution, and follow-up loops
 - **Follow-up**: Additional agent execution triggered by Stop hooks to address issues
@@ -55,9 +53,9 @@ Sarah spends hours manually deconflicting agents, digging through logs to unders
 
 ### Goal
 
-With the Orchestrator Framework, Sarah builds orchestrator instances tailored to her infrastructure. She configures a **Task Source** that connects to her task management system, an **Engine** that uses her preferred AI runtime, and a **Task State Store** that persists taskState in Redis. When a task is ready, the orchestrator:
+With the Orchestrator Framework, Sarah builds orchestrator instances tailored to her infrastructure. She configures a **Task Source** that connects to her task management system and an **Engine** that uses her preferred AI runtime. When a task is ready, the orchestrator:
 
-1. Receives the task from the Task Source's async iterator
+1. Receives the task from the Task Source's async iterator (task includes id, agentId, taskState, metadata)
 2. Loads agent definition from AGENT.md (template parameters, hooks, prompt)
 3. Validates taskState against agent's parameter schema
 4. Runs **Start hooks** (validate-args, snapshot-tests, project-specific validation)
@@ -65,13 +63,13 @@ With the Orchestrator Framework, Sarah builds orchestrator instances tailored to
 6. Executes the task with the appropriate agent (model, tools from agent catalog)
 7. Runs **Stop hooks** (check-new-tests, lint, format, custom checks)
 8. If hooks report issues (exit code 1), triggers a **follow-up** loop to address them
-9. If hooks report fatal errors (exit code 2), marks the UoW as failed
-10. Persists updated taskState (including cross-hook state) via Task State Store
-11. Marks the task complete with full telemetry (tokens used, duration, cost)
+9. If hooks report fatal errors (exit code 2), marks the task as failed
+10. Engine calls `setState()` callback to persist state updates to task source
+11. Marks the task complete or failed via Task Source with full telemetry
 
-Marcus defines one BDD-Red agent. Its AGENT.md declares the `taskState` fields it requires: `language`, `testFramework`, and `testStyle`. Whatever process creates the UoW — a human, a CI trigger, or another agent — fills those fields before handing it to the orchestrator. The orchestrator validates the schema and dispatches. The same BDD-Red agent handles the C# service when a UoW arrives with C# / XUnit / Gherkin in taskState. Hooks are declared in the AGENT.md with a defined stdin schema and exit code contract. Repo scripts are automatically installed to the working repository's `.ai/` directory on first run. Hooks communicate via taskState, so snapshot-tests writes file hashes that check-new-tests reads.
+Marcus defines one BDD-Red agent. Its AGENT.md declares the `taskState` fields it requires: `language`, `testFramework`, and `testStyle`. Whatever process creates the UoW — a human, a CI trigger, or another agent — fills those fields before handing it to the orchestrator. The orchestrator validates the schema and dispatches. The same BDD-Red agent handles the C# service when a UoW arrives with C# / XUnit / Gherkin in taskState. Hooks are declared in the AGENT.md with a defined stdin schema and exit code contract. Hooks communicate via taskState, so snapshot-tests writes file hashes that check-new-tests reads.
 
-Sarah now has reliable, scalable, composable automation. She can deploy multiple agents knowing the Task Source provides coordination (claiming, locking, or queue semantics). She has full visibility into execution. She trusts the automation because hooks validate work before completion. Marcus's team ships BDD Red across every language without touching the agent definition.
+Sarah now has reliable, scalable, composable automation. She can deploy multiple agents knowing the Task Source provides coordination. She has full visibility into execution. She trusts the automation because hooks validate work before completion. Marcus's team ships BDD Red across every language without touching the agent definition.
 
 ---
 
@@ -123,7 +121,7 @@ When the AGENT.md is parsed
 Then parsing fails identifying the undeclared token by name
 ```
 
-### US-2: Task Source emits available tasks
+### US-2: Task Source yields tasks via async iterator
 
 **As a** task source plugin author  
 **I want** to emit available tasks via an async iterator  
@@ -172,7 +170,7 @@ Then the orchestrator waits 1 minute
 
 ```
 Given a task is yielded from the task source
-  And the task has a "worker:reviewer" tag
+  And the task has agentId set to "reviewer"
   And the reviewer agent is configured in the agent catalog
 When the orchestrator receives the task
 Then Start hooks are executed in sequence
@@ -180,14 +178,6 @@ Then Start hooks are executed in sequence
   And Stop hooks are executed in sequence
   And the task is marked complete
   And execution telemetry is recorded
-```
-
-```
-Given a task has no worker tag (no "worker:*" in tags)
-When the orchestrator receives the task
-Then the task is marked as failed
-  And the orchestrator logs the reason
-  And the task source is notified of the failure
 ```
 
 ```
@@ -212,7 +202,7 @@ When the agent is dispatched with a valid UoW
 Then each Start hook executes in declaration order before the agent receives its prompt
   And exit code 0 allows the agent to proceed
   And exit code 1 passes hook stdout to the agent as a warning and continues
-  And exit code 2 halts the agent, marks UoW as failed, and surfaces the error to the task source
+  And exit code 2 halts the agent, marks task as failed, and surfaces the error to the task source
 ```
 
 ```
@@ -220,7 +210,7 @@ Given an AGENT.md with a hooks.Stop section
 When the agent's prompt execution finishes
 Then each Stop hook executes in declaration order
   And exit code 1 returns stdout to the agent for remediation (follow-up loop)
-  And exit code 2 halts, marks UoW as failed, and reports the error to the task source
+  And exit code 2 halts, marks task as failed, and reports the error to the task source
 ```
 
 ```
@@ -244,7 +234,7 @@ When the timeout is exceeded
 Then the hook execution is terminated
   And the hook is treated as having exited with code 2
   And an error message is logged: "Hook {hookName} exceeded timeout of {timeout}ms"
-  And the UoW is marked as failed
+  And the task is marked as failed
 ```
 
 ```
@@ -304,23 +294,23 @@ Then the rendered prompt is injected into the agent's context
 ```
 Given a UoW whose taskState is missing a required parameter
 When the orchestrator attempts dispatch
-Then the Start hook validate-args exits with code 2
-  And the agent does not execute any prompt
+Then validation fails
+  And the agent does not execute
   And the error identifies the missing field by its dot-notation path
-  And the UoW is marked as failed
+  And the task is marked as failed
 ```
 
 ```
 Given a template parameter that is an optional object (name ends with ?)
   And the UoW taskState provides that object
   And the object is missing a required sub-field (sub-field name does not end with ?)
-When validate-args runs
+When validation runs
 Then validation fails identifying the missing sub-field by its dot-notation path
 ```
 
 ```
 Given a UoW taskState where a required field is present but set to empty string
-When validate-args runs
+When validation runs
 Then validation fails as if the field were absent
 ```
 
@@ -328,7 +318,7 @@ Then validation fails as if the field were absent
 Given a UoW with an incomplete taskState
 When the orchestrator receives it
 Then the orchestrator does not read repoConfig, inspect the workspace, or call any external service to fill in missing values
-  And it fails validation, marks the UoW as failed, and returns the error to the task source
+  And it fails validation and marks the task as failed
 ```
 
 ### US-7: Platform Engineer - Observe Agent Execution
@@ -355,10 +345,10 @@ Then telemetry is accumulated across all executions
 And cumulative telemetry is reported on completion
 ```
 
-### US-8: System Administrator - Configure Multiple Sources and Engines
+### US-8: System Administrator - Configure Sources and Engines
 
 **As a** system administrator  
-**I want** to configure task sources, engines, and task state stores via YAML  
+**I want** to configure task sources and engines via YAML  
 **So that** the orchestrator works with different backends
 
 **Acceptance Criteria:**
@@ -379,14 +369,6 @@ And orchestrate.engine.type is "ai-runtime"
 And orchestrate.engine.settings.endpoint is "https://ai.example.com"
 When the orchestrator loads configuration
 Then an AIRuntimeEngine is created with the specified endpoint
-```
-
-```
-Given a .orchestrator.yaml configuration file
-And orchestrate.task_state_store.type is "redis"
-And orchestrate.task_state_store.settings.url is "redis://localhost:6379"
-When the orchestrator loads configuration
-Then a RedisTaskStateStore is created with the specified URL
 ```
 
 ```
@@ -450,49 +432,40 @@ When the orchestrator program starts
 Then projectDir is /home/user/myrepo
 ```
 
-### US-11: Task State persistence across hook executions
+### US-11: Task state persistence via Task Source
 
-**As a** hook author  
-**I want** hooks to read and write taskState that persists across hook executions  
-**So that** hooks can coordinate their behavior without side effects
+**As a** task source plugin author  
+**I want** the task source to persist taskState  
+**So that** hooks can coordinate their behavior
 
 **Acceptance Criteria:**
 
 ```
-Given a Start hook that writes taskState.snapshotTests = { "test.js": "hash123" }
-When the Start hook completes
-Then the Task State Store persists the updated taskState
-And the Stop hook can read taskState.snapshotTests in a subsequent execution
+Given an engine executing a task
+When the engine calls setState(newState)
+Then the task source persists the updated taskState
+  And subsequent hook executions can read the updated taskState
 ```
 
 ```
-Given a taskState that was previously persisted
-When a new hook execution begins
-Then the Task State Store loads the persisted taskState
-And the hook receives the updated taskState via stdin
-```
-
-```
-Given the Task State Store is unavailable
-When a hook attempts to read or write taskState
-Then the hook execution fails with a descriptive error
-And the orchestrator logs the failure
-And the UoW is marked as failed
-```
-
-```
-Given a hook completes successfully (exit code 0)
-When taskState is saved
-Then the save operation is atomic
+Given a task source that persists taskState to a database
+When setState() is called
+Then the database is updated atomically
   And either the entire taskState is persisted or none is
   And partial updates are not possible
 ```
 
 ```
-Given a hook fails or times out
-When execution terminates
-Then no taskState changes from that hook are persisted
-  And taskState reflects the state from the prior successful operation
+Given a task source that persists taskState to a file
+When setState() is called
+Then the file is updated atomically via write-and-rename
+```
+
+```
+Given the task source is unavailable
+When setState() is called
+Then the call throws an error
+  And the orchestrator marks the task as failed
 ```
 
 ---
@@ -504,35 +477,42 @@ Then no taskState changes from that hook are persisted
 The system MUST implement the `TaskSource` interface with the following methods:
 
 - `async watchTasks(): AsyncIterator<Task>`: Yield available tasks. The task source is responsible for coordination (claiming, locking, queue semantics) to ensure each task is yielded to at most one orchestrator instance.
-- `async getTaskDetail(taskId: string): Promise<TaskDetail>`: Retrieve full task details
-- `async completeTask(taskId: string): Promise<boolean>`: Mark task as fulfilled
-- `async failTask(taskId: string, error: string): Promise<boolean>`: Mark task as failed
-
-Task Status enum values:
-- `OPEN`: Task is available for processing
-- `IN_PROGRESS`: Task is being executed
-- `COMPLETED`: Task is fulfilled
-- `FAILED`: Task execution failed
-- `CANCELLED`: Task was cancelled
+- `async completeTask(taskId: string): Promise<void>`: Mark task as fulfilled
+- `async failTask(taskId: string, error: string): Promise<void>`: Mark task as failed
+- `async setState(taskId: string, taskState: Record<string, unknown>): Promise<void>`: Persist taskState updates
 
 The task source plugin is responsible for:
-- Ensuring tasks yielded via `watchTasks()` are not simultaneously yielded to other orchestrators
+- Ensuring tasks yielded via `watchTasks()` include all data needed (id, agentId, taskState, metadata)
 - Not re-emitting tasks that have been marked as `FAILED`
 - Handling coordination via atomic claims, distributed locks, queue dequeue, or other mechanisms
-- Persisting task state according to its own requirements
+- Persisting task state according to its own requirements (database, file system, API)
 - Handling network connectivity and reconnection to its backend service
 
-### FR-2: Engine Interface
+### FR-2: Task Type
+
+The `Task` type MUST contain:
+
+- `id: string`: Unique task identifier
+- `agentId: string`: Identifier for which agent should handle this task
+- `taskState: Record<string, unknown>`: Free-form object containing all context for task execution
+- `metadata: Record<string, unknown>`: Opaque metadata from the task source (tags, priority, etc.)
+
+The orchestrator treats `taskState` and `metadata` as opaque. Each task source implementation may have different metadata structures; the orchestrator must not depend on any specific metadata fields.
+
+### FR-3: Engine Interface
 
 The system MUST implement the `Engine` interface with the following methods:
 
-- `async execute(context: EngineContext, taskData: TaskData): Promise<EngineResult>`: Execute a task
+- `async execute(context: EngineContext): Promise<EngineResult>`: Execute a task
 - `async sendFollowUp(message: string): Promise<EngineResult>`: Optional method for follow-up execution
 
 EngineContext MUST contain:
 - `taskId: string`: Unique task identifier
 - `workingDir: string`: Project directory for execution
 - `agentName: string`: Name of the agent to use
+- `taskState: Record<string, unknown>`: Task state for execution
+- `metadata: Record<string, unknown>`: Task metadata from task source
+- `setState: (newState: Record<string, unknown>) => Promise<void>`: Callback to persist state updates via task source
 - `verbose: boolean`: Enable verbose logging
 
 EngineResult MUST contain:
@@ -549,17 +529,6 @@ ExecutionStats MUST contain:
 - `cacheCreationTokens: number`: Cache creation tokens
 - `totalCostUsd: number`: Total cost in USD
 - `numTurns: number`: Number of conversation turns
-
-### FR-3: Task State Store Interface
-
-The system MUST implement the `TaskStateStore` interface with the following methods:
-
-- `async loadTaskState(taskId: string): Promise<Record<string, unknown> | null>`: Load taskState for a task
-- `async saveTaskState(taskId: string, taskState: Record<string, unknown>): Promise<boolean>`: Persist taskState for a task
-- `async deleteTaskState(taskId: string): Promise<boolean>`: Delete taskState for a task
-- `async initializeTaskState(taskId: string, initialState: Record<string, unknown>): Promise<boolean>`: Initialize taskState for a new task
-
-TaskStateStore implementations MUST be thread-safe and support concurrent access. Each operation MUST be atomic. The orchestrator does not implement additional consistency mechanisms.
 
 ### FR-4: Agent Definition File (AGENT.md)
 
@@ -697,7 +666,7 @@ The rendered agent prompt is NOT included. Cross-hook state is communicated via 
 |---|---|---|
 | 0 | Success | Proceed |
 | 1 | Recoverable error | Hook stdout passed to agent as context; execution continues (triggers follow-up for Stop hooks) |
-| 2 | Fatal error | Agent halts; UoW marked as failed; error surfaced to task source |
+| 2 | Fatal error | Agent halts; task marked as failed; error surfaced to task source |
 
 **Script format:** `.mjs` (ES module) or executable shell script. Executed via dynamic `import()` (Node.js) or subprocess (shell).
 
@@ -706,7 +675,7 @@ The rendered agent prompt is NOT included. Cross-hook state is communicated via 
 ### FR-11: Built-in Hook Specs
 
 | Hook | Lifecycle | Type | Purpose | Default Timeout |
-|---|---|---|---|---|
+|---|---|---|---|
 | `validate-args` | Start | framework | Assert all required taskState fields are non-empty per declared schema | 300000ms (5 min) |
 | `snapshot-tests` | Start | framework | Hash existing test files into taskState | 300000ms (5 min) |
 | `check-new-tests` | Stop | framework | Assert at least one new test was added since snapshot | 300000ms (5 min) |
@@ -745,11 +714,6 @@ orchestrate:
     settings:
       # Plugin-specific settings
   
-  task_state_store:
-    type: string          # "redis" | "memory" | "file"
-    settings:
-      # Type-specific settings
-  
   concurrency: number
   claimant: string | null
   logging: "normal" | "verbose"
@@ -759,23 +723,21 @@ orchestrate:
 
 The orchestrator MUST execute the following sequence:
 
-1. Receive task from Task Source's async iterator
-2. Load agent definition from AGENT.md based on `worker:*` tag
-3. Load/initialize taskState from Task State Store
-4. Execute Start hooks with taskState
-5. If any hook exits with code 2: mark UoW as failed, notify task source, continue to next task
-6. Validate taskState against template.parameters
-7. If validation fails: mark UoW as failed, notify task source, continue to next task
-8. Render Handlebars prompt with taskState values
-9. Build EngineContext and taskData
-10. Execute engine
-11. Execute Stop hooks
-12. If any Stop hook exits with code 1: loop back to step 9 with follow-up message
-13. If any Stop hook exits with code 2: mark UoW as failed, notify task source, continue to next task
-14. Save final taskState to Task State Store
-15. Mark task as complete via Task Source
-16. Append completion note with telemetry
-17. Continue to next task
+1. Receive task from Task Source's async iterator (task includes id, agentId, taskState, metadata)
+2. Load agent definition from AGENT.md based on `agentId`
+3. Execute Start hooks with taskState
+4. If any hook exits with code 2: mark task as failed, notify task source via failTask(), continue to next task
+5. Validate taskState against template.parameters
+6. If validation fails: mark task as failed, notify task source via failTask(), continue to next task
+7. Render Handlebars prompt with taskState values
+8. Build EngineContext with taskState, metadata, setState callback
+9. Execute engine
+10. Execute Stop hooks
+11. If any Stop hook exits with code 1: loop back to step 8 with follow-up message
+12. If any Stop hook exits with code 2: mark task as failed, notify task source via failTask(), continue to next task
+13. Mark task as complete via Task Source completeTask()
+14. Append completion note with telemetry
+15. Continue to next task
 
 ### FR-15: Task Source Reconnection
 
@@ -796,10 +758,10 @@ This reconnection loop continues indefinitely until the orchestrator receives an
 - Level 3 agents MUST NOT embed language names, framework names, or version numbers directly in their prompt bodies.
 - Level 4 orchestrator programs validate UoW `taskState` but do NOT derive or populate parameter values.
 - The `tools` allowlist is enforced by the runtime harness, not the prompt.
-- Task State Store provides the interface for persisting taskState without coupling to any specific backend.
-- The orchestrator does not enforce taskState size limits — this is the Task State Store's responsibility.
+- Task state persistence is handled by the Task Source via setState() callback.
+- The orchestrator does not enforce taskState size limits — this is the Task Source's responsibility.
 - The orchestrator does not implement coordination (claiming, locking) — this is the Task Source's responsibility.
-- Task State Store operations are assumed to be atomic — the orchestrator does not implement additional consistency mechanisms.
+- The orchestrator does not track task status — this is the Task Source's responsibility.
 
 ---
 
@@ -812,7 +774,7 @@ This reconnection loop continues indefinitely until the orchestrator receives an
 - Hook execution timeout defaults to 5 minutes and is configurable per-hook in AGENT.md
 - Hook timeout MUST be enforced via process termination
 - Engine execution has no hardcoded timeout (managed by engine)
-- Task State Store operations MUST complete within 100ms for local stores, 500ms for remote stores
+- Task state persistence MUST complete within 100ms for local stores, 500ms for remote stores
 - AGENT.md parsing completes in under 100ms for files under 10KB
 
 ### NFR-2: Reliability
@@ -821,8 +783,7 @@ This reconnection loop continues indefinitely until the orchestrator receives an
 - The orchestrator MUST automatically attempt task source reconnection after 1-minute delay
 - The orchestrator MUST log all hook failures without crashing
 - The orchestrator MUST survive process restart and resume polling
-- Task State Store MUST be thread-safe and support concurrent access
-- Task State persistence failures MUST be logged and cause UoW failure
+- Task state persistence failures MUST be logged and cause task failure
 - Hook timeouts MUST be enforced — a hung hook cannot block the orchestrator indefinitely
 
 ### NFR-3: Monitoring and Observability
@@ -830,7 +791,7 @@ This reconnection loop continues indefinitely until the orchestrator receives an
 - All task source operations MUST be logged with task ID
 - All hook executions MUST be logged with command, exit code, and duration
 - Engine execution MUST log telemetry on completion
-- Task State Store operations MUST be logged with task ID
+- Task state persistence operations MUST be logged with task ID
 - Log levels MUST be configurable (normal, verbose)
 - Structured JSON log entries for: git root resolution, agent load, taskState validation result, hook start, hook exit (with exit code and duration), agent dispatch
 - Task Source reconnection attempts MUST be logged
@@ -839,17 +800,17 @@ This reconnection loop continues indefinitely until the orchestrator receives an
 
 - The orchestrator MUST support configurable worker concurrency
 - Task Source MUST handle coordination (no built-in locking in orchestrator)
-- Task State Store MUST support concurrent reads and writes to the same task_id
-- Task State Store operations MUST be atomic per-operation
+- Task state persistence MUST support concurrent access
+- Task state persistence operations MUST be atomic per-operation
 
 ### NFR-5: Error Handling
 
 - Invalid JSON on stdin MUST result in exit code 1
-- Unknown agent name MUST result in UoW being marked as failed
-- Agent without model MUST result in UoW being marked as failed
+- Unknown agent name MUST result in task being marked as failed
+- Agent without model MUST result in task being marked as failed
 - Task source async iterator termination MUST trigger reconnection logic
 - Hook execution exceptions MUST be caught, logged, and result in exit code 2
-- Task State Store unavailability MUST cause UoW failure with descriptive error
+- Task state persistence unavailability MUST cause task failure with descriptive error
 - Every validation failure, hook exit-2, and parse error must name the specific field or file path that caused the failure, using dot-notation for nested fields
 - Hook timeouts MUST be logged with hook name and configured timeout value
 
@@ -858,7 +819,6 @@ This reconnection loop continues indefinitely until the orchestrator receives an
 - Running the orchestrator multiple times against the same working repository produces the same result
 - Already-present repo scripts are not overwritten
 - No errors are raised for already-installed scripts
-- Task State Store initialization is idempotent
 
 ### NFR-7: Reproducibility
 
@@ -870,7 +830,6 @@ This reconnection loop continues indefinitely until the orchestrator receives an
 - The `tools` allowlist is enforced by the runtime
 - A prompt that instructs the agent to use an unlisted tool is rejected before execution
 - Repo scripts are executed with the same permissions as the orchestrator
-- Task State Store does not execute code from stored taskState values
 
 ---
 
@@ -892,22 +851,13 @@ This reconnection loop continues indefinitely until the orchestrator receives an
 - `note: string` (JSON serialized ExecutionStats)
 - Occurs when: Worker completes execution with telemetry
 
-**InitializeTaskState**
-- `taskId: string`
-- `initialState: Record<string, unknown>`
-- Occurs when: Task is received for the first time
-
 **UpdateTaskState**
 - `taskId: string`
-- `updates: Record<string, unknown>`
-- Occurs when: Hook modifies taskState
-
-**LoadTaskState**
-- `taskId: string`
-- Occurs when: Hook needs to read current taskState
+- `taskState: Record<string, unknown>`
+- Occurs when: Engine calls setState callback
 
 **DispatchAgent**
-- `agentName: string`, `projectDir: string`, `uow: UnitOfWork`, `dispatchedAt: ISO8601`
+- `agentName: string`, `projectDir: string`, `task: Task`, `dispatchedAt: ISO8601`
 - Occurs when: Orchestrator dispatches an agent
 
 **RunHook**
@@ -926,13 +876,13 @@ This reconnection loop continues indefinitely until the orchestrator receives an
 
 **TaskCompleted**
 - `taskId: string`
-- `claimant: string`
+- `agentId: string`
 - `telemetry: ExecutionStats`
 - `timestamp: Date`
 
 **TaskFailed**
 - `taskId: string`
-- `claimant: string`
+- `agentId: string`
 - `error: string`
 - `timestamp: Date`
 
@@ -960,9 +910,6 @@ This reconnection loop continues indefinitely until the orchestrator receives an
 **TaskStateUpdated**
 - `taskId: string`, `updatedFields: string[]`, `updatedAt: Date`
 
-**TaskStateInitialized**
-- `taskId: string`, `initialState: Record<string, unknown>`, `initializedAt: Date`
-
 **TaskSourceReconnecting**
 - `taskSourceType: string`, `reason: string`, `reattemptDelay: number`, `reattemptAt: ISO8601`
 
@@ -972,31 +919,26 @@ This reconnection loop continues indefinitely until the orchestrator receives an
 ### Aggregates
 
 **Task**
-- `id: string`
-- `title: string`
-- `description: string | null`
-- `status: TaskStatus`
-- `tags: string[]`
-- `claimant: string | null`
-- `createdAt: Date | null`
-- `updatedAt: Date | null`
-- `priority: number`
-
-**TaskDetail**
-- Extends Task
-- `dependencies: DependencyRef[]`
-- `notes: NoteEntry[]`
-- `acceptanceCriteria: ACEntry[]`
-- `retro: RetroEntry[]`
+```typescript
+type Task = {
+  id: string
+  agentId: string
+  taskState: Record<string, unknown>
+  metadata: Record<string, unknown>
+}
+```
 
 **AgentExecution**
-- `taskId: string`
-- `agentName: string`
-- `claimant: string`
-- `startedAt: Date`
-- `completedAt: Date | null`
-- `telemetry: ExecutionStats | null`
-- `verdict: OrchestrationResult`
+```typescript
+type AgentExecution = {
+  taskId: string
+  agentName: string
+  startedAt: Date
+  completedAt: Date | null
+  telemetry: ExecutionStats | null
+  verdict: "completed" | "failed"
+}
+```
 
 **AgentDefinition**
 ```typescript
@@ -1042,50 +984,7 @@ type RepoConfig = {
 }
 ```
 
-**UnitOfWork**
-```typescript
-type UnitOfWork = {
-  id: string
-  agentName: string
-  projectDir: string
-  taskState: Record<string, unknown>
-  createdAt: string
-  dispatchedAt: string | null
-}
-```
-
-**DispatchRecord**
-```typescript
-type DispatchRecord = {
-  uowId: string
-  agentName: string
-  projectDir: string
-  taskStateSnapshot: Record<string, unknown>
-  renderedPromptHash: string
-  hookResults: Array<{
-    hookName: string
-    lifecycle: "Start" | "Stop"
-    exitCode: number
-    durationMs: number
-    timedOut: boolean
-  }>
-  outcome: "completed" | "halted"
-  dispatchedAt: string
-  completedAt: string | null
-}
-```
-
 ### Query Projections
-
-**TaskDetailQuery**
-- Question: What is the full context for a specific task?
-- Projection: `TaskDetail` by `taskId`
-- Used by: Agent execution
-
-**AgentExecutionHistoryQuery**
-- Question: What executions have occurred for a task?
-- Projection: List of `AgentExecution` by `taskId` ordered by `startedAt`
-- Used by: Debugging and audit
 
 **AgentSchemaView**
 - Question: What taskState shape, tools, and hook contracts does a named agent declare?
@@ -1093,7 +992,7 @@ type DispatchRecord = {
 - Used by: Dispatcher, validation
 
 **UoWReadinessView**
-- Question: Does a given UoW's taskState satisfy the target agent's parameter schema?
+- Question: Does a given task's `taskState` satisfy the target agent's parameter schema?
 - Projection: Boolean result of schema validation
 - Used by: Pre-dispatch validation
 
@@ -1119,14 +1018,11 @@ type DispatchRecord = {
 
 ### Data Retention
 
-- Task events MUST be retained indefinitely (event sourcing)
-- Task aggregate MUST be rebuildable from event stream
-- Completed tasks MUST NOT be deleted from task source
-- Agent execution history MUST be appended to task as notes
+- Task events MUST be retained according to task source implementation
+- Task state persistence is handled by task source according to its requirements
 - `DispatchRecord` and associated events: 90 days, then archived or deleted
 - `AgentDefinition` snapshot captured at dispatch time: retained with its `DispatchRecord` for the same 90-day window
 - `package.json` hash records: retained indefinitely (required for install-skip optimization)
-- TaskState MUST be retained until task is completed and archived, then purged according to retention policy
 
 ---
 
@@ -1146,14 +1042,13 @@ type DispatchRecord = {
 - Agent-to-agent calls within a Level 3 task: Level 3 agents execute a single task. Inter-agent calls within a prompt belong to Level 4.
 - GUI or web interface for agent authoring: Authoring is file-based (markdown + YAML).
 - Agent definition versioning: Semantic versioning of AGENT.md files and compatibility guarantees between versions are out of scope for v1.
-- Multi-language dispatch in a single agent invocation: Each dispatch targets one language at a time. Polyglot support comes from separate dispatches.
+- Multi-language dispatch in a single agent invocation: Each dispatch targets one agent at a time. Polyglot support comes from separate dispatches.
 - Automated Gherkin test execution for hook specs: The `.md` Gherkin spec files are documentation and acceptance criteria only. They are not automatically parsed and run. Provided hook scripts ship with unit tests; teams writing replacement implementations test against the spec on their own.
 - Scalar type enforcement in template.parameters: The type hints (e.g., `string`) in `template.parameters` values document intent but are not enforced at runtime in v1. Validation only checks presence and non-emptiness of required fields.
-- Orchestrator responsibility for taskState derivation: The orchestrator validates; it does not populate. Whatever produces the UoW — human, CI, or another agent — is responsible for all `taskState` values.
+- Orchestrator responsibility for taskState derivation: The orchestrator validates; it does not populate. Whatever produces the task — human, CI, or another agent — is responsible for all `taskState` values.
 - Repo script upgrade path: When a newer version of the orchestrator program ships an updated repo script, there is no automated mechanism to update already-installed copies in working repositories. Teams update repo scripts manually. A future version may introduce a hash-comparison check with an explicit overwrite command.
 - Malicious agent package supply chain: A compromised agent package could declare arbitrary dependencies installed into the shared orchestrator `node_modules`. The v1 mitigation is developer discipline — always review agent definitions and `package.json` before installing.
-- Task State size enforcement: The orchestrator does not enforce taskState size limits. Size limits, if any, are enforced by the Task State Store implementation.
-- Task State concurrency control: The orchestrator does not implement optimistic locking, versioning, or conflict resolution for taskState updates. Each `saveTaskState` operation is assumed to be atomic.
+- Task State size enforcement: The orchestrator does not enforce taskState size limits. Size limits, if any, are enforced by the Task Source implementation.
 - Task state persistence across orchestrator restarts: The orchestrator does not persist state across restarts. Persistence is the Task Source's responsibility.
 - Configurable reconnection delay: The reconnection delay is fixed at 1 minute for v1.
 
@@ -1165,14 +1060,14 @@ type DispatchRecord = {
 
 | Dependency | Purpose |
 |---|---|
-| `repoConfig.yaml` (working repo) | Toolchain declarations; read by processes that produce UoW taskState |
+| `repoConfig.yaml` (working repo) | Toolchain declarations; read by processes that produce task taskState |
 | TypeScript runtime | Orchestrator framework execution |
 | Node.js ≥24 | Runtime for hook script execution and orchestrator program |
 | git | Working repository root resolution (`projectDir` detection) |
 | npm workspaces | Agent dependency resolution and workspace test orchestration |
 | vitest (agent-level devDependency) | Running provided hook unit tests |
 | Handlebars (or equivalent) | Prompt template rendering at dispatch time |
-| Task State Store backend (Redis, filesystem, in-memory) | taskState persistence across hook executions |
+| Task Source backend | Task discovery, coordination, and state persistence |
 
 ### Assumptions
 
@@ -1181,15 +1076,15 @@ type DispatchRecord = {
 3. Node.js ≥24 is available in the orchestrator program's execution environment.
 4. All hook scripts (framework and repo) are ES modules (`.mjs`) or executable shell scripts.
 5. The orchestrator framework is an npm workspace monorepo. `npm install` at the root resolves all agent hook dependencies.
-6. `taskState` fields of type `prompt` carry the full text of a skill prompt section as a string value. The UoW producer is responsible for loading skill content and writing it as a string — not a file path.
+6. `taskState` fields of type `prompt` carry the full text of a skill prompt section as a string value. The task producer is responsible for loading skill content and writing it as a string — not a file path.
 7. A Level 3 agent is stateless between dispatches. Per-dispatch state lives in `taskState` and is threaded through hook stdin.
 8. `validate-args` is the first Start hook by convention. Its absence is an authoring warning, not a parse-time fatal error.
 9. When two tools share the same `toolClass` in a `repoConfig.yaml` language entry, the first listed entry is used and a warning with line numbers is emitted.
 10. Repo script installation is a one-time operation performed by the orchestrator on first run against a working repository. Subsequent runs are safe and idempotent.
 11. The orchestrator is always invoked from inside a valid git repository. The git root is the working repository; no other mechanism for specifying `projectDir` exists.
 12. Absent optional Handlebars tokens render as empty string. Prompt authors guard optional sections with `{{#if}}` blocks.
-13. Task State Store is available and reachable during hook execution. Unavailability causes UoW failure.
-14. Task State Store operations are atomic for single task_id writes. The orchestrator does not implement additional consistency mechanisms.
+13. Task state persistence is available via `setState` callback. Unavailability causes task failure.
+14. Task state persistence operations are assumed to be atomic for single task_id writes. The orchestrator does not implement additional consistency mechanisms.
 15. Configuration file exists: `.orchestrator.yaml` in project root or home directory.
 16. Network connectivity: Task source is reachable from orchestrator. If not, reconnection logic is triggered.
 17. File system permissions: Orchestrator has read/write access to project directory.
@@ -1197,19 +1092,18 @@ type DispatchRecord = {
 19. Idempotent hooks: Hooks are safe to run multiple times (follow-up loops).
 20. Hook timeouts: Hooks complete within their configured timeout or are killed.
 21. Task Source handles all coordination (claiming, locking, queue semantics) to prevent duplicate task processing.
-22. Task Source is responsible for persisting its own state. The orchestrator does not persist task state across restarts.
+22. Task Source is responsible for persisting its own state including task state and task metadata.
 23. Task Source async iterator termination triggers automatic reconnection after 1-minute delay.
-24. Task State Store enforces any size limits. The orchestrator does not inspect taskState size.
+24. Task State enforces any size limits. The orchestrator does not inspect taskState size.
 
 ### External System Assumptions
 
-- **Task Source**: Implements coordination (atomic claims, distributed locks, or queue semantics) to ensure tasks are not yielded to multiple orchestrators simultaneously. Does not re-emit failed tasks. Handles its own persistence requirements. Can be recreated if the async iterator terminates.
+- **Task Source**: Implements coordination (atomic claims, distributed locks, or queue semantics) to ensure tasks are not yielded to multiple orchestrators simultaneously. Does not re-emit failed tasks. Handles its own persistence requirements. Can be recreated if the async iterator terminates. Provides `setState` method for persisting task state updates.
 - **AI Runtime**: Supports executing agents with context and returning structured results.
 - **Agent catalog format**: AGENT.md files following the specified schema for Level 3 agents.
-- **Task State Store backend**: Supports get/set/delete operations with atomic operations and appropriate performance characteristics. Enforces size limits if any.
 
 ---
 
 ## Open Questions
 
-None. All questions from v2 have been resolved and their answers incorporated into the requirements.
+None. All questions from v3 have been resolved and their answers incorporated into the requirements.

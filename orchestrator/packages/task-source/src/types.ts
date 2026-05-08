@@ -17,14 +17,6 @@ export type Task = {
   metadata: Record<string, unknown>;
 };
 
-// FR-1: TaskDetail extends Task
-export type TaskDetail = Task & {
-  dependencies: DependencyRef[];
-  notes: NoteEntry[];
-  acceptanceCriteria: ACEntry[];
-  retro: RetroEntry[];
-};
-
 export type DependencyRef = {
   taskId: string;
   type: string;
