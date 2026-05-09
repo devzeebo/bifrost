@@ -28,8 +28,8 @@ export const validateTaskState = (
     const schemaObj = schemaNode as Record<string, unknown>;
 
     // If value is missing/null/empty, check if path is optional
-      // oxlint-disable-next-line no-undefined
-      if (value === undefined || value === null || value === "") {
+    // oxlint-disable-next-line no-undefined
+    if (value === undefined || value === null || value === "") {
       return; // Handled by parent check
     }
 

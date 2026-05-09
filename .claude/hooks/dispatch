@@ -4,6 +4,14 @@ set -e
 
 INPUT=$(cat)
 
+escape_json() {
+  JSON=$(echo -n "$1" | jq -Rca . | tail -c +2 | head -c -2)
+
+  echo "$JSON" > log
+
+  echo "$JSON"
+}
+
 get_field() {
   local field="$1"
   local json="${2:-$INPUT}"
@@ -11,15 +19,24 @@ get_field() {
 }
 
 deny() {
-  echo '{"hookSpecificOutput":{"hookEventName":"'$(get_field hook_event_name)'","permissionDecision":"deny","permissionDecisionReason":"'$1'"}}'
+  JSON=$(escape_json "$1")
+  echo '{"hookSpecificOutput":{"hookEventName":"'$(get_field hook_event_name)'","permissionDecision":"deny","permissionDecisionReason":"'$JSON'"}}'
 
   exit 2
 }
 
 block() {
-  echo -e '{"hookSpecificOutput":{"hookEventName":"'$(get_field hook_event_name)'","decision":"block","reason":"'$1'"}}' >&2
+  JSON=$(escape_json "$1")
+  echo -e '{"hookSpecificOutput":{"hookEventName":"'$(get_field hook_event_name)'","decision":"block","reason":"'$JSON'"}}' >&2
 
   exit 2
+}
+
+additionalContext() {
+  JSON=$(escape_json "$1")
+  echo -e '{"hookSpecificOutput":{"hookEventName":"'$(get_field hook_event_name)'","additionalContext":"'$JSON'"}}'
+
+  exit 0
 }
 
 sentinel() {
@@ -34,6 +51,8 @@ export -f get_field
 export -f deny
 export -f block
 export -f sentinel
+export -f additionalContext
+export -f escape_json
 export INPUT
 
-$CLAUDE_PROJECT_DIR/.claude/skills/$1/hooks/$(get_field hook_event_name).d/$2
+$CLAUDE_PROJECT_DIR/.claude/skills/$1/hooks/${3:-$(get_field hook_event_name)}.d/$2

@@ -32,7 +32,6 @@ describe("ConfigLoader", () => {
     });
 
     it("should throw when .bifrost.yaml is missing", async () => {
-      
       await expect(loadConfig(tempDir)).rejects.toThrow();
     });
 
@@ -40,7 +39,6 @@ describe("ConfigLoader", () => {
       const yamlContent = "realm: my-project\n";
       await writeFile(configPath, yamlContent, "utf-8");
 
-      
       await expect(loadConfig(tempDir)).rejects.toThrow(
         "Invalid .bifrost.yaml: missing url or realm",
       );
@@ -50,7 +48,6 @@ describe("ConfigLoader", () => {
       const yamlContent = "url: https://bifrost.example.com\n";
       await writeFile(configPath, yamlContent, "utf-8");
 
-      
       await expect(loadConfig(tempDir)).rejects.toThrow(
         "Invalid .bifrost.yaml: missing url or realm",
       );
@@ -60,7 +57,6 @@ describe("ConfigLoader", () => {
       const invalidYaml = "url: https://bifrost.example.com\nrealm: [unclosed\n";
       await writeFile(configPath, invalidYaml, "utf-8");
 
-      
       await expect(loadConfig(tempDir)).rejects.toThrow();
     });
 

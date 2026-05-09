@@ -15,8 +15,6 @@ import type { RealmDetail, RealmStatus } from "../../../types/realm";
 import type { RuneListItem, RuneStatus } from "../../../types/rune";
 import type { AdminAccountEntry } from "../../../types/account";
 
-export { Page };
-
 const realmStatusColors: Record<RealmStatus, { bg: string; border: string; text: string }> = {
   active: {
     bg: "var(--color-green)",
@@ -58,7 +56,7 @@ const runeStatusColors: Record<RuneStatus, { bg: string; border: string; text: s
   },
 };
 
-function Page() {
+const Page = () => {
   const pageContext = usePageContext();
   const routeParams = pageContext.routeParams as Record<string, string | undefined>;
   const realmId = routeParams?.id ?? routeParams?.["@id"] ?? routeParams?.["-id"] ?? "";
@@ -106,12 +104,14 @@ function Page() {
         return null;
       }
 
-      const memberCount =
-        typeof rawRealm.member_count === "number"
-          ? rawRealm.member_count
-          : Array.isArray(rawRealm.members)
-            ? rawRealm.members.length
-            : 0;
+      let memberCount = 0;
+      if (typeof rawRealm.member_count === "number") {
+        memberCount = rawRealm.member_count;
+      } else if (Array.isArray(rawRealm.members)) {
+        memberCount = rawRealm.members.length;
+      } else {
+        memberCount = 0;
+      }
 
       return {
         id,
@@ -167,7 +167,9 @@ function Page() {
   }, []);
 
   useEffect(() => {
-    if (authLoading) {return;}
+    if (authLoading) {
+      return;
+    }
 
     if (!isAuthenticated) {
       navigate("/login");
@@ -216,7 +218,9 @@ function Page() {
   ]);
 
   const handleSuspend = async () => {
-    if (!realm) {return;}
+    if (!realm) {
+      return;
+    }
 
     setIsSuspending(true);
     setIsLoading(true);
@@ -363,13 +367,13 @@ function Page() {
               color: "white",
               boxShadow: "var(--shadow-soft)",
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
-              e.currentTarget.style.transform = "translate(2px, 2px)";
+            onMouseEnter={(event) => {
+              event.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
+              event.currentTarget.style.transform = "translate(2px, 2px)";
             }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = "var(--shadow-soft)";
-              e.currentTarget.style.transform = "translate(0, 0)";
+            onMouseLeave={(event) => {
+              event.currentTarget.style.boxShadow = "var(--shadow-soft)";
+              event.currentTarget.style.transform = "translate(0, 0)";
             }}
           >
             Back to Realms
@@ -527,13 +531,13 @@ function Page() {
                   color: "white",
                   boxShadow: "var(--shadow-soft)",
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
-                  e.currentTarget.style.transform = "translate(2px, 2px)";
+                onMouseEnter={(event) => {
+                  event.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
+                  event.currentTarget.style.transform = "translate(2px, 2px)";
                 }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.boxShadow = "var(--shadow-soft)";
-                  e.currentTarget.style.transform = "translate(0, 0)";
+                onMouseLeave={(event) => {
+                  event.currentTarget.style.boxShadow = "var(--shadow-soft)";
+                  event.currentTarget.style.transform = "translate(0, 0)";
                 }}
               >
                 Suspend Realm
@@ -753,15 +757,15 @@ function Page() {
                       textAlign: "left",
                     }}
                     onClick={() => navigate(`/runes/${rune.id}`)}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = "var(--color-surface)";
-                      e.currentTarget.style.borderLeftWidth = "4px";
-                      e.currentTarget.style.borderLeftColor = "var(--color-green)";
-                      e.currentTarget.style.borderLeftStyle = "solid";
+                    onMouseEnter={(event) => {
+                      event.currentTarget.style.backgroundColor = "var(--color-surface)";
+                      event.currentTarget.style.borderLeftWidth = "4px";
+                      event.currentTarget.style.borderLeftColor = "var(--color-green)";
+                      event.currentTarget.style.borderLeftStyle = "solid";
                     }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = "var(--color-bg)";
-                      e.currentTarget.style.borderLeftWidth = "0px";
+                    onMouseLeave={(event) => {
+                      event.currentTarget.style.backgroundColor = "var(--color-bg)";
+                      event.currentTarget.style.borderLeftWidth = "0px";
                     }}
                   >
                     <div className="col-span-2">
@@ -1021,4 +1025,6 @@ function Page() {
       </BaseDialog.Root>
     </div>
   );
-}
+};
+
+export { Page };

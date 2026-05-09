@@ -3,8 +3,12 @@
 
 SENTINEL=$(sentinel lint-ts)
 
-if [[ "$(wc -l <$SENTINEL)" -gt 0 ]]; then
-  OUTPUT=$(cat $SENTINEL | xargs npm run lint -- --fix) || {
+TS_FILES=$(grep -E '\.(ts|tsx)$' "$SENTINEL" || true)
+
+if [[ -n "$TS_FILES" ]]; then
+  OUTPUT=$(echo "$TS_FILES" | xargs npm run lint) || {
     block  "You MUST fix the following lint errors, even if you think they are unrelated to your changes:\n$OUTPUT"
   }
 fi
+
+rm $SENTINEL

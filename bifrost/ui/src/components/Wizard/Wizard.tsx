@@ -3,15 +3,28 @@ import React, { useState } from "react";
 export type WizardStep = {
   title: string;
   content: React.ReactNode;
-}
+};
 
 export type WizardProps = {
   steps: WizardStep[];
   onComplete: () => void;
   colors?: string[];
-}
+};
 
 const DEFAULT_COLORS = ["#ef4444", "#3b82f6", "#22c55e", "#a855f7"];
+
+const getStepColor = (stepIndex: number, colors: string[]) =>
+  colors[stepIndex % colors.length] || colors[0];
+
+const getStepTextColor = (isActive: boolean, isUpcoming: boolean, stepColor: string) => {
+  if (isActive) {
+    return stepColor;
+  }
+  if (isUpcoming) {
+    return "#999999";
+  }
+  return "#000000";
+};
 
 export const Wizard: React.FC<WizardProps> = ({ steps, onComplete, colors = DEFAULT_COLORS }) => {
   const [currentStep, setCurrentStep] = useState(0);
@@ -33,8 +46,6 @@ export const Wizard: React.FC<WizardProps> = ({ steps, onComplete, colors = DEFA
     }
   };
 
-  const getStepColor = (stepIndex: number) => colors[stepIndex % colors.length] || colors[0];
-
   return (
     <div className="wizard">
       {/* Step Indicators */}
@@ -44,13 +55,15 @@ export const Wizard: React.FC<WizardProps> = ({ steps, onComplete, colors = DEFA
           const isCompleted = index < currentStep;
           const isUpcoming = index > currentStep;
 
+          const stepColor = getStepColor(index, colors);
+
           return (
             <div key={index} className="wizard-step-indicator">
               <div
                 className="step-number"
                 style={{
-                  backgroundColor: isActive || isCompleted ? getStepColor(index) : "#f5f5f5",
-                  borderColor: isActive || isCompleted ? getStepColor(index) : "#000000",
+                  backgroundColor: isActive || isCompleted ? stepColor : "#f5f5f5",
+                  borderColor: isActive || isCompleted ? stepColor : "#000000",
                   color: isActive || isCompleted ? "#ffffff" : "#000000",
                 }}
               >
@@ -59,7 +72,7 @@ export const Wizard: React.FC<WizardProps> = ({ steps, onComplete, colors = DEFA
               <div
                 className="step-title"
                 style={{
-                  color: isActive ? getStepColor(index) : isUpcoming ? "#999999" : "#000000",
+                  color: getStepTextColor(isActive, isUpcoming, stepColor),
                   fontWeight: isActive ? "bold" : "normal",
                 }}
               >

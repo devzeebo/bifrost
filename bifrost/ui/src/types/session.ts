@@ -5,12 +5,12 @@ export type SessionInfo = {
   roles: Record<string, string>;
   is_sysadmin: boolean;
   realm_names?: Record<string, string>;
-}
+};
 
 export type LoginRequest = {
   pat: string;
   remember_me?: boolean;
-}
+};
 
 export type OnboardingCheckResponse = {
   needs_onboarding: boolean;

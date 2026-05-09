@@ -9,9 +9,397 @@ import { useToast } from "../../lib/toast";
 import { api } from "../../lib/api";
 import type { CreateAdminResponse } from "../../types/session";
 
-export { Page };
+// Custom wizard with validation
+type WizardWithValidationProps = {
+  steps: { title: string; content: React.ReactNode }[];
+  colors: string[];
+  onComplete: () => void | Promise<void>;
+  onValidateStep: (stepIndex: number) => Promise<boolean>;
+  isCompleting?: boolean;
+};
 
-function Page() {
+const WizardWithValidation = ({
+  steps,
+  colors,
+  onComplete,
+  onValidateStep,
+  isCompleting = false,
+}: WizardWithValidationProps) => {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [isValidating, setIsValidating] = useState(false);
+
+  const isLastStep = currentStep === steps.length - 1;
+  const isFirstStep = currentStep === 0;
+
+  const handleNext = async () => {
+    if (isValidating || isCompleting) {
+      return;
+    }
+
+    setIsValidating(true);
+    try {
+      const canProceed = await onValidateStep(currentStep);
+      if (canProceed) {
+        if (!isLastStep) {
+          setCurrentStep((prev) => prev + 1);
+        } else {
+          await onComplete();
+        }
+      }
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  const handleBack = () => {
+    if (!isFirstStep) {
+      setCurrentStep((prev) => prev - 1);
+    }
+  };
+
+  const getStepColor = (stepIndex: number) => colors[stepIndex % colors.length] ?? colors[0];
+
+  return (
+    <div className="wizard">
+      {/* Step Indicators */}
+      <div className="wizard-indicators">
+        {steps.map((step, index) => {
+          const isActive = index === currentStep;
+          const isCompleted = index < currentStep;
+          const isUpcoming = index > currentStep;
+
+          let stepColor = "#000000";
+          if (isActive) {
+            stepColor = getStepColor(index);
+          } else if (isUpcoming) {
+            stepColor = "#999999";
+          }
+
+          return (
+            <div key={step.title} className="wizard-step-indicator">
+              <div
+                className="step-number"
+                style={{
+                  backgroundColor: isActive || isCompleted ? getStepColor(index) : "#f5f5f5",
+                  borderColor: isActive || isCompleted ? getStepColor(index) : "#000000",
+                  color: isActive || isCompleted ? "#ffffff" : "#000000",
+                }}
+              >
+                {isCompleted ? "✓" : index + 1}
+              </div>
+              <div
+                className="step-title"
+                style={{
+                  color: stepColor,
+                  fontWeight: isActive ? "bold" : "normal",
+                }}
+              >
+                {step.title}
+              </div>
+              {index < steps.length - 1 && <div className="step-connector" />}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Step Content */}
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          handleNext();
+        }}
+      >
+        <div className="wizard-content">{steps[currentStep]?.content}</div>
+      </form>
+
+      {/* Navigation Buttons */}
+      <div className="wizard-navigation">
+        {!isFirstStep && (
+          <Button onClick={handleBack} className="wizard-button wizard-button-back" type="button">
+            ← Back
+          </Button>
+        )}
+
+        <Button
+          onClick={handleNext}
+          className={`wizard-button ${isLastStep ? "wizard-button-done" : "wizard-button-next"}`}
+          type="button"
+          disabled={isValidating || isCompleting}
+        >
+          {(() => {
+            if (isCompleting) {
+              return "Logging in...";
+            }
+            if (isValidating) {
+              return "Processing...";
+            }
+            if (isLastStep) {
+              return "Go to Dashboard →";
+            }
+            return "Next →";
+          })()}
+        </Button>
+      </div>
+
+      <style>{`
+        .wizard {
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+        }
+
+        .wizard-indicators {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          padding: 16px;
+          border: 2px solid var(--color-border);
+          background: var(--color-bg);
+          box-shadow: 4px 4px 0px var(--color-border);
+        }
+
+        .wizard-step-indicator {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+          position: relative;
+          flex: 1;
+        }
+
+        .step-number {
+          width: 40px;
+          height: 40px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 2px solid;
+          border-radius: 0;
+          font-weight: bold;
+          font-size: 16px;
+          box-shadow: 2px 2px 0px var(--color-border);
+          transition: all 0.2s;
+        }
+
+        .step-number:hover {
+          transform: translate(-2px, -2px);
+          box-shadow: 4px 4px 0px var(--color-border);
+        }
+
+        .step-title {
+          font-size: 12px;
+          text-align: center;
+          max-width: 100px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .step-connector {
+          position: absolute;
+          top: 20px;
+          left: 50%;
+          width: 100%;
+          height: 2px;
+          background: #000000;
+          z-index: 0;
+        }
+
+        .wizard-step-indicator:last-child .step-connector {
+          display: none;
+        }
+
+        .wizard-content {
+          padding: 24px;
+          border: 2px solid var(--color-border);
+          background: var(--color-bg);
+          box-shadow: 4px 4px 0px var(--color-border);
+          min-height: 200px;
+        }
+
+        .wizard-navigation {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .wizard-button {
+          flex: 1;
+          padding: 12px 24px;
+          border: 2px solid #000000;
+          font-weight: bold;
+          text-transform: uppercase;
+          cursor: pointer;
+          transition: all 0.2s;
+          box-shadow: 2px 2px 0px #000000;
+        }
+
+        .wizard-button:hover:not(:disabled) {
+          transform: translate(-2px, -2px);
+          box-shadow: 4px 4px 0px #000000;
+        }
+
+        .wizard-button:active:not(:disabled) {
+          transform: translate(2px, 2px);
+          box-shadow: 0px 0px 0px #000000;
+        }
+
+        .wizard-button:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .wizard-button-back {
+          background: #f5f5f5;
+          color: #000000;
+        }
+
+        .wizard-button-next {
+          background: var(--color-bg);
+        }
+
+        .wizard-button-done {
+          background: var(--color-green);
+          color: #ffffff;
+          border-color: #000000;
+        }
+
+        .wizard-button-done:hover:not(:disabled) {
+          background: #16a34a;
+        }
+      `}</style>
+    </div>
+  );
+};
+
+// Step content components
+type StepContentProps = {
+  children: React.ReactNode;
+  color: string;
+};
+
+const StepContent = ({ children }: StepContentProps) => (
+  <div className="step-content">{children}</div>
+);
+
+type StepHeaderProps = {
+  children: string;
+  color: string;
+};
+
+const StepHeader = ({ children, color }: StepHeaderProps) => (
+  <h2 className="text-xl font-bold mb-4 uppercase tracking-wide" style={{ color }}>
+    {children}
+  </h2>
+);
+
+const StepDescription = ({ children }: { children: string }) => (
+  <p className="text-sm mb-6 opacity-70" style={{ color: "var(--color-text)" }}>
+    {children}
+  </p>
+);
+
+type FormFieldProps = {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  disabled: boolean;
+};
+
+const FormField = ({ label, value, onChange, placeholder, disabled }: FormFieldProps) => {
+  const fieldId = label.toLowerCase().replace(/\s+/g, "-");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Auto-focus the input when the component mounts
+    inputRef.current?.focus();
+  }, []);
+
+  return (
+    <div className="mb-6">
+      <label
+        htmlFor={fieldId}
+        className="block text-xs uppercase tracking-wider mb-2 font-semibold"
+        style={{ color: "var(--color-border)" }}
+      >
+        {label}
+      </label>
+      <Input
+        ref={inputRef}
+        id={fieldId}
+        type="text"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        disabled={disabled}
+        className="w-full px-4 py-3 text-sm transition-all duration-150"
+        style={{
+          backgroundColor: "var(--color-bg)",
+          border: "2px solid var(--color-border)",
+          color: "var(--color-text)",
+          boxShadow: "var(--shadow-soft)",
+        }}
+        onFocus={(event) => {
+          event.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
+          event.currentTarget.style.transform = "translate(2px, 2px)";
+        }}
+        onBlur={(event) => {
+          event.currentTarget.style.boxShadow = "var(--shadow-soft)";
+          event.currentTarget.style.transform = "translate(0, 0)";
+        }}
+      />
+    </div>
+  );
+};
+
+type PATDisplayProps = {
+  pat: string;
+  copied: boolean;
+  onCopy: () => void;
+};
+
+const PATDisplay = ({ pat, copied, onCopy }: PATDisplayProps) => (
+  <div className="space-y-4">
+    <div
+      className="p-4 font-mono text-sm break-all"
+      style={{
+        backgroundColor: "var(--color-bg)",
+        border: "2px solid var(--color-green)",
+        boxShadow: "var(--shadow-soft)",
+      }}
+    >
+      {pat}
+    </div>
+    <Button
+      onClick={onCopy}
+      className="w-full py-3 px-6 text-sm font-bold uppercase tracking-wider transition-all duration-150"
+      style={{
+        backgroundColor: copied ? "var(--color-green)" : "var(--color-bg)",
+        border: "2px solid var(--color-border)",
+        color: copied ? "#ffffff" : "var(--color-text)",
+        boxShadow: "var(--shadow-soft)",
+      }}
+      onMouseEnter={(event) => {
+        if (!copied) {
+          event.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
+          event.currentTarget.style.transform = "translate(2px, 2px)";
+        }
+      }}
+      onMouseLeave={(event) => {
+        event.currentTarget.style.boxShadow = "var(--shadow-soft)";
+        event.currentTarget.style.transform = "translate(0, 0)";
+      }}
+    >
+      {copied ? "✓ Copied!" : "Copy to Clipboard"}
+    </Button>
+    <p className="text-xs text-center opacity-60" style={{ color: "var(--color-text)" }}>
+      ⚠️ Store this token securely. It won't be shown again.
+    </p>
+  </div>
+);
+
+const Page = () => {
   const [username, setUsername] = useState("");
   const [realmName, setRealmName] = useState("");
   const [adminResponse, setAdminResponse] = useState<CreateAdminResponse | null>(null);
@@ -215,388 +603,6 @@ function Page() {
       </div>
     </div>
   );
-}
-
-// Custom wizard with validation
-type WizardWithValidationProps = {
-  steps: { title: string; content: React.ReactNode }[];
-  colors: string[];
-  onComplete: () => void | Promise<void>;
-  onValidateStep: (stepIndex: number) => Promise<boolean>;
-  isCompleting?: boolean;
 };
 
-function WizardWithValidation({
-  steps,
-  colors,
-  onComplete,
-  onValidateStep,
-  isCompleting = false,
-}: WizardWithValidationProps) {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [isValidating, setIsValidating] = useState(false);
-
-  const isLastStep = currentStep === steps.length - 1;
-  const isFirstStep = currentStep === 0;
-
-  const handleNext = async () => {
-    if (isValidating || isCompleting) {return;}
-
-    setIsValidating(true);
-    try {
-      const canProceed = await onValidateStep(currentStep);
-      if (canProceed) {
-        if (!isLastStep) {
-          setCurrentStep((prev) => prev + 1);
-        } else {
-          await onComplete();
-        }
-      }
-    } finally {
-      setIsValidating(false);
-    }
-  };
-
-  const handleBack = () => {
-    if (!isFirstStep) {
-      setCurrentStep((prev) => prev - 1);
-    }
-  };
-
-  const getStepColor = (stepIndex: number) => colors[stepIndex % colors.length] ?? colors[0];
-
-  return (
-    <div className="wizard">
-      {/* Step Indicators */}
-      <div className="wizard-indicators">
-        {steps.map((step, index) => {
-          const isActive = index === currentStep;
-          const isCompleted = index < currentStep;
-          const isUpcoming = index > currentStep;
-
-          return (
-            <div key={step.title} className="wizard-step-indicator">
-              <div
-                className="step-number"
-                style={{
-                  backgroundColor: isActive || isCompleted ? getStepColor(index) : "#f5f5f5",
-                  borderColor: isActive || isCompleted ? getStepColor(index) : "#000000",
-                  color: isActive || isCompleted ? "#ffffff" : "#000000",
-                }}
-              >
-                {isCompleted ? "✓" : index + 1}
-              </div>
-              <div
-                className="step-title"
-                style={{
-                  color: isActive ? getStepColor(index) : isUpcoming ? "#999999" : "#000000",
-                  fontWeight: isActive ? "bold" : "normal",
-                }}
-              >
-                {step.title}
-              </div>
-              {index < steps.length - 1 && <div className="step-connector" />}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Step Content */}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          handleNext();
-        }}
-      >
-        <div className="wizard-content">{steps[currentStep]?.content}</div>
-      </form>
-
-      {/* Navigation Buttons */}
-      <div className="wizard-navigation">
-        {!isFirstStep && (
-          <Button onClick={handleBack} className="wizard-button wizard-button-back" type="button">
-            ← Back
-          </Button>
-        )}
-
-        <Button
-          onClick={handleNext}
-          className={`wizard-button ${isLastStep ? "wizard-button-done" : "wizard-button-next"}`}
-          type="button"
-          disabled={isValidating || isCompleting}
-        >
-          {isCompleting
-            ? "Logging in..."
-            : isValidating
-              ? "Processing..."
-              : isLastStep
-                ? "Go to Dashboard →"
-                : "Next →"}
-        </Button>
-      </div>
-
-      <style>{`
-        .wizard {
-          display: flex;
-          flex-direction: column;
-          gap: 24px;
-        }
-
-        .wizard-indicators {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 8px;
-          padding: 16px;
-          border: 2px solid var(--color-border);
-          background: var(--color-bg);
-          box-shadow: 4px 4px 0px var(--color-border);
-        }
-
-        .wizard-step-indicator {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 8px;
-          position: relative;
-          flex: 1;
-        }
-
-        .step-number {
-          width: 40px;
-          height: 40px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border: 2px solid;
-          border-radius: 0;
-          font-weight: bold;
-          font-size: 16px;
-          box-shadow: 2px 2px 0px var(--color-border);
-          transition: all 0.2s;
-        }
-
-        .step-number:hover {
-          transform: translate(-2px, -2px);
-          box-shadow: 4px 4px 0px var(--color-border);
-        }
-
-        .step-title {
-          font-size: 12px;
-          text-align: center;
-          max-width: 100px;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-
-        .step-connector {
-          position: absolute;
-          top: 36px;
-          left: 50%;
-          width: 100%;
-          height: 2px;
-          background: var(--color-border);
-          z-index: -1;
-        }
-
-        .wizard-step-indicator:last-child .step-connector {
-          display: none;
-        }
-
-        .wizard-content {
-          padding: 24px;
-          border: 2px solid var(--color-border);
-          background: var(--color-bg);
-          box-shadow: 4px 4px 0px var(--color-border);
-          min-height: 200px;
-        }
-
-        .wizard-navigation {
-          display: flex;
-          justify-content: space-between;
-          gap: 16px;
-        }
-
-        .wizard-button {
-          padding: 12px 24px;
-          border: 2px solid var(--color-border);
-          border-radius: 0;
-          font-size: 16px;
-          font-weight: bold;
-          cursor: pointer;
-          background: var(--color-bg);
-          box-shadow: 4px 4px 0px var(--color-border);
-          transition: all 0.1s;
-          color: var(--color-text);
-        }
-
-        .wizard-button:hover:not(:disabled) {
-          transform: translate(-2px, -2px);
-          box-shadow: 6px 6px 0px var(--color-border);
-        }
-
-        .wizard-button:active:not(:disabled) {
-          transform: translate(2px, 2px);
-          box-shadow: 0px 0px 0px var(--color-border);
-        }
-
-        .wizard-button:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .wizard-button-back {
-          background: #f5f5f5;
-          color: #000000;
-        }
-
-        .wizard-button-next {
-          background: var(--color-bg);
-        }
-
-        .wizard-button-done {
-          background: var(--color-green);
-          color: #ffffff;
-          border-color: #000000;
-        }
-
-        .wizard-button-done:hover:not(:disabled) {
-          background: #16a34a;
-        }
-      `}</style>
-    </div>
-  );
-}
-
-// Step content components
-type StepContentProps = {
-  children: React.ReactNode;
-  color: string;
-};
-
-function StepContent({ children }: StepContentProps) {
-  return <div className="step-content">{children}</div>;
-}
-
-type StepHeaderProps = {
-  children: string;
-  color: string;
-};
-
-function StepHeader({ children, color }: StepHeaderProps) {
-  return (
-    <h2 className="text-xl font-bold mb-4 uppercase tracking-wide" style={{ color }}>
-      {children}
-    </h2>
-  );
-}
-
-function StepDescription({ children }: { children: string }) {
-  return (
-    <p className="text-sm mb-6 opacity-70" style={{ color: "var(--color-text)" }}>
-      {children}
-    </p>
-  );
-}
-
-type FormFieldProps = {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder: string;
-  disabled: boolean;
-};
-
-function FormField({ label, value, onChange, placeholder, disabled }: FormFieldProps) {
-  const fieldId = label.toLowerCase().replace(/\s+/g, "-");
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    // Auto-focus the input when the component mounts
-    inputRef.current?.focus();
-  }, []);
-
-  return (
-    <div className="mb-6">
-      <label
-        htmlFor={fieldId}
-        className="block text-xs uppercase tracking-wider mb-2 font-semibold"
-        style={{ color: "var(--color-border)" }}
-      >
-        {label}
-      </label>
-      <Input
-        ref={inputRef}
-        id={fieldId}
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        disabled={disabled}
-        className="w-full px-4 py-3 text-sm transition-all duration-150"
-        style={{
-          backgroundColor: "var(--color-bg)",
-          border: "2px solid var(--color-border)",
-          color: "var(--color-text)",
-          boxShadow: "var(--shadow-soft)",
-        }}
-        onFocus={(e) => {
-          e.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
-          e.currentTarget.style.transform = "translate(2px, 2px)";
-        }}
-        onBlur={(e) => {
-          e.currentTarget.style.boxShadow = "var(--shadow-soft)";
-          e.currentTarget.style.transform = "translate(0, 0)";
-        }}
-      />
-    </div>
-  );
-}
-
-type PATDisplayProps = {
-  pat: string;
-  copied: boolean;
-  onCopy: () => void;
-};
-
-function PATDisplay({ pat, copied, onCopy }: PATDisplayProps) {
-  return (
-    <div className="space-y-4">
-      <div
-        className="p-4 font-mono text-sm break-all"
-        style={{
-          backgroundColor: "var(--color-bg)",
-          border: "2px solid var(--color-green)",
-          boxShadow: "var(--shadow-soft)",
-        }}
-      >
-        {pat}
-      </div>
-      <Button
-        onClick={onCopy}
-        className="w-full py-3 px-6 text-sm font-bold uppercase tracking-wider transition-all duration-150"
-        style={{
-          backgroundColor: copied ? "var(--color-green)" : "var(--color-bg)",
-          border: "2px solid var(--color-border)",
-          color: copied ? "#ffffff" : "var(--color-text)",
-          boxShadow: "var(--shadow-soft)",
-        }}
-        onMouseEnter={(e) => {
-          if (!copied) {
-            e.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
-            e.currentTarget.style.transform = "translate(2px, 2px)";
-          }
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.boxShadow = "var(--shadow-soft)";
-          e.currentTarget.style.transform = "translate(0, 0)";
-        }}
-      >
-        {copied ? "✓ Copied!" : "Copy to Clipboard"}
-      </Button>
-      <p className="text-xs text-center opacity-60" style={{ color: "var(--color-text)" }}>
-        ⚠️ Store this token securely. It won't be shown again.
-      </p>
-    </div>
-  );
-}
+export { Page };

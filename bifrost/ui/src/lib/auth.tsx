@@ -13,15 +13,15 @@ type AuthContextValue = {
   login: (pat: string, rememberMe?: boolean) => Promise<void>;
   logout: () => Promise<void>;
   loading: boolean;
-}
+};
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
 
 type AuthProviderProps = {
   children: ReactNode;
-}
+};
 
-export function AuthProvider({ children }: AuthProviderProps) {
+export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -29,8 +29,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Check for existing session on mount
     api
       .getSession()
-      .then((s) => {
-        setSession(s);
+      .then((sessionData) => {
+        setSession(sessionData);
       })
       .catch(() => {
         setSession(null);
@@ -65,12 +65,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
+};
 
-export function useAuth(): AuthContextValue {
+export const useAuth = (): AuthContextValue => {
   const context = useContext(AuthContext);
   if (!context) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
-}
+};

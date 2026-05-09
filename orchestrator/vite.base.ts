@@ -7,11 +7,7 @@ type ViteBaseOptions = {
   pkg: Record<string, unknown>;
 };
 
-export default ({
-  name,
-  tsconfig,
-  pkg,
-}: ViteBaseOptions): UserConfig =>
+export default ({ name, tsconfig, pkg }: ViteBaseOptions): UserConfig =>
   defineConfig({
     plugins: [
       dts({
@@ -29,7 +25,9 @@ export default ({
         external: [
           ...Object.keys(("dependencies" in pkg && pkg.dependencies) ?? {}),
           ...Object.keys(("peerDependencies" in pkg && pkg.peerDependencies) ?? {}),
-          ...(("references" in tsconfig && tsconfig.references) || []).map((ref: { path: string }) => ref.path),
+          ...(("references" in tsconfig && tsconfig.references) || []).map(
+            (ref: { path: string }) => ref.path,
+          ),
           /^node:.*$/,
           /node_modules/,
         ],

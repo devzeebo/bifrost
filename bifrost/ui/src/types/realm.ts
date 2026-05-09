@@ -5,20 +5,20 @@ export type RealmListEntry = {
   name: string;
   status: RealmStatus;
   created_at: string;
-}
+};
 
 export type RealmDetail = {
   description: string;
   owner_id: string;
   member_count: number;
-} & RealmListEntry
+} & RealmListEntry;
 
 export type CreateRealmRequest = {
   name: string;
   description?: string;
-}
+};
 
 export type CreateRealmResponse = {
   id: string;
   name: string;
-}
+};

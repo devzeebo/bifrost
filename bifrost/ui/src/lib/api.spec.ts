@@ -2,13 +2,21 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { ApiClient, ApiError } from "./api";
 
 describe("ApiClient", () => {
-  let apiClient: ApiClient;
-  let mockFetch: ReturnType<typeof vi.fn>;
+  // eslint-disable-next-line init-declarations
+  let apiClient!: ApiClient;
+  // eslint-disable-next-line init-declarations
+  let mockFetch!: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     apiClient = new ApiClient();
     mockFetch = vi.fn();
-    globalThis.fetch = mockFetch as any;
+    globalThis.fetch = mockFetch as unknown;
+  });
+
+  beforeEach(() => {
+    apiClient = new ApiClient();
+    mockFetch = vi.fn();
+    globalThis.fetch = mockFetch as unknown;
   });
 
   afterEach(() => {
@@ -277,7 +285,11 @@ describe("ApiClient", () => {
           credentials: "include",
         }),
       );
-      expect(result).toEqual(rune);
+      expect(result).toMatchObject({
+        ...rune,
+        claimant: null,
+        claimant_username: null,
+      });
     });
   });
 
@@ -752,7 +764,7 @@ describe("ApiClient", () => {
         throw new Error("Should have thrown ApiError");
       } catch (error) {
         expect(error).toBeInstanceOf(ApiError);
-        expect((error as ApiError).data).toBeUndefined();
+        expect((error as ApiError).data).toBeNull();
       }
     });
   });

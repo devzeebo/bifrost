@@ -11,7 +11,7 @@ type DialogProps = {
   cancelLabel?: string;
   onConfirm: () => void;
   color?: "blue" | "green" | "red" | "yellow";
-}
+};
 
 const colorStyles = {
   blue: {
@@ -44,7 +44,7 @@ const colorStyles = {
   },
 };
 
-export function Dialog({
+export const Dialog = ({
   open,
   onClose,
   title,
@@ -53,7 +53,7 @@ export function Dialog({
   cancelLabel = "Cancel",
   onConfirm,
   color = "blue",
-}: DialogProps) {
+}: DialogProps) => {
   const styles = colorStyles[color];
 
   const handleConfirm = () => {
@@ -109,4 +109,4 @@ export function Dialog({
       </BaseDialog.Portal>
     </BaseDialog.Root>
   );
-}
+};

@@ -1,0 +1,34 @@
+#!/bin/bash
+
+set -e
+
+HOOK=$(get_field hook_event_name)
+
+lint() {
+  OUTPUT=$(npm run lint -s -w $1 -- --format=json) || {
+    FIRST_FILE=$(echo "$OUTPUT" | jq -r '.diagnostics[0].filename')
+    FILE_ERRORS=$(echo "$OUTPUT" | jq -rc "[.diagnostics[] | select(.filename == \"$FIRST_FILE\")]")
+
+    if [[ "$HOOK" == "SessionStart" ]]; then
+      additionalContext "$FILE_ERRORS"
+    else
+      block "$FILE_ERRORS"
+    fi
+  }
+}
+
+test() {
+  OUTPUT=$(npm run test -s -w $1) || {
+    if [[ "$HOOK" == "SessionStart" ]]; then
+      additionalContext "$OUTPUT"
+    else
+      block "$OUTPUT"
+    fi
+  }
+}
+
+lint orchestrator
+lint bifrost/ui
+
+test orchestrator
+test bifrost/ui

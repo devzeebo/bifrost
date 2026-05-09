@@ -5,15 +5,17 @@
   "devDependencies": {
     "oxlint": "^1.63.0",
     "prettier": "^3.8.3",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "wireit": "^0.14.12"
   },
   "workspaces": [
     "orchestrator",
     "bifrost/ui"
   ],
   "scripts": {
-    "lint:all": "npm run --workspaces lint --if-present",
+    "test": "npm run --workspaces test --if-present",
     "lint": "oxlint",
-    "format": "npm run --workspaces format --if-present"
+    "format": "npm run --workspaces format -s --if-present",
+    "format:file": "npm run --workspaces format -s"
   }
 }

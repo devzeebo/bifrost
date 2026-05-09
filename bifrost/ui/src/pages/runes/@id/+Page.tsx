@@ -14,8 +14,6 @@ import { api } from "../../../lib/api";
 import { Dialog } from "../../../components/Dialog/Dialog";
 import type { RuneDetail, RuneListItem, RuneStatus } from "../../../types/rune";
 
-export { Page };
-
 const statusColors: Record<RuneStatus, { bg: string; border: string; text: string }> = {
   draft: {
     bg: "var(--color-bg)",
@@ -44,7 +42,8 @@ const statusColors: Record<RuneStatus, { bg: string; border: string; text: strin
   },
 };
 
-function Page() {
+// eslint-disable-next-line complexity
+const Page = () => {
   const pageContext = usePageContext();
   const runeId = pageContext.routeParams?.id as string;
   const {
@@ -162,7 +161,9 @@ function Page() {
   ]);
 
   useEffect(() => {
-    if (authLoading || realmLoading) {return;}
+    if (authLoading || realmLoading) {
+      return;
+    }
 
     if (!isAuthenticated) {
       navigate("/login");
@@ -178,7 +179,9 @@ function Page() {
   }, [loadClaimantUsername]);
 
   const handleShatter = async () => {
-    if (!rune || !effectiveRealm) {return;}
+    if (!rune || !effectiveRealm) {
+      return;
+    }
 
     setIsMutating(true);
     try {
@@ -191,7 +194,7 @@ function Page() {
     }
   };
 
-  const isRealmAdmin = (effectiveRealm ? roles[effectiveRealm] : undefined) === "admin";
+  const isRealmAdmin = effectiveRealm ? roles[effectiveRealm] === "admin" : false;
   const isAdmin = isRealmAdmin || isSysadmin;
   const runeStatus: string = rune?.status ?? "";
   const canForge = runeStatus === "draft";
@@ -204,7 +207,9 @@ function Page() {
   const canShatter = runeStatus === "sealed" || runeStatus === "fulfilled";
 
   const handleForge = async () => {
-    if (!effectiveRealm || !rune) {return;}
+    if (!effectiveRealm || !rune) {
+      return;
+    }
 
     setIsMutating(true);
     try {
@@ -220,7 +225,9 @@ function Page() {
   };
 
   const handleClaim = async () => {
-    if (!effectiveRealm || !rune || !accountId) {return;}
+    if (!effectiveRealm || !rune || !accountId) {
+      return;
+    }
 
     setIsMutating(true);
     try {
@@ -236,7 +243,9 @@ function Page() {
   };
 
   const handleAssign = async () => {
-    if (!effectiveRealm || !rune) {return;}
+    if (!effectiveRealm || !rune) {
+      return;
+    }
     const target = assignTarget.trim();
     if (!target) {
       showToast("Error", "Enter an account ID to assign", "error");
@@ -257,7 +266,9 @@ function Page() {
   };
 
   const handleFulfill = async () => {
-    if (!effectiveRealm || !rune) {return;}
+    if (!effectiveRealm || !rune) {
+      return;
+    }
 
     setIsMutating(true);
     try {
@@ -273,7 +284,9 @@ function Page() {
   };
 
   const handleSeal = async () => {
-    if (!effectiveRealm || !rune) {return;}
+    if (!effectiveRealm || !rune) {
+      return;
+    }
 
     setIsMutating(true);
     try {
@@ -492,13 +505,13 @@ function Page() {
               color: "white",
               boxShadow: "var(--shadow-soft)",
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
-              e.currentTarget.style.transform = "translate(2px, 2px)";
+            onMouseEnter={(event) => {
+              event.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
+              event.currentTarget.style.transform = "translate(2px, 2px)";
             }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = "var(--shadow-soft)";
-              e.currentTarget.style.transform = "translate(0, 0)";
+            onMouseLeave={(event) => {
+              event.currentTarget.style.boxShadow = "var(--shadow-soft)";
+              event.currentTarget.style.transform = "translate(0, 0)";
             }}
           >
             Back to Runes
@@ -800,7 +813,7 @@ function Page() {
                 <div className="space-y-2">
                   <Input
                     value={assignTarget}
-                    onChange={(e) => setAssignTarget(e.target.value)}
+                    onChange={(event) => setAssignTarget(event.target.value)}
                     placeholder="Assignee account ID"
                     className="w-full px-3 py-2 text-sm font-mono outline-none"
                     style={{
@@ -843,7 +856,7 @@ function Page() {
                 <div className="space-y-2">
                   <Input
                     value={sealReason}
-                    onChange={(e) => setSealReason(e.target.value)}
+                    onChange={(event) => setSealReason(event.target.value)}
                     placeholder="Seal reason (optional)"
                     className="w-full px-3 py-2 text-sm outline-none"
                     style={{
@@ -1219,4 +1232,6 @@ function Page() {
       </BaseDialog.Root>
     </div>
   );
-}
+};
+
+export { Page };

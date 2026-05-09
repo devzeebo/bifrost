@@ -5,7 +5,7 @@ export type AccountListEntry = {
   username: string;
   status: AccountStatus;
   created_at: string;
-}
+};
 
 export type PatEntry = {
   id: string;
@@ -13,7 +13,7 @@ export type PatEntry = {
   token_preview?: string;
   created_at: string;
   last_used?: string;
-}
+};
 
 export type AdminAccountEntry = {
   account_id: string;
@@ -23,4 +23,4 @@ export type AdminAccountEntry = {
   roles: Record<string, string>;
   pat_count: number;
   created_at: string;
-}
+};

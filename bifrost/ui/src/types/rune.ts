@@ -29,7 +29,7 @@ export type RuneListItem = {
   realm_id: string;
   created_at: string;
   updated_at: string;
-}
+};
 
 export type RuneDetail = {
   description: string;
@@ -38,7 +38,7 @@ export type RuneDetail = {
   assignee_id?: string;
   dependencies: RuneRelationship[];
   tags: string[];
-} & RuneListItem
+} & RuneListItem;
 
 export type CreateRuneRequest = {
   title: string;
@@ -48,4 +48,4 @@ export type CreateRuneRequest = {
   parent_id?: string;
   saga_id?: string;
   tags?: string[];
-}
+};

@@ -1,7 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Menu } from "@base-ui/react/menu";
 import { Switch } from "@base-ui/react/switch";
 import { navigate, toUIPath } from "@/lib/router";
@@ -47,7 +46,7 @@ const buildIndicatorGradient = (navWidth: number, labelRanges: LabelRange[]): st
     };
   });
 
-  const firstSegment = segments[0];
+  const [firstSegment] = segments;
   if (!firstSegment) {
     return FALLBACK_INDICATOR_GRADIENT;
   }
@@ -57,12 +56,10 @@ const buildIndicatorGradient = (navWidth: number, labelRanges: LabelRange[]): st
 
   colorStops.push(`${firstSegment.color} ${cursor}px`);
 
-  for (let index = 0; index < segments.length; index += 1) {
-    const current = segments[index];
-    if (!current) {
-      continue;
-    }
+  const validSegments = segments.filter((segment) => segment !== null);
 
+  for (let index = 0; index < validSegments.length; index += 1) {
+    const current = validSegments[index];
     const start = Math.max(current.start, cursor);
     if (start > cursor) {
       colorStops.push(`${current.color} ${start}px`);
@@ -73,7 +70,7 @@ const buildIndicatorGradient = (navWidth: number, labelRanges: LabelRange[]): st
     colorStops.push(`${current.color} ${end}px`);
     cursor = end;
 
-    const next = segments[index + 1];
+    const next = validSegments[index + 1];
     if (next) {
       const blendEnd = Math.max(next.start, cursor);
       colorStops.push(`${next.color} ${blendEnd}px`);
@@ -96,7 +93,7 @@ type TopNavProps = {
   currentPath?: string;
 };
 
-export function TopNav({ currentPath }: TopNavProps) {
+const TopNav = ({ currentPath }: TopNavProps) => {
   const { username, accountId, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const { availableRealms } = useRealm();
@@ -180,8 +177,8 @@ export function TopNav({ currentPath }: TopNavProps) {
       <a
         href="/ui/"
         className="top-nav__logo"
-        onClick={(e) => {
-          e.preventDefault();
+        onClick={(event) => {
+          event.preventDefault();
           navigate("/ui/");
         }}
       >
@@ -307,4 +304,6 @@ export function TopNav({ currentPath }: TopNavProps) {
       </div>
     </nav>
   );
-}
+};
+
+export { TopNav };

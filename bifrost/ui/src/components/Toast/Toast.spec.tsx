@@ -40,7 +40,7 @@ describe("Toast", () => {
     });
 
     test("does not render description when not provided", () => {
-      const toast = createMockToast({ description: undefined });
+      const toast = createMockToast({ description: null });
       render(<Toast toast={toast} onRemove={mockOnRemove} />);
       const toastElement = screen.getByText("Test Toast").parentElement;
       expect(toastElement).toBeInTheDocument();

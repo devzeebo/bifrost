@@ -98,7 +98,7 @@ export const loadConfig = async (projectDir: string): Promise<OrchestratorConfig
   // Parse optional fields with defaults
   const concurrency = typeof orchestrate.concurrency === "number" ? orchestrate.concurrency : 1; // oxlint-disable-line no-ternary
   const claimant = typeof orchestrate.claimant === "string" ? orchestrate.claimant : null; // oxlint-disable-line no-ternary
-  const logging = (orchestrate.logging === "verbose" ? "verbose" : "normal") as // oxlint-disable-line no-ternary
+  const logging = (orchestrate.logging === "verbose" ? "verbose" : "normal") as  // oxlint-disable-line no-ternary
     | "normal"
     | "verbose";
 

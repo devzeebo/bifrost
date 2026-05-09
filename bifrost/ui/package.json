@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vike build",
-    "test": "vitest",
+    "test": "vitest run",
     "lint": "oxlint -c ../../oxlint.config.ts",
     "format": "prettier --write ."
   },

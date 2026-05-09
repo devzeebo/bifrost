@@ -12,9 +12,7 @@ import { useToast } from "../../lib/toast";
 import { api } from "../../lib/api";
 import type { AdminAccountEntry } from "../../types/account";
 
-export { Page };
-
-function Page() {
+const Page = () => {
   const [accounts, setAccounts] = useState<AdminAccountEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
@@ -80,7 +78,9 @@ function Page() {
   }, []);
 
   useEffect(() => {
-    if (authLoading) {return;}
+    if (authLoading) {
+      return;
+    }
 
     if (!isAuthenticated) {
       navigate("/login");
@@ -198,8 +198,7 @@ function Page() {
       <div className="flex justify-between items-center mb-6">
         <ToggleGroup
           value={[statusFilter]}
-          onValueChange={(values) => {
-            const nextFilter = values[0];
+          onValueChange={([nextFilter]) => {
             if (nextFilter === "all" || nextFilter === "active" || nextFilter === "inactive") {
               setStatusFilter(nextFilter);
             }
@@ -237,15 +236,15 @@ function Page() {
             color: "var(--color-text)",
             boxShadow: "var(--shadow-soft)",
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = "var(--color-blue)";
-            e.currentTarget.style.color = "white";
-            e.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
+          onMouseEnter={(event) => {
+            event.currentTarget.style.backgroundColor = "var(--color-blue)";
+            event.currentTarget.style.color = "white";
+            event.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
           }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = "var(--color-bg)";
-            e.currentTarget.style.color = "var(--color-text)";
-            e.currentTarget.style.boxShadow = "var(--shadow-soft)";
+          onMouseLeave={(event) => {
+            event.currentTarget.style.backgroundColor = "var(--color-bg)";
+            event.currentTarget.style.color = "var(--color-text)";
+            event.currentTarget.style.boxShadow = "var(--shadow-soft)";
           }}
         >
           +
@@ -293,7 +292,7 @@ function Page() {
                   <Input
                     id="new-account-username"
                     value={newUsername}
-                    onChange={(e) => setNewUsername(e.target.value)}
+                    onChange={(event) => setNewUsername(event.target.value)}
                     placeholder="new-user"
                     className="w-full px-3 py-2 text-sm font-mono outline-none"
                     style={{
@@ -380,15 +379,15 @@ function Page() {
                   textAlign: "left",
                 }}
                 onClick={() => navigate(`/accounts/${account.account_id}`)}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = "var(--color-surface)";
-                  e.currentTarget.style.borderLeftWidth = "4px";
-                  e.currentTarget.style.borderLeftColor = "var(--color-blue)";
-                  e.currentTarget.style.borderLeftStyle = "solid";
+                onMouseEnter={(event) => {
+                  event.currentTarget.style.backgroundColor = "var(--color-surface)";
+                  event.currentTarget.style.borderLeftWidth = "4px";
+                  event.currentTarget.style.borderLeftColor = "var(--color-blue)";
+                  event.currentTarget.style.borderLeftStyle = "solid";
                 }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "var(--color-bg)";
-                  e.currentTarget.style.borderLeftWidth = "0px";
+                onMouseLeave={(event) => {
+                  event.currentTarget.style.backgroundColor = "var(--color-bg)";
+                  event.currentTarget.style.borderLeftWidth = "0px";
                 }}
               >
                 <div className="col-span-2">
@@ -430,4 +429,6 @@ function Page() {
       </div>
     </div>
   );
-}
+};
+
+export { Page };

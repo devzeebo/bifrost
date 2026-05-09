@@ -15,27 +15,27 @@ export type Task = {
   agentId: string;
   taskState: Record<string, unknown>;
   metadata: Record<string, unknown>;
-}
+};
 
 export type DependencyRef = {
   taskId: string;
   type: string;
-}
+};
 
 export type NoteEntry = {
   id: string;
   content: string;
   createdAt: Date;
-}
+};
 
 export type ACEntry = {
   id: string;
   criteria: string;
   satisfied: boolean;
-}
+};
 
 export type RetroEntry = {
   id: string;
   content: string;
   createdAt: Date;
-}
+};

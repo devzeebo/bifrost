@@ -1,7 +1,7 @@
 import { Select } from "@base-ui/react/select";
 import { useRealm } from "../../lib/realm";
 
-export function RealmSelector() {
+export const RealmSelector = () => {
   const { currentRealm, setCurrentRealm, availableRealms, realmOptions, isLoading } = useRealm();
   const options =
     realmOptions.length > 0
@@ -107,4 +107,4 @@ export function RealmSelector() {
       </Select.Portal>
     </Select.Root>
   );
-}
+};

@@ -14,8 +14,6 @@ import { useToast } from "../../../lib/toast";
 import type { AdminAccountEntry, PatEntry } from "../../../types/account";
 import type { RealmListEntry } from "../../../types/realm";
 
-export { Page };
-
 const statusColors: Record<string, { bg: string; border: string; text: string }> = {
   active: {
     bg: "var(--color-green)",
@@ -58,7 +56,481 @@ type PatToRemove = {
   label?: string;
 };
 
-function Page() {
+const LoadingState = () => (
+  <div className="min-h-[calc(100vh-56px)] flex items-center justify-center">
+    <div
+      className="px-8 py-4 text-lg font-bold uppercase tracking-wider"
+      style={{
+        backgroundColor: "var(--color-bg)",
+        border: "2px solid var(--color-border)",
+        boxShadow: "var(--shadow-soft)",
+      }}
+    >
+      Loading...
+    </div>
+  </div>
+);
+
+const NotFoundState = ({ backTarget, backLabel }: { backTarget: string; backLabel: string }) => (
+  <div className="min-h-[calc(100vh-56px)] flex items-center justify-center p-6">
+    <div
+      className="p-8 text-center max-w-md"
+      style={{
+        backgroundColor: "var(--color-bg)",
+        border: "2px solid var(--color-border)",
+        boxShadow: "var(--shadow-soft)",
+      }}
+    >
+      <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">Account Not Found</h2>
+      <p className="text-sm mb-6" style={{ color: "var(--color-text-muted)" }}>
+        The account you&apos;re looking for doesn&apos;t exist or has been deleted.
+      </p>
+      <Button
+        onClick={() => navigate(backTarget)}
+        className="px-6 py-3 text-sm font-bold uppercase tracking-wider transition-all duration-150"
+        style={{
+          backgroundColor: "var(--color-blue)",
+          border: "2px solid var(--color-border)",
+          color: "white",
+          boxShadow: "var(--shadow-soft)",
+        }}
+        onMouseEnter={(event) => {
+          event.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
+          event.currentTarget.style.transform = "translate(2px, 2px)";
+        }}
+        onMouseLeave={(event) => {
+          event.currentTarget.style.boxShadow = "var(--shadow-soft)";
+          event.currentTarget.style.transform = "translate(0, 0)";
+        }}
+      >
+        {backLabel}
+      </Button>
+    </div>
+  </div>
+);
+
+type _AssignRoleDialogProps = {
+  open: boolean;
+  onClose: () => void;
+  onAssign: () => void;
+  accountId: string;
+  username: string;
+  realmFilter: string;
+  setRealmFilter: (value: string) => void;
+  selectedRealmId: string;
+  setSelectedRealmId: (value: string) => void;
+  selectedRole: "owner" | "admin" | "member" | "viewer";
+  setSelectedRole: (value: "owner" | "admin" | "member" | "viewer") => void;
+  filteredRealms: RealmListEntry[];
+  isAssigning: boolean;
+};
+
+const _AssignRoleDialog = ({
+  open,
+  onClose,
+  onAssign,
+  accountId,
+  username,
+  _realmFilter,
+  setRealmFilter,
+  selectedRealmId,
+  setSelectedRealmId,
+  selectedRole,
+  setSelectedRole,
+  filteredRealms,
+  isAssigning,
+}: _AssignRoleDialogProps) => (
+  <BaseDialog.Root open={open} onOpenChange={onClose}>
+    <BaseDialog.Portal>
+      <BaseDialog.Backdrop className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" />
+      <BaseDialog.Viewport className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <BaseDialog.Popup
+          className="w-full max-w-xl p-6"
+          style={{
+            backgroundColor: "var(--color-bg)",
+            border: "2px solid var(--color-border)",
+            boxShadow: "var(--shadow-soft)",
+          }}
+          aria-labelledby="assign-role-title"
+          aria-describedby="assign-role-description"
+        >
+          <div className="space-y-4">
+            <div>
+              <BaseDialog.Title
+                id="assign-role-title"
+                className="text-xl font-bold uppercase tracking-tight"
+                style={{ color: "var(--color-blue)" }}
+              >
+                Assign Realm Role
+              </BaseDialog.Title>
+              <BaseDialog.Description
+                id="assign-role-description"
+                className="text-sm mt-1"
+                style={{ color: "var(--color-text-muted)" }}
+              >
+                Assign a realm role to {username} ({accountId})
+              </BaseDialog.Description>
+            </div>
+
+            <div>
+              <label
+                htmlFor="assign-role-combobox"
+                className="text-xs uppercase tracking-wider block mb-2 font-bold"
+                style={{ color: "var(--color-text-muted)" }}
+              >
+                Realm
+              </label>
+              <Combobox.Root
+                value={selectedRealmId || null}
+                onValueChange={(value) => {
+                  if (typeof value === "string") {
+                    setSelectedRealmId(value);
+                  }
+                }}
+                onInputValueChange={setRealmFilter}
+              >
+                <Combobox.Input
+                  id="assign-role-combobox"
+                  placeholder="Search by realm ID or name"
+                  className="w-full px-3 py-2 text-sm outline-none"
+                  style={{
+                    backgroundColor: "var(--color-surface)",
+                    border: "2px solid var(--color-border)",
+                    color: "var(--color-text)",
+                  }}
+                />
+                <Combobox.Portal>
+                  <Combobox.Positioner sideOffset={8} align="start">
+                    <Combobox.Popup
+                      className="z-[80] max-h-64 overflow-y-auto"
+                      style={{
+                        backgroundColor: "var(--color-bg)",
+                        border: "2px solid var(--color-border)",
+                        boxShadow: "var(--shadow-soft)",
+                        width: "var(--anchor-width)",
+                      }}
+                    >
+                      <Combobox.List>
+                        {filteredRealms.map((realm) => (
+                          <Combobox.Item
+                            key={realm.id}
+                            value={realm.id}
+                            className="px-3 py-2 text-sm cursor-pointer"
+                            style={{ color: "var(--color-text)" }}
+                          >
+                            {realm.name}
+                            <span
+                              className="ml-2 text-xs"
+                              style={{ color: "var(--color-text-muted)" }}
+                            >
+                              {realm.id}
+                            </span>
+                          </Combobox.Item>
+                        ))}
+                      </Combobox.List>
+                      <Combobox.Empty
+                        className="px-3 py-2 text-sm"
+                        style={{ color: "var(--color-text-muted)" }}
+                      >
+                        No realms available
+                      </Combobox.Empty>
+                    </Combobox.Popup>
+                  </Combobox.Positioner>
+                </Combobox.Portal>
+              </Combobox.Root>
+            </div>
+
+            <div>
+              <label
+                htmlFor="assign-role-select"
+                className="text-xs uppercase tracking-wider block mb-2 font-bold"
+                style={{ color: "var(--color-text-muted)" }}
+              >
+                Role
+              </label>
+              <Select.Root
+                items={{ owner: "owner", admin: "admin", member: "member", viewer: "viewer" }}
+                value={selectedRole}
+                onValueChange={(value) => {
+                  if (
+                    value === "owner" ||
+                    value === "admin" ||
+                    value === "member" ||
+                    value === "viewer"
+                  ) {
+                    setSelectedRole(value);
+                  }
+                }}
+              >
+                <Select.Trigger
+                  id="assign-role-select"
+                  className="w-full px-3 py-2 text-sm outline-none"
+                  style={{
+                    backgroundColor: "var(--color-surface)",
+                    border: "2px solid var(--color-border)",
+                    color: "var(--color-text)",
+                  }}
+                >
+                  <Select.Value placeholder="Select role" />
+                </Select.Trigger>
+                <Select.Portal>
+                  <Select.Positioner sideOffset={8} align="end">
+                    <Select.Popup
+                      style={{
+                        backgroundColor: "var(--color-bg)",
+                        border: "2px solid var(--color-border)",
+                        boxShadow: "var(--shadow-soft)",
+                      }}
+                    >
+                      <Select.List>
+                        {(["owner", "admin", "member", "viewer"] as const).map((role) => (
+                          <Select.Item
+                            key={role}
+                            value={role}
+                            onClick={() => setSelectedRole(role)}
+                            className="px-3 py-2 text-sm font-semibold cursor-pointer"
+                          >
+                            <Select.ItemText>{role}</Select.ItemText>
+                          </Select.Item>
+                        ))}
+                      </Select.List>
+                    </Select.Popup>
+                  </Select.Positioner>
+                </Select.Portal>
+              </Select.Root>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <BaseDialog.Close
+                className="px-4 py-2 text-sm font-semibold"
+                style={{
+                  backgroundColor: "var(--color-bg)",
+                  border: "2px solid var(--color-border)",
+                  color: "var(--color-text)",
+                }}
+              >
+                Cancel
+              </BaseDialog.Close>
+              <Button
+                onClick={onAssign}
+                disabled={!selectedRealmId || isAssigning}
+                className="px-4 py-2 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  backgroundColor: "var(--color-blue)",
+                  border: "2px solid var(--color-border)",
+                  color: "white",
+                }}
+              >
+                {isAssigning ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </div>
+        </BaseDialog.Popup>
+      </BaseDialog.Viewport>
+    </BaseDialog.Portal>
+  </BaseDialog.Root>
+);
+
+type CreatePATDialogProps = {
+  open: boolean;
+  onClose: () => void;
+  onCreate: () => void;
+  patName: string;
+  setPatName: (value: string) => void;
+  newPATValue: string | null;
+  isCreating: boolean;
+};
+
+const CreatePATDialog = ({
+  open,
+  onClose,
+  onCreate,
+  patName,
+  setPatName,
+  newPATValue,
+  isCreating,
+}: CreatePATDialogProps) => (
+  <BaseDialog.Root open={open} onOpenChange={onClose}>
+    <BaseDialog.Portal>
+      <BaseDialog.Backdrop className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" />
+      <BaseDialog.Viewport className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <BaseDialog.Popup
+          className="w-full max-w-lg p-6"
+          style={{
+            backgroundColor: "var(--color-bg)",
+            border: "2px solid var(--color-border)",
+            boxShadow: "var(--shadow-soft)",
+          }}
+          aria-labelledby="create-pat-title"
+          aria-describedby="create-pat-description"
+        >
+          <div className="space-y-4">
+            <div>
+              <BaseDialog.Title
+                id="create-pat-title"
+                className="text-xl font-bold uppercase tracking-tight"
+                style={{ color: "var(--color-blue)" }}
+              >
+                Create Personal Access Token
+              </BaseDialog.Title>
+              <BaseDialog.Description
+                id="create-pat-description"
+                className="text-sm mt-1"
+                style={{ color: "var(--color-text-muted)" }}
+              >
+                Generate a new PAT for API authentication. Save it securely - it won&apos;t be shown
+                again.
+              </BaseDialog.Description>
+            </div>
+
+            <div>
+              <label
+                htmlFor="pat-name-input"
+                className="text-xs uppercase tracking-wider block mb-2 font-bold"
+                style={{ color: "var(--color-text-muted)" }}
+              >
+                PAT Name (optional)
+              </label>
+              <Input
+                id="pat-name-input"
+                type="text"
+                value={patName}
+                onChange={(event) => setPatName(event.target.value)}
+                placeholder="e.g., CI/CD Pipeline, Development Scripts"
+                className="w-full px-3 py-2 text-sm outline-none"
+                style={{
+                  backgroundColor: "var(--color-surface)",
+                  border: "2px solid var(--color-border)",
+                  color: "var(--color-text)",
+                }}
+              />
+            </div>
+
+            {newPATValue ? (
+              <div>
+                <div
+                  className="p-4 font-mono text-sm break-all"
+                  style={{
+                    backgroundColor: "var(--color-surface)",
+                    border: "2px solid var(--color-green)",
+                  }}
+                >
+                  {newPATValue}
+                </div>
+                <p className="text-xs mt-2" style={{ color: "var(--color-text-muted)" }}>
+                  ⚠️ Save this token now. You won&apos;t be able to see it again.
+                </p>
+              </div>
+            ) : null}
+
+            <div className="flex justify-end gap-3 pt-2">
+              <BaseDialog.Close
+                className="px-4 py-2 text-sm font-semibold"
+                style={{
+                  backgroundColor: "var(--color-bg)",
+                  border: "2px solid var(--color-border)",
+                  color: "var(--color-text)",
+                }}
+              >
+                Cancel
+              </BaseDialog.Close>
+              <Button
+                onClick={onCreate}
+                disabled={isCreating}
+                className="px-4 py-2 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  backgroundColor: "var(--color-blue)",
+                  border: "2px solid var(--color-border)",
+                  color: "white",
+                }}
+              >
+                {(() => {
+                  if (isCreating) {
+                    return "Creating...";
+                  }
+                  if (newPATValue) {
+                    return "Done";
+                  }
+                  return "Create";
+                })()}
+              </Button>
+            </div>
+          </div>
+        </BaseDialog.Popup>
+      </BaseDialog.Viewport>
+    </BaseDialog.Portal>
+  </BaseDialog.Root>
+);
+
+type AccountHeaderProps = {
+  account: AdminAccountEntry;
+  backTarget: string;
+  backLabel: string;
+  statusStyle: { bg: string; border: string; text: string };
+  isAdminAccount: boolean;
+};
+
+const AccountHeader = ({
+  account,
+  backTarget,
+  backLabel,
+  statusStyle,
+  isAdminAccount,
+}: AccountHeaderProps) => (
+  <div className="mb-8">
+    <div className="grid grid-cols-[auto_1fr_auto] items-center gap-4">
+      <Button
+        onClick={() => navigate(backTarget)}
+        className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wider transition-all duration-150 hover:translate-x-[-2px]"
+        style={{ color: "var(--color-text-muted)" }}
+      >
+        <span>&larr;</span>
+        <span>{backLabel}</span>
+      </Button>
+
+      <div className="justify-self-center flex flex-wrap items-center justify-center gap-4 text-center">
+        <span
+          className="text-xs uppercase tracking-wider px-3 py-1 font-bold"
+          style={{
+            backgroundColor: statusStyle.bg,
+            border: `2px solid ${statusStyle.border}`,
+            color: statusStyle.text,
+          }}
+        >
+          {account.status}
+        </span>
+        <h1
+          className="text-4xl font-bold tracking-tight uppercase"
+          style={{ color: "var(--color-blue)" }}
+        >
+          {account.username}
+        </h1>
+        <span
+          className="text-xs uppercase tracking-wider"
+          style={{ color: "var(--color-text-muted)" }}
+        >
+          ID: {account.account_id}
+        </span>
+      </div>
+
+      <div className="justify-self-end">
+        <span
+          className="text-xs uppercase tracking-wider px-3 py-1 font-bold"
+          style={{
+            backgroundColor: "var(--color-surface)",
+            border: "2px solid var(--color-border)",
+            color: "var(--color-text-muted)",
+          }}
+        >
+          {isAdminAccount ? "ADMIN" : "USER"}
+        </span>
+      </div>
+    </div>
+  </div>
+);
+
+// eslint-disable-next-line complexity
+const Page = () => {
   const pageContext = usePageContext();
   const routeParams = pageContext.routeParams as Record<string, string | undefined>;
   const accountId = routeParams?.id ?? routeParams?.["@id"] ?? routeParams?.["-id"] ?? "";
@@ -232,7 +704,7 @@ function Page() {
           role,
         };
       })
-      .sort((a, b) => a.realmName.localeCompare(b.realmName));
+      .sort((first, second) => first.realmName.localeCompare(second.realmName));
   }, [account, realmNameById]);
 
   const filteredRealms = useMemo(() => {
@@ -340,15 +812,6 @@ function Page() {
     }
   };
 
-  const copyToClipboard = async (value: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      showToast("Copied", `${label} copied to clipboard`, "success");
-    } catch {
-      showToast("Error", "Failed to copy", "error");
-    }
-  };
-
   const handleCreatePAT = async () => {
     if (!account) {
       return;
@@ -418,69 +881,21 @@ function Page() {
   };
 
   if (authLoading || isLoading) {
-    return (
-      <div className="min-h-[calc(100vh-56px)] flex items-center justify-center">
-        <div
-          className="px-8 py-4 text-lg font-bold uppercase tracking-wider"
-          style={{
-            backgroundColor: "var(--color-bg)",
-            border: "2px solid var(--color-border)",
-            boxShadow: "var(--shadow-soft)",
-          }}
-        >
-          Loading...
-        </div>
-      </div>
-    );
+    return <LoadingState />;
   }
 
   const backTarget = isSysadmin ? "/accounts" : "/dashboard";
   const backLabel = isSysadmin ? "Back to Accounts" : "Back to Dashboard";
 
   if (!account) {
-    return (
-      <div className="min-h-[calc(100vh-56px)] flex items-center justify-center p-6">
-        <div
-          className="p-8 text-center max-w-md"
-          style={{
-            backgroundColor: "var(--color-bg)",
-            border: "2px solid var(--color-border)",
-            boxShadow: "var(--shadow-soft)",
-          }}
-        >
-          <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">Account Not Found</h2>
-          <p className="text-sm mb-6" style={{ color: "var(--color-text-muted)" }}>
-            The account you&apos;re looking for doesn&apos;t exist or has been deleted.
-          </p>
-          <Button
-            onClick={() => navigate(backTarget)}
-            className="px-6 py-3 text-sm font-bold uppercase tracking-wider transition-all duration-150"
-            style={{
-              backgroundColor: "var(--color-blue)",
-              border: "2px solid var(--color-border)",
-              color: "white",
-              boxShadow: "var(--shadow-soft)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
-              e.currentTarget.style.transform = "translate(2px, 2px)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = "var(--shadow-soft)";
-              e.currentTarget.style.transform = "translate(0, 0)";
-            }}
-          >
-            {backLabel}
-          </Button>
-        </div>
-      </div>
-    );
+    return <NotFoundState backTarget={backTarget} backLabel={backLabel} />;
   }
 
   const statusStyle = statusColors[account.status] || statusColors.inactive;
   const activePATs = account.pat_count;
   const totalPATs = Math.max(totalPATCount, activePATs);
-  const isAdminAccount = account.realms.includes("_admin") || account.roles["_admin"] !== undefined;
+  const isAdminAccount =
+    account.realms.includes("_admin") || Object.hasOwn(account.roles, "_admin");
   const isOwnAccount = currentAccountId === account.account_id;
   const canCloseAccount = isOwnAccount || isSysadmin;
   const canManageRoles = isSysadmin;
@@ -496,56 +911,13 @@ function Page() {
 
   return (
     <div className="min-h-[calc(100vh-56px)] p-6">
-      <div className="mb-8">
-        <div className="grid grid-cols-[auto_1fr_auto] items-center gap-4">
-          <Button
-            onClick={() => navigate(backTarget)}
-            className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wider transition-all duration-150 hover:translate-x-[-2px]"
-            style={{ color: "var(--color-text-muted)" }}
-          >
-            <span>&larr;</span>
-            <span>{backLabel}</span>
-          </Button>
-
-          <div className="justify-self-center flex flex-wrap items-center justify-center gap-4 text-center">
-            <span
-              className="text-xs uppercase tracking-wider px-3 py-1 font-bold"
-              style={{
-                backgroundColor: statusStyle.bg,
-                border: `2px solid ${statusStyle.border}`,
-                color: statusStyle.text,
-              }}
-            >
-              {account.status}
-            </span>
-            <h1
-              className="text-4xl font-bold tracking-tight uppercase"
-              style={{ color: "var(--color-blue)" }}
-            >
-              {account.username}
-            </h1>
-            <span
-              className="text-xs uppercase tracking-wider"
-              style={{ color: "var(--color-text-muted)" }}
-            >
-              ID: {account.account_id}
-            </span>
-          </div>
-
-          <div className="justify-self-end">
-            <span
-              className="text-xs uppercase tracking-wider px-3 py-1 font-bold"
-              style={{
-                backgroundColor: "var(--color-surface)",
-                border: "2px solid var(--color-border)",
-                color: "var(--color-text-muted)",
-              }}
-            >
-              {isAdminAccount ? "ADMIN" : "USER"}
-            </span>
-          </div>
-        </div>
-      </div>
+      <AccountHeader
+        account={account}
+        backTarget={backTarget}
+        backLabel={backLabel}
+        statusStyle={statusStyle}
+        isAdminAccount={isAdminAccount}
+      />
 
       <div
         className="p-6"
@@ -935,132 +1307,19 @@ function Page() {
         color="red"
       />
 
-      <BaseDialog.Root open={showCreatePATDialog} onOpenChange={setShowCreatePATDialog}>
-        <BaseDialog.Portal>
-          <BaseDialog.Backdrop className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" />
-          <BaseDialog.Viewport className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <BaseDialog.Popup
-              className="w-full max-w-lg p-6"
-              style={{
-                backgroundColor: "var(--color-bg)",
-                border: "2px solid var(--color-border)",
-                boxShadow: "var(--shadow-soft)",
-              }}
-              aria-labelledby="create-pat-title"
-              aria-describedby="create-pat-description"
-            >
-              <div className="space-y-4">
-                <div>
-                  <BaseDialog.Title
-                    id="create-pat-title"
-                    className="text-xl font-bold uppercase tracking-tight"
-                    style={{ color: "var(--color-blue)" }}
-                  >
-                    Create Personal Access Token
-                  </BaseDialog.Title>
-                  Create a new token and copy it immediately. This token will not be retrievable
-                  again.
-                </div>
-
-                {newPATValue ? (
-                  <div
-                    className="p-4"
-                    style={{
-                      backgroundColor: "var(--color-surface)",
-                      border: "2px solid var(--color-border)",
-                    }}
-                  >
-                    <div
-                      className="text-xs uppercase tracking-wider mb-2"
-                      style={{ color: "var(--color-text-muted)" }}
-                    >
-                      New PAT (shown once)
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <code className="flex-1 text-xs break-all">{newPATValue}</code>
-                      <Button
-                        onClick={() => void copyToClipboard(newPATValue, "PAT")}
-                        className="px-3 py-1 text-xs font-bold uppercase"
-                        style={{
-                          backgroundColor: "var(--color-blue)",
-                          border: "2px solid var(--color-border)",
-                          color: "white",
-                        }}
-                      >
-                        Copy
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <label
-                      htmlFor="new-pat-name"
-                      className="text-xs uppercase tracking-wider block mb-2 font-bold"
-                      style={{ color: "var(--color-text-muted)" }}
-                    >
-                      PAT Name
-                    </label>
-                    <input
-                      id="new-pat-name"
-                      value={newPATName}
-                      onChange={(event) => setNewPATName(event.target.value)}
-                      placeholder="e.g. CLI token"
-                      className="w-full px-3 py-2 text-sm outline-none"
-                      style={{
-                        backgroundColor: "var(--color-surface)",
-                        border: "2px solid var(--color-border)",
-                        color: "var(--color-text)",
-                      }}
-                    />
-                  </div>
-                )}
-
-                <div className="flex justify-end gap-3 pt-2">
-                  <BaseDialog.Close
-                    className="px-4 py-2 text-sm font-semibold"
-                    onClick={() => {
-                      setNewPATValue(null);
-                      setNewPATName("");
-                    }}
-                    style={{
-                      backgroundColor: "var(--color-bg)",
-                      border: "2px solid var(--color-border)",
-                      color: "var(--color-text)",
-                    }}
-                  >
-                    Cancel
-                  </BaseDialog.Close>
-                  {!newPATValue ? (
-                    <Button
-                      onClick={handleCreatePAT}
-                      disabled={isCreatingPAT}
-                      className="px-4 py-2 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                      style={{
-                        backgroundColor: "var(--color-blue)",
-                        border: "2px solid var(--color-border)",
-                        color: "white",
-                      }}
-                    >
-                      {isCreatingPAT ? "Saving..." : "Save"}
-                    </Button>
-                  ) : (
-                    <BaseDialog.Close
-                      className="px-4 py-2 text-sm font-semibold"
-                      style={{
-                        backgroundColor: "var(--color-blue)",
-                        border: "2px solid var(--color-border)",
-                        color: "white",
-                      }}
-                    >
-                      Close
-                    </BaseDialog.Close>
-                  )}
-                </div>
-              </div>
-            </BaseDialog.Popup>
-          </BaseDialog.Viewport>
-        </BaseDialog.Portal>
-      </BaseDialog.Root>
+      <CreatePATDialog
+        open={showCreatePATDialog}
+        onClose={() => {
+          setShowCreatePATDialog(false);
+          setNewPATValue(null);
+          setNewPATName("");
+        }}
+        onCreate={handleCreatePAT}
+        patName={newPATName}
+        setPatName={setNewPATName}
+        newPATValue={newPATValue}
+        isCreating={isCreatingPAT}
+      />
 
       <Dialog
         open={roleToRemove !== null}
@@ -1277,4 +1536,6 @@ function Page() {
       </BaseDialog.Root>
     </div>
   );
-}
+};
+
+export { Page };

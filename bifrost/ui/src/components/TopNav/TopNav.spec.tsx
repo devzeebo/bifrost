@@ -52,8 +52,8 @@ const createMockAuthValue = (overrides: Partial<AuthContextValue> = {}): AuthCon
   realms: [],
   realmNames: {},
   isSysadmin: false,
-  login: vi.fn().mockResolvedValue(undefined),
-  logout: vi.fn().mockResolvedValue(undefined),
+  login: vi.fn().mockResolvedValue(Promise.resolve()),
+  logout: vi.fn().mockResolvedValue(Promise.resolve()),
   loading: false,
   ...overrides,
 });
@@ -211,7 +211,7 @@ describe("TopNav", () => {
     });
 
     test("opens user menu and triggers logout", async () => {
-      const logout = vi.fn().mockResolvedValue(undefined);
+      const logout = vi.fn().mockResolvedValue(Promise.resolve());
       vi.mocked(useAuth).mockReturnValue(createMockAuthValue({ username: "John Doe", logout }));
       render(<TopNav />);
 

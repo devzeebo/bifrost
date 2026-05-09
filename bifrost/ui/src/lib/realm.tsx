@@ -17,18 +17,17 @@ type RealmContextValue = {
   availableRealms: string[];
   realmOptions: RealmOption[];
   isLoading: boolean;
-}
+};
 
-const RealmContext = createContext<RealmContextValue | undefined>(undefined);
+const RealmContext = createContext<RealmContextValue | null>(null);
 
 const sanitizeRealms = (realms: (string | null | undefined)[]): string[] => {
   const unique = new Set<string>();
 
   for (const realm of realms) {
-    if (!realm || realm === "_admin") {
-      continue;
+    if (realm && realm !== "_admin") {
+      unique.add(realm);
     }
-    unique.add(realm);
   }
 
   return Array.from(unique);
@@ -38,13 +37,12 @@ const normalizeRealmOptions = (realms: (RealmOption | null | undefined)[]): Real
   const byId = new Map<string, RealmOption>();
 
   for (const realm of realms) {
-    if (!realm || !realm.id || realm.id === "_admin") {
-      continue;
+    if (realm && realm.id && realm.id !== "_admin") {
+      byId.set(realm.id, {
+        id: realm.id,
+        name: realm.name || realm.id,
+      });
     }
-    byId.set(realm.id, {
-      id: realm.id,
-      name: realm.name || realm.id,
-    });
   }
 
   return Array.from(byId.values());
@@ -87,7 +85,7 @@ const persistRealm = (realm: string | null) => {
   document.cookie = `${COOKIE_KEY}=; path=/; max-age=0; samesite=lax`;
 };
 
-export function RealmProvider({ children }: { children: ReactNode }) {
+export const RealmProvider = ({ children }: { children: ReactNode }) => {
   const [currentRealm, setCurrentRealmState] = useState<string | null>(null);
   const [realmOptions, setRealmOptions] = useState<RealmOption[]>([]);
   const [availableRealms, setAvailableRealms] = useState<string[]>([]);
@@ -186,12 +184,12 @@ export function RealmProvider({ children }: { children: ReactNode }) {
       {children}
     </RealmContext.Provider>
   );
-}
+};
 
-export function useRealm() {
+export const useRealm = () => {
   const context = useContext(RealmContext);
-  if (context === undefined) {
+  if (context === null) {
     throw new Error("useRealm must be used within a RealmProvider");
   }
   return context;
-}
+};
