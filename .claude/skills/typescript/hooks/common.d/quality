@@ -1,11 +1,12 @@
 #!/bin/bash
 
-set -e
+set -ex
 
 HOOK=$(get_field hook_event_name)
 
 lint() {
-  OUTPUT=$(npm run lint -s -w $1 -- --format=json) || {
+  cd $CLAUDE_PROJECT_DIR
+  OUTPUT=$(npm run lint:$1 -s -- --format=json) || {
     FIRST_FILE=$(echo "$OUTPUT" | jq -r '.diagnostics[0].filename')
     FILE_ERRORS=$(echo "$OUTPUT" | jq -rc "[.diagnostics[] | select(.filename == \"$FIRST_FILE\")]")
 
@@ -18,7 +19,8 @@ lint() {
 }
 
 build() {
-  OUTPUT=$(npm run build -s) || {
+  cd $CLAUDE_PROJECT_DIR
+  OUTPUT=$(npm run build:$1 -s) || {
     if [[ "$HOOK" == "SessionStart" ]]; then
       additionalContext "$OUTPUT"
     else
@@ -28,7 +30,8 @@ build() {
 }
 
 test() {
-  OUTPUT=$(npm run test -s -w $1) || {
+  cd $CLAUDE_PROJECT_DIR
+  OUTPUT=$(npm run test:$1 -s) || {
     if [[ "$HOOK" == "SessionStart" ]]; then
       additionalContext "$OUTPUT"
     else
@@ -38,9 +41,10 @@ test() {
 }
 
 lint orchestrator
-lint bifrost/ui
+lint ui
 
-build
+build orchestrator
+build ui
 
 test orchestrator
-test bifrost/ui
+test ui

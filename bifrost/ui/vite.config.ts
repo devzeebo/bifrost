@@ -7,9 +7,7 @@ export default defineConfig({
   base: "/ui",
   plugins: [react(), vike({}), tailwindcss()],
   resolve: {
-    alias: {
-      "@": "/src",
-    },
+    tsconfigPaths: true,
   },
   server: {
     allowedHosts: ["ui", "localhost", ".*"],
