@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.base.json",
+  "references": [
+    {
+      "path": "./orchestrator/tsconfig.json"
+    },
+    {
+      "path": "./bifrost/ui/tsconfig.json"
+    }
+  ],
+  "include": [],
+  "exclude": ["**"]
+}

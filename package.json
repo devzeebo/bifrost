@@ -15,6 +15,7 @@
   "scripts": {
     "test": "npm run --workspaces test --if-present",
     "lint": "oxlint",
+    "tsc": "tsc -b",
     "format": "npm run --workspaces format -s --if-present",
     "format:file": "npm run --workspaces format -s"
   }
