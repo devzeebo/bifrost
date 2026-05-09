@@ -6,3 +6,5 @@ devzeebo-orchestrator/
 bin/
 node_modules/
 .wireit/
+
+**/tsconfig.tsbuildinfo

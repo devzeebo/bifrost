@@ -7,8 +7,6 @@ INPUT=$(cat)
 escape_json() {
   JSON=$(echo -n "$1" | jq -Rca . | tail -c +2 | head -c -2)
 
-  echo "$JSON" > log
-
   echo "$JSON"
 }
 

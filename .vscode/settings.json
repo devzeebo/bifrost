@@ -10,7 +10,8 @@
     "**/__pycache__": true,
     "**/.venv": true,
     "**/dist": true,
-    "*/**/.claude": true
+    "*/**/.claude": true,
+    "**/tsconfig.tsbuildinfo": true
   },
   "python.analysis.extraPaths": [
     "orchestrator/packages/engine-claude-code/src",

@@ -17,6 +17,16 @@ lint() {
   }
 }
 
+build() {
+  OUTPUT=$(npm run build -s) || {
+    if [[ "$HOOK" == "SessionStart" ]]; then
+      additionalContext "$OUTPUT"
+    else
+      block "$OUTPUT"
+    fi
+  }
+}
+
 test() {
   OUTPUT=$(npm run test -s -w $1) || {
     if [[ "$HOOK" == "SessionStart" ]]; then
@@ -29,6 +39,8 @@ test() {
 
 lint orchestrator
 lint bifrost/ui
+
+build
 
 test orchestrator
 test bifrost/ui

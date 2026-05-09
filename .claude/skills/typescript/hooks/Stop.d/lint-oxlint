@@ -11,4 +11,4 @@ if [[ -n "$TS_FILES" ]]; then
   }
 fi
 
-rm $SENTINEL
+rm -f $SENTINEL
