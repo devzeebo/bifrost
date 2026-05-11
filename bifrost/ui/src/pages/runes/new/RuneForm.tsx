@@ -1,7 +1,14 @@
 "use client";
 
 import { Input } from "@base-ui/react/input";
-import type { FormData } from "../+Page";
+
+type FormData = {
+  title: string;
+  description: string;
+  priority: number;
+  status: "draft" | "open";
+  branch: string;
+};
 
 type RuneFormProps = {
   form: FormData;

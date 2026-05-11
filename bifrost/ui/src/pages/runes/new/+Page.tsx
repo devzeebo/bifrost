@@ -13,7 +13,21 @@ import { PrioritySelector } from "./PrioritySelector";
 import { StatusSelector } from "./StatusSelector";
 import { Relationships } from "./Relationships";
 import type { CreateRuneRequest, RuneListItem } from "../../../types/rune";
-import type { FormData, RelationshipDirection, SelectedRelationship } from "./+Page";
+
+type FormData = {
+  title: string;
+  description: string;
+  priority: number;
+  status: "draft" | "open";
+  branch: string;
+};
+
+type RelationshipDirection = "depends_on" | "depended_on_by";
+
+type SelectedRelationship = {
+  targetId: string;
+  direction: RelationshipDirection;
+};
 
 const initialForm: FormData = {
   title: "",

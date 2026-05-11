@@ -4,16 +4,16 @@ on:
   workflow_call:
     inputs:
       upload-artifacts:
-        description: 'Upload build artifacts'
+        description: "Upload build artifacts"
         required: false
         default: false
         type: boolean
     outputs:
       artifact-x86_64:
-        description: 'x86_64 artifact name'
+        description: "x86_64 artifact name"
         value: binaries-x86_64
       artifact-aarch64:
-        description: 'aarch64 artifact name'
+        description: "aarch64 artifact name"
         value: binaries-aarch64
 
 jobs:
@@ -37,13 +37,13 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: 'go.work'
+          go-version-file: "go.work"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
-          cache: 'npm'
+          node-version: "24"
+          cache: "npm"
           cache-dependency-path: ui/package-lock.json
 
       - name: Install dependencies

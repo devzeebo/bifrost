@@ -8,3 +8,6 @@ export type Engine = {
   // Optional method for follow-up execution
   sendFollowUp?: (message: string) => Promise<EngineResult>;
 };
+
+// Re-export types for convenience
+export type { EngineContext, EngineResult };

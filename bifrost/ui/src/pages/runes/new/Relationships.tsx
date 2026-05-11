@@ -3,7 +3,14 @@
 import { Button } from "@base-ui/react/button";
 import { Combobox } from "@base-ui/react/combobox";
 import { ScrollArea } from "@base-ui/react/scroll-area";
-import type { RuneListItem, SelectedRelationship, RelationshipDirection } from "../+Page";
+import type { RuneListItem } from "../../../types/rune";
+
+type RelationshipDirection = "depends_on" | "depended_on_by";
+
+type SelectedRelationship = {
+  targetId: string;
+  direction: RelationshipDirection;
+};
 
 type RelationshipsProps = {
   existingRunes: RuneListItem[];

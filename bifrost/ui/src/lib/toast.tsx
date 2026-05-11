@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactElement, createContext, useContext, useMemo } from "react";
+import { type ReactElement, createContext, useCallback, useContext, useMemo } from "react";
 import { Toast as BaseToast } from "@base-ui/react/toast";
 
 export type ToastType = "success" | "error" | "info" | "warning";
@@ -49,7 +49,9 @@ const ToastViewport = ({ removeToast }: ToastViewportProps): ReactElement => {
           const type = data.type ?? (toast.type as ToastType | undefined) ?? "info";
           const title = data.title ?? toast.title ?? "Notification";
 
-          const description: string | undefined = data.description ?? toast.description;
+          const description: string | undefined = (data.description ?? toast.description) as
+            | string
+            | undefined;
 
           return (
             <BaseToast.Root

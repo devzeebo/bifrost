@@ -342,7 +342,6 @@ const Page = () => {
           isLoadingPATs={isLoadingPATs}
           pats={pats}
           revokingPATId={revokingPATId}
-          onRevokePAT={handleRevokePAT}
           onSetPatToRevoke={setPatToRevoke}
           formatDate={formatDate}
         />

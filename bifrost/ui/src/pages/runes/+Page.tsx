@@ -54,11 +54,10 @@ const RunesList = ({
           backgroundColor: "var(--color-surface)",
         }}
       >
-        <div className="col-span-1">ID</div>
-        <div className="col-span-4">Title</div>
+        <div className="col-span-2">ID</div>
+        <div className="col-span-5">Title</div>
         <div className="col-span-2">Status</div>
         <div className="col-span-3">Claimed By</div>
-        <div className="col-span-2">Dependencies</div>
       </div>
 
       <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -76,30 +75,6 @@ const RunesList = ({
             return "var(--color-gray)";
           })();
 
-          const dependenciesContent = (() => {
-            if (rune.dependencies && rune.dependencies.length > 0) {
-              return (
-                <div className="flex flex-wrap gap-1">
-                  {rune.dependencies.slice(0, 2).map((dep) => (
-                    <span
-                      key={dep.target_id}
-                      className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded"
-                      title={dep.target_id}
-                    >
-                      {dep.target_id.slice(0, 6)}
-                    </span>
-                  ))}
-                  {rune.dependencies.length > 2 && (
-                    <span className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded">
-                      +{rune.dependencies.length - 2}
-                    </span>
-                  )}
-                </div>
-              );
-            }
-            return <span className="text-gray-400">None</span>;
-          })();
-
           return (
             <div
               key={rune.id}
@@ -109,8 +84,8 @@ const RunesList = ({
                 backgroundColor: "var(--color-bg)",
               }}
             >
-              <div className="col-span-1 font-mono text-sm">{rune.id.slice(0, 8)}</div>
-              <div className="col-span-4 font-medium">{rune.title}</div>
+              <div className="col-span-2 font-mono text-sm">{rune.id.slice(0, 8)}</div>
+              <div className="col-span-5 font-medium">{rune.title}</div>
               <div className="col-span-2">
                 <span
                   className="px-2 py-1 text-xs rounded-full font-medium"
@@ -125,7 +100,6 @@ const RunesList = ({
               <div className="col-span-3 text-sm text-gray-600 dark:text-gray-400">
                 {rune.claimant_username || "-"}
               </div>
-              <div className="col-span-2">{dependenciesContent}</div>
             </div>
           );
         })}
@@ -154,11 +128,7 @@ const Page = () => {
         setRunes(runesData);
       } catch (error) {
         console.error("Failed to load runes:", error);
-        showToast({
-          title: "Error",
-          description: "Failed to load runes",
-          type: "error",
-        });
+        showToast("Error", "Failed to load runes", "error");
       } finally {
         setIsLoading(false);
       }
@@ -184,8 +154,8 @@ const Page = () => {
     navigate(`/runes/${runeId}`);
   };
 
-  const handleStatusChange = (value: string) => {
-    setStatusFilter(value as RuneStatus | "all" | "active");
+  const handleStatusChange = (value: string[]) => {
+    setStatusFilter(value[0] as RuneStatus | "all" | "active");
   };
 
   if (authLoading) {
@@ -229,8 +199,7 @@ const Page = () => {
                 <div className="flex items-center gap-4">
                   <h2 className="text-xl font-bold">All Runes</h2>
                   <ToggleGroup
-                    type="single"
-                    value={statusFilter}
+                    value={[statusFilter]}
                     onValueChange={handleStatusChange}
                     className="flex gap-2"
                   >

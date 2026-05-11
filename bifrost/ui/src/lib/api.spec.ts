@@ -287,8 +287,8 @@ describe("ApiClient", () => {
       );
       expect(result).toMatchObject({
         ...rune,
-        claimant: null,
-        claimant_username: null,
+        claimant: void 0,
+        claimant_username: void 0,
       });
     });
   });

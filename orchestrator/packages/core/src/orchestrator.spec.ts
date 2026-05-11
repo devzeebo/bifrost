@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { orchestrate } from "./orchestrator";
 import type { AgentDefinition } from "./types";
 import type { Task, TaskSource } from "@orchestrator/task-source";
@@ -30,11 +30,11 @@ describe("Orchestrator", () => {
           yield task;
         },
         // oxlint-disable-next-line no-empty-function
-        completeTask: vi.fn().mockResolvedValue(),
+        completeTask: vi.fn().mockResolvedValue(void 0),
         // oxlint-disable-next-line no-empty-function
-        failTask: vi.fn().mockResolvedValue(),
+        failTask: vi.fn().mockResolvedValue(void 0),
         // oxlint-disable-next-line no-empty-function
-        setState: vi.fn().mockResolvedValue(),
+        setState: vi.fn().mockResolvedValue(void 0),
       };
 
       const mockEngine: Engine = {
@@ -93,11 +93,11 @@ describe("Orchestrator", () => {
           yield task;
         },
         // oxlint-disable-next-line no-empty-function
-        completeTask: vi.fn().mockResolvedValue(),
+        completeTask: vi.fn().mockResolvedValue(void 0),
         // oxlint-disable-next-line no-empty-function
-        failTask: vi.fn().mockResolvedValue(),
+        failTask: vi.fn().mockResolvedValue(void 0),
         // oxlint-disable-next-line no-empty-function
-        setState: vi.fn().mockResolvedValue(),
+        setState: vi.fn().mockResolvedValue(void 0),
       };
 
       const mockEngine: Engine = {
@@ -149,9 +149,9 @@ describe("Orchestrator", () => {
         async *watchTasks(): AsyncGenerator<Task> {
           yield task;
         },
-        completeTask: vi.fn().mockResolvedValue(),
-        failTask: vi.fn().mockResolvedValue(),
-        setState: vi.fn().mockResolvedValue(),
+        completeTask: vi.fn().mockResolvedValue(void 0),
+        failTask: vi.fn().mockResolvedValue(void 0),
+        setState: vi.fn().mockResolvedValue(void 0),
       };
 
       let capturedSetState: ((state: Record<string, unknown>) => Promise<void>) | null = null;
@@ -209,9 +209,9 @@ describe("Orchestrator", () => {
         async *watchTasks(): AsyncGenerator<Task> {
           yield task;
         },
-        completeTask: vi.fn().mockResolvedValue(),
-        failTask: vi.fn().mockResolvedValue(),
-        setState: vi.fn().mockResolvedValue(),
+        completeTask: vi.fn().mockResolvedValue(void 0),
+        failTask: vi.fn().mockResolvedValue(void 0),
+        setState: vi.fn().mockResolvedValue(void 0),
       };
 
       const mockEngine: Engine = {
@@ -271,9 +271,9 @@ describe("Orchestrator", () => {
         async *watchTasks(): AsyncGenerator<Task> {
           yield task;
         },
-        completeTask: vi.fn().mockResolvedValue(),
-        failTask: vi.fn().mockResolvedValue(),
-        setState: vi.fn().mockResolvedValue(),
+        completeTask: vi.fn().mockResolvedValue(void 0),
+        failTask: vi.fn().mockResolvedValue(void 0),
+        setState: vi.fn().mockResolvedValue(void 0),
       };
 
       const mockEngine: Engine = {
@@ -332,9 +332,9 @@ describe("Orchestrator", () => {
         async *watchTasks(): AsyncGenerator<Task> {
           yield task;
         },
-        completeTask: vi.fn().mockResolvedValue(),
-        failTask: vi.fn().mockResolvedValue(),
-        setState: vi.fn().mockResolvedValue(),
+        completeTask: vi.fn().mockResolvedValue(void 0),
+        failTask: vi.fn().mockResolvedValue(void 0),
+        setState: vi.fn().mockResolvedValue(void 0),
       };
 
       const mockEngine: Engine = {

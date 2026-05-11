@@ -35,7 +35,7 @@ const Page = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated || authLoading) {
+    if (!isAuthenticated || authLoading || !currentRealm) {
       return;
     }
 
@@ -47,7 +47,7 @@ const Page = () => {
           title: rune.title,
           description: rune.description || "",
           priority: rune.priority,
-          branch: rune.branch || "",
+          branch: rune.branch ?? "",
         });
       } catch (err) {
         console.error("Failed to load rune:", err);
@@ -71,23 +71,19 @@ const Page = () => {
 
     setSaving(true);
     try {
-      await api.updateRune(
-        runeId,
-        {
-          title: formData.title,
-          description: formData.description,
-          priority: formData.priority,
-          branch: formData.branch,
-        },
-        currentRealm,
-      );
+      await api.updateRune(currentRealm, runeId, {
+        title: formData.title,
+        description: formData.description,
+        priority: formData.priority,
+        branch: formData.branch,
+      });
 
-      showToast({ title: "Success", description: "Rune updated successfully", type: "success" });
+      showToast("Success", "Rune updated successfully", "success");
       navigate(`/runes/${runeId}`);
     } catch (err) {
       console.error("Failed to update rune:", err);
       const errorMessage = err instanceof ApiError ? err.message : "Failed to update rune";
-      showToast({ title: "Error", description: errorMessage, type: "error" });
+      showToast("Error", errorMessage, "error");
     } finally {
       setSaving(false);
     }

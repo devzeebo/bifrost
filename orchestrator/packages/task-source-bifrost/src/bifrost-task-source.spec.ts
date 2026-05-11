@@ -3,9 +3,10 @@ import type { Task } from "@orchestrator/task-source";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
+import type { BifrostTaskSource } from "./bifrost-task-source";
 
 const createTestSource = async (): Promise<{
-  source: BifrostTaskSource;
+  source: InstanceType<typeof BifrostTaskSource>;
   cleanup: () => Promise<void>;
 }> => {
   const tempDir = join("/tmp", `bifrost-test-${randomBytes(8).toString("hex")}`);
@@ -24,10 +25,10 @@ const createTestSource = async (): Promise<{
   process.chdir(tempDir);
   process.env.BIFROST_TEST_HOME = homeDir;
 
-  const { BifrostTaskSource } = await import("./bifrost-task-source");
+  const { BifrostTaskSource: ImportedBifrostTaskSource } = await import("./bifrost-task-source");
 
   return {
-    source: new BifrostTaskSource(),
+    source: new ImportedBifrostTaskSource(),
     cleanup: async (): Promise<void> => {
       process.chdir(originalCwd);
       if (originalHome === void 0) {
@@ -121,13 +122,13 @@ describe("BifrostTaskSource", () => {
                 updated_at: "2026-05-08T00:00:00Z",
               },
             ],
-          });
+          } as Response);
         }
         return Promise.resolve({
           ok: true,
-          json: async () => [],
-        });
-      });
+          status: 204,
+        } as Response);
+      }) as unknown as typeof global.fetch;
 
       const tasks: Task[] = [];
 

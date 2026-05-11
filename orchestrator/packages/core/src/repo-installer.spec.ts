@@ -34,7 +34,7 @@ describe("Repo Script Installer - US-5", () => {
 
       vi.mocked(readFile).mockResolvedValue(mockScriptContent);
       vi.mocked(stat).mockRejectedValue(new Error("File not found"));
-      vi.mocked(mkdir).mockResolvedValue();
+      vi.mocked(mkdir).mockResolvedValue(void 0);
       vi.mocked(writeFile).mockResolvedValue();
 
       // When the orchestrator runs against the working repository for the first time

@@ -42,12 +42,12 @@ const Page = () => {
 
     setIsLoading(true);
     try {
-      await login({ pat, remember_me: rememberMe });
-      showToast({ title: "Success", description: "Logged in successfully", type: "success" });
+      await login(pat, rememberMe);
+      showToast("Success", "Logged in successfully", "success");
       navigate("/dashboard");
     } catch (error) {
       console.error("Login failed:", error);
-      showToast({ title: "Error", description: "Failed to log in", type: "error" });
+      showToast("Error", "Failed to log in", "error");
     } finally {
       setIsLoading(false);
     }

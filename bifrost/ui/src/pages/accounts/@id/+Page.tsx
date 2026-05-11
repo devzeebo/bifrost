@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@base-ui/react/button";
 import { Combobox } from "@base-ui/react/combobox";
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
+import { Input } from "@base-ui/react/input";
 import { Select } from "@base-ui/react/select";
 import { navigate } from "@/lib/router";
 import { usePageContext } from "vike-react/usePageContext";
@@ -115,7 +116,7 @@ type _AssignRoleDialogProps = {
   onAssign: () => void;
   accountId: string;
   username: string;
-  realmFilter: string;
+  _realmFilter: string;
   setRealmFilter: (value: string) => void;
   selectedRealmId: string;
   setSelectedRealmId: (value: string) => void;
@@ -187,7 +188,7 @@ const _AssignRoleDialog = ({
                     setSelectedRealmId(value);
                   }
                 }}
-                onInputValueChange={setRealmFilter}
+                onInputValueChange={(value) => setRealmFilter(value)}
               >
                 <Combobox.Input
                   id="assign-role-combobox"
@@ -662,7 +663,7 @@ const Page = () => {
   ]);
 
   useEffect(() => {
-    void loadAccount();
+    loadAccount();
   }, [loadAccount]);
 
   const realmNameById = useMemo(() => {

@@ -3,9 +3,10 @@ import type { Task } from "@orchestrator/task-source";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
+import type { BifrostTaskSource } from "./bifrost-task-source";
 
 const createTestSource = async (): Promise<{
-  source: BifrostTaskSource;
+  source: InstanceType<typeof BifrostTaskSource>;
   cleanup: () => Promise<void>;
 }> => {
   const tempDir = join("/tmp", `bifrost-test-${randomBytes(8).toString("hex")}`);
@@ -24,10 +25,10 @@ const createTestSource = async (): Promise<{
   process.chdir(tempDir);
   process.env.BIFROST_TEST_HOME = homeDir;
 
-  const { BifrostTaskSource } = await import("./bifrost-task-source");
+  const { BifrostTaskSource: ImportedBifrostTaskSource } = await import("./bifrost-task-source");
 
   return {
-    source: new BifrostTaskSource(),
+    source: new ImportedBifrostTaskSource(),
     cleanup: async (): Promise<void> => {
       process.chdir(originalCwd);
       if (originalHome === void 0) {
@@ -157,9 +158,9 @@ describe("BifrostTaskSource - Integration Tests", () => {
                 dependencies: [{ target_id: "rune-2", relationship: "blocks" }],
               },
             ],
-          });
+          } as Response);
         } else if (callCount === 2) {
-          return Promise.resolve({ ok: true, status: 204 });
+          return Promise.resolve({ ok: true, status: 204 } as Response);
         }
         return Promise.resolve({
           ok: true,
@@ -177,8 +178,8 @@ describe("BifrostTaskSource - Integration Tests", () => {
             saga_id: "saga-1",
             dependencies: [{ target_id: "rune-2", relationship: "blocks" }],
           }),
-        });
-      });
+        } as Response);
+      }) as unknown as typeof global.fetch;
 
       let task: Task | null = null;
       for await (const taskItem of source.watchTasks()) {
@@ -224,9 +225,9 @@ describe("BifrostTaskSource - Integration Tests", () => {
                 dependencies: [],
               },
             ],
-          });
+          } as Response);
         } else if (callCount === 2) {
-          return Promise.resolve({ ok: true, status: 204 });
+          return Promise.resolve({ ok: true, status: 204 } as Response);
         }
         return Promise.resolve({
           ok: true,
@@ -242,16 +243,16 @@ describe("BifrostTaskSource - Integration Tests", () => {
             updated_at: "2026-05-08T00:00:00Z",
             dependencies: [],
           }),
-        });
-      });
+        } as Response);
+      }) as unknown as typeof global.fetch;
 
       for await (const _task of source.watchTasks()) {
         break;
       }
 
-      const claimCall = fetchCalls[1];
-      expect(claimCall[0]).toContain("/api/claim-rune");
-      expect(JSON.parse(claimCall[1].body)).toEqual({ id: "rune-1" });
+      const claimCall = fetchCalls[1] as unknown[];
+      expect(claimCall[0] as string).toContain("/api/claim-rune");
+      expect(JSON.parse((claimCall[1] as RequestInit).body as string)).toEqual({ id: "rune-1" });
 
       await cleanup();
     }, 1000);
