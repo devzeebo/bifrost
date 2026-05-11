@@ -1,5 +1,5 @@
 {
-  "name": "@orchestrator/task-source-memory",
+  "name": "@bifrost-ai/task-source-memory",
   "version": "1.0.0",
   "description": "In-memory task source implementation for Orchestrator Framework",
   "type": "module",

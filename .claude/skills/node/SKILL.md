@@ -28,7 +28,7 @@ Use native npm workspaces unless user explicitly chose otherwise (turborepo, nx,
 **Workspace pattern** ([examples/workspace-setup](examples/workspace-setup.md)):
 - Root `workspaces: ["packages/**"]` in package.json
 - Workspace scripts: `npm run build -ws`, `npm run test -ws`
-- Local deps use workspace names: `@orchestrator/core`
+- Local deps use workspace names: `@bifrost-ai/core`
 
 **TypeScript project references** ([examples/tsconfig-references](examples/tsconfig-references.md)):
 - Base config with `composite: true`

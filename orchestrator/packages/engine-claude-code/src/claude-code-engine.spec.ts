@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi, type MockedFunction } from "vitest";
 import { ClaudeCodeEngine } from "./claude-code-engine";
-import type { EngineContext } from "@orchestrator/engine";
+import type { EngineContext } from "@bifrost-ai/engine";
 import type { query as queryFn, SDKMessage, Query } from "@anthropic-ai/claude-agent-sdk";
 
 vi.mock("@anthropic-ai/claude-agent-sdk", () => ({

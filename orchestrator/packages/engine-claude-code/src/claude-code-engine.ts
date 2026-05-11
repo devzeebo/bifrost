@@ -1,4 +1,4 @@
-import type { Engine, EngineContext, EngineResult, ExecutionStats } from "@orchestrator/engine";
+import type { Engine, EngineContext, EngineResult, ExecutionStats } from "@bifrost-ai/engine";
 import {
   query,
   type SDKMessage,

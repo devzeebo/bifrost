@@ -1,5 +1,5 @@
 {
-  "name": "@orchestrator/core",
+  "name": "@bifrost-ai/core",
   "version": "1.0.0",
   "description": "Core orchestration logic for Orchestrator Framework",
   "type": "module",

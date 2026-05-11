@@ -1,5 +1,5 @@
 {
-  "name": "@orchestrator/engine-claude-code",
+  "name": "@bifrost-ai/engine-claude-code",
   "version": "1.0.0",
   "description": "Claude Code Agent SDK engine for Orchestrator Framework",
   "type": "module",

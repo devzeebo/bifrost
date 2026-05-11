@@ -16,7 +16,7 @@
 
 ### Product Description
 
-The **Bifrost Task Source Plugin** (`@orchestrator/task-source-bifrost`) implements the Orchestrator Framework's TaskSource interface, providing a bidirectional integration between Orchestrator and Bifrost. It enables AI agents to consume **runes** (work items) from Bifrost as executable tasks and report completion status back to Bifrost.
+The **Bifrost Task Source Plugin** (`@bifrost-ai/task-source-bifrost`) implements the Orchestrator Framework's TaskSource interface, providing a bidirectional integration between Orchestrator and Bifrost. It enables AI agents to consume **runes** (work items) from Bifrost as executable tasks and report completion status back to Bifrost.
 
 **Key Terms:**
 
@@ -433,7 +433,7 @@ Per Orchestrator NFR-4 (implicitly):
 - Plugin MUST run in Node.js 24+
 - Plugin MUST use ES modules (type: "module")
 - Plugin MUST export TypeScript types
-- Plugin MUST be compatible with Orchestrator Framework @orchestrator/task-source
+- Plugin MUST be compatible with Orchestrator Framework @bifrost-ai/task-source
 
 ### NFR-5: Concurrency
 
@@ -557,11 +557,11 @@ The following features are explicitly out of scope for v4:
 | **Bifrost Realm** | Tenant namespace for runes |
 | **.bifrost.yaml** | Per-project configuration (url, realm) created by `bf init` |
 | **Bifrost Credential Store** | PAT storage at ~/.config/bifrost/credentials.yaml |
-| **Orchestrator Framework** | @orchestrator/task-source interface, @orchestrator/core orchestration |
+| **Orchestrator Framework** | @bifrost-ai/task-source interface, @bifrost-ai/core orchestration |
 
 ### NPM Dependencies
 
-- `@orchestrator/task-source`: Interface and type definitions (Task, TaskSource)
+- `@bifrost-ai/task-source`: Interface and type definitions (Task, TaskSource)
 - Node.js 24+ native fetch for HTTP client
 - YAML parser for configuration and credential files (e.g., `yaml` or `js-yaml`)
 

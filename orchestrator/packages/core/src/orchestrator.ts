@@ -1,7 +1,7 @@
 import type { AgentDefinition } from "./types";
 import { validateTaskState } from "./validator";
-import type { Task, TaskSource } from "@orchestrator/task-source";
-import type { Engine, EngineContext, EngineResult } from "@orchestrator/engine";
+import type { Task, TaskSource } from "@bifrost-ai/task-source";
+import type { Engine, EngineContext, EngineResult } from "@bifrost-ai/engine";
 import { type HookExecutionContext, executeHooks } from "./hook-executor";
 
 type OrchestrationResult = {

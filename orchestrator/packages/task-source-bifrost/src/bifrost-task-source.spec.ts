@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import type { Task } from "@orchestrator/task-source";
+import type { Task } from "@bifrost-ai/task-source";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";

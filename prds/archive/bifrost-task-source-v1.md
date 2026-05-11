@@ -11,7 +11,7 @@
 
 ### Product Description
 
-The **Bifrost Task Source Plugin** (`@orchestrator/task-source-bifrost`) implements the Orchestrator Framework's TaskSource interface, providing a bidirectional integration between Orchestrator and Bifrost. It enables AI agents to consume **runes** (work items) from Bifrost as executable tasks and report completion status back to Bifrost.
+The **Bifrost Task Source Plugin** (`@bifrost-ai/task-source-bifrost`) implements the Orchestrator Framework's TaskSource interface, providing a bidirectional integration between Orchestrator and Bifrost. It enables AI agents to consume **runes** (work items) from Bifrost as executable tasks and report completion status back to Bifrost.
 
 **Key Terms:**
 
@@ -361,7 +361,7 @@ Per Orchestrator NFR-4 (implicitly):
 - Plugin MUST run in Node.js 24+
 - Plugin MUST use ES modules (type: "module")
 - Plugin MUST export TypeScript types
-- Plugin MUST be compatible with Orchestrator Framework @orchestrator/task-source
+- Plugin MUST be compatible with Orchestrator Framework @bifrost-ai/task-source
 
 ### NFR-5: Concurrency
 
@@ -465,11 +465,11 @@ The following features are explicitly out of scope for v1:
 | **Bifrost Server** | Rune management, event sourcing, projections |
 | **Bifrost HTTP API** | Task discovery, claiming, state updates, completion reporting |
 | **Bifrost Realm** | Tenant namespace for runes |
-| **Orchestrator Framework** | @orchestrator/task-source interface, @orchestrator/core orchestration |
+| **Orchestrator Framework** | @bifrost-ai/task-source interface, @bifrost-ai/core orchestration |
 
 ### NPM Dependencies
 
-- `@orchestrator/task-source`: Interface and type definitions (Task, TaskDetail, TaskSource)
+- `@bifrost-ai/task-source`: Interface and type definitions (Task, TaskDetail, TaskSource)
 - Node.js 24+ native fetch or `node-fetch` for HTTP client
 
 ### Assumptions
@@ -621,7 +621,7 @@ This section records decisions made during PRD review and feedback for future it
 ### Feedback for v2
 
 **FB1: TaskDetail Removal**
-- TaskDetail is not a separate type in @orchestrator/task-source. The Task type is the only exported type.
+- TaskDetail is not a separate type in @bifrost-ai/task-source. The Task type is the only exported type.
 - **Action:** Remove FR-3 and all references to TaskDetail. Dependencies, notes, AC, and retro belong in Task.metadata if needed.
 
 **FB2: Credential Loading**

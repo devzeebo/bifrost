@@ -1,5 +1,5 @@
 {
-  "name": "@orchestrator/cli",
+  "name": "@bifrost-ai/orchestrator",
   "version": "1.0.0",
   "description": "CLI entry point for Orchestrator Framework",
   "type": "module",

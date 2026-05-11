@@ -1,4 +1,4 @@
-import type { Task, TaskSource } from "@orchestrator/task-source";
+import type { Task, TaskSource } from "@bifrost-ai/task-source";
 
 type InternalTask = {
   id: string;

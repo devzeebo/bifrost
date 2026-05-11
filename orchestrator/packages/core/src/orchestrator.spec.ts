@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { orchestrate } from "./orchestrator";
 import type { AgentDefinition } from "./types";
-import type { Task, TaskSource } from "@orchestrator/task-source";
-import type { Engine } from "@orchestrator/engine";
+import type { Task, TaskSource } from "@bifrost-ai/task-source";
+import type { Engine } from "@bifrost-ai/engine";
 
 describe("Orchestrator", () => {
   describe("task execution lifecycle", () => {

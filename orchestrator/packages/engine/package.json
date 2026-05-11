@@ -1,5 +1,5 @@
 {
-  "name": "@orchestrator/engine",
+  "name": "@bifrost-ai/engine",
   "version": "1.0.0",
   "description": "Engine interface and types for Orchestrator Framework",
   "type": "module",

@@ -5,7 +5,7 @@ import type {
   RetroEntry,
   Task,
   TaskSource,
-} from "@orchestrator/task-source";
+} from "@bifrost-ai/task-source";
 import { BifrostHttpClient } from "./client/bifrost-http-client";
 import { loadConfig } from "./config/config-loader";
 import { CredentialLoader } from "./config/credential-loader";
