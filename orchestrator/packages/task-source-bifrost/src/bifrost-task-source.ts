@@ -1,6 +1,5 @@
 import type {
   ACEntry,
-  BifrostTaskSourceConfig,
   DependencyRef,
   NoteEntry,
   RetroEntry,
@@ -10,6 +9,7 @@ import type {
 import { BifrostHttpClient } from "./client/bifrost-http-client";
 import { loadConfig } from "./config/config-loader";
 import { CredentialLoader } from "./config/credential-loader";
+import type { BifrostTaskSourceConfig } from "./types";
 
 export class BifrostTaskSource implements TaskSource {
   readonly #config: BifrostTaskSourceConfig;

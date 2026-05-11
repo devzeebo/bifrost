@@ -1,5 +1,5 @@
 import { parse } from "yaml";
-import { readFile } from "fs/promises";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { BifrostConfig } from "../types";
 

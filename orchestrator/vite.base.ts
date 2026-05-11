@@ -3,7 +3,8 @@ import dts from "vite-plugin-dts";
 
 type ViteBaseOptions = {
   name: string;
-  tsconfig: { references?: { path: string }[] };
+  // oxlint-disable-next-line typescript/no-explicit-any
+  tsconfig: any;
   pkg: Record<string, unknown>;
 };
 
