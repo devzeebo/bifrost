@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Wizard } from "./Wizard";
+import "@testing-library/jest-dom/vitest";
 
 describe("Wizard", () => {
   const mockSteps = [

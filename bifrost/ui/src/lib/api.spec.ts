@@ -10,13 +10,13 @@ describe("ApiClient", () => {
   beforeEach(() => {
     apiClient = new ApiClient();
     mockFetch = vi.fn();
-    globalThis.fetch = mockFetch as unknown;
+    globalThis.fetch = mockFetch as unknown as typeof globalThis.fetch;
   });
 
   beforeEach(() => {
     apiClient = new ApiClient();
     mockFetch = vi.fn();
-    globalThis.fetch = mockFetch as unknown;
+    globalThis.fetch = mockFetch as unknown as typeof globalThis.fetch;
   });
 
   afterEach(() => {
@@ -287,8 +287,8 @@ describe("ApiClient", () => {
       );
       expect(result).toMatchObject({
         ...rune,
-        claimant: void 0,
-        claimant_username: void 0,
+        claimant: null,
+        claimant_username: null,
       });
     });
   });

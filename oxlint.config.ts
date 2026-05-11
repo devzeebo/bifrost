@@ -18,6 +18,7 @@ export default defineConfig({
     "sort-imports": "off",
     "no-underscore-dangle": "off",
     "consistent-type-definitions": ["error", "type"],
+    "no-undefined": "off",
     "no-ternary": "off",
     "no-void": "off",
     "typescript/explicit-function-return-type": "off",

@@ -1,7 +1,8 @@
-import { describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Toast } from "./Toast";
 import type { Toast as ToastType } from "@/lib/toast";
+import "@testing-library/jest-dom/vitest";
 
 describe("Toast", () => {
   const mockOnRemove = vi.fn();
@@ -40,7 +41,7 @@ describe("Toast", () => {
     });
 
     test("does not render description when not provided", () => {
-      const toast = createMockToast({ description: null });
+      const toast = createMockToast({ description: undefined });
       render(<Toast toast={toast} onRemove={mockOnRemove} />);
       const toastElement = screen.getByText("Test Toast").parentElement;
       expect(toastElement).toBeInTheDocument();

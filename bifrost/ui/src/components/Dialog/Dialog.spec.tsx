@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Dialog } from "./Dialog";
+import "@testing-library/jest-dom/vitest";
 
 describe("Dialog", () => {
   const defaultProps = {

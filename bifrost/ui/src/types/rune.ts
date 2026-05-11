@@ -21,8 +21,8 @@ export type RuneListItem = {
   title: string;
   status: RuneStatus;
   priority: number;
-  claimant?: string;
-  claimant_username?: string;
+  claimant?: string | null;
+  claimant_username?: string | null;
   dependencies_count?: number;
   dependents_count?: number;
   tags?: string[];

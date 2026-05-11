@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { RealmSelector } from "./RealmSelector";
+import "@testing-library/jest-dom/vitest";
 
 // Define types locally since they're not exported from lib files
 type RealmContextValue = {

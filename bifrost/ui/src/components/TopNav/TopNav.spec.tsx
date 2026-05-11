@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { TopNav } from "./TopNav";
+import "@testing-library/jest-dom/vitest";
 
 // Define types locally since they're not exported from lib files
 type AuthContextValue = {
