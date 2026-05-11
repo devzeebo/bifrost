@@ -5,7 +5,7 @@ export default defineConfig({
     correctness: "error",
     perf: "error",
     restriction: "error",
-    style: "warn",
+    style: "error",
     suspicious: "error",
   },
   plugins: ["typescript"],
