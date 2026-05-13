@@ -14,6 +14,6 @@
     "@bifrost-ai/task-source": "^0.0.0",
     "@bifrost-ai/engine": "^0.0.0",
     "gray-matter": "^4.0.3",
-    "handlebars": "^4.7.8"
+    "handlebars": "^4.7.9"
   }
 }
