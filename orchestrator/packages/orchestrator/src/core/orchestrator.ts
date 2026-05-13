@@ -93,15 +93,19 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
   let maxFollowUps = 10;
   let lastMessage = "";
   let instructions: string | undefined = undefined;
+  let sessionId: string | undefined = undefined;
 
   while ((maxFollowUps -= 1) > 0) {
     numTurns += 1;
 
     // oxlint-disable-next-line no-await-in-loop
-    const engineResult: EngineResult = await engine.execute({
-      ...engineContext,
-      instructions,
-    });
+    const engineResult: EngineResult = await engine.execute(
+      {
+        ...engineContext,
+        instructions,
+      },
+      sessionId,
+    );
 
     if (engineResult.stats) {
       if (!totalTelemetry) {
@@ -118,6 +122,7 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
     }
 
     lastMessage = engineResult.lastMessage || lastMessage;
+    ({ sessionId } = engineResult);
 
     // Step 4: Execute post-task hooks
     // oxlint-disable-next-line no-await-in-loop

@@ -3,18 +3,22 @@
   "compilerOptions": {
     "noEmit": true
   },
+  "include": ["vitest.setup.ts"],
   "references": [
     {
-      "path": "./packages/cli"
-    },
-    {
-      "path": "./packages/core"
+      "path": "./packages/orchestrator"
     },
     {
       "path": "./packages/engine"
     },
     {
+      "path": "./packages/engine-claude-code"
+    },
+    {
       "path": "./packages/task-source"
+    },
+    {
+      "path": "./packages/task-source-bifrost"
     },
     {
       "path": "./packages/task-source-memory"

@@ -15,6 +15,7 @@ export type EngineResult = {
   skipFulfill: boolean;
   lastMessage: string | null;
   stats: ExecutionStats | null;
+  sessionId?: string;
 };
 
 // FR-2: ExecutionStats MUST contain
