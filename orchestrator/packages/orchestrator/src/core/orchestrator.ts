@@ -92,12 +92,16 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
   // Main execution loop (handles follow-ups)
   let maxFollowUps = 10;
   let lastMessage = "";
+  let instructions: string | undefined = undefined;
 
   while ((maxFollowUps -= 1) > 0) {
     numTurns += 1;
 
     // oxlint-disable-next-line no-await-in-loop
-    const engineResult: EngineResult = await engine.execute(engineContext);
+    const engineResult: EngineResult = await engine.execute({
+      ...engineContext,
+      instructions,
+    });
 
     if (engineResult.stats) {
       if (!totalTelemetry) {
@@ -145,24 +149,8 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
       break;
     }
 
-    if (engine.sendFollowUp) {
-      // oxlint-disable-next-line no-await-in-loop
-      const followUpResult = await engine.sendFollowUp(followUpMessage);
-      if (followUpResult.stats) {
-        if (!totalTelemetry) {
-          totalTelemetry = { ...followUpResult.stats };
-        } else {
-          totalTelemetry.durationMs += followUpResult.stats.durationMs;
-          totalTelemetry.inputTokens += followUpResult.stats.inputTokens;
-          totalTelemetry.outputTokens += followUpResult.stats.outputTokens;
-          totalTelemetry.cacheReadTokens += followUpResult.stats.cacheReadTokens;
-          totalTelemetry.cacheCreationTokens += followUpResult.stats.cacheCreationTokens;
-          totalTelemetry.totalCostUsd += followUpResult.stats.totalCostUsd;
-          totalTelemetry.numTurns += followUpResult.stats.numTurns;
-        }
-      }
-      numTurns += 1;
-    }
+    // Set instructions for next iteration
+    instructions = followUpMessage;
   }
 
   // Step 5: Report success
