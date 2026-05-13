@@ -20,6 +20,7 @@ export default defineConfig({
     "consistent-type-definitions": ["error", "type"],
     "no-undefined": "off",
     "no-ternary": "off",
+    "no-await-in-loop": "off",
     "no-void": "off",
     "typescript/explicit-function-return-type": "off",
     "typescript/explicit-module-boundary-types": "off",

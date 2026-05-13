@@ -46,8 +46,6 @@ export class MemoryTaskSource implements TaskSource {
           }
         }
       }
-
-      // oxlint-disable-next-line no-await-in-loop
       await new Promise((resolve) => setTimeout(resolve, 50));
       // oxlint-disable-next-line no-plusplus
       iterations++;

@@ -1,5 +1,24 @@
 // FR-4: Agent Definition File types
 
+export type HookResult = {
+  outcome: "success" | "follow-up" | "fatal" | "skip";
+  message?: string;
+};
+
+export type HookExecutionContext = {
+  projectDir: string;
+  hookName: string;
+  params: Record<string, unknown>;
+  taskState: Record<string, unknown>;
+};
+
+export type HookFn = (ctx: HookExecutionContext) => Promise<HookResult>;
+
+export type HookSpec = {
+  name: string;
+  fn: HookFn;
+};
+
 export type AgentDefinition = {
   name: string;
   description: string;
@@ -17,10 +36,4 @@ export type Template = {
 export type Hooks = {
   Start: HookSpec[];
   Stop: HookSpec[];
-};
-
-export type HookSpec = {
-  name: string;
-  scriptPath: string;
-  timeout?: number;
 };

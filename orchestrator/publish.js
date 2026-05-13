@@ -14,7 +14,7 @@ const setPackageVersion = async (pkgDir, version, updateBifrostDeps = false) => 
   // Update sibling @bifrost-ai dependencies
   for (const depType of ["dependencies", "devDependencies", "peerDependencies"]) {
     if (pkg[depType]) {
-      for (const [name, _] of Object.entries(pkg[depType])) {
+      for (const [name] of Object.entries(pkg[depType])) {
         if (name.startsWith("@bifrost-ai/")) {
           // publish: use exact version, restore: use ^0.0.0
           pkg[depType][name] = updateBifrostDeps ? version : "^0.0.0";
@@ -30,7 +30,6 @@ const setPackageVersion = async (pkgDir, version, updateBifrostDeps = false) => 
 const publishOrder = [
   "@bifrost-ai/task-source",
   "@bifrost-ai/engine",
-  "@bifrost-ai/core",
   "@bifrost-ai/task-source-bifrost",
   "@bifrost-ai/engine-claude-code",
   "@bifrost-ai/orchestrator", // Main CLI entry point

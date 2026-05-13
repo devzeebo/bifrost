@@ -25,13 +25,6 @@ template:
     context?:
       prDescription: string
       additionalNotes?: string
-hooks:
-  Start:
-    - name: validate-args
-      scriptPath: hooks/Start.d/validate-args.mjs
-  Stop:
-    - name: check-new-tests
-      scriptPath: hooks/Stop.d/check-new-tests.mjs
 ---
 You are a code reviewer. Review the changes for {{language.name}}.
 `;
@@ -46,6 +39,8 @@ You are a code reviewer. Review the changes for {{language.name}}.
       expect(agent?.toolClasses).toEqual(["linter"]);
       expect(agent?.template.parameters).toBeDefined();
       expect(agent?.promptBody).toContain("You are a code reviewer");
+      expect(agent?.hooks.Start).toEqual([]);
+      expect(agent?.hooks.Stop).toEqual([]);
     });
 
     it("should render Handlebars tokens from template.parameters", () => {
@@ -152,46 +147,6 @@ Use the {{framework}} for {{language}}.
 
       // Then parsing fails identifying the undeclared token by name
       expect(agent).toBeNull();
-    });
-  });
-
-  describe("Hook parsing", () => {
-    it("should parse Start hooks", () => {
-      const content = `---
-name: test-agent
-description: Test
-tools: []
-hooks:
-  Start:
-    - name: validate-args
-      scriptPath: hooks/Start.d/validate-args.mjs
-      timeout: 120000
----
-Prompt
-`;
-
-      const agent = parseAgentDefinition(content);
-      expect(agent?.hooks.Start).toHaveLength(1);
-      expect(agent?.hooks.Start[0].name).toBe("validate-args");
-      expect(agent?.hooks.Start[0].timeout).toBe(120000);
-    });
-
-    it("should parse Stop hooks", () => {
-      const content = `---
-name: test-agent
-description: Test
-tools: []
-hooks:
-  Stop:
-    - name: check-new-tests
-      scriptPath: hooks/Stop.d/check-new-tests.mjs
----
-Prompt
-`;
-
-      const agent = parseAgentDefinition(content);
-      expect(agent?.hooks.Stop).toHaveLength(1);
-      expect(agent?.hooks.Stop[0].name).toBe("check-new-tests");
     });
   });
 });
