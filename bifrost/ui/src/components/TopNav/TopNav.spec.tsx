@@ -1,6 +1,7 @@
-import { describe, expect, vi, beforeEach, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { TopNav } from "./TopNav";
+import "@testing-library/jest-dom/vitest";
 
 // Define types locally since they're not exported from lib files
 type AuthContextValue = {
@@ -44,9 +45,7 @@ import { useTheme } from "../../lib/theme";
 import { useRealm } from "../../lib/realm";
 
 // Helper function to create complete AuthContextValue mock
-const createMockAuthValue = (
-  overrides: Partial<AuthContextValue> = {},
-): AuthContextValue => ({
+const createMockAuthValue = (overrides: Partial<AuthContextValue> = {}): AuthContextValue => ({
   isAuthenticated: true,
   accountId: "123",
   username: "testuser",
@@ -54,16 +53,14 @@ const createMockAuthValue = (
   realms: [],
   realmNames: {},
   isSysadmin: false,
-  login: vi.fn().mockResolvedValue(undefined),
-  logout: vi.fn().mockResolvedValue(undefined),
+  login: vi.fn().mockResolvedValue(Promise.resolve()),
+  logout: vi.fn().mockResolvedValue(Promise.resolve()),
   loading: false,
   ...overrides,
 });
 
 // Helper function to create complete ThemeContextValue mock
-const createMockThemeValue = (
-  overrides: Partial<ThemeContextValue> = {},
-): ThemeContextValue => ({
+const createMockThemeValue = (overrides: Partial<ThemeContextValue> = {}): ThemeContextValue => ({
   isDark: false,
   toggleTheme: vi.fn(),
   ...overrides,
@@ -83,9 +80,7 @@ describe("TopNav", () => {
 
   describe("Navigation Links", () => {
     beforeEach(() => {
-      vi.mocked(useAuth).mockReturnValue(
-        createMockAuthValue({ username: "testuser" }),
-      );
+      vi.mocked(useAuth).mockReturnValue(createMockAuthValue({ username: "testuser" }));
       vi.mocked(useTheme).mockReturnValue(createMockThemeValue());
     });
 
@@ -127,7 +122,9 @@ describe("TopNav", () => {
       rerender(<TopNav currentPath="/ui/realms/realm-123" />);
 
       expect(screen.getByText("Realms").closest("button")).toHaveClass("top-nav__link--active");
-      expect(screen.getByText("Accounts").closest("button")).not.toHaveClass("top-nav__link--active");
+      expect(screen.getByText("Accounts").closest("button")).not.toHaveClass(
+        "top-nav__link--active",
+      );
     });
 
     test("matches sections when currentPath is missing the /ui prefix", () => {
@@ -149,9 +146,7 @@ describe("TopNav", () => {
 
   describe("Theme Toggle", () => {
     beforeEach(() => {
-      vi.mocked(useAuth).mockReturnValue(
-        createMockAuthValue({ username: "testuser" }),
-      );
+      vi.mocked(useAuth).mockReturnValue(createMockAuthValue({ username: "testuser" }));
     });
 
     test("displays theme toggle button in light mode", () => {
@@ -201,9 +196,7 @@ describe("TopNav", () => {
     });
 
     test("displays account badge with username initial", () => {
-      vi.mocked(useAuth).mockReturnValue(
-        createMockAuthValue({ username: "John Doe" }),
-      );
+      vi.mocked(useAuth).mockReturnValue(createMockAuthValue({ username: "John Doe" }));
       render(<TopNav />);
       expect(screen.getByText("J")).toBeInTheDocument();
       expect(screen.getByText("John Doe")).toBeInTheDocument();
@@ -219,7 +212,7 @@ describe("TopNav", () => {
     });
 
     test("opens user menu and triggers logout", async () => {
-      const logout = vi.fn().mockResolvedValue(undefined);
+      const logout = vi.fn().mockResolvedValue(Promise.resolve());
       vi.mocked(useAuth).mockReturnValue(createMockAuthValue({ username: "John Doe", logout }));
       render(<TopNav />);
 
@@ -237,9 +230,7 @@ describe("TopNav", () => {
 
   describe("Logo", () => {
     beforeEach(() => {
-      vi.mocked(useAuth).mockReturnValue(
-        createMockAuthValue({ username: "testuser" }),
-      );
+      vi.mocked(useAuth).mockReturnValue(createMockAuthValue({ username: "testuser" }));
       vi.mocked(useTheme).mockReturnValue(createMockThemeValue());
     });
 
@@ -253,9 +244,7 @@ describe("TopNav", () => {
 
   describe("Component Rendering", () => {
     beforeEach(() => {
-      vi.mocked(useAuth).mockReturnValue(
-        createMockAuthValue({ username: "testuser" }),
-      );
+      vi.mocked(useAuth).mockReturnValue(createMockAuthValue({ username: "testuser" }));
       vi.mocked(useTheme).mockReturnValue(createMockThemeValue());
     });
 

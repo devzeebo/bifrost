@@ -8,10 +8,9 @@ import { navigate } from "@/lib/router";
 import { useAuth } from "../../lib/auth";
 import { useRealm } from "../../lib/realm";
 import { useToast } from "../../lib/toast";
-import { ApiError, api } from "../../lib/api";
+import { api } from "../../lib/api";
 import { RealmSelector } from "../../components/RealmSelector/RealmSelector";
 import type { RuneListItem, RuneStatus } from "../../types/rune";
-export { Page };
 
 const ACTIVE_STATUSES: RuneStatus[] = ["draft", "open", "in_progress"];
 
@@ -20,132 +19,162 @@ const STATUS_FILTERS: { label: string; value: RuneStatus | "all" | "active" }[] 
   { label: "All", value: "all" },
 ];
 
-function Page() {
+const RunesList = ({
+  isLoading,
+  filteredRunes,
+  onRuneClick,
+}: {
+  isLoading: boolean;
+  filteredRunes: RuneListItem[];
+  onRuneClick: (runeId: string) => void;
+}) => {
+  if (isLoading) {
+    return (
+      <div className="text-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4" />
+        <p>Loading runes...</p>
+      </div>
+    );
+  }
+
+  if (filteredRunes.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <p>No runes found.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+      <div
+        className="grid grid-cols-12 gap-4 p-4 text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider"
+        style={{
+          borderBottom: "2px solid var(--color-border)",
+          backgroundColor: "var(--color-surface)",
+        }}
+      >
+        <div className="col-span-2">ID</div>
+        <div className="col-span-5">Title</div>
+        <div className="col-span-2">Status</div>
+        <div className="col-span-3">Claimed By</div>
+      </div>
+
+      <div className="divide-y divide-gray-200 dark:divide-gray-700">
+        {filteredRunes.map((rune) => {
+          const statusColor = (() => {
+            if (rune.status === "draft") {
+              return "var(--color-gray)";
+            }
+            if (rune.status === "open") {
+              return "var(--color-blue)";
+            }
+            if (rune.status === "in_progress") {
+              return "var(--color-amber)";
+            }
+            return "var(--color-gray)";
+          })();
+
+          return (
+            <div
+              key={rune.id}
+              className="grid grid-cols-12 gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors"
+              onClick={() => onRuneClick(rune.id)}
+              style={{
+                backgroundColor: "var(--color-bg)",
+              }}
+            >
+              <div className="col-span-2 font-mono text-sm">{rune.id.slice(0, 8)}</div>
+              <div className="col-span-5 font-medium">{rune.title}</div>
+              <div className="col-span-2">
+                <span
+                  className="px-2 py-1 text-xs rounded-full font-medium"
+                  style={{
+                    backgroundColor: statusColor,
+                    color: "white",
+                  }}
+                >
+                  {rune.status}
+                </span>
+              </div>
+              <div className="col-span-3 text-sm text-gray-600 dark:text-gray-400">
+                {rune.claimant_username || "-"}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+const Page = () => {
   const [runes, setRunes] = useState<RuneListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<RuneStatus | "all" | "active">("active");
-  const { realms, isAuthenticated, loading: authLoading } = useAuth();
-  const { currentRealm, availableRealms, isLoading: realmLoading } = useRealm();
+  const [statusFilter, setStatusFilter] = useState<RuneStatus | "all" | "active">("all");
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { currentRealm } = useRealm();
   const { showToast } = useToast();
-  const fallbackRealms = realms.filter((realmId) => realmId !== "_admin");
-  const effectiveRealms = availableRealms.length > 0 ? availableRealms : fallbackRealms;
-  const effectiveRealm =
-    currentRealm && effectiveRealms.includes(currentRealm)
-      ? currentRealm
-      : (effectiveRealms[0] ?? null);
 
   useEffect(() => {
-    if (authLoading) return;
-
-    if (!isAuthenticated) {
-      navigate("/login");
+    if (!isAuthenticated || !currentRealm || authLoading) {
       return;
     }
 
-    const fetchRunes = async () => {
-      if (realmLoading) {
-        return;
-      }
-
-      if (!effectiveRealm) {
-        setRunes([]);
-        setIsLoading(false);
-        return;
-      }
-
+    const loadRunes = async () => {
       try {
         setIsLoading(true);
-        const data = await api.getRunes(effectiveRealm);
-        setRunes(data);
+        const runesData = await api.getRunes(currentRealm);
+        setRunes(runesData);
       } catch (error) {
-        if (error instanceof ApiError && error.status === 404) {
-          setRunes([]);
-        } else {
-          showToast("Error", "Failed to load runes", "error");
-        }
+        console.error("Failed to load runes:", error);
+        showToast("Error", "Failed to load runes", "error");
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchRunes();
-  }, [authLoading, effectiveRealm, isAuthenticated, realmLoading, showToast]);
+    loadRunes();
+  }, [isAuthenticated, currentRealm, authLoading, showToast]);
 
-  const filteredRunes =
-    statusFilter === "all"
-      ? runes
-      : statusFilter === "active"
-        ? runes.filter((r) => ACTIVE_STATUSES.includes(r.status))
-        : runes.filter((r) => r.status === statusFilter);
+  let filteredRunes: RuneListItem[] = [];
+  if (statusFilter === "all") {
+    filteredRunes = runes;
+  } else if (statusFilter === "active") {
+    filteredRunes = runes.filter((rune) => ACTIVE_STATUSES.includes(rune.status));
+  } else {
+    filteredRunes = runes.filter((rune) => rune.status === statusFilter);
+  }
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+  const handleCreateRune = () => {
+    navigate("/runes/create");
   };
 
-  const getStatusColor = (status: string) => {
-    if (status === "claimed") {
-      return "var(--color-amber)";
-    }
-    const colors: Record<RuneStatus, string> = {
-      draft: "var(--color-border)",
-      open: "var(--color-blue)",
-      in_progress: "var(--color-amber)",
-      fulfilled: "var(--color-green)",
-      sealed: "var(--color-purple)",
-    };
-    return colors[status as RuneStatus] ?? "var(--color-border)";
+  const handleRuneClick = (runeId: string) => {
+    navigate(`/runes/${runeId}`);
   };
 
-  const getPriorityBadge = (priority: number) => {
-    if (priority >= 4) {
-      return { label: "P1", color: "var(--color-red)" };
-    } else if (priority >= 3) {
-      return { label: "P2", color: "var(--color-amber)" };
-    } else if (priority >= 2) {
-      return { label: "P3", color: "var(--color-blue)" };
-    }
-    return { label: "P4", color: "var(--color-text-muted)" };
+  const handleStatusChange = (value: string[]) => {
+    setStatusFilter(value[0] as RuneStatus | "all" | "active");
   };
 
-  if (authLoading || realmLoading || isLoading) {
+  if (authLoading) {
     return (
-      <div className="min-h-[calc(100vh-56px)] flex items-center justify-center">
-        <div
-          className="px-8 py-4 text-lg font-bold uppercase tracking-wider"
-          style={{
-            backgroundColor: "var(--color-bg)",
-            border: "2px solid var(--color-border)",
-            boxShadow: "var(--shadow-soft)",
-          }}
-        >
-          Loading...
+      <div className="min-h-[calc(100vh-56px)] flex items-center justify-center p-6">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4" />
+          <p>Loading...</p>
         </div>
       </div>
     );
   }
 
-  if (effectiveRealms.length === 0) {
+  if (!isAuthenticated) {
     return (
       <div className="min-h-[calc(100vh-56px)] flex items-center justify-center p-6">
-        <div
-          className="p-8 text-center max-w-md"
-          style={{
-            backgroundColor: "var(--color-bg)",
-            border: "2px solid var(--color-border)",
-            boxShadow: "var(--shadow-soft)",
-          }}
-        >
-          <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">
-            No Realms Found
-          </h2>
-          <p className="text-sm mb-6" style={{ color: "var(--color-text-muted)" }}>
-            You don't have access to any realms yet. Contact your administrator.
-          </p>
+        <div className="text-center p-6 border border-red-500 rounded">
+          <h2 className="text-xl font-bold mb-2">Authentication Required</h2>
+          <p>Please log in to view runes.</p>
         </div>
       </div>
     );
@@ -153,201 +182,69 @@ function Page() {
 
   return (
     <div className="min-h-[calc(100vh-56px)] p-6">
-      {/* Filter Tabs and Actions */}
-      <div className="flex justify-between items-center mb-6">
-        <ToggleGroup
-          value={[statusFilter]}
-          onValueChange={(values) => {
-            const nextFilter = values[0];
-            if (nextFilter) {
-              setStatusFilter(nextFilter as RuneStatus | "all" | "active");
-            }
-          }}
-          className="flex flex-wrap gap-2"
-        >
-          {STATUS_FILTERS.map((filter) => (
-            <Toggle
-              key={filter.value}
-              value={filter.value}
-              className="px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-150"
-              style={{
-                backgroundColor:
-                  statusFilter === filter.value
-                    ? "var(--color-amber)"
-                    : "var(--color-bg)",
-                border: "2px solid var(--color-border)",
-                color:
-                  statusFilter === filter.value ? "white" : "var(--color-text)",
-                boxShadow: "var(--shadow-soft)",
-              }}
-            >
-              {filter.label}
-            </Toggle>
-          ))}
-        </ToggleGroup>
-        <div className="flex items-center gap-3">
-          <RealmSelector />
-          <Button
-            onClick={() => navigate("/runes/new")}
-            className="px-3 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-150"
-            style={{
-              backgroundColor: "var(--color-bg)",
-              border: "2px solid var(--color-border)",
-              color: "var(--color-text)",
-              boxShadow: "var(--shadow-soft)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--color-amber)";
-              e.currentTarget.style.color = "white";
-              e.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--color-bg)";
-              e.currentTarget.style.color = "var(--color-text)";
-              e.currentTarget.style.boxShadow = "var(--shadow-soft)";
-            }}
-          >
-            +
-          </Button>
-        </div>
-      </div>
-
-
-
-      {/* Runes Table */}
-      <div
-        style={{
-          backgroundColor: "var(--color-bg)",
-          border: "2px solid var(--color-border)",
-            boxShadow: "var(--shadow-soft)",
-        }}
-      >
-        {/* Table Header */}
-        <div
-          className="grid grid-cols-16 gap-4 px-4 py-3 text-xs font-bold uppercase tracking-wider"
-          style={{
-            borderBottom: "2px solid var(--color-border)",
-            backgroundColor: "var(--color-surface)",
-          }}
-        >
-          <div className="col-span-1">ID</div>
-          <div className="col-span-4">Title</div>
-          <div className="col-span-2">Status</div>
-          <div className="col-span-3">Claimed By</div>
-          <div className="col-span-2">Dependencies</div>
-          <div className="col-span-2">Dependents</div>
-          <div className="col-span-1">Priority</div>
-          <div className="col-span-1">Created</div>
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">Runes</h1>
+          <p className="text-gray-600">Manage and track your work items</p>
         </div>
 
-        {/* Table Body */}
-        {filteredRunes.length === 0 ? (
-          <div
-            className="px-4 py-12 text-center text-sm uppercase tracking-wider"
-            style={{ color: "var(--color-text-muted)" }}
-          >
-            No runes found. Create your first rune to get started.
+        <div className="flex flex-col lg:flex-row gap-6">
+          <div className="lg:w-1/4">
+            <RealmSelector />
           </div>
-        ) : (
-          <div>
-            {filteredRunes.map((rune) => {
-              const priorityBadge = getPriorityBadge(rune.priority);
-              return (
-                <button
-                  type="button"
-                  key={rune.id}
-                  className="grid grid-cols-16 gap-4 px-4 py-4 items-center cursor-pointer transition-all duration-150 hover:translate-x-[2px]"
+
+          <div className="lg:w-3/4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
+                <div className="flex items-center gap-4">
+                  <h2 className="text-xl font-bold">All Runes</h2>
+                  <ToggleGroup
+                    value={[statusFilter]}
+                    onValueChange={handleStatusChange}
+                    className="flex gap-2"
+                  >
+                    {STATUS_FILTERS.map((filter) => (
+                      <Toggle
+                        key={filter.value}
+                        value={filter.value}
+                        aria-label={filter.label}
+                        className="px-3 py-1 text-sm"
+                        style={{
+                          backgroundColor: "var(--color-bg)",
+                          border: "2px solid var(--color-border)",
+                          color: "var(--color-text)",
+                        }}
+                      >
+                        {filter.label}
+                      </Toggle>
+                    ))}
+                  </ToggleGroup>
+                </div>
+
+                <Button
+                  onClick={handleCreateRune}
+                  className="px-6 py-2 text-sm font-bold uppercase tracking-wider"
                   style={{
-                    borderBottom: "1px solid var(--color-border)",
-                    backgroundColor: "var(--color-bg)",
-                    width: "100%",
-                    textAlign: "left",
-                  }}
-                  onClick={() => navigate(`/runes/${rune.id}`)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      navigate(`/runes/${rune.id}`);
-                    }
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "var(--color-surface)";
-                    e.currentTarget.style.borderLeftWidth = "4px";
-                    e.currentTarget.style.borderLeftColor = "var(--color-amber)";
-                    e.currentTarget.style.borderLeftStyle = "solid";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "var(--color-bg)";
-                    e.currentTarget.style.borderLeftWidth = "0px";
+                    backgroundColor: "var(--color-blue)",
+                    border: "2px solid var(--color-border)",
+                    color: "white",
                   }}
                 >
-                  <div className="col-span-1">
-                    <span
-                      className="text-xs font-mono"
-                      style={{ color: "var(--color-text-muted)" }}
-                    >
-                      {rune.id.slice(0, 8)}
-                    </span>
-                  </div>
-                  <div className="col-span-4">
-                    <span className="font-medium truncate block">
-                      {rune.title}
-                    </span>
-                  </div>
-                  <div className="col-span-2">
-                    <span
-                      className="text-xs uppercase tracking-wider px-2 py-1 font-semibold"
-                      style={{
-                        color: getStatusColor(rune.status),
-                        border: `1px solid ${getStatusColor(rune.status)}`,
-                      }}
-                    >
-                      {rune.status.replace("_", " ")}
-                    </span>
-                  </div>
-                  <div className="col-span-3">
-                    <span className="text-xs font-mono" style={{ color: "var(--color-text-muted)" }}>
-                      {(() => {
-                        const claimant = rune.claimant_username || rune.claimant || "";
-                        return claimant && claimant !== "<nil>" ? claimant : "-";
-                      })()}
-                    </span>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="text-xs font-semibold" style={{ color: "var(--color-text)" }}>
-                      {rune.dependencies_count ?? 0}
-                    </span>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="text-xs font-semibold" style={{ color: "var(--color-text)" }}>
-                      {rune.dependents_count ?? 0}
-                    </span>
-                  </div>
-                  <div className="col-span-1">
-                    <span
-                      className="text-xs font-bold px-2 py-1"
-                      style={{
-                        backgroundColor: priorityBadge.color,
-                        color: "white",
-                      }}
-                    >
-                      {priorityBadge.label}
-                    </span>
-                  </div>
-                  <div className="col-span-1">
-                    <span
-                      className="text-xs"
-                      style={{ color: "var(--color-text-muted)" }}
-                    >
-                      {formatDate(rune.created_at)}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
+                  Create Rune
+                </Button>
+              </div>
+
+              <RunesList
+                isLoading={isLoading}
+                filteredRunes={filteredRunes}
+                onRuneClick={handleRuneClick}
+              />
+            </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
-}
+};
+
+export { Page };

@@ -1,13 +1,14 @@
-import { describe, expect, vi, beforeEach, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { RealmSelector } from "./RealmSelector";
+import "@testing-library/jest-dom/vitest";
 
 // Define types locally since they're not exported from lib files
 type RealmContextValue = {
   currentRealm: string | null;
   setCurrentRealm: (realm: string | null) => void;
   availableRealms: string[];
-  realmOptions: Array<{ id: string; name: string }>;
+  realmOptions: { id: string; name: string }[];
   isLoading: boolean;
 };
 
@@ -19,9 +20,7 @@ vi.mock("../../lib/realm", () => ({
 import { useRealm } from "../../lib/realm";
 
 // Helper function to create complete RealmContextValue mock
-const createMockRealmValue = (
-  overrides: Partial<RealmContextValue> = {},
-): RealmContextValue => ({
+const createMockRealmValue = (overrides: Partial<RealmContextValue> = {}): RealmContextValue => ({
   currentRealm: "test-realm",
   setCurrentRealm: vi.fn(),
   availableRealms: ["test-realm", "other-realm"],
@@ -40,13 +39,9 @@ describe("RealmSelector", () => {
 
   describe("Loading State", () => {
     test("shows loading message when isLoading is true", () => {
-      vi.mocked(useRealm).mockReturnValue(
-        createMockRealmValue({ isLoading: true }),
-      );
+      vi.mocked(useRealm).mockReturnValue(createMockRealmValue({ isLoading: true }));
       render(<RealmSelector />);
-      expect(
-        screen.getByText("Loading realms..."),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Loading realms...")).toBeInTheDocument();
     });
   });
 

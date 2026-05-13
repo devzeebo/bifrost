@@ -2,7 +2,7 @@
 
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 
-interface DialogProps {
+type DialogProps = {
   open: boolean;
   onClose: () => void;
   title: string;
@@ -11,36 +11,40 @@ interface DialogProps {
   cancelLabel?: string;
   onConfirm: () => void;
   color?: "blue" | "green" | "red" | "yellow";
-}
+};
 
 const colorStyles = {
   blue: {
     border: "border-blue-500",
     bg: "bg-white dark:bg-gray-800",
     confirm: "border-blue-500 bg-blue-500 text-white hover:bg-blue-600",
-    cancel: "border-gray-400 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700",
+    cancel:
+      "border-gray-400 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700",
   },
   green: {
     border: "border-green-500",
     bg: "bg-white dark:bg-gray-800",
     confirm: "border-green-500 bg-green-500 text-white hover:bg-green-600",
-    cancel: "border-gray-400 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700",
+    cancel:
+      "border-gray-400 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700",
   },
   red: {
     border: "border-red-500",
     bg: "bg-white dark:bg-gray-800",
     confirm: "border-red-500 bg-red-500 text-white hover:bg-red-600",
-    cancel: "border-gray-400 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700",
+    cancel:
+      "border-gray-400 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700",
   },
   yellow: {
     border: "border-yellow-500",
     bg: "bg-white dark:bg-gray-800",
     confirm: "border-yellow-500 bg-yellow-500 text-white hover:bg-yellow-600",
-    cancel: "border-gray-400 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700",
+    cancel:
+      "border-gray-400 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700",
   },
 };
 
-export function Dialog({
+export const Dialog = ({
   open,
   onClose,
   title,
@@ -49,7 +53,7 @@ export function Dialog({
   cancelLabel = "Cancel",
   onConfirm,
   color = "blue",
-}: DialogProps) {
+}: DialogProps) => {
   const styles = colorStyles[color];
 
   const handleConfirm = () => {
@@ -105,4 +109,4 @@ export function Dialog({
       </BaseDialog.Portal>
     </BaseDialog.Root>
   );
-}
+};

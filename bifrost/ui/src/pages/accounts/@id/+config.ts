@@ -1,4 +1,4 @@
-import type { Config } from 'vike/types';
+import type { Config } from "vike/types";
 
 // Opt out of pre-rendering for parameterized routes
 // These pages will be resolved client-side

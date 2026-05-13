@@ -1,14 +1,13 @@
-import { describe, expect, vi, test } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { Toast } from "./Toast";
-import { type Toast as ToastType } from "@/lib/toast";
+import type { Toast as ToastType } from "@/lib/toast";
+import "@testing-library/jest-dom/vitest";
 
 describe("Toast", () => {
   const mockOnRemove = vi.fn();
 
-  const createMockToast = (
-    overrides: Partial<ToastType> = {},
-  ): ToastType => ({
+  const createMockToast = (overrides: Partial<ToastType> = {}): ToastType => ({
     id: "test-123",
     title: "Test Toast",
     description: "This is a test toast message",
@@ -38,9 +37,7 @@ describe("Toast", () => {
         description: "Operation completed successfully",
       });
       render(<Toast toast={toast} onRemove={mockOnRemove} />);
-      expect(
-        screen.getByText("Operation completed successfully"),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Operation completed successfully")).toBeInTheDocument();
     });
 
     test("does not render description when not provided", () => {

@@ -10,8 +10,6 @@ import { ApiError, api } from "../../../../lib/api";
 import { useRealm } from "../../../../lib/realm";
 import { useToast } from "../../../../lib/toast";
 
-export { Page };
-
 type FormState = {
   title: string;
   description: string;
@@ -19,101 +17,108 @@ type FormState = {
   branch: string;
 };
 
-function Page() {
+const Page = () => {
   const pageContext = usePageContext();
   const runeId = pageContext.routeParams?.id as string;
-  const { realms, isAuthenticated, loading: authLoading } = useAuth();
-  const { currentRealm, availableRealms, isLoading: realmLoading } = useRealm();
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { currentRealm } = useRealm();
   const { showToast } = useToast();
-  const fallbackRealms = realms.filter((realmId) => realmId !== "_admin");
-  const effectiveRealms = availableRealms.length > 0 ? availableRealms : fallbackRealms;
-  const effectiveRealm =
-    currentRealm && effectiveRealms.includes(currentRealm)
-      ? currentRealm
-      : (effectiveRealms[0] ?? null);
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [form, setForm] = useState<FormState>({
+  const [formData, setFormData] = useState<FormState>({
     title: "",
     description: "",
-    priority: 2,
+    priority: 1,
     branch: "",
   });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (authLoading || realmLoading) {
-      return;
-    }
-
-    if (!isAuthenticated) {
-      navigate("/login");
-      return;
-    }
-
-    if (!runeId || !effectiveRealm) {
-      setIsLoading(false);
+    if (!isAuthenticated || authLoading || !currentRealm) {
       return;
     }
 
     const loadRune = async () => {
       try {
-        const rune = await api.getRune(effectiveRealm, runeId);
-        setForm({
+        setLoading(true);
+        const rune = await api.getRune(currentRealm, runeId);
+        setFormData({
           title: rune.title,
           description: rune.description || "",
           priority: rune.priority,
-          branch: rune.branch || "",
+          branch: rune.branch ?? "",
         });
-      } catch {
-        showToast("Error", "Failed to load rune", "error");
+      } catch (err) {
+        console.error("Failed to load rune:", err);
+        setError("Failed to load rune data");
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
-    void loadRune();
-  }, [authLoading, effectiveRealm, isAuthenticated, realmLoading, runeId, showToast]);
+    loadRune();
+  }, [isAuthenticated, authLoading, currentRealm, runeId]);
 
-  const canSave = form.title.trim().length >= 3 && form.priority >= 1 && form.priority <= 4;
+  const handleInputChange = (field: keyof FormState, value: string | number) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   const onSave = async () => {
-    if (!effectiveRealm || !runeId || !canSave) {
+    if (!isAuthenticated || !currentRealm) {
       return;
     }
 
-    setIsSaving(true);
+    setSaving(true);
     try {
-      await api.updateRune(effectiveRealm, runeId, {
-        title: form.title.trim(),
-        description: form.description.trim(),
-        priority: form.priority,
-        branch: form.branch.trim(),
+      await api.updateRune(currentRealm, runeId, {
+        title: formData.title,
+        description: formData.description,
+        priority: formData.priority,
+        branch: formData.branch,
       });
-      showToast("Rune Updated", "Your changes were saved", "success");
+
+      showToast("Success", "Rune updated successfully", "success");
       navigate(`/runes/${runeId}`);
-    } catch (error) {
-      if (error instanceof ApiError) {
-        showToast("Error", `Request failed (${error.status})`, "error");
-      } else {
-        showToast("Error", "Failed to update rune", "error");
-      }
-      setIsSaving(false);
+    } catch (err) {
+      console.error("Failed to update rune:", err);
+      const errorMessage = err instanceof ApiError ? err.message : "Failed to update rune";
+      showToast("Error", errorMessage, "error");
+    } finally {
+      setSaving(false);
     }
   };
 
-  if (authLoading || realmLoading || isLoading) {
+  const canSave = formData.title.trim() !== "" && isAuthenticated && Boolean(currentRealm);
+
+  if (authLoading || loading) {
     return (
-      <div className="min-h-[calc(100vh-56px)] flex items-center justify-center">
-        <div
-          className="px-8 py-4 text-lg font-bold uppercase tracking-wider"
-          style={{
-            backgroundColor: "var(--color-bg)",
-            border: "2px solid var(--color-border)",
-            boxShadow: "var(--shadow-soft)",
-          }}
-        >
-          Loading...
+      <div className="min-h-[calc(100vh-56px)] flex items-center justify-center p-6">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4" />
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-[calc(100vh-56px)] flex items-center justify-center p-6">
+        <div className="text-center p-6 border border-red-500 rounded">
+          <h2 className="text-xl font-bold mb-2">Authentication Required</h2>
+          <p>Please log in to edit runes.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-[calc(100vh-56px)] flex items-center justify-center p-6">
+        <div className="text-center p-6 border border-red-500 rounded">
+          <h2 className="text-xl font-bold mb-2">Error</h2>
+          <p>{error}</p>
         </div>
       </div>
     );
@@ -121,134 +126,134 @@ function Page() {
 
   return (
     <div className="min-h-[calc(100vh-56px)] p-6">
-      <div className="mb-6">
-        <Button
-          onClick={() => navigate(`/runes/${runeId}`)}
-          className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wider"
-          style={{ color: "var(--color-text-muted)" }}
-        >
-          <span>&larr;</span>
-          <span>Back to Rune</span>
-        </Button>
-      </div>
-
-      <div
-        className="max-w-4xl mx-auto p-6 space-y-6"
-        style={{
-          backgroundColor: "var(--color-bg)",
-          border: "2px solid var(--color-border)",
-          boxShadow: "var(--shadow-soft)",
-        }}
-      >
-        <h1 className="text-3xl font-bold uppercase tracking-tight" style={{ color: "var(--color-amber)" }}>
-          Edit Rune
-        </h1>
-
-        <div>
-          <label htmlFor="rune-edit-title" className="text-xs uppercase tracking-wider block mb-2 font-bold">
-            Title
-          </label>
-          <Input
-            id="rune-edit-title"
-            value={form.title}
-            onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
-            className="w-full px-4 py-3 text-lg outline-none"
-            style={{
-              backgroundColor: "var(--color-surface)",
-              border: "2px solid var(--color-border)",
-              color: "var(--color-text)",
-            }}
-          />
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold">Edit Rune</h1>
+          <p className="text-gray-600">Update the details for rune {runeId}</p>
         </div>
 
-        <div>
-          <label htmlFor="rune-edit-description" className="text-xs uppercase tracking-wider block mb-2 font-bold">
-            Description
-          </label>
-          <textarea
-            id="rune-edit-description"
-            value={form.description}
-            onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-            rows={6}
-            className="w-full px-4 py-3 text-base outline-none resize-none"
-            style={{
-              backgroundColor: "var(--color-surface)",
-              border: "2px solid var(--color-border)",
-              color: "var(--color-text)",
-            }}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="rune-edit-priority" className="text-xs uppercase tracking-wider block mb-2 font-bold">
-              Priority (1-4)
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 p-6">
+          <div className="mb-6">
+            <label
+              htmlFor="rune-edit-title"
+              className="text-xs uppercase tracking-wider block mb-2 font-bold"
+            >
+              Title *
             </label>
             <Input
-              id="rune-edit-priority"
-              type="number"
-              min="1"
-              max="4"
-              value={String(form.priority)}
-              onChange={(e) => {
-                const value = Number(e.target.value);
-                setForm((prev) => ({ ...prev, priority: Number.isFinite(value) ? value : prev.priority }));
-              }}
-              className="w-full px-4 py-3 text-base outline-none"
+              id="rune-edit-title"
+              value={formData.title}
+              onChange={(event) => handleInputChange("title", event.target.value)}
+              placeholder="Enter rune title"
+              className="w-full"
               style={{
-                backgroundColor: "var(--color-surface)",
+                backgroundColor: "var(--color-bg)",
                 border: "2px solid var(--color-border)",
                 color: "var(--color-text)",
               }}
             />
           </div>
 
-          <div>
-            <label htmlFor="rune-edit-branch" className="text-xs uppercase tracking-wider block mb-2 font-bold">
-              Branch
+          <div className="mb-6">
+            <label
+              htmlFor="rune-edit-description"
+              className="text-xs uppercase tracking-wider block mb-2 font-bold"
+            >
+              Description
             </label>
-            <Input
-              id="rune-edit-branch"
-              value={form.branch}
-              onChange={(e) => setForm((prev) => ({ ...prev, branch: e.target.value }))}
-              className="w-full px-4 py-3 text-base font-mono outline-none"
+            <textarea
+              id="rune-edit-description"
+              value={formData.description}
+              onChange={(event) => handleInputChange("description", event.target.value)}
+              placeholder="Enter rune description"
+              rows={4}
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md"
               style={{
-                backgroundColor: "var(--color-surface)",
-                border: "2px solid var(--color-border)",
+                backgroundColor: "var(--color-bg)",
                 color: "var(--color-text)",
               }}
             />
           </div>
-        </div>
 
-        <div className="flex gap-3">
-          <Button
-            type="button"
-            onClick={() => navigate(`/runes/${runeId}`)}
-            className="px-6 py-3 text-sm font-bold uppercase tracking-wider"
-            style={{
-              backgroundColor: "var(--color-bg)",
-              border: "2px solid var(--color-border)",
-              color: "var(--color-text)",
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            onClick={onSave}
-            disabled={!canSave || isSaving}
-            className="px-6 py-3 text-sm font-bold uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{
-              backgroundColor: "var(--color-amber)",
-              border: "2px solid var(--color-border)",
-              color: "white",
-            }}
-          >
-            {isSaving ? "Saving..." : "Save Changes"}
-          </Button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <label
+                htmlFor="rune-edit-priority"
+                className="text-xs uppercase tracking-wider block mb-2 font-bold"
+              >
+                Priority
+              </label>
+              <Input
+                id="rune-edit-priority"
+                type="number"
+                value={formData.priority}
+                onChange={(event) =>
+                  handleInputChange("priority", parseInt(event.target.value) || 1)
+                }
+                min="1"
+                max="5"
+                className="w-full"
+                style={{
+                  backgroundColor: "var(--color-bg)",
+                  border: "2px solid var(--color-border)",
+                  color: "var(--color-text)",
+                }}
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="rune-edit-branch"
+                className="text-xs uppercase tracking-wider block mb-2 font-bold"
+              >
+                Branch
+              </label>
+              <Input
+                id="rune-edit-branch"
+                value={formData.branch}
+                onChange={(event) => handleInputChange("branch", event.target.value)}
+                placeholder="Enter target branch"
+                className="w-full"
+                style={{
+                  backgroundColor: "var(--color-bg)",
+                  border: "2px solid var(--color-border)",
+                  color: "var(--color-text)",
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              onClick={() => navigate(`/runes/${runeId}`)}
+              className="px-6 py-3 text-sm font-bold uppercase tracking-wider"
+              style={{
+                backgroundColor: "var(--color-gray)",
+                border: "2px solid var(--color-border)",
+                color: "var(--color-text)",
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={onSave}
+              disabled={!canSave || saving}
+              className="px-6 py-3 text-sm font-bold uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                backgroundColor: "var(--color-amber)",
+                border: "2px solid var(--color-border)",
+                color: "white",
+              }}
+            >
+              {saving ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
   );
-}
+};
+
+export { Page };

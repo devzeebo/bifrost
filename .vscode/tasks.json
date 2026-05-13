@@ -7,7 +7,7 @@
       "command": "${workspaceFolder}/.vscode/scripts/pythonExtraPaths/update.sh",
       "isBackground": true,
       "runOptions": {
-        "runOn": "folderOpen",
+        "runOn": "folderOpen"
       },
       "problemMatcher": []
     }

@@ -8,9 +8,9 @@ export default function Page() {
   const pageContext = usePageContext();
   const { abortReason, abortStatusCode, is404 } = pageContext;
 
-  let title: string;
-  let message: string;
-  let status: number;
+  let title = "Error";
+  let message = "Something went wrong. Try again later.";
+  let status = 500;
 
   if (is404) {
     title = "Not Found";
@@ -56,13 +56,8 @@ export default function Page() {
         >
           {status}
         </div>
-        <h1 className="text-2xl font-bold mb-4 uppercase tracking-tight">
-          {title}
-        </h1>
-        <p
-          className="text-sm mb-6"
-          style={{ color: "var(--color-border)" }}
-        >
+        <h1 className="text-2xl font-bold mb-4 uppercase tracking-tight">{title}</h1>
+        <p className="text-sm mb-6" style={{ color: "var(--color-border)" }}>
           {message}
         </p>
         <Button
@@ -74,13 +69,13 @@ export default function Page() {
             color: "white",
             boxShadow: "var(--shadow-soft)",
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
-            e.currentTarget.style.transform = "translate(2px, 2px)";
+          onMouseEnter={(event) => {
+            event.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
+            event.currentTarget.style.transform = "translate(2px, 2px)";
           }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.boxShadow = "var(--shadow-soft)";
-            e.currentTarget.style.transform = "translate(0, 0)";
+          onMouseLeave={(event) => {
+            event.currentTarget.style.boxShadow = "var(--shadow-soft)";
+            event.currentTarget.style.transform = "translate(0, 0)";
           }}
         >
           Go to Dashboard

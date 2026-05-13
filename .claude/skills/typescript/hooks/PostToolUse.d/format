@@ -1,0 +1,9 @@
+#!/bin/bash
+# matcher: Edit|Write
+###
+
+FILE_NAME=$(get_field "tool_input.file_path")
+
+if [[ "$FILE_NAME" =~ \.(ts|tsx|js|jsx|mjs|cjs|json|css|html|md)$ ]]; then
+  npm run format $FILE_NAME
+fi

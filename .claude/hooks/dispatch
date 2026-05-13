@@ -1,0 +1,56 @@
+#!/bin/bash
+
+set -e
+
+INPUT=$(cat)
+
+escape_json() {
+  JSON=$(echo -n "$1" | jq -Rca . | tail -c +2 | head -c -2)
+
+  echo "$JSON"
+}
+
+get_field() {
+  local field="$1"
+  local json="${2:-$INPUT}"
+  echo "$json" | jq -r ".$field // empty" 2>/dev/null || echo ""
+}
+
+deny() {
+  JSON=$(escape_json "$1")
+  echo '{"hookSpecificOutput":{"hookEventName":"'$(get_field hook_event_name)'","permissionDecision":"deny","permissionDecisionReason":"'$JSON'"}}'
+
+  exit 2
+}
+
+block() {
+  JSON=$(escape_json "$1")
+  echo -e '{"hookSpecificOutput":{"hookEventName":"'$(get_field hook_event_name)'","decision":"block","reason":"'$JSON'"}}' >&2
+
+  exit 2
+}
+
+additionalContext() {
+  JSON=$(escape_json "$1")
+  echo -e '{"hookSpecificOutput":{"hookEventName":"'$(get_field hook_event_name)'","additionalContext":"'$JSON'"}}'
+
+  exit 0
+}
+
+sentinel() {
+  SESSION_ID=$(get_field "session_id")
+
+  mkdir -p /tmp/.claude
+
+  echo "/tmp/.claude/$SESSION_ID.$1.sentinel"
+}
+
+export -f get_field
+export -f deny
+export -f block
+export -f sentinel
+export -f additionalContext
+export -f escape_json
+export INPUT
+
+$CLAUDE_PROJECT_DIR/.claude/skills/$1/hooks/${3:-$(get_field hook_event_name)}.d/$2

@@ -1,0 +1,26 @@
+{
+  "name": "bifrost",
+  "private": "true",
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "^25.7.0",
+    "oxlint": "^1.64.0",
+    "prettier": "^3.8.3",
+    "typescript": "^6.0.3"
+  },
+  "scripts": {
+    "format": "prettier -w",
+    "lint": "oxlint",
+    "postinstall": "cd orchestrator && npm i && cd ../bifrost/ui && npm i",
+    "test:orchestrator": "cd orchestrator && npm run test",
+    "lint:orchestrator": "oxlint orchestrator",
+    "build:orchestrator": "cd orchestrator && npm run build",
+    "format:orchestrator": "prettier -w orchestrator",
+    "test:ui": "cd bifrost/ui && npm run test",
+    "lint:ui": "oxlint bifrost/ui",
+    "build:ui": "cd bifrost/ui && npm run build",
+    "format:ui": "prettier -w bifrost/ui",
+    "format:file": "prettier -w",
+    "lint:all": "oxlint"
+  }
+}

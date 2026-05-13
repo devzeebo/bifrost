@@ -1,0 +1,11 @@
+#!/bin/bash
+# matcher: Edit|Write
+###
+
+FILE_NAME=$(get_field "tool_input.file_path")
+
+if [[ "$FILE_NAME" =~ \.(ts|tsx|js|jsx|mjs|cjs)$ ]]; then
+  SENTINEL=$(sentinel lint-ts)
+  echo "$FILE_NAME" >> $SENTINEL
+  sort -u $SENTINEL -o $SENTINEL
+fi

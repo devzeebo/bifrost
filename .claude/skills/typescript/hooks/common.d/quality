@@ -1,0 +1,50 @@
+#!/bin/bash
+
+set -ex
+
+HOOK=$(get_field hook_event_name)
+
+lint() {
+  cd $CLAUDE_PROJECT_DIR
+  OUTPUT=$(npm run lint:$1 -s -- --format=json) || {
+    FIRST_FILE=$(echo "$OUTPUT" | jq -r '.diagnostics[0].filename')
+    FILE_ERRORS=$(echo "$OUTPUT" | jq -rc "[.diagnostics[] | select(.filename == \"$FIRST_FILE\")]")
+
+    if [[ "$HOOK" == "SessionStart" ]]; then
+      additionalContext "$FILE_ERRORS"
+    else
+      block "$FILE_ERRORS"
+    fi
+  }
+}
+
+build() {
+  cd $CLAUDE_PROJECT_DIR
+  OUTPUT=$(npm run build:$1 -s) || {
+    if [[ "$HOOK" == "SessionStart" ]]; then
+      additionalContext "$OUTPUT"
+    else
+      block "$OUTPUT"
+    fi
+  }
+}
+
+test() {
+  cd $CLAUDE_PROJECT_DIR
+  OUTPUT=$(npm run test:$1 -s) || {
+    if [[ "$HOOK" == "SessionStart" ]]; then
+      additionalContext "$OUTPUT"
+    else
+      block "$OUTPUT"
+    fi
+  }
+}
+
+lint orchestrator
+lint ui
+
+build orchestrator
+build ui
+
+test orchestrator
+test ui

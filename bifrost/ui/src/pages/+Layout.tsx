@@ -4,11 +4,10 @@ import { usePageContext } from "vike-react/usePageContext";
 import { TopNav } from "../components/TopNav/TopNav";
 import "../index.css";
 
-export { Layout };
-
-function Layout({ children }: { children: ReactNode }) {
+const Layout = ({ children }: { children: ReactNode }): ReactNode => {
   const pageContext = usePageContext();
-  const isAuthlessPage = pageContext.urlPathname === "/login" || pageContext.urlPathname === "/onboarding";
+  const isAuthlessPage =
+    pageContext.urlPathname === "/login" || pageContext.urlPathname === "/onboarding";
 
   return (
     <>
@@ -21,4 +20,6 @@ function Layout({ children }: { children: ReactNode }) {
       <main>{children}</main>
     </>
   );
-}
+};
+
+export { Layout };

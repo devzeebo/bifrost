@@ -9,15 +9,13 @@ import { useToast } from "../../lib/toast";
 import { ApiError, api } from "../../lib/api";
 import type { RuneListItem, RuneStatus } from "../../types/rune";
 
-export { Page };
-
-interface StatCard {
+type StatCard = {
   label: string;
   value: number;
   color: string;
-}
+};
 
-function Page() {
+const Page = () => {
   const [runes, setRunes] = useState<RuneListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { realms, isAuthenticated, loading: authLoading } = useAuth();
@@ -31,7 +29,9 @@ function Page() {
       : (effectiveRealms[0] ?? null);
 
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading) {
+      return;
+    }
 
     if (!isAuthenticated) {
       navigate("/login");
@@ -73,28 +73,30 @@ function Page() {
     },
     {
       label: "Open",
-      value: runes.filter((r) => r.status === "open").length,
+      value: runes.filter((rune) => rune.status === "open").length,
       color: "var(--color-blue)",
     },
     {
       label: "In Progress",
-      value: runes.filter((r) => r.status === "in_progress").length,
+      value: runes.filter((rune) => rune.status === "in_progress").length,
       color: "var(--color-amber)",
     },
     {
       label: "Fulfilled",
-      value: runes.filter((r) => r.status === "fulfilled").length,
+      value: runes.filter((rune) => rune.status === "fulfilled").length,
       color: "var(--color-green)",
     },
     {
       label: "Sealed",
-      value: runes.filter((r) => r.status === "sealed").length,
+      value: runes.filter((rune) => rune.status === "sealed").length,
       color: "var(--color-text-muted)",
     },
   ];
 
   const recentRunes = [...runes]
-    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+    .sort(
+      (runeA, runeB) => new Date(runeB.updated_at).getTime() - new Date(runeA.updated_at).getTime(),
+    )
     .slice(0, 10);
 
   const formatDate = (dateStr: string) => {
@@ -149,9 +151,7 @@ function Page() {
             boxShadow: "var(--shadow-soft)",
           }}
         >
-          <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">
-            No Realms Found
-          </h2>
+          <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">No Realms Found</h2>
           <p className="text-sm mb-6" style={{ color: "var(--color-text-muted)" }}>
             You don't have access to any realms yet. Contact your administrator.
           </p>
@@ -171,13 +171,10 @@ function Page() {
             style={{
               backgroundColor: "var(--color-bg)",
               border: "2px solid var(--color-border)",
-            boxShadow: "var(--shadow-soft)",
+              boxShadow: "var(--shadow-soft)",
             }}
           >
-            <div
-              className="text-4xl font-bold mb-2"
-              style={{ color: stat.color }}
-            >
+            <div className="text-4xl font-bold mb-2" style={{ color: stat.color }}>
               {stat.value}
             </div>
             <div
@@ -196,13 +193,11 @@ function Page() {
         style={{
           backgroundColor: "var(--color-bg)",
           border: "2px solid var(--color-border)",
-            boxShadow: "var(--shadow-soft)",
+          boxShadow: "var(--shadow-soft)",
         }}
       >
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold uppercase tracking-wide">
-            Recent Activity
-          </h2>
+          <h2 className="text-xl font-bold uppercase tracking-wide">Recent Activity</h2>
           <Button
             onClick={() => navigate("/runes")}
             className="px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-150"
@@ -210,15 +205,15 @@ function Page() {
               backgroundColor: "var(--color-red)",
               border: "2px solid var(--color-border)",
               color: "white",
-            boxShadow: "var(--shadow-soft)",
+              boxShadow: "var(--shadow-soft)",
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
-              e.currentTarget.style.transform = "translate(2px, 2px)";
+            onMouseEnter={(event) => {
+              event.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
+              event.currentTarget.style.transform = "translate(2px, 2px)";
             }}
-            onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow = "var(--shadow-soft)";
-              e.currentTarget.style.transform = "translate(0, 0)";
+            onMouseLeave={(event) => {
+              event.currentTarget.style.boxShadow = "var(--shadow-soft)";
+              event.currentTarget.style.transform = "translate(0, 0)";
             }}
           >
             View All Runes
@@ -246,11 +241,11 @@ function Page() {
                   textAlign: "left",
                 }}
                 onClick={() => navigate(`/runes/${rune.id}`)}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = "var(--color-red)";
+                onMouseEnter={(event) => {
+                  event.currentTarget.style.borderColor = "var(--color-red)";
                 }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = "var(--color-border)";
+                onMouseLeave={(event) => {
+                  event.currentTarget.style.borderColor = "var(--color-border)";
                 }}
               >
                 <div className="flex items-center gap-4">
@@ -258,9 +253,7 @@ function Page() {
                     className="w-2 h-2"
                     style={{ backgroundColor: getStatusColor(rune.status) }}
                   />
-                  <span className="font-medium truncate max-w-[300px]">
-                    {rune.title}
-                  </span>
+                  <span className="font-medium truncate max-w-[300px]">{rune.title}</span>
                 </div>
                 <div className="flex items-center gap-4">
                   <span
@@ -272,10 +265,7 @@ function Page() {
                   >
                     {rune.status.replace("_", " ")}
                   </span>
-                  <span
-                    className="text-xs"
-                    style={{ color: "var(--color-text-muted)" }}
-                  >
+                  <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
                     {formatDate(rune.updated_at)}
                   </span>
                 </div>
@@ -286,4 +276,6 @@ function Page() {
       </div>
     </div>
   );
-}
+};
+
+export { Page };

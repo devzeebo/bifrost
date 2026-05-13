@@ -1,17 +1,17 @@
 {
-  "go.goflags": [
-    "-work"
-  ],
+  "go.goflags": ["-work"],
   "gopls": {
     "build.env": {
       "GOWORK": "${workspaceFolder}/go.work"
     }
   },
-  "oxc.path.oxlint": "bifrost/ui/node_modules/.bin/oxlint",
   "files.exclude": {
     "**/node_modules": true,
     "**/__pycache__": true,
-    "**/.venv": true
+    "**/.venv": true,
+    "**/dist": true,
+    "*/**/.claude": true,
+    "**/tsconfig.tsbuildinfo": true
   },
   "python.analysis.extraPaths": [
     "orchestrator/packages/engine-claude-code/src",
@@ -19,5 +19,11 @@
     "orchestrator/packages/interface-tasks/src",
     "orchestrator/packages/orchestrator/src",
     "orchestrator/packages/tasks-bifrost/src"
-  ]
+  ],
+  "[javascript][javascriptreact][typescript][typescriptreact][json][jsonc]": {
+    "editor.codeActionsOnSave": {
+      "source.fixAll.oxc": "explicit",
+      "source.fixAll.prettier": "always"
+    }
+  }
 }

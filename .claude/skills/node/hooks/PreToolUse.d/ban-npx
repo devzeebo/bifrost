@@ -1,0 +1,5 @@
+#!/bin/bash
+# if: Bash(npx *)
+###
+
+deny 'npx is forbidden. use a script defined in package.json and `npm run <script-name>` instead.';

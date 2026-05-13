@@ -1,6 +1,7 @@
-import { describe, expect, vi, beforeEach, test } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { Wizard } from "./Wizard";
+import "@testing-library/jest-dom/vitest";
 
 describe("Wizard", () => {
   const mockSteps = [
@@ -27,16 +28,16 @@ describe("Wizard", () => {
   describe("Component Rendering", () => {
     test("renders without crashing", () => {
       const { container } = render(<Wizard steps={mockSteps} onComplete={mockOnComplete} />);
-      const wizard = container.querySelector('.wizard');
+      const wizard = container.querySelector(".wizard");
       expect(wizard).toBeInTheDocument();
     });
 
     test("renders with custom colors", () => {
       const customColors = ["#ff0000", "#00ff00", "#0000ff"];
       const { container } = render(
-        <Wizard steps={mockSteps} onComplete={mockOnComplete} colors={customColors} />
+        <Wizard steps={mockSteps} onComplete={mockOnComplete} colors={customColors} />,
       );
-      const wizard = container.querySelector('.wizard');
+      const wizard = container.querySelector(".wizard");
       expect(wizard).toBeInTheDocument();
     });
   });
@@ -203,7 +204,7 @@ describe("Wizard", () => {
       ];
 
       const { container } = render(<Wizard steps={singleStep} onComplete={mockOnComplete} />);
-      const wizard = container.querySelector('.wizard');
+      const wizard = container.querySelector(".wizard");
       expect(wizard).toBeInTheDocument();
 
       const stepContent = screen.getByTestId("single-step");

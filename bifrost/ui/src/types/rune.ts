@@ -16,32 +16,31 @@ export type RuneRelationship = {
   relationship: RuneRelationshipType | string;
 };
 
-export interface RuneListItem {
+export type RuneListItem = {
   id: string;
   title: string;
   status: RuneStatus;
   priority: number;
-  claimant?: string;
-  claimant_username?: string;
+  claimant?: string | null;
+  claimant_username?: string | null;
   dependencies_count?: number;
   dependents_count?: number;
   tags?: string[];
   realm_id: string;
   created_at: string;
   updated_at: string;
-}
+};
 
-
-export interface RuneDetail extends RuneListItem {
+export type RuneDetail = {
   description: string;
   branch?: string;
   saga_id?: string;
   assignee_id?: string;
   dependencies: RuneRelationship[];
   tags: string[];
-}
+} & RuneListItem;
 
-export interface CreateRuneRequest {
+export type CreateRuneRequest = {
   title: string;
   description?: string;
   priority: number;
@@ -49,4 +48,4 @@ export interface CreateRuneRequest {
   parent_id?: string;
   saga_id?: string;
   tags?: string[];
-}
+};

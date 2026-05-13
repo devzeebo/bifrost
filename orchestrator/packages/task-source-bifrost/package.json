@@ -1,0 +1,23 @@
+{
+  "name": "@bifrost-ai/task-source-bifrost",
+  "version": "1.0.0",
+  "description": "Bifrost task source plugin for Orchestrator Framework",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "vite build"
+  },
+  "dependencies": {
+    "yaml": "^2.8.4"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}

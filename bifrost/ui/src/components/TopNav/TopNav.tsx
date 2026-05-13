@@ -1,7 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Menu } from "@base-ui/react/menu";
 import { Switch } from "@base-ui/react/switch";
 import { navigate, toUIPath } from "@/lib/router";
@@ -47,7 +46,7 @@ const buildIndicatorGradient = (navWidth: number, labelRanges: LabelRange[]): st
     };
   });
 
-  const firstSegment = segments[0];
+  const [firstSegment] = segments;
   if (!firstSegment) {
     return FALLBACK_INDICATOR_GRADIENT;
   }
@@ -57,12 +56,10 @@ const buildIndicatorGradient = (navWidth: number, labelRanges: LabelRange[]): st
 
   colorStops.push(`${firstSegment.color} ${cursor}px`);
 
-  for (let index = 0; index < segments.length; index += 1) {
-    const current = segments[index];
-    if (!current) {
-      continue;
-    }
+  const validSegments = segments.filter((segment) => segment !== null);
 
+  for (let index = 0; index < validSegments.length; index += 1) {
+    const current = validSegments[index];
     const start = Math.max(current.start, cursor);
     if (start > cursor) {
       colorStops.push(`${current.color} ${start}px`);
@@ -73,7 +70,7 @@ const buildIndicatorGradient = (navWidth: number, labelRanges: LabelRange[]): st
     colorStops.push(`${current.color} ${end}px`);
     cursor = end;
 
-    const next = segments[index + 1];
+    const next = validSegments[index + 1];
     if (next) {
       const blendEnd = Math.max(next.start, cursor);
       colorStops.push(`${next.color} ${blendEnd}px`);
@@ -82,7 +79,8 @@ const buildIndicatorGradient = (navWidth: number, labelRanges: LabelRange[]): st
   }
 
   if (cursor < navWidth) {
-    const lastColor = segments[segments.length - 1]?.color ?? NAV_LINKS[NAV_LINKS.length - 1]?.color;
+    const lastColor =
+      segments[segments.length - 1]?.color ?? NAV_LINKS[NAV_LINKS.length - 1]?.color;
     if (lastColor) {
       colorStops.push(`${lastColor} ${navWidth}px`);
     }
@@ -95,7 +93,7 @@ type TopNavProps = {
   currentPath?: string;
 };
 
-export function TopNav({ currentPath }: TopNavProps) {
+const TopNav = ({ currentPath }: TopNavProps) => {
   const { username, accountId, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const { availableRealms } = useRealm();
@@ -155,15 +153,10 @@ export function TopNav({ currentPath }: TopNavProps) {
   useEffect(() => {
     const rawPath = currentPath ?? window.location.pathname;
     const path = toUIPath(rawPath);
-    const index = NAV_LINKS.findIndex(
-      (link) => {
-        const uiHref = toUIPath(link.href);
-        return (
-          uiHref === path ||
-          (uiHref !== toUIPath("/") && path.startsWith(uiHref))
-        );
-      }
-    );
+    const index = NAV_LINKS.findIndex((link) => {
+      const uiHref = toUIPath(link.href);
+      return uiHref === path || (uiHref !== toUIPath("/") && path.startsWith(uiHref));
+    });
     setActiveIndex(index >= 0 ? index : 0);
   }, [currentPath]);
 
@@ -181,17 +174,21 @@ export function TopNav({ currentPath }: TopNavProps) {
   return (
     <nav className="top-nav">
       {/* Logo */}
-      <a href="/ui/" className="top-nav__logo" onClick={(e) => { e.preventDefault(); navigate("/ui/"); }}>
+      <a
+        href="/ui/"
+        className="top-nav__logo"
+        onClick={(event) => {
+          event.preventDefault();
+          navigate("/ui/");
+        }}
+      >
         <span className="top-nav__logo-text bifrost-logo-text">Bifrost</span>
       </a>
 
       {/* Navigation Links with Rainbow Indicator */}
       <div className="top-nav__links-container" ref={navRef}>
-        <div
-          className="top-nav__indicator"
-          style={indicatorStyle}
-        />
-        
+        <div className="top-nav__indicator" style={indicatorStyle} />
+
         {/* Nav links */}
         {NAV_LINKS.map((link, index) => (
           <button
@@ -307,4 +304,6 @@ export function TopNav({ currentPath }: TopNavProps) {
       </div>
     </nav>
   );
-}
+};
+
+export { TopNav };

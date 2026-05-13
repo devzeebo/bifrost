@@ -1,0 +1,23 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "references": [
+    {
+      "path": "./packages/cli"
+    },
+    {
+      "path": "./packages/core"
+    },
+    {
+      "path": "./packages/engine"
+    },
+    {
+      "path": "./packages/task-source"
+    },
+    {
+      "path": "./packages/task-source-memory"
+    }
+  ]
+}

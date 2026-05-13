@@ -1,24 +1,24 @@
-export type RealmStatus = 'active' | 'inactive';
+export type RealmStatus = "active" | "inactive";
 
-export interface RealmListEntry {
+export type RealmListEntry = {
   id: string;
   name: string;
   status: RealmStatus;
   created_at: string;
-}
+};
 
-export interface RealmDetail extends RealmListEntry {
+export type RealmDetail = {
   description: string;
   owner_id: string;
   member_count: number;
-}
+} & RealmListEntry;
 
-export interface CreateRealmRequest {
+export type CreateRealmRequest = {
   name: string;
   description?: string;
-}
+};
 
-export interface CreateRealmResponse {
+export type CreateRealmResponse = {
   id: string;
   name: string;
-}
+};

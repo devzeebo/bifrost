@@ -14,8 +14,6 @@ import { api } from "../../../lib/api";
 import { Dialog } from "../../../components/Dialog/Dialog";
 import type { RuneDetail, RuneListItem, RuneStatus } from "../../../types/rune";
 
-export { Page };
-
 const statusColors: Record<RuneStatus, { bg: string; border: string; text: string }> = {
   draft: {
     bg: "var(--color-bg)",
@@ -44,7 +42,8 @@ const statusColors: Record<RuneStatus, { bg: string; border: string; text: strin
   },
 };
 
-function Page() {
+// eslint-disable-next-line complexity
+const Page = () => {
   const pageContext = usePageContext();
   const runeId = pageContext.routeParams?.id as string;
   const {
@@ -84,7 +83,7 @@ function Page() {
   const [relationshipFilter, setRelationshipFilter] = useState("");
   const [relationshipTargetId, setRelationshipTargetId] = useState("");
   const [relationshipColumn, setRelationshipColumn] = useState<"dependencies" | "dependents">(
-    "dependencies"
+    "dependencies",
   );
 
   const loadRune = useCallback(async () => {
@@ -162,7 +161,9 @@ function Page() {
   ]);
 
   useEffect(() => {
-    if (authLoading || realmLoading) return;
+    if (authLoading || realmLoading) {
+      return;
+    }
 
     if (!isAuthenticated) {
       navigate("/login");
@@ -178,7 +179,9 @@ function Page() {
   }, [loadClaimantUsername]);
 
   const handleShatter = async () => {
-    if (!rune || !effectiveRealm) return;
+    if (!rune || !effectiveRealm) {
+      return;
+    }
 
     setIsMutating(true);
     try {
@@ -191,7 +194,7 @@ function Page() {
     }
   };
 
-  const isRealmAdmin = (effectiveRealm ? roles[effectiveRealm] : undefined) === "admin";
+  const isRealmAdmin = effectiveRealm ? roles[effectiveRealm] === "admin" : false;
   const isAdmin = isRealmAdmin || isSysadmin;
   const runeStatus: string = rune?.status ?? "";
   const canForge = runeStatus === "draft";
@@ -204,7 +207,9 @@ function Page() {
   const canShatter = runeStatus === "sealed" || runeStatus === "fulfilled";
 
   const handleForge = async () => {
-    if (!effectiveRealm || !rune) return;
+    if (!effectiveRealm || !rune) {
+      return;
+    }
 
     setIsMutating(true);
     try {
@@ -220,7 +225,9 @@ function Page() {
   };
 
   const handleClaim = async () => {
-    if (!effectiveRealm || !rune || !accountId) return;
+    if (!effectiveRealm || !rune || !accountId) {
+      return;
+    }
 
     setIsMutating(true);
     try {
@@ -236,7 +243,9 @@ function Page() {
   };
 
   const handleAssign = async () => {
-    if (!effectiveRealm || !rune) return;
+    if (!effectiveRealm || !rune) {
+      return;
+    }
     const target = assignTarget.trim();
     if (!target) {
       showToast("Error", "Enter an account ID to assign", "error");
@@ -257,7 +266,9 @@ function Page() {
   };
 
   const handleFulfill = async () => {
-    if (!effectiveRealm || !rune) return;
+    if (!effectiveRealm || !rune) {
+      return;
+    }
 
     setIsMutating(true);
     try {
@@ -273,7 +284,9 @@ function Page() {
   };
 
   const handleSeal = async () => {
-    if (!effectiveRealm || !rune) return;
+    if (!effectiveRealm || !rune) {
+      return;
+    }
 
     setIsMutating(true);
     try {
@@ -344,8 +357,7 @@ function Page() {
     }
     const query = relationshipFilter.trim().toLowerCase();
     return (
-      candidate.id.toLowerCase().includes(query) ||
-      candidate.title.toLowerCase().includes(query)
+      candidate.id.toLowerCase().includes(query) || candidate.title.toLowerCase().includes(query)
     );
   });
 
@@ -371,7 +383,8 @@ function Page() {
     const nextRelationship = relationshipColumn === "dependencies" ? "blocked_by" : "blocks";
     const alreadyLinked = (rune.dependencies ?? []).some(
       (dependency) =>
-        dependency.target_id === relationshipTargetId && dependency.relationship === nextRelationship
+        dependency.target_id === relationshipTargetId &&
+        dependency.relationship === nextRelationship,
     );
     if (alreadyLinked) {
       showToast("Relationship Exists", "That relationship already exists", "error");
@@ -386,14 +399,14 @@ function Page() {
           target_id: relationshipTargetId,
           relationship: nextRelationship,
         },
-        effectiveRealm
+        effectiveRealm,
       );
       showToast(
         "Relationship Added",
         relationshipColumn === "dependencies"
           ? `Added dependency on ${relationshipTargetId}`
           : `Added dependent ${relationshipTargetId}`,
-        "success"
+        "success",
       );
       closeRelationshipDialog();
       setIsLoading(true);
@@ -409,7 +422,7 @@ function Page() {
   const requestRelationshipRemoval = (
     targetId: string,
     relationship: string,
-    column: "dependencies" | "dependents"
+    column: "dependencies" | "dependents",
   ) => {
     setPendingRemoval({ targetId, relationship, column });
   };
@@ -431,14 +444,14 @@ function Page() {
           target_id: pendingRemoval.targetId,
           relationship: pendingRemoval.relationship,
         },
-        effectiveRealm
+        effectiveRealm,
       );
       showToast(
         "Relationship Removed",
         pendingRemoval.column === "dependencies"
           ? `Removed dependency ${pendingRemoval.targetId}`
           : `Removed dependent ${pendingRemoval.targetId}`,
-        "success"
+        "success",
       );
       closeRemoveDialog();
       setIsLoading(true);
@@ -479,9 +492,7 @@ function Page() {
             boxShadow: "var(--shadow-soft)",
           }}
         >
-          <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">
-            Rune Not Found
-          </h2>
+          <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">Rune Not Found</h2>
           <p className="text-sm mb-6" style={{ color: "var(--color-text-muted)" }}>
             The rune you're looking for doesn't exist or you don't have access to it.
           </p>
@@ -492,15 +503,15 @@ function Page() {
               backgroundColor: "var(--color-amber)",
               border: "2px solid var(--color-border)",
               color: "white",
-            boxShadow: "var(--shadow-soft)",
+              boxShadow: "var(--shadow-soft)",
             }}
-            onMouseEnter={(e) => {
-                  e.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
-              e.currentTarget.style.transform = "translate(2px, 2px)";
+            onMouseEnter={(event) => {
+              event.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
+              event.currentTarget.style.transform = "translate(2px, 2px)";
             }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = "var(--shadow-soft)";
-              e.currentTarget.style.transform = "translate(0, 0)";
+            onMouseLeave={(event) => {
+              event.currentTarget.style.boxShadow = "var(--shadow-soft)";
+              event.currentTarget.style.transform = "translate(0, 0)";
             }}
           >
             Back to Runes
@@ -598,14 +609,9 @@ function Page() {
           }}
         >
           {rune.description ? (
-            <p className="text-base leading-relaxed whitespace-pre-wrap">
-              {rune.description}
-            </p>
+            <p className="text-base leading-relaxed whitespace-pre-wrap">{rune.description}</p>
           ) : (
-            <p
-              className="text-base italic"
-              style={{ color: "var(--color-text-muted)" }}
-            >
+            <p className="text-base italic" style={{ color: "var(--color-text-muted)" }}>
               No description provided
             </p>
           )}
@@ -619,7 +625,7 @@ function Page() {
             style={{
               backgroundColor: "var(--color-bg)",
               border: "2px solid var(--color-border)",
-            boxShadow: "var(--shadow-soft)",
+              boxShadow: "var(--shadow-soft)",
             }}
           >
             <div className="space-y-4">
@@ -634,10 +640,7 @@ function Page() {
                   <div className="text-sm font-mono">
                     <span>{claimantName || claimantId}</span>
                     {claimantName && claimantId && claimantName !== claimantId ? (
-                      <span
-                        className="ml-2 text-xs"
-                        style={{ color: "var(--color-text-muted)" }}
-                      >
+                      <span className="ml-2 text-xs" style={{ color: "var(--color-text-muted)" }}>
                         {claimantId}
                       </span>
                     ) : null}
@@ -658,10 +661,7 @@ function Page() {
                   <div className="text-sm">
                     <span>{realmName || realmId}</span>
                     {realmName && realmId && realmName !== realmId ? (
-                      <span
-                        className="ml-2 text-xs"
-                        style={{ color: "var(--color-text-muted)" }}
-                      >
+                      <span className="ml-2 text-xs" style={{ color: "var(--color-text-muted)" }}>
                         {realmId}
                       </span>
                     ) : null}
@@ -742,7 +742,7 @@ function Page() {
               style={{
                 backgroundColor: "var(--color-bg)",
                 border: "2px solid var(--color-border)",
-            boxShadow: "var(--shadow-soft)",
+                boxShadow: "var(--shadow-soft)",
               }}
             >
               <h2
@@ -775,7 +775,7 @@ function Page() {
             style={{
               backgroundColor: "var(--color-bg)",
               border: "2px solid var(--color-border)",
-            boxShadow: "var(--shadow-soft)",
+              boxShadow: "var(--shadow-soft)",
             }}
           >
             <div className="space-y-3">
@@ -813,7 +813,7 @@ function Page() {
                 <div className="space-y-2">
                   <Input
                     value={assignTarget}
-                    onChange={(e) => setAssignTarget(e.target.value)}
+                    onChange={(event) => setAssignTarget(event.target.value)}
                     placeholder="Assignee account ID"
                     className="w-full px-3 py-2 text-sm font-mono outline-none"
                     style={{
@@ -856,7 +856,7 @@ function Page() {
                 <div className="space-y-2">
                   <Input
                     value={sealReason}
-                    onChange={(e) => setSealReason(e.target.value)}
+                    onChange={(event) => setSealReason(event.target.value)}
                     placeholder="Seal reason (optional)"
                     className="w-full px-3 py-2 text-sm outline-none"
                     style={{
@@ -943,10 +943,7 @@ function Page() {
                     <span style={{ color: "var(--color-text-muted)" }}>Depends on </span>
                     <span>{getRuneDisplay(dep.target_id).title}</span>
                     {getRuneDisplay(dep.target_id).hasDistinctTitle ? (
-                      <span
-                        className="ml-2 text-xs"
-                        style={{ color: "var(--color-text-muted)" }}
-                      >
+                      <span className="ml-2 text-xs" style={{ color: "var(--color-text-muted)" }}>
                         {getRuneDisplay(dep.target_id).id}
                       </span>
                     ) : null}
@@ -965,7 +962,13 @@ function Page() {
                     aria-label={`Remove dependency ${dep.target_id}`}
                     disabled={isMutating}
                   >
-                    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="12"
+                      height="12"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
                       <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.41L10.59 12 5.7 16.89a1 1 0 1 0 1.41 1.41L12 13.41l4.89 4.89a1 1 0 0 0 1.41-1.41L13.41 12l4.89-4.89a1 1 0 0 0 0-1.4z" />
                     </svg>
                   </Button>
@@ -1022,10 +1025,7 @@ function Page() {
                     <span style={{ color: "var(--color-text-muted)" }}>Blocked by </span>
                     <span>{getRuneDisplay(dep.target_id).title}</span>
                     {getRuneDisplay(dep.target_id).hasDistinctTitle ? (
-                      <span
-                        className="ml-2 text-xs"
-                        style={{ color: "var(--color-text-muted)" }}
-                      >
+                      <span className="ml-2 text-xs" style={{ color: "var(--color-text-muted)" }}>
                         {getRuneDisplay(dep.target_id).id}
                       </span>
                     ) : null}
@@ -1044,7 +1044,13 @@ function Page() {
                     aria-label={`Remove dependent ${dep.target_id}`}
                     disabled={isMutating}
                   >
-                    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="12"
+                      height="12"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
                       <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.41L10.59 12 5.7 16.89a1 1 0 1 0 1.41 1.41L12 13.41l4.89 4.89a1 1 0 0 0 1.41-1.41L13.41 12l4.89-4.89a1 1 0 0 0 0-1.4z" />
                     </svg>
                   </Button>
@@ -1226,4 +1232,6 @@ function Page() {
       </BaseDialog.Root>
     </div>
   );
-}
+};
+
+export { Page };

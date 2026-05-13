@@ -12,8 +12,6 @@ import { useToast } from "../../../lib/toast";
 import { api } from "../../../lib/api";
 import type { RealmListEntry } from "../../../types/realm";
 
-export { Page };
-
 type FormData = {
   username: string;
   realmId: string;
@@ -32,7 +30,7 @@ const STEPS = [
   { id: 3, label: "Review", field: "review" as const },
 ];
 
-function Page() {
+const Page = () => {
   const { isAuthenticated, isSysadmin, loading: authLoading } = useAuth();
   const { showToast } = useToast();
 
@@ -104,7 +102,7 @@ function Page() {
     return null;
   }
 
-  const updateForm = <K extends keyof FormData>(field: K, value: FormData[K]) => {
+  const updateForm = <Key extends keyof FormData>(field: Key, value: FormData[Key]) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -138,7 +136,7 @@ function Page() {
         showToast(
           "Role Assignment Warning",
           "Account was created, but realm role assignment failed",
-          "warning"
+          "warning",
         );
       }
 
@@ -191,9 +189,9 @@ function Page() {
 
       {/* Progress Steps */}
       <div className="flex gap-1 mb-8">
-        {STEPS.map((s, idx) => (
+        {STEPS.map((stepItem, idx) => (
           <div
-            key={s.id}
+            key={stepItem.id}
             className="flex-1 h-2 transition-all duration-300"
             style={{
               backgroundColor: idx <= step ? "var(--color-blue)" : "var(--color-surface)",
@@ -209,7 +207,7 @@ function Page() {
         style={{
           backgroundColor: "var(--color-bg)",
           border: "2px solid var(--color-border)",
-            boxShadow: "var(--shadow-soft)",
+          boxShadow: "var(--shadow-soft)",
         }}
       >
         {/* Step Title */}
@@ -245,7 +243,7 @@ function Page() {
               <Input
                 type="text"
                 value={form.username}
-                onChange={(e) => updateForm("username", e.target.value)}
+                onChange={(event) => updateForm("username", event.target.value)}
                 placeholder="e.g., alice, bob, developer-1"
                 className="w-full px-4 py-3 text-lg outline-none transition-all duration-150"
                 style={{
@@ -253,20 +251,17 @@ function Page() {
                   border: "2px solid var(--color-border)",
                   color: "var(--color-text)",
                 }}
-                onFocus={(e) => {
-                  e.currentTarget.style.borderLeftWidth = "4px";
-                  e.currentTarget.style.borderLeftColor = "var(--color-blue)";
+                onFocus={(event) => {
+                  event.currentTarget.style.borderLeftWidth = "4px";
+                  event.currentTarget.style.borderLeftColor = "var(--color-blue)";
                 }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderLeftWidth = "2px";
-                  e.currentTarget.style.borderLeftColor = "var(--color-border)";
+                onBlur={(event) => {
+                  event.currentTarget.style.borderLeftWidth = "2px";
+                  event.currentTarget.style.borderLeftColor = "var(--color-border)";
                 }}
                 autoFocus
               />
-              <p
-                className="text-xs mt-2"
-                style={{ color: "var(--color-text-muted)" }}
-              >
+              <p className="text-xs mt-2" style={{ color: "var(--color-text-muted)" }}>
                 {form.username.length}/50 characters (minimum 2)
               </p>
             </div>
@@ -333,8 +328,7 @@ function Page() {
               </label>
               <ToggleGroup
                 value={[form.role]}
-                onValueChange={(values) => {
-                  const nextRole = values[0];
+                onValueChange={([nextRole]) => {
                   if (nextRole) {
                     updateForm("role", nextRole as FormData["role"]);
                   }
@@ -357,10 +351,7 @@ function Page() {
                 ))}
               </ToggleGroup>
 
-              <p
-                className="text-sm mb-6"
-                style={{ color: "var(--color-text-muted)" }}
-              >
+              <p className="text-sm mb-6" style={{ color: "var(--color-text-muted)" }}>
                 This account will be granted access to the selected realm with the chosen role.
               </p>
             </div>
@@ -368,10 +359,7 @@ function Page() {
 
           {step === 2 && (
             <div>
-              <p
-                className="text-sm mb-6"
-                style={{ color: "var(--color-text-muted)" }}
-              >
+              <p className="text-sm mb-6" style={{ color: "var(--color-text-muted)" }}>
                 Review the account details before creating.
               </p>
 
@@ -390,15 +378,24 @@ function Page() {
                   Account Summary
                 </h3>
                 <div className="space-y-4">
-                  <div className="flex justify-between items-center py-2 border-b border-dashed" style={{ borderColor: "var(--color-border)" }}>
+                  <div
+                    className="flex justify-between items-center py-2 border-b border-dashed"
+                    style={{ borderColor: "var(--color-border)" }}
+                  >
                     <span style={{ color: "var(--color-text-muted)" }}>Username</span>
                     <span className="font-bold text-lg">{form.username}</span>
                   </div>
-                  <div className="flex justify-between items-center py-2 border-b border-dashed" style={{ borderColor: "var(--color-border)" }}>
+                  <div
+                    className="flex justify-between items-center py-2 border-b border-dashed"
+                    style={{ borderColor: "var(--color-border)" }}
+                  >
                     <span style={{ color: "var(--color-text-muted)" }}>Realm</span>
                     <span className="font-mono text-sm">{form.realmId}</span>
                   </div>
-                  <div className="flex justify-between items-center py-2 border-b border-dashed" style={{ borderColor: "var(--color-border)" }}>
+                  <div
+                    className="flex justify-between items-center py-2 border-b border-dashed"
+                    style={{ borderColor: "var(--color-border)" }}
+                  >
                     <span style={{ color: "var(--color-text-muted)" }}>Role</span>
                     <span className="font-bold uppercase">{form.role}</span>
                   </div>
@@ -411,12 +408,9 @@ function Page() {
                 </div>
               </div>
 
-              <p
-                className="text-xs mt-4"
-                style={{ color: "var(--color-text-muted)" }}
-              >
-                A Personal Access Token (PAT) will be generated for this account. 
-                You can share it with the user to allow them to authenticate.
+              <p className="text-xs mt-4" style={{ color: "var(--color-text-muted)" }}>
+                A Personal Access Token (PAT) will be generated for this account. You can share it
+                with the user to allow them to authenticate.
               </p>
             </div>
           )}
@@ -434,16 +428,16 @@ function Page() {
               color: "var(--color-text)",
               boxShadow: step === 0 ? "none" : "4px 4px 0px var(--color-border)",
             }}
-            onMouseEnter={(e) => {
+            onMouseEnter={(event) => {
               if (step > 0) {
-                e.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
-                e.currentTarget.style.transform = "translate(2px, 2px)";
+                event.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
+                event.currentTarget.style.transform = "translate(2px, 2px)";
               }
             }}
-            onMouseLeave={(e) => {
+            onMouseLeave={(event) => {
               if (step > 0) {
-                e.currentTarget.style.boxShadow = "var(--shadow-soft)";
-                e.currentTarget.style.transform = "translate(0, 0)";
+                event.currentTarget.style.boxShadow = "var(--shadow-soft)";
+                event.currentTarget.style.transform = "translate(0, 0)";
               }
             }}
           >
@@ -459,27 +453,33 @@ function Page() {
               color: "white",
               boxShadow: canProceed() && !isSubmitting ? "4px 4px 0px var(--color-border)" : "none",
             }}
-            onMouseEnter={(e) => {
+            onMouseEnter={(event) => {
               if (canProceed() && !isSubmitting) {
-                e.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
-                e.currentTarget.style.transform = "translate(2px, 2px)";
+                event.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
+                event.currentTarget.style.transform = "translate(2px, 2px)";
               }
             }}
-            onMouseLeave={(e) => {
+            onMouseLeave={(event) => {
               if (canProceed() && !isSubmitting) {
-                e.currentTarget.style.boxShadow = "var(--shadow-soft)";
-                e.currentTarget.style.transform = "translate(0, 0)";
+                event.currentTarget.style.boxShadow = "var(--shadow-soft)";
+                event.currentTarget.style.transform = "translate(0, 0)";
               }
             }}
           >
-            {isSubmitting
-              ? "Creating..."
-              : step === STEPS.length - 1
-                ? "Create Account"
-                : "Next"}
+            {(() => {
+              if (isSubmitting) {
+                return "Creating...";
+              }
+              if (step === STEPS.length - 1) {
+                return "Create Account";
+              }
+              return "Next";
+            })()}
           </Button>
         </div>
       </div>
     </div>
   );
-}
+};
+
+export { Page };
