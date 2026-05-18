@@ -97,7 +97,8 @@ export class BifrostTaskSource implements TaskSource {
         pollInterval = Math.min(pollInterval * 2, maxPollInterval);
         const jitter = pollInterval * 0.2 * (Math.random() * 2 - 1);
         await BifrostTaskSource.sleep(pollInterval + jitter);
-      } catch {
+      } catch (error) {
+        console.error(error);
         await BifrostTaskSource.sleep(pollInterval);
       }
     }
