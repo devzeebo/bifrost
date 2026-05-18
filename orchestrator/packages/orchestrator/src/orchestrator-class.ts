@@ -3,11 +3,7 @@ import type { Engine } from "@bifrost-ai/engine";
 import type { AgentDefinition } from "./core/types";
 import { orchestrate } from "./core/orchestrator";
 
-export type AgentClass = new () => Agent;
-
-export type Agent = {
-  definition: AgentDefinition;
-};
+export type AgentClass = new () => AgentDefinition;
 
 export type OrchestratorOptions = {
   taskSource: new () => TaskSource;
@@ -27,8 +23,8 @@ export class Orchestrator {
     this.agents = new Map<string, AgentDefinition>();
   }
 
-  public registerAgent(agent: Agent): void {
-    this.agents.set(agent.definition.name, agent.definition);
+  public registerAgent(agent: AgentDefinition): void {
+    this.agents.set(agent.name, agent);
   }
 
   public async run(): Promise<void> {
