@@ -10,6 +10,7 @@ export type HookExecutionContext = {
   hookName: string;
   params: Record<string, unknown>;
   taskState: Record<string, unknown>;
+  setTaskState: (newState: Record<string, unknown>) => Promise<void>;
 };
 
 export type HookFn = (ctx: HookExecutionContext) => Promise<HookResult>;

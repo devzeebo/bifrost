@@ -47,11 +47,16 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
     return { outcome: "failed", error: validation.errors.join("; ") };
   }
 
+  const setTaskState = async (arg: Record<string, unknown>) => {
+    await taskSource.setState(task.id, arg);
+  };
+
   // Step 2: Execute pre-task hooks
   const hookContext: Omit<HookExecutionContext, "hookName"> = {
     projectDir,
     params: task.taskState,
     taskState: task.taskState,
+    setTaskState,
   };
 
   const startHookResults = await executeHooks({
