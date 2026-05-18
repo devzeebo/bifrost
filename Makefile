@@ -27,6 +27,8 @@ endif
 deps:
 	@echo "» installing ui dependencies"
 	cd bifrost/ui && npm ci
+	@echo "» installing orchestrator dependencies"
+	cd orchestrator && npm ci
 
 # ── Build ─────────────────────────────────────────────────────────────────────
 
