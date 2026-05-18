@@ -21,18 +21,8 @@ func NewReadyCmd(clientFn func() *Client, out *bytes.Buffer) *ReadyCmd {
 		Short: "List ready runes (unblocked and unclaimed)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			humanMode, _ := cmd.Flags().GetBool("human")
-			showSagas, _ := cmd.Flags().GetBool("sagas")
-			saga, _ := cmd.Flags().GetString("saga")
 
-			params := map[string]string{"status": "open", "blocked": "false"}
-			if !showSagas {
-				params["is_saga"] = "false"
-			}
-			if saga != "" {
-				params["saga"] = saga
-			}
-
-			respBody, err := clientFn().DoGetWithParams("/runes", params)
+			respBody, err := clientFn().DoGet("/api/ready")
 			if err != nil {
 				return err
 			}
@@ -40,8 +30,6 @@ func NewReadyCmd(clientFn func() *Client, out *bytes.Buffer) *ReadyCmd {
 			{
 				var runes []map[string]any
 				if json.Unmarshal(respBody, &runes) == nil {
-					sortRunes(runes)
-
 					if !humanMode {
 						allowed := map[string]bool{"id": true, "title": true, "status": true, "priority": true}
 						for i, r := range runes {
@@ -85,8 +73,6 @@ func NewReadyCmd(clientFn func() *Client, out *bytes.Buffer) *ReadyCmd {
 	}
 
 	cmd.Flags().Bool("human", false, "human-readable table output")
-	cmd.Flags().Bool("sagas", false, "include sagas in output")
-	cmd.Flags().String("saga", "", "filter by parent saga ID")
 
 	c.Command = cmd
 	return c

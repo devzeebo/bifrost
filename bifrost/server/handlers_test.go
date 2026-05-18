@@ -903,6 +903,80 @@ func TestListRunesHandler(t *testing.T) {
 	})
 }
 
+// --- Tests: Ready ---
+
+func TestReadyHandler(t *testing.T) {
+	t.Run("returns ready runes sorted by priority", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.has_ready_runes("realm-1")
+
+		// When
+		tc.get("/ready")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.content_type_is_json()
+		tc.response_array_has_length(2)
+		tc.response_array_sorted_by_priority()
+	})
+
+	t.Run("filters out blocked runes", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.has_blocked_and_unblocked_runes("realm-1")
+
+		// When
+		tc.get("/ready")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.content_type_is_json()
+		tc.response_array_has_length(2)
+		tc.response_array_does_not_contain_rune_id("bf-blocked")
+	})
+
+	t.Run("filters out saga runes", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.has_saga_and_regular_runes("realm-1")
+
+		// When
+		tc.get("/ready")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.content_type_is_json()
+		tc.response_array_has_length(1)
+		tc.response_array_all_have_field_value("id", "bf-regular")
+	})
+
+	t.Run("returns empty array when no ready runes", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+
+		// When
+		tc.get("/ready")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.content_type_is_json()
+		tc.response_is_empty_json_array()
+	})
+}
+
 // --- Tests: GetRune ---
 
 func TestGetRuneHandler(t *testing.T) {
@@ -1633,6 +1707,65 @@ func (tc *handlerTestContext) has_rune_detail(realmID, runeID string) {
 	})
 }
 
+func (tc *handlerTestContext) has_ready_runes(realmID string) {
+	tc.t.Helper()
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_summary", "bf-0001", map[string]any{
+		"id": "bf-0001", "title": "Low Priority", "status": "open", "priority": 2.0,
+	})
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_summary", "bf-0002", map[string]any{
+		"id": "bf-0002", "title": "High Priority", "status": "open", "priority": 1.0,
+	})
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_detail", "bf-0001", map[string]any{
+		"id": "bf-0001", "title": "Low Priority", "status": "open", "dependencies": []projectors.DependencyRef{},
+	})
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_detail", "bf-0002", map[string]any{
+		"id": "bf-0002", "title": "High Priority", "status": "open", "dependencies": []projectors.DependencyRef{},
+	})
+}
+
+func (tc *handlerTestContext) has_blocked_and_unblocked_runes(realmID string) {
+	tc.t.Helper()
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_summary", "bf-blocked", map[string]any{
+		"id": "bf-blocked", "title": "Blocked", "status": "open", "priority": 1.0,
+	})
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_summary", "bf-unblocked", map[string]any{
+		"id": "bf-unblocked", "title": "Unblocked", "status": "open", "priority": 1.0,
+	})
+	// Blocked rune has a blocked_by dependency on an unfulfilled rune
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_detail", "bf-blocked", map[string]any{
+		"id": "bf-blocked", "title": "Blocked", "status": "open",
+		"dependencies": []projectors.DependencyRef{{Relationship: domain.RelBlockedBy, TargetID: "bf-other"}},
+	})
+	// The blocking rune is open (not fulfilled), so bf-blocked will be blocked
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_summary", "bf-other", map[string]any{
+		"id": "bf-other", "title": "Other", "status": "open", "priority": 0.0,
+	})
+	// Unblocked rune has no blocking dependencies
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_detail", "bf-unblocked", map[string]any{
+		"id": "bf-unblocked", "title": "Unblocked", "status": "open",
+		"dependencies": []projectors.DependencyRef{},
+	})
+}
+
+func (tc *handlerTestContext) has_saga_and_regular_runes(realmID string) {
+	tc.t.Helper()
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_summary", "bf-saga", map[string]any{
+		"id": "bf-saga", "title": "Saga", "status": "open", "priority": 1.0,
+	})
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_summary", "bf-regular", map[string]any{
+		"id": "bf-regular", "title": "Regular", "status": "open", "priority": 1.0,
+	})
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_detail", "bf-saga", map[string]any{
+		"id": "bf-saga", "title": "Saga", "status": "open", "dependencies": []projectors.DependencyRef{},
+	})
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_detail", "bf-regular", map[string]any{
+		"id": "bf-regular", "title": "Regular", "status": "open", "dependencies": []projectors.DependencyRef{},
+	})
+	// Saga has a child count > 0
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_child_count", "bf-saga", map[string]any{"id": "bf-saga", "count": 1})
+	// Regular rune has no children (not in projection)
+}
+
 // --- When ---
 
 func (tc *handlerTestContext) write_json(status int, data any) {
@@ -1828,6 +1961,19 @@ func (tc *handlerTestContext) response_shattered_contains(runeID string) {
 	err := json.Unmarshal(tc.recorder.Body.Bytes(), &resp)
 	require.NoError(tc.t, err, "response body should be valid JSON")
 	assert.Contains(tc.t, resp["shattered"], runeID)
+}
+
+func (tc *handlerTestContext) response_array_sorted_by_priority() {
+	tc.t.Helper()
+	var items []map[string]any
+	err := json.Unmarshal(tc.recorder.Body.Bytes(), &items)
+	require.NoError(tc.t, err, "response body should be valid JSON")
+	require.GreaterOrEqual(tc.t, len(items), 2, "need at least 2 items to verify sort order")
+	for i := 1; i < len(items); i++ {
+		prev, _ := items[i-1]["priority"].(float64)
+		curr, _ := items[i]["priority"].(float64)
+		assert.LessOrEqual(tc.t, prev, curr, "item[%d] priority %v should be <= item[%d] priority %v", i-1, prev, i, curr)
+	}
 }
 
 // --- Mock Event Store ---

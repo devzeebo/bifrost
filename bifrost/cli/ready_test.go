@@ -14,7 +14,7 @@ import (
 // --- Tests ---
 
 func TestReadyCommand(t *testing.T) {
-	t.Run("sends GET to /runes with status=open and blocked=false", func(t *testing.T) {
+	t.Run("sends GET to /api/ready with no query params", func(t *testing.T) {
 		tc := newReadyTestContext(t)
 
 		// Given
@@ -27,27 +27,8 @@ func TestReadyCommand(t *testing.T) {
 		// Then
 		tc.command_has_no_error()
 		tc.request_method_was("GET")
-		tc.request_path_was("/api/runes")
-		tc.request_query_param_was("status", "open")
-		tc.request_query_param_was("blocked", "false")
-		tc.request_query_param_was("is_saga", "false")
-	})
-
-	t.Run("does not send is_saga param when --sagas flag is set", func(t *testing.T) {
-		tc := newReadyTestContext(t)
-
-		// Given
-		tc.server_that_captures_request_and_returns_runes()
-		tc.client_configured()
-
-		// When
-		tc.execute_ready_with_sagas()
-
-		// Then
-		tc.command_has_no_error()
-		tc.request_query_param_absent("is_saga")
-		tc.request_query_param_was("status", "open")
-		tc.request_query_param_was("blocked", "false")
+		tc.request_path_was("/api/ready")
+		tc.request_query_params_empty()
 	})
 
 	t.Run("outputs JSON response by default", func(t *testing.T) {
@@ -87,7 +68,7 @@ func TestReadyCommand(t *testing.T) {
 		tc := newReadyTestContext(t)
 
 		// Given
-		tc.server_that_returns_json(`[{"id":"bf-1","title":"Ready Rune","status":"open","priority":0,"claimant":"someone","parent_id":"saga-1","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}]`)
+		tc.server_that_returns_json(`[{"id":"bf-1","title":"Ready Rune","status":"open","priority":0,"claimant":"someone","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}]`)
 		tc.client_configured()
 
 		// When
@@ -98,26 +79,11 @@ func TestReadyCommand(t *testing.T) {
 		tc.output_json_items_only_have_fields("id", "title", "status", "priority")
 	})
 
-	t.Run("JSON output is sorted by priority ascending", func(t *testing.T) {
-		tc := newReadyTestContext(t)
-
-		// Given
-		tc.server_that_returns_json(`[{"id":"bf-3","title":"Low","status":"open","priority":2},{"id":"bf-1","title":"High","status":"open","priority":0},{"id":"bf-2","title":"Med","status":"open","priority":1}]`)
-		tc.client_configured()
-
-		// When
-		tc.execute_ready()
-
-		// Then
-		tc.command_has_no_error()
-		tc.output_json_priorities_are_ascending()
-	})
-
 	t.Run("returns error when server responds with error", func(t *testing.T) {
 		tc := newReadyTestContext(t)
 
 		// Given
-		tc.server_that_returns_error(http.StatusInternalServerError, "failed to list runes")
+		tc.server_that_returns_error(http.StatusInternalServerError, "failed to list ready runes")
 		tc.client_configured()
 
 		// When
@@ -125,7 +91,7 @@ func TestReadyCommand(t *testing.T) {
 
 		// Then
 		tc.command_has_error()
-		tc.output_contains("failed to list runes")
+		tc.output_contains("failed to list ready runes")
 	})
 }
 
@@ -204,14 +170,6 @@ func (tc *readyTestContext) execute_ready() {
 	tc.err = cmd.Command.Execute()
 }
 
-func (tc *readyTestContext) execute_ready_with_sagas() {
-	tc.t.Helper()
-	cmd := NewReadyCmd(func() *Client { return tc.client }, tc.buf)
-	cmd.Command.SetArgs([]string{"--sagas"})
-	cmd.Command.SetErr(tc.buf)
-	tc.err = cmd.Command.Execute()
-}
-
 func (tc *readyTestContext) execute_ready_with_human() {
 	tc.t.Helper()
 	cmd := NewReadyCmd(func() *Client { return tc.client }, tc.buf)
@@ -253,21 +211,14 @@ func (tc *readyTestContext) request_query_param_absent(key string) {
 	assert.False(tc.t, exists, "expected query param %q to be absent, but it was present", key)
 }
 
+func (tc *readyTestContext) request_query_params_empty() {
+	tc.t.Helper()
+	assert.Empty(tc.t, tc.receivedQuery, "expected no query params, but got %v", tc.receivedQuery)
+}
+
 func (tc *readyTestContext) output_contains(substr string) {
 	tc.t.Helper()
 	assert.Contains(tc.t, tc.buf.String(), substr)
-}
-
-func (tc *readyTestContext) output_json_priorities_are_ascending() {
-	tc.t.Helper()
-	var items []map[string]any
-	require.NoError(tc.t, json.Unmarshal(tc.buf.Bytes(), &items))
-	require.GreaterOrEqual(tc.t, len(items), 2, "need at least 2 items to verify sort order")
-	for i := 1; i < len(items); i++ {
-		prev, _ := items[i-1]["priority"].(float64)
-		curr, _ := items[i]["priority"].(float64)
-		assert.LessOrEqual(tc.t, prev, curr, "item[%d] priority %v should be <= item[%d] priority %v", i-1, prev, i, curr)
-	}
 }
 
 func (tc *readyTestContext) output_json_items_only_have_fields(fields ...string) {

@@ -6,6 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -59,6 +62,7 @@ func NewHandlers(eventStore core.EventStore, projectionStore core.ProjectionStor
 	h.mux.HandleFunc("POST /shatter-rune", h.ShatterRune)
 	h.mux.HandleFunc("POST /sweep-runes", h.SweepRunes)
 	h.mux.HandleFunc("GET /runes", h.ListRunes)
+	h.mux.HandleFunc("GET /ready", h.Ready)
 	h.mux.HandleFunc("GET /rune", h.GetRune)
 	h.mux.HandleFunc("POST /create-realm", h.CreateRealm)
 	h.mux.HandleFunc("POST /suspend-realm", h.SuspendRealm)
@@ -119,6 +123,7 @@ func (h *Handlers) RegisterRoutes(mux *http.ServeMux, realmMiddleware, adminMidd
 	// Rune queries (viewer role minimum)
 	mux.Handle("GET /api/runes", viewerAuth(http.HandlerFunc(h.ListRunes)))
 	mux.Handle("GET /api/rune", viewerAuth(http.HandlerFunc(h.GetRune)))
+	mux.Handle("GET /api/ready", viewerAuth(http.HandlerFunc(h.Ready)))
 	mux.Handle("GET /api/retro", viewerAuth(http.HandlerFunc(h.GetRetro)))
 
 	// Role management (admin role minimum, realm auth)
@@ -951,6 +956,88 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, augmented)
 }
 
+func (h *Handlers) Ready(w http.ResponseWriter, r *http.Request) {
+	realmID, ok := RealmIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusForbidden, "realm ID required")
+		return
+	}
+	runes, err := h.projectionStore.List(r.Context(), realmID, "rune_summary")
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list runes")
+		return
+	}
+
+	var ready []map[string]any
+	for _, raw := range runes {
+		var item map[string]any
+		if json.Unmarshal(raw, &item) != nil {
+			continue
+		}
+
+		// Filter to status=open
+		if fmt.Sprintf("%v", item["status"]) != "open" {
+			continue
+		}
+
+		// Filter out sagas (is_saga=false)
+		runeID := fmt.Sprintf("%v", item["id"])
+		if runeID == "" {
+			continue
+		}
+		var childCount projectors.RuneChildCountEntry
+		err := h.projectionStore.Get(r.Context(), realmID, "rune_child_count", runeID, &childCount)
+		if err == nil && childCount.Count > 0 {
+			// Has children, so it's a saga - skip it
+			continue
+		}
+
+		// Filter to blocked=false
+		var detail projectors.RuneDetail
+		err = h.projectionStore.Get(r.Context(), realmID, "rune_detail", runeID, &detail)
+		if err != nil {
+			// If we can't get details, assume unblocked
+			ready = append(ready, item)
+			continue
+		}
+		isBlocked := false
+		for _, dep := range detail.Dependencies {
+			if dep.Relationship == domain.RelBlockedBy {
+				var summary projectors.RuneSummary
+				err := h.projectionStore.Get(r.Context(), realmID, "rune_summary", dep.TargetID, &summary)
+				if err != nil || summary.Status != "fulfilled" {
+					isBlocked = true
+					break
+				}
+			}
+		}
+		if !isBlocked {
+			ready = append(ready, item)
+		}
+	}
+
+	// Sort ready runes by: priority -> numeric ID suffix
+	sort.SliceStable(ready, func(i, j int) bool {
+		ri, rj := ready[i], ready[j]
+
+		// Sort by priority (lower numbers = higher priority)
+		pi, _ := ri["priority"].(float64)
+		pj, _ := rj["priority"].(float64)
+		if pi != pj {
+			return pi < pj
+		}
+
+		// Then sort by numeric ID suffix
+		riID := fmt.Sprintf("%v", ri["id"])
+		rjID := fmt.Sprintf("%v", rj["id"])
+		riNum := parseRuneIDSuffix(riID)
+		rjNum := parseRuneIDSuffix(rjID)
+		return riNum < rjNum
+	})
+
+	writeJSON(w, http.StatusOK, ready)
+}
+
 func (h *Handlers) GetRune(w http.ResponseWriter, r *http.Request) {
 	realmID, ok := RealmIDFromContext(r.Context())
 	if !ok {
@@ -1230,4 +1317,15 @@ func itemHasAnyTag(item map[string]any, wanted []string) bool {
 		}
 	}
 	return false
+}
+
+func parseRuneIDSuffix(id string) int {
+	re := regexp.MustCompile(`\.(\d+)$`)
+	matches := re.FindStringSubmatch(id)
+	if len(matches) == 2 {
+		if num, err := strconv.Atoi(matches[1]); err == nil {
+			return num
+		}
+	}
+	return 0
 }
