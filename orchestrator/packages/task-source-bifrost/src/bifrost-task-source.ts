@@ -10,6 +10,9 @@ import { BifrostHttpClient } from "./client/bifrost-http-client";
 import { loadConfig } from "./config/config-loader";
 import { CredentialLoader } from "./config/credential-loader";
 import type { BifrostTaskSourceConfig } from "./types";
+import createDebug from "debug";
+
+const debug = createDebug("bifrost");
 
 export class BifrostTaskSource implements TaskSource {
   readonly #config: BifrostTaskSourceConfig;
@@ -38,11 +41,11 @@ export class BifrostTaskSource implements TaskSource {
     this.#client = new BifrostHttpClient(bifrostConfig.url, bifrostConfig.realm, token);
     this.#initialized = true;
 
-    console.log("[bifrost-task-source] Configuration:");
-    console.log(`  URL: ${bifrostConfig.url.replace(/\/\/[^@]+@/, "//***@")}`);
-    console.log(`  Realm: ${bifrostConfig.realm}`);
-    console.log(`  Poll interval: ${this.#config.pollInterval}ms`);
-    console.log(`  Max poll interval: ${this.#config.maxPollInterval}ms`);
+    debug("Configuration:");
+    debug("  URL: %s", bifrostConfig.url.replace(/\/\/[^@]+@/, "//***@"));
+    debug("  Realm: %s", bifrostConfig.realm);
+    debug("  Poll interval: %dms", this.#config.pollInterval);
+    debug("  Max poll interval: %dms", this.#config.maxPollInterval);
   }
 
   async #getClient(): Promise<BifrostHttpClient> {
@@ -62,20 +65,18 @@ export class BifrostTaskSource implements TaskSource {
     let pollCount = 0;
     const SAMPLE_RATE = 100;
 
-    console.log("[bifrost-task-source] Starting poll loop");
+    debug("Starting poll loop");
 
     while (true) {
       pollCount += 1;
       const shouldLog = pollCount % SAMPLE_RATE === 0;
       if (shouldLog) {
-        console.log(
-          `[bifrost-task-source] Poll #${pollCount} (interval: ${Math.round(pollInterval)}ms)`,
-        );
+        debug("Poll #%d (interval: %dms)", pollCount, Math.round(pollInterval));
       }
       try {
         const readyRunes = await client.getReadyRunes();
         if (shouldLog || readyRunes.length > 0) {
-          console.log(`[bifrost-task-source] Found ${readyRunes.length} ready runes`);
+          debug("Found %d ready runes", readyRunes.length);
         }
 
         for (const rune of readyRunes) {

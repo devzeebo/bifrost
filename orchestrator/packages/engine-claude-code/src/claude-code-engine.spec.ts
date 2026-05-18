@@ -1,11 +1,16 @@
-import { beforeEach, describe, expect, it, vi, type MockedFunction } from "vitest";
-import { ClaudeCodeEngine } from "./claude-code-engine";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EngineContext } from "@bifrost-ai/engine";
 import type { query as queryFn, SDKMessage, Query } from "@anthropic-ai/claude-agent-sdk";
 
 vi.mock("@anthropic-ai/claude-agent-sdk", () => ({
   query: vi.fn(),
 }));
+
+vi.mock("debug", () => ({
+  default: vi.fn(() => vi.fn()),
+}));
+
+import { ClaudeCodeEngine } from "./claude-code-engine";
 
 const makeContext = (overrides: Partial<EngineContext> = {}): EngineContext => ({
   taskId: "task-1",
@@ -251,16 +256,11 @@ describe("ClaudeCodeEngine", () => {
       expect(callPrompt.prompt).toContain("Be thorough");
     });
 
-    it("should log messages when verbose is true", async () => {
-      const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
+    it("should not throw when verbose is true", async () => {
       mockQuery.mockReturnValue(mockStream(resultSuccess()));
 
       const engine = new ClaudeCodeEngine();
-      await engine.execute(makeContext({ verbose: true }));
-
-      expect(logSpy).toHaveBeenCalledWith("[claude-code-engine]", expect.any(String));
-      logSpy.mockRestore();
+      await expect(engine.execute(makeContext({ verbose: true }))).resolves.toBeDefined();
     });
   });
 });

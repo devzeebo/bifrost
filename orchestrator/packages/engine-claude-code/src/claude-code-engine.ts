@@ -6,6 +6,9 @@ import {
   type SDKSystemMessage,
   type SDKResultSuccess,
 } from "@anthropic-ai/claude-agent-sdk";
+import createDebug from "debug";
+
+const debug = createDebug("bifrost");
 
 const isSystemInit = (message: SDKMessage): message is SDKSystemMessage =>
   message.type === "system" && message.subtype === "init";
@@ -99,7 +102,7 @@ export class ClaudeCodeEngine implements Engine {
 
       for await (const message of queryGenerator) {
         if (verbose) {
-          console.log("[claude-code-engine]", JSON.stringify(message));
+          debug("%o", message);
         }
 
         if (isSystemInit(message)) {

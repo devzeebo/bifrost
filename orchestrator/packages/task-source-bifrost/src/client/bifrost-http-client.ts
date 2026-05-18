@@ -1,4 +1,7 @@
 import type { ReadyRune, RuneDetail } from "../types";
+import createDebug from "debug";
+
+const debug = createDebug("bifrost");
 
 export class BifrostHttpClient {
   public readonly baseUrl: string;
@@ -57,6 +60,11 @@ export class BifrostHttpClient {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
+    debug("%s %s", options.method, url);
+    if (options.body) {
+      debug("Request body: %s", options.body);
+    }
+
     try {
       const response = await fetch(url, {
         ...options,
@@ -68,6 +76,8 @@ export class BifrostHttpClient {
         },
         signal: controller.signal,
       });
+
+      debug("Response status: %d %s", response.status, response.statusText);
 
       if (!response.ok) {
         if (response.status === 409) {
@@ -87,7 +97,9 @@ export class BifrostHttpClient {
         return null;
       }
 
-      return response.json();
+      const data = await response.json();
+      debug("Response data: %o", data);
+      return data;
     } finally {
       clearTimeout(timeoutId);
     }
