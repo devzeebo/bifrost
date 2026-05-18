@@ -118,53 +118,13 @@ export const parseAgentDefinition = (content: string): AgentDefinition | null =>
       }
     }
 
-    // Parse hooks
-    const hooksData = data.hooks as Record<string, unknown> | undefined;
-    const hooks: {
-      Start: { name: string; scriptPath: string; timeout?: number }[];
-      Stop: { name: string; scriptPath: string; timeout?: number }[];
-    } = {
-      Start: [],
-      Stop: [],
-    };
-
-    if (hooksData?.Start && Array.isArray(hooksData.Start)) {
-      for (const hook of hooksData.Start) {
-        if (typeof hook === "object" && hook !== null) {
-          const hookObj = hook as Record<string, unknown>;
-          if (typeof hookObj.name === "string" && typeof hookObj.scriptPath === "string") {
-            hooks.Start.push({
-              name: hookObj.name,
-              scriptPath: hookObj.scriptPath,
-              timeout: typeof hookObj.timeout === "number" ? hookObj.timeout : void 0,
-            });
-          }
-        }
-      }
-    }
-
-    if (hooksData?.Stop && Array.isArray(hooksData.Stop)) {
-      for (const hook of hooksData.Stop) {
-        if (typeof hook === "object" && hook !== null) {
-          const hookObj = hook as Record<string, unknown>;
-          if (typeof hookObj.name === "string" && typeof hookObj.scriptPath === "string") {
-            hooks.Stop.push({
-              name: hookObj.name,
-              scriptPath: hookObj.scriptPath,
-              timeout: typeof hookObj.timeout === "number" ? hookObj.timeout : void 0,
-            });
-          }
-        }
-      }
-    }
-
     return {
       name: data.name,
       description: data.description,
       tools: data.tools as string[],
       toolClasses,
       template: { parameters },
-      hooks,
+      hooks: { Start: [], Stop: [] },
       promptBody,
     };
   } catch (error) {

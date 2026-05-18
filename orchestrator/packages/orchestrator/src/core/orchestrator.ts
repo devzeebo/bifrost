@@ -1,11 +1,11 @@
-import type { AgentDefinition } from "./types";
+import type { AgentDefinition, HookExecutionContext } from "./types";
 import { validateTaskState } from "./validator";
 import type { Task, TaskSource } from "@bifrost-ai/task-source";
 import type { Engine, EngineContext, EngineResult } from "@bifrost-ai/engine";
-import { type HookExecutionContext, executeHooks } from "./hook-executor";
+import { executeHooks } from "./hook-executor";
 
 type OrchestrationResult = {
-  outcome: "completed" | "failed" | "halted";
+  outcome: "completed" | "failed" | "halted" | "skipped";
   telemetry?: {
     durationMs: number;
     inputTokens: number;
@@ -16,13 +16,8 @@ type OrchestrationResult = {
     numTurns: number;
   };
   error?: string;
+  skipReason?: string;
 };
-
-type HookExecFn = (opts: {
-  scriptPath: string;
-  stdin: string;
-  timeout: number;
-}) => Promise<{ exitCode: number; stdout: string; stderr: string }>;
 
 type OrchestrateOptions = {
   task: Task;
@@ -30,7 +25,21 @@ type OrchestrateOptions = {
   taskSource: TaskSource;
   engine: Engine;
   projectDir: string;
-  hookExec?: HookExecFn;
+};
+
+const handleEngineFailure = async (
+  engineResult: EngineResult,
+  taskId: string,
+  taskSource: TaskSource,
+): Promise<OrchestrationResult> => {
+  if (engineResult.skipFulfill) {
+    return { outcome: "skipped", error: engineResult.lastMessage ?? "unknown" };
+  }
+  await taskSource.failTask(
+    taskId,
+    `Engine execution failed: ${engineResult.lastMessage ?? "unknown"}`,
+  );
+  return { outcome: "failed", error: engineResult.lastMessage ?? "unknown" };
 };
 
 /**
@@ -39,7 +48,7 @@ type OrchestrateOptions = {
  * US-3: Agent Operator - Dispatch agent on task
  */
 export const orchestrate = async (options: OrchestrateOptions): Promise<OrchestrationResult> => {
-  const { task, agent, taskSource, engine, projectDir, hookExec } = options;
+  const { task, agent, taskSource, engine, projectDir } = options;
 
   const startTime = Date.now();
   let totalTelemetry: EngineResult["stats"] = null;
@@ -53,28 +62,38 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
     return { outcome: "failed", error: validation.errors.join("; ") };
   }
 
-  // Step 2: Execute pre-task hooks
-  const hookContext: HookExecutionContext = {
-    projectDir,
-    params: task.taskState,
-    taskState: task.taskState,
+  let currentTaskState = { ...task.taskState };
+
+  const getTaskState = () => ({ ...currentTaskState });
+
+  const setTaskState = async (arg: Record<string, unknown>) => {
+    currentTaskState = { ...arg };
+    await taskSource.setState(task.id, arg);
   };
 
-  const defaultHookExec: HookExecFn = async () => ({ exitCode: 0, stdout: "", stderr: "" });
-  const execFn = hookExec ?? defaultHookExec;
+  // Step 2: Execute pre-task hooks
+  const hookContext: Omit<HookExecutionContext, "hookName"> = {
+    projectDir,
+    params: task.taskState,
+    getTaskState,
+    setTaskState,
+  };
 
   const startHookResults = await executeHooks({
     hooks: agent.hooks.Start,
     lifecycle: "Start",
     context: hookContext,
-    execFn,
   });
 
   for (const hook of startHookResults) {
-    if (hook.fatal) {
-      // oxlint-disable-next-line no-await-in-loop
-      await taskSource.failTask(task.id, `Start hook ${hook.hookName} failed: ${hook.stderr}`);
-      return { outcome: "failed", error: hook.stderr };
+    if (hook.outcome === "fatal") {
+      await taskSource.failTask(task.id, `Start hook failed: ${hook.message ?? "unknown error"}`);
+      return { outcome: "failed", error: hook.message };
+    }
+
+    if (hook.outcome === "skip") {
+      await taskSource.completeTask(task.id);
+      return { outcome: "skipped", skipReason: hook.message };
     }
   }
 
@@ -83,21 +102,36 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
     taskId: task.id,
     workingDir: projectDir,
     agentName: agent.name,
-    taskState: task.taskState,
+    taskState: currentTaskState,
     metadata: task.metadata,
-    setState: (newState: Record<string, unknown>) => taskSource.setState(task.id, newState),
+    setState: async (newState: Record<string, unknown>) => {
+      currentTaskState = { ...newState };
+      await taskSource.setState(task.id, newState);
+    },
     verbose: false,
   };
 
   // Main execution loop (handles follow-ups)
-  let maxFollowUps = 10;
-  let lastMessage = "";
+  const maxFollowUps = 10;
+  let attemptsUsed = 0;
+  let instructions: string | undefined = undefined;
+  let sessionId: string | undefined = undefined;
 
-  while ((maxFollowUps -= 1) > 0) {
+  while (((attemptsUsed += 1), attemptsUsed <= maxFollowUps)) {
     numTurns += 1;
 
-    // oxlint-disable-next-line no-await-in-loop
-    const engineResult: EngineResult = await engine.execute(engineContext);
+    const engineResult: EngineResult = await engine.execute(
+      {
+        ...engineContext,
+        taskState: currentTaskState,
+        instructions,
+      },
+      sessionId,
+    );
+
+    if (!engineResult.success) {
+      return handleEngineFailure(engineResult, task.id, taskSource);
+    }
 
     if (engineResult.stats) {
       if (!totalTelemetry) {
@@ -113,31 +147,28 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
       }
     }
 
-    lastMessage = engineResult.lastMessage || lastMessage;
+    ({ sessionId } = engineResult);
 
     // Step 4: Execute post-task hooks
-    // oxlint-disable-next-line no-await-in-loop
     const stopHookResults = await executeHooks({
       hooks: agent.hooks.Stop,
       lifecycle: "Stop",
       context: hookContext,
-      execFn,
     });
 
     let needsFollowUp = false;
     let followUpMessage = "";
 
     for (const hook of stopHookResults) {
-      if (hook.needsFollowUp) {
-        needsFollowUp = true;
-        followUpMessage = hook.stdout;
-        break;
+      if (hook.outcome === "fatal") {
+        await taskSource.failTask(task.id, `Stop hook failed: ${hook.message ?? "unknown error"}`);
+        return { outcome: "failed", error: hook.message };
       }
 
-      if (hook.fatal) {
-        // oxlint-disable-next-line no-await-in-loop
-        await taskSource.failTask(task.id, `Stop hook ${hook.hookName} failed: ${hook.stderr}`);
-        return { outcome: "failed", error: hook.stderr };
+      if (hook.outcome === "follow-up") {
+        needsFollowUp = true;
+        followUpMessage = hook.message ?? "";
+        break;
       }
     }
 
@@ -145,24 +176,13 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
       break;
     }
 
-    if (engine.sendFollowUp) {
-      // oxlint-disable-next-line no-await-in-loop
-      const followUpResult = await engine.sendFollowUp(followUpMessage);
-      if (followUpResult.stats) {
-        if (!totalTelemetry) {
-          totalTelemetry = { ...followUpResult.stats };
-        } else {
-          totalTelemetry.durationMs += followUpResult.stats.durationMs;
-          totalTelemetry.inputTokens += followUpResult.stats.inputTokens;
-          totalTelemetry.outputTokens += followUpResult.stats.outputTokens;
-          totalTelemetry.cacheReadTokens += followUpResult.stats.cacheReadTokens;
-          totalTelemetry.cacheCreationTokens += followUpResult.stats.cacheCreationTokens;
-          totalTelemetry.totalCostUsd += followUpResult.stats.totalCostUsd;
-          totalTelemetry.numTurns += followUpResult.stats.numTurns;
-        }
-      }
-      numTurns += 1;
-    }
+    instructions = followUpMessage;
+  }
+
+  // Check if exhausted
+  if (attemptsUsed > maxFollowUps) {
+    await taskSource.failTask(task.id, "Max follow-ups exceeded");
+    return { outcome: "halted", error: "Max follow-ups exceeded" };
   }
 
   // Step 5: Report success

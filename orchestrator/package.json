@@ -1,6 +1,6 @@
 {
   "name": "orchestrator",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "description": "Unified Orchestrator Framework - AI agent task execution system",
   "private": true,
   "type": "module",
@@ -15,19 +15,13 @@
     "format": "prettier . -w"
   },
   "devDependencies": {
-    "@types/node": "^25.6.2",
+    "@types/node": "^25.7.0",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.59.2",
     "vite": "^8.0.12",
     "vite-plugin-dts": "^5.0.0",
-    "vitest": "^4.1.5"
+    "vitest": "^4.1.6"
   },
   "engines": {
     "node": ">=24.0.0"
-  },
-  "dependencies": {
-    "gray-matter": "^4.0.3",
-    "handlebars": "^4.7.9",
-    "yaml": "^2.8.4"
   }
 }

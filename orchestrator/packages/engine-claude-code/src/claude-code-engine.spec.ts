@@ -123,6 +123,7 @@ describe("ClaudeCodeEngine", () => {
       expect(result.success).toBe(true);
       expect(result.skipFulfill).toBe(false);
       expect(result.lastMessage).toBe("Fixed the bug in auth.py");
+      expect(result.sessionId).toBe("sess-123");
       expect(result.stats).toMatchObject({
         durationMs: 1500,
         inputTokens: 1000,
@@ -134,16 +135,49 @@ describe("ClaudeCodeEngine", () => {
       });
     });
 
-    it("should capture session ID from system init message", async () => {
+    it("should capture and return session ID for continuation", async () => {
       mockQuery.mockReturnValue(
         mockStream(systemInit("sess-abc"), resultSuccess({ session_id: "sess-abc" })),
       );
 
       const engine = new ClaudeCodeEngine();
-      await engine.execute(makeContext());
+      const result = await engine.execute(makeContext());
 
-      const followUp = await engine.sendFollowUp("check again");
-      expect(followUp.success).toBe(true);
+      expect(result.sessionId).toBe("sess-abc");
+    });
+
+    it("should support session continuation via sessionId parameter", async () => {
+      mockQuery.mockReturnValueOnce(
+        mockStream(systemInit("sess-continue"), resultSuccess({ session_id: "sess-continue" })),
+      );
+
+      mockQuery.mockReturnValueOnce(
+        mockStream(
+          resultSuccess({
+            session_id: "sess-continue",
+            num_turns: 2,
+            duration_ms: 200,
+            result: "follow-up done",
+            total_cost_usd: 0.02,
+            usage: { input_tokens: 300, output_tokens: 150, cache_read_input_tokens: 80 },
+          }),
+        ),
+      );
+
+      const engine = new ClaudeCodeEngine();
+      const firstResult = await engine.execute(makeContext());
+      expect(firstResult.sessionId).toBe("sess-continue");
+
+      const followUpResult = await engine.execute(makeContext(), firstResult.sessionId);
+      expect(followUpResult.success).toBe(true);
+      expect(followUpResult.lastMessage).toBe("follow-up done");
+      expect(followUpResult.stats?.numTurns).toBe(2);
+      expect(followUpResult.sessionId).toBe("sess-continue");
+
+      const secondCall = mockQuery.mock.calls[1][0] as {
+        options: { resume: string };
+      };
+      expect(secondCall.options.resume).toBe("sess-continue");
     });
 
     it("should extract text from assistant messages", async () => {
@@ -201,7 +235,8 @@ describe("ClaudeCodeEngine", () => {
       await engine.execute(
         makeContext({
           taskState: { file: "auth.py" },
-          metadata: { description: "Fix the login bug", instructions: "Be thorough" },
+          metadata: { description: "Fix the login bug" },
+          instructions: "Be thorough",
         }),
       );
 
@@ -226,49 +261,6 @@ describe("ClaudeCodeEngine", () => {
 
       expect(logSpy).toHaveBeenCalledWith("[claude-code-engine]", expect.any(String));
       logSpy.mockRestore();
-    });
-  });
-
-  describe("sendFollowUp", () => {
-    it("should throw if no active session exists", async () => {
-      const engine = new ClaudeCodeEngine();
-
-      await expect(engine.sendFollowUp("hello")).rejects.toThrow(
-        "No active session to follow up on",
-      );
-    });
-
-    it("should resume session with follow-up message", async () => {
-      mockQuery.mockReturnValueOnce(
-        mockStream(systemInit("sess-resume"), resultSuccess({ session_id: "sess-resume" })),
-      );
-
-      mockQuery.mockReturnValueOnce(
-        mockStream(
-          resultSuccess({
-            session_id: "sess-resume",
-            num_turns: 2,
-            duration_ms: 200,
-            result: "follow-up done",
-            total_cost_usd: 0.02,
-            usage: { input_tokens: 300, output_tokens: 150, cache_read_input_tokens: 80 },
-          }),
-        ),
-      );
-
-      const engine = new ClaudeCodeEngine();
-      await engine.execute(makeContext());
-
-      const followUp = await engine.sendFollowUp("now fix the tests");
-
-      expect(followUp.success).toBe(true);
-      expect(followUp.lastMessage).toBe("follow-up done");
-      expect(followUp.stats?.numTurns).toBe(2);
-
-      const secondCall = mockQuery.mock.calls[1][0] as {
-        options: { resume: string };
-      };
-      expect(secondCall.options.resume).toBe("sess-resume");
     });
   });
 });

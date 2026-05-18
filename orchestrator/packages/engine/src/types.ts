@@ -6,6 +6,7 @@ export type EngineContext = {
   metadata: Record<string, unknown>;
   setState: (newState: Record<string, unknown>) => Promise<void>;
   verbose: boolean;
+  instructions?: string;
 };
 
 // FR-2: EngineResult MUST contain
@@ -14,6 +15,7 @@ export type EngineResult = {
   skipFulfill: boolean;
   lastMessage: string | null;
   stats: ExecutionStats | null;
+  sessionId?: string;
 };
 
 // FR-2: ExecutionStats MUST contain

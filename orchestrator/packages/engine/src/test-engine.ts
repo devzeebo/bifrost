@@ -15,6 +15,7 @@ export type TestEngineConfig = {
  */
 export class TestEngine implements Engine {
   #config: TestEngineConfig;
+  #currentSessionId?: string;
 
   public constructor(config: TestEngineConfig = {}) {
     this.#config = {
@@ -27,7 +28,7 @@ export class TestEngine implements Engine {
     };
   }
 
-  public async execute(context: EngineContext): Promise<EngineResult> {
+  public async execute(context: EngineContext, sessionId?: string): Promise<EngineResult> {
     // Apply simulated delay if configured
     if (this.#config.simulateDelay && this.#config.simulateDelay > 0) {
       await new Promise((resolve) => setTimeout(resolve, this.#config.simulateDelay));
@@ -54,35 +55,22 @@ export class TestEngine implements Engine {
 
     stats.durationMs = Date.now() - startTime;
 
-    return {
-      success: this.#config.success ?? true,
-      skipFulfill: false,
-      lastMessage: `${this.#config.lastMessage} (task: ${context.taskId}, agent: ${context.agentName})`,
-      stats,
-    };
-  }
-
-  public async sendFollowUp(message: string): Promise<EngineResult> {
-    // Apply simulated delay if configured
-    if (this.#config.simulateDelay && this.#config.simulateDelay > 0) {
-      await new Promise((resolve) => setTimeout(resolve, this.#config.simulateDelay));
+    if (sessionId) {
+      this.#currentSessionId = sessionId;
+    } else {
+      this.#currentSessionId = `test-session-${Date.now()}`;
     }
 
-    const stats: EngineResult["stats"] = {
-      durationMs: this.#config.simulateDelay ?? 10,
-      inputTokens: 50,
-      outputTokens: 25,
-      cacheReadTokens: 5,
-      cacheCreationTokens: 2,
-      totalCostUsd: 0.0025,
-      numTurns: 1,
-    };
+    const isFollowUp = Boolean(sessionId);
 
     return {
       success: this.#config.success ?? true,
       skipFulfill: false,
-      lastMessage: `Follow-up: ${message}`,
+      lastMessage: isFollowUp
+        ? `Follow-up: ${this.#config.lastMessage} (session: ${this.#currentSessionId})`
+        : `${this.#config.lastMessage} (task: ${context.taskId}, agent: ${context.agentName})`,
       stats,
+      sessionId: this.#currentSessionId,
     };
   }
 

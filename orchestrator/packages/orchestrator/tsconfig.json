@@ -5,7 +5,8 @@
     "rootDir": "./src"
   },
   "references": [
-    { "path": "../core" },
+    { "path": "../task-source" },
+    { "path": "../engine" },
     { "path": "../task-source-bifrost" },
     { "path": "../engine-claude-code" }
   ],

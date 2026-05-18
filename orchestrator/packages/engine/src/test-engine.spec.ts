@@ -23,6 +23,29 @@ describe("Test Engine", () => {
       expect(result.lastMessage).toContain("complete");
       expect(result.stats).toBeDefined();
       expect(result.stats?.durationMs).toBeGreaterThanOrEqual(0);
+      expect(result.sessionId).toBeDefined();
+    });
+
+    it("should return sessionId for continuation", async () => {
+      const engine = new TestEngine();
+
+      const context: EngineContext = {
+        taskId: "task-1",
+        workingDir: "/test/project",
+        agentName: "test-agent",
+        taskState: {},
+        metadata: {},
+        setState: vi.fn().mockResolvedValue(null),
+        verbose: false,
+      };
+
+      const result = await engine.execute(context);
+      expect(result.sessionId).toMatch(/^test-session-/);
+
+      // Continuation with sessionId
+      const followUpResult = await engine.execute(context, result.sessionId);
+      expect(followUpResult.lastMessage).toContain("Follow-up");
+      expect(followUpResult.sessionId).toBe(result.sessionId);
     });
 
     it("should include execution telemetry", async () => {
@@ -49,16 +72,6 @@ describe("Test Engine", () => {
         totalCostUsd: expect.any(Number),
         numTurns: expect.any(Number),
       });
-    });
-
-    it("should support follow-up execution", async () => {
-      const engine = new TestEngine();
-
-      const followUpResult = await engine.sendFollowUp?.("Fix the lint errors");
-
-      expect(followUpResult).toBeDefined();
-      expect(followUpResult?.success).toBe(true);
-      expect(followUpResult?.lastMessage).toContain("Follow-up");
     });
   });
 

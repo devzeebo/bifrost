@@ -27,11 +27,15 @@ const extractContent = (message: SDKAssistantMessage): string | null => {
   return textBlocks.map((block) => block.text ?? "").join("\n");
 };
 
-const buildPrompt = (
-  agentName: string,
-  taskState: Record<string, unknown>,
-  metadata: Record<string, unknown>,
-): string => {
+type BuildPromptOptions = {
+  agentName: string;
+  taskState: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  instructions?: string;
+};
+
+const buildPrompt = (options: BuildPromptOptions): string => {
+  const { agentName: _agentName, taskState, metadata, instructions } = options;
   const parts: string[] = [];
 
   if (metadata.description) {
@@ -45,8 +49,8 @@ const buildPrompt = (
     }
   }
 
-  if (metadata.instructions) {
-    parts.push(`\nInstructions: ${metadata.instructions}`);
+  if (instructions) {
+    parts.push(`\nInstructions: ${instructions}`);
   }
 
   return parts.join("\n");
@@ -67,21 +71,28 @@ const buildStats = (resultData: SDKResultSuccess): ExecutionStats => {
 };
 
 export class ClaudeCodeEngine implements Engine {
-  private sessionId?: string;
+  // oxlint-disable-next-line class-methods-use-this -- method doesn't use `this`, that's fine
+  public async execute(context: EngineContext, sessionId?: string): Promise<EngineResult> {
+    const { agentName, taskState, metadata, instructions, workingDir, verbose } = context;
 
-  public async execute(context: EngineContext): Promise<EngineResult> {
-    const { agentName, taskState, metadata, workingDir, verbose } = context;
+    const prompt = buildPrompt({ agentName, taskState, metadata, instructions });
 
-    const prompt = buildPrompt(agentName, taskState, metadata);
-
-    const options = {
-      workingDir,
-      permissionMode: "acceptEdits" as const,
-      verbose,
-    };
+    const options = sessionId
+      ? {
+          workingDir,
+          permissionMode: "acceptEdits" as const,
+          verbose,
+          resume: sessionId,
+        }
+      : {
+          workingDir,
+          permissionMode: "acceptEdits" as const,
+          verbose,
+        };
 
     let lastMessage: string | null = null;
     let resultData: SDKResultSuccess | undefined = undefined;
+    let returnedSessionId: string | undefined = sessionId;
 
     try {
       const queryGenerator = query({ prompt, options });
@@ -92,7 +103,7 @@ export class ClaudeCodeEngine implements Engine {
         }
 
         if (isSystemInit(message)) {
-          this.sessionId = message.session_id;
+          returnedSessionId = message.session_id;
         }
 
         if (isResultSuccess(message)) {
@@ -123,54 +134,7 @@ export class ClaudeCodeEngine implements Engine {
       skipFulfill: false,
       lastMessage: lastMessage ?? "No response from Claude",
       stats,
-    };
-  }
-
-  public async sendFollowUp(message: string): Promise<EngineResult> {
-    if (!this.sessionId) {
-      throw new Error("No active session to follow up on");
-    }
-
-    let lastMessage: string | null = null;
-    let resultData: SDKResultSuccess | undefined = undefined;
-
-    try {
-      const queryGenerator = query({
-        prompt: message,
-        options: {
-          resume: this.sessionId,
-        },
-      });
-
-      for await (const msg of queryGenerator) {
-        if (isResultSuccess(msg)) {
-          resultData = msg;
-          lastMessage = resultData.result;
-        }
-
-        if (msg.type === "assistant") {
-          const content = extractContent(msg);
-          if (content) {
-            lastMessage = content;
-          }
-        }
-      }
-    } catch (error) {
-      return {
-        success: false,
-        skipFulfill: false,
-        lastMessage: error instanceof Error ? error.message : String(error),
-        stats: null,
-      };
-    }
-
-    const stats = resultData ? buildStats(resultData) : null;
-
-    return {
-      success: true,
-      skipFulfill: false,
-      lastMessage: lastMessage ?? "No response from Claude",
-      stats,
+      sessionId: returnedSessionId,
     };
   }
 }

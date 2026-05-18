@@ -20,6 +20,7 @@ describe("Engine Interface", () => {
               totalCostUsd: 0.01,
               numTurns: 1,
             },
+            sessionId: "session-123",
           };
         }
       }
@@ -38,51 +39,23 @@ describe("Engine Interface", () => {
       const result = await engine.execute(context);
       expect(result.success).toBe(true);
       expect(result.lastMessage).toContain("test-agent");
+      expect(result.sessionId).toBe("session-123");
     });
 
-    it("should require optional sendFollowUp method", async () => {
-      class MockEngineWithFollowUp implements Engine {
-        public async execute(): Promise<EngineResult> {
-          return {
-            success: true,
-            skipFulfill: false,
-            lastMessage: "Initial",
-            stats: null,
-          };
-        }
-
-        public async sendFollowUp(message: string): Promise<EngineResult> {
-          return {
-            success: true,
-            skipFulfill: false,
-            lastMessage: `Follow-up: ${message}`,
-            stats: null,
-          };
-        }
-      }
-
-      const engine = new MockEngineWithFollowUp();
-
-      // sendFollowUp is optional - check if it exists
-      if ("sendFollowUp" in engine) {
-        const result = await engine.sendFollowUp("Fix the lint errors");
-        expect(result.lastMessage).toContain("Follow-up");
-      }
-    });
-
-    it("should allow engine without sendFollowUp", async () => {
+    it("should support session continuation via sessionId parameter", async () => {
       class MockEngine implements Engine {
-        public async execute(_context: EngineContext): Promise<EngineResult> {
+        public async execute(_context: EngineContext, sessionId?: string): Promise<EngineResult> {
           return {
             success: true,
             skipFulfill: false,
-            lastMessage: "Done",
+            lastMessage: sessionId ? `Continuing session ${sessionId}` : "New session",
             stats: null,
+            sessionId: sessionId ?? "new-session-456",
           };
         }
       }
 
-      const engine: Engine = new MockEngine();
+      const engine = new MockEngine();
       const context: EngineContext = {
         taskId: "task-1",
         workingDir: "/test",
@@ -92,11 +65,16 @@ describe("Engine Interface", () => {
         setState: vi.fn().mockResolvedValue(void 0),
         verbose: false,
       };
-      const result = await engine.execute(context);
 
-      expect(result.success).toBe(true);
-      // sendFollowUp is optional, so engine doesn't need it
-      expect("sendFollowUp" in engine).toBe(false);
+      // First call creates new session
+      const result1 = await engine.execute(context);
+      expect(result1.lastMessage).toBe("New session");
+      expect(result1.sessionId).toBe("new-session-456");
+
+      // Second call continues session
+      const result2 = await engine.execute(context, result1.sessionId);
+      expect(result2.lastMessage).toContain("Continuing session new-session-456");
+      expect(result2.sessionId).toBe("new-session-456");
     });
   });
 });

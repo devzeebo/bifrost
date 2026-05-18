@@ -9,7 +9,7 @@
     "**/node_modules": true,
     "**/__pycache__": true,
     "**/.venv": true,
-    "**/dist": true,
+    // "**/dist": true,
     "*/**/.claude": true,
     "**/tsconfig.tsbuildinfo": true
   },

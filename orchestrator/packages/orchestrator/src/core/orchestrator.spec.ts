@@ -7,7 +7,6 @@ import type { Engine } from "@bifrost-ai/engine";
 describe("Orchestrator", () => {
   describe("task execution lifecycle", () => {
     it("should validate taskState → execute pre-hooks → invoke engine → execute post-hooks → report success", async () => {
-      // Given a task with valid taskState
       const task: Task = {
         id: "task-1",
         agentId: "agent-1",
@@ -54,7 +53,6 @@ describe("Orchestrator", () => {
         }),
       };
 
-      // When orchestrating
       const result = await orchestrate({
         task,
         agent,
@@ -63,18 +61,16 @@ describe("Orchestrator", () => {
         projectDir: "/test/project",
       });
 
-      // Then validation passes, hooks execute, engine runs, task completes
       expect(result.outcome).toBe("completed");
       expect(mockEngine.execute).toHaveBeenCalled();
       expect(mockTaskSource.completeTask).toHaveBeenCalledWith("task-1");
     });
 
     it("should fail task when taskState validation fails", async () => {
-      // Given a task with invalid taskState
       const task: Task = {
         id: "task-2",
         agentId: "agent-1",
-        taskState: {}, // Missing required 'language' parameter
+        taskState: {},
         metadata: {},
       };
 
@@ -109,7 +105,6 @@ describe("Orchestrator", () => {
         }),
       };
 
-      // When orchestrating
       const result = await orchestrate({
         task,
         agent,
@@ -118,7 +113,6 @@ describe("Orchestrator", () => {
         projectDir: "/test/project",
       });
 
-      // Then task fails, engine not called
       expect(result.outcome).toBe("failed");
       expect(mockTaskSource.failTask).toHaveBeenCalledWith(
         "task-2",
@@ -176,15 +170,13 @@ describe("Orchestrator", () => {
         projectDir: "/test/project",
       });
 
-      // Engine receives setState callback
       expect(capturedSetState).toBeDefined();
 
-      // Calling setState persists to task source
       await capturedSetState!({ step: 2 });
       expect(mockTaskSource.setState).toHaveBeenCalledWith("task-1", { step: 2 });
     });
 
-    it("should fail task when Start hook returns fatal error", async () => {
+    it("should fail task when Start hook returns fatal", async () => {
       const task: Task = {
         id: "task-1",
         agentId: "agent-1",
@@ -199,7 +191,12 @@ describe("Orchestrator", () => {
         toolClasses: [],
         template: { parameters: {} },
         hooks: {
-          Start: [{ name: "fatal-hook", scriptPath: "/fatal.mjs", timeout: 30000 }],
+          Start: [
+            {
+              name: "fatal-hook",
+              fn: async () => ({ outcome: "fatal" as const, message: "Fatal error" }),
+            },
+          ],
           Stop: [],
         },
         promptBody: "Test",
@@ -223,30 +220,23 @@ describe("Orchestrator", () => {
         }),
       };
 
-      const mockExec = vi.fn().mockResolvedValue({
-        exitCode: 2, // Fatal
-        stdout: "",
-        stderr: "Fatal error",
-      });
-
       const result = await orchestrate({
         task,
         agent,
         taskSource: mockTaskSource,
         engine: mockEngine,
         projectDir: "/test/project",
-        hookExec: mockExec,
       });
 
       expect(result.outcome).toBe("failed");
       expect(mockTaskSource.failTask).toHaveBeenCalledWith(
         "task-1",
-        expect.stringContaining("fatal-hook"),
+        expect.stringContaining("Fatal error"),
       );
       expect(mockEngine.execute).not.toHaveBeenCalled();
     });
 
-    it("should fail task when Stop hook returns fatal error", async () => {
+    it("should skip engine and complete task when Start hook returns skip", async () => {
       const task: Task = {
         id: "task-1",
         agentId: "agent-1",
@@ -261,8 +251,13 @@ describe("Orchestrator", () => {
         toolClasses: [],
         template: { parameters: {} },
         hooks: {
-          Start: [],
-          Stop: [{ name: "fatal-hook", scriptPath: "/fatal.mjs", timeout: 30000 }],
+          Start: [
+            {
+              name: "skip-check",
+              fn: async () => ({ outcome: "skip" as const, message: "already up to date" }),
+            },
+          ],
+          Stop: [],
         },
         promptBody: "Test",
       };
@@ -285,29 +280,21 @@ describe("Orchestrator", () => {
         }),
       };
 
-      const mockExec = vi.fn().mockResolvedValue({
-        exitCode: 2, // Fatal
-        stdout: "",
-        stderr: "Fatal error",
-      });
-
       const result = await orchestrate({
         task,
         agent,
         taskSource: mockTaskSource,
         engine: mockEngine,
         projectDir: "/test/project",
-        hookExec: mockExec,
       });
 
-      expect(result.outcome).toBe("failed");
-      expect(mockTaskSource.failTask).toHaveBeenCalledWith(
-        "task-1",
-        expect.stringContaining("fatal-hook"),
-      );
+      expect(result.outcome).toBe("skipped");
+      expect(result.skipReason).toBe("already up to date");
+      expect(mockEngine.execute).not.toHaveBeenCalled();
+      expect(mockTaskSource.completeTask).toHaveBeenCalledWith("task-1");
     });
 
-    it("should support follow-up loop when Stop hook returns exit code 1", async () => {
+    it("should fail task when Stop hook returns fatal", async () => {
       const task: Task = {
         id: "task-1",
         agentId: "agent-1",
@@ -323,7 +310,79 @@ describe("Orchestrator", () => {
         template: { parameters: {} },
         hooks: {
           Start: [],
-          Stop: [{ name: "lint", scriptPath: "/lint.mjs", timeout: 30000 }],
+          Stop: [
+            {
+              name: "fatal-hook",
+              fn: async () => ({ outcome: "fatal" as const, message: "Fatal error" }),
+            },
+          ],
+        },
+        promptBody: "Test",
+      };
+
+      const mockTaskSource: TaskSource = {
+        async *watchTasks(): AsyncGenerator<Task> {
+          yield task;
+        },
+        completeTask: vi.fn().mockResolvedValue(void 0),
+        failTask: vi.fn().mockResolvedValue(void 0),
+        setState: vi.fn().mockResolvedValue(void 0),
+      };
+
+      const mockEngine: Engine = {
+        execute: vi.fn().mockResolvedValue({
+          success: true,
+          skipFulfill: false,
+          lastMessage: "Done",
+          stats: null,
+        }),
+      };
+
+      const result = await orchestrate({
+        task,
+        agent,
+        taskSource: mockTaskSource,
+        engine: mockEngine,
+        projectDir: "/test/project",
+      });
+
+      expect(result.outcome).toBe("failed");
+      expect(mockTaskSource.failTask).toHaveBeenCalledWith(
+        "task-1",
+        expect.stringContaining("Fatal error"),
+      );
+    });
+
+    it("should support follow-up loop when Stop hook returns follow-up", async () => {
+      const task: Task = {
+        id: "task-1",
+        agentId: "agent-1",
+        taskState: {},
+        metadata: {},
+      };
+
+      let stopCallCount = 0;
+
+      const agent: AgentDefinition = {
+        name: "test",
+        description: "Test",
+        tools: [],
+        toolClasses: [],
+        template: { parameters: {} },
+        hooks: {
+          Start: [],
+          Stop: [
+            {
+              name: "lint",
+              fn: async () => {
+                stopCallCount += 1;
+                if (stopCallCount === 1) {
+                  return { outcome: "follow-up" as const, message: "Fix lint issues" };
+                }
+                return { outcome: "success" as const };
+              },
+            },
+          ],
         },
         promptBody: "Test",
       };
@@ -354,22 +413,83 @@ describe("Orchestrator", () => {
           }),
       };
 
-      const mockExec = vi
-        .fn()
-        .mockResolvedValueOnce({ exitCode: 1, stdout: "Fix lint issues", stderr: "" })
-        .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" });
-
       const result = await orchestrate({
         task,
         agent,
         taskSource: mockTaskSource,
         engine: mockEngine,
         projectDir: "/test/project",
-        hookExec: mockExec,
       });
 
       expect(result.outcome).toBe("completed");
       expect(mockEngine.execute).toHaveBeenCalledTimes(2);
+    });
+
+    it("should propagate state changes from Start hooks to engine", async () => {
+      const task: Task = {
+        id: "task-1",
+        agentId: "agent-1",
+        taskState: { step: 1 },
+        metadata: {},
+      };
+
+      const agent: AgentDefinition = {
+        name: "test",
+        description: "Test",
+        tools: [],
+        toolClasses: [],
+        template: { parameters: {} },
+        hooks: {
+          Start: [
+            {
+              name: "update-state",
+              fn: async (ctx) => {
+                await ctx.setTaskState({ step: 2, updatedBy: "hook" });
+                return { outcome: "success" as const };
+              },
+            },
+          ],
+          Stop: [],
+        },
+        promptBody: "Test",
+      };
+
+      const mockTaskSource: TaskSource = {
+        async *watchTasks(): AsyncGenerator<Task> {
+          yield task;
+        },
+        completeTask: vi.fn().mockResolvedValue(void 0),
+        failTask: vi.fn().mockResolvedValue(void 0),
+        setState: vi.fn().mockResolvedValue(void 0),
+      };
+
+      let engineReceivedState: Record<string, unknown> | null = null;
+
+      const mockEngine: Engine = {
+        execute: vi.fn().mockImplementation(async (context) => {
+          engineReceivedState = context.taskState;
+          return {
+            success: true,
+            skipFulfill: false,
+            lastMessage: "Done",
+            stats: null,
+          };
+        }),
+      };
+
+      await orchestrate({
+        task,
+        agent,
+        taskSource: mockTaskSource,
+        engine: mockEngine,
+        projectDir: "/test/project",
+      });
+
+      expect(engineReceivedState).toEqual({ step: 2, updatedBy: "hook" });
+      expect(mockTaskSource.setState).toHaveBeenCalledWith("task-1", {
+        step: 2,
+        updatedBy: "hook",
+      });
     });
   });
 });
