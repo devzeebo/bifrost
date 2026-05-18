@@ -37,6 +37,12 @@ export class BifrostTaskSource implements TaskSource {
 
     this.#client = new BifrostHttpClient(bifrostConfig.url, bifrostConfig.realm, token);
     this.#initialized = true;
+
+    console.log("[bifrost-task-source] Configuration:");
+    console.log(`  URL: ${bifrostConfig.url}`);
+    console.log(`  Realm: ${bifrostConfig.realm}`);
+    console.log(`  Poll interval: ${this.#config.pollInterval}ms`);
+    console.log(`  Max poll interval: ${this.#config.maxPollInterval}ms`);
   }
 
   async #getClient(): Promise<BifrostHttpClient> {
@@ -53,10 +59,18 @@ export class BifrostTaskSource implements TaskSource {
     const defaultPollInterval = this.#config.pollInterval ?? 1000;
     const maxPollInterval = this.#config.maxPollInterval ?? 30000;
     let pollInterval = defaultPollInterval;
+    let pollCount = 0;
+
+    console.log("[bifrost-task-source] Starting poll loop");
 
     while (true) {
+      pollCount += 1;
+      console.log(
+        `[bifrost-task-source] Poll #${pollCount} (interval: ${Math.round(pollInterval)}ms)`,
+      );
       try {
         const readyRunes = await client.getReadyRunes();
+        console.log(`[bifrost-task-source] Found ${readyRunes.length} ready runes`);
 
         for (const rune of readyRunes) {
           const agentId = BifrostTaskSource.extractAgentId(rune.tags);

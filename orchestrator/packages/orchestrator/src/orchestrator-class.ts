@@ -21,13 +21,21 @@ export class Orchestrator {
     this.taskSource = new TaskSourceCtor();
     this.engine = new EngineCtor();
     this.agents = new Map<string, AgentDefinition>();
+
+    console.log("[orchestrator] Configuration:");
+    console.log(`  TaskSource: ${TaskSourceCtor.name}`);
+    console.log(`  Engine: ${EngineCtor.name}`);
   }
 
   public registerAgent(agent: AgentDefinition): void {
     this.agents.set(agent.name, agent);
+    console.log(`[orchestrator] Registered agent: ${agent.name}`);
   }
 
   public async run(): Promise<void> {
+    console.log(
+      `[orchestrator] Starting with ${this.agents.size} agents: ${[...this.agents.keys()].join(", ")}`,
+    );
     for await (const task of this.taskSource.watchTasks()) {
       const agent = this.agents.get(task.agentId);
       if (agent) {
