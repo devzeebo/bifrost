@@ -424,5 +424,72 @@ describe("Orchestrator", () => {
       expect(result.outcome).toBe("completed");
       expect(mockEngine.execute).toHaveBeenCalledTimes(2);
     });
+
+    it("should propagate state changes from Start hooks to engine", async () => {
+      const task: Task = {
+        id: "task-1",
+        agentId: "agent-1",
+        taskState: { step: 1 },
+        metadata: {},
+      };
+
+      const agent: AgentDefinition = {
+        name: "test",
+        description: "Test",
+        tools: [],
+        toolClasses: [],
+        template: { parameters: {} },
+        hooks: {
+          Start: [
+            {
+              name: "update-state",
+              fn: async (ctx) => {
+                await ctx.setTaskState({ step: 2, updatedBy: "hook" });
+                return { outcome: "success" as const };
+              },
+            },
+          ],
+          Stop: [],
+        },
+        promptBody: "Test",
+      };
+
+      const mockTaskSource: TaskSource = {
+        async *watchTasks(): AsyncGenerator<Task> {
+          yield task;
+        },
+        completeTask: vi.fn().mockResolvedValue(void 0),
+        failTask: vi.fn().mockResolvedValue(void 0),
+        setState: vi.fn().mockResolvedValue(void 0),
+      };
+
+      let engineReceivedState: Record<string, unknown> | null = null;
+
+      const mockEngine: Engine = {
+        execute: vi.fn().mockImplementation(async (context) => {
+          engineReceivedState = context.taskState;
+          return {
+            success: true,
+            skipFulfill: false,
+            lastMessage: "Done",
+            stats: null,
+          };
+        }),
+      };
+
+      await orchestrate({
+        task,
+        agent,
+        taskSource: mockTaskSource,
+        engine: mockEngine,
+        projectDir: "/test/project",
+      });
+
+      expect(engineReceivedState).toEqual({ step: 2, updatedBy: "hook" });
+      expect(mockTaskSource.setState).toHaveBeenCalledWith("task-1", {
+        step: 2,
+        updatedBy: "hook",
+      });
+    });
   });
 });

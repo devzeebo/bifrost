@@ -47,7 +47,12 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
     return { outcome: "failed", error: validation.errors.join("; ") };
   }
 
+  let currentTaskState = { ...task.taskState };
+
+  const getTaskState = () => ({ ...currentTaskState });
+
   const setTaskState = async (arg: Record<string, unknown>) => {
+    currentTaskState = { ...arg };
     await taskSource.setState(task.id, arg);
   };
 
@@ -55,7 +60,7 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
   const hookContext: Omit<HookExecutionContext, "hookName"> = {
     projectDir,
     params: task.taskState,
-    taskState: task.taskState,
+    getTaskState,
     setTaskState,
   };
 
@@ -82,9 +87,12 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
     taskId: task.id,
     workingDir: projectDir,
     agentName: agent.name,
-    taskState: task.taskState,
+    taskState: currentTaskState,
     metadata: task.metadata,
-    setState: (newState: Record<string, unknown>) => taskSource.setState(task.id, newState),
+    setState: async (newState: Record<string, unknown>) => {
+      currentTaskState = { ...newState };
+      await taskSource.setState(task.id, newState);
+    },
     verbose: false,
   };
 
@@ -99,6 +107,7 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
     const engineResult: EngineResult = await engine.execute(
       {
         ...engineContext,
+        taskState: currentTaskState,
         instructions,
       },
       sessionId,

@@ -9,7 +9,7 @@ export type HookExecutionContext = {
   projectDir: string;
   hookName: string;
   params: Record<string, unknown>;
-  taskState: Record<string, unknown>;
+  getTaskState: () => Record<string, unknown>;
   setTaskState: (newState: Record<string, unknown>) => Promise<void>;
 };
 

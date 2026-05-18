@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { executeHooks } from "./hook-executor";
 import type { HookSpec } from "./types";
 
@@ -6,7 +6,8 @@ describe("Hook Executor", () => {
   const baseContext = {
     projectDir: "/test/project",
     params: { language: "python" },
-    taskState: { language: { name: "python" } },
+    getTaskState: () => ({ language: { name: "python" } }),
+    setTaskState: vi.fn().mockResolvedValue(void 0),
   };
 
   describe("Start hooks", () => {
@@ -130,6 +131,41 @@ describe("Hook Executor", () => {
       await executeHooks({ hooks, lifecycle: "Start", context: baseContext });
 
       expect(receivedName).toBe("my-hook");
+    });
+
+    it("should propagate state changes through sequential hooks", async () => {
+      let latestState: Record<string, unknown> | null = null;
+      const setStateMock = vi.fn().mockResolvedValue(void 0);
+      let localState = { step: 1 };
+
+      const contextWithMutableState = {
+        ...baseContext,
+        getTaskState: () => ({ ...localState }),
+        setTaskState: setStateMock,
+      };
+
+      const hooks: HookSpec[] = [
+        {
+          name: "first",
+          fn: async (ctx) => {
+            await ctx.setTaskState({ step: 2 });
+            localState = { step: 2 };
+            return { outcome: "success" as const };
+          },
+        },
+        {
+          name: "second",
+          fn: async (ctx) => {
+            latestState = ctx.getTaskState();
+            return { outcome: "success" as const };
+          },
+        },
+      ];
+
+      await executeHooks({ hooks, lifecycle: "Start", context: contextWithMutableState });
+
+      expect(latestState).toEqual({ step: 2 });
+      expect(setStateMock).toHaveBeenCalledWith({ step: 2 });
     });
   });
 });
