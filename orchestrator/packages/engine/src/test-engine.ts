@@ -57,7 +57,7 @@ export class TestEngine implements Engine {
 
     if (sessionId) {
       this.#currentSessionId = sessionId;
-    } else if (!this.#currentSessionId) {
+    } else {
       this.#currentSessionId = `test-session-${Date.now()}`;
     }
 

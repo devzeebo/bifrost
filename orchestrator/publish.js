@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
@@ -43,7 +43,10 @@ const currentVersion = packageJson.version;
 const timestamp = Date.now();
 const buildNumber = `build.${timestamp}`;
 
-execSync("npm version patch --no-git-tag-version");
+execFileSync("npm", ["version", "patch", "--no-git-tag-version"], {
+  cwd: __dirname,
+  stdio: "inherit",
+});
 packageJson = await import("./package.json?cache=1", { with: { type: "json" } }).then(
   (json) => json.default,
 );
@@ -59,7 +62,6 @@ try {
       const opts = {
         cwd: currentPath,
         stdio: "inherit",
-        shell: "/usr/bin/bash",
       };
 
       // Bump version with build suffix and update sibling deps
@@ -68,21 +70,20 @@ try {
 
       // Build package
       console.log(`Building ${pkgName}...`);
-      execSync("npm run build", opts);
+      execFileSync("npm", ["run", "build"], opts);
 
       // Publish package
       console.log(`Publishing ${pkgName}...`);
-      execSync("npm publish --tag prerelease --access public", opts);
+      execFileSync("npm", ["publish", "--tag", "prerelease", "--access", "public"], opts);
     } catch (error) {
       console.error(error);
       throw error;
     }
   }
 } finally {
-  execSync(`npm version ${currentVersion} --no-git-tag-version`, {
+  execFileSync("npm", ["version", currentVersion, "--no-git-tag-version"], {
     cwd: __dirname,
     stdio: "inherit",
-    shell: "/usr/bin/bash",
   });
 
   // reset the versions locally

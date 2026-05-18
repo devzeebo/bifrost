@@ -42,5 +42,5 @@ export const loadAgent = async (
   if (!definition) {
     throw new Error("Failed to parse agent definition");
   }
-  return deepMerge(agent ?? {}, definition);
+  return deepMerge(definition, agent ?? {});
 };

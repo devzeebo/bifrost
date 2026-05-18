@@ -27,6 +27,21 @@ type OrchestrateOptions = {
   projectDir: string;
 };
 
+const handleEngineFailure = async (
+  engineResult: EngineResult,
+  taskId: string,
+  taskSource: TaskSource,
+): Promise<OrchestrationResult> => {
+  if (engineResult.skipFulfill) {
+    return { outcome: "skipped", error: engineResult.lastMessage ?? "unknown" };
+  }
+  await taskSource.failTask(
+    taskId,
+    `Engine execution failed: ${engineResult.lastMessage ?? "unknown"}`,
+  );
+  return { outcome: "failed", error: engineResult.lastMessage ?? "unknown" };
+};
+
 /**
  * Execute the full orchestration lifecycle for a task.
  * FR-14: Orchestration Lifecycle
@@ -97,11 +112,12 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
   };
 
   // Main execution loop (handles follow-ups)
-  let maxFollowUps = 10;
+  const maxFollowUps = 10;
+  let attemptsUsed = 0;
   let instructions: string | undefined = undefined;
   let sessionId: string | undefined = undefined;
 
-  while ((maxFollowUps -= 1) > 0) {
+  while (((attemptsUsed += 1), attemptsUsed <= maxFollowUps)) {
     numTurns += 1;
 
     const engineResult: EngineResult = await engine.execute(
@@ -112,6 +128,10 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
       },
       sessionId,
     );
+
+    if (!engineResult.success) {
+      return handleEngineFailure(engineResult, task.id, taskSource);
+    }
 
     if (engineResult.stats) {
       if (!totalTelemetry) {
@@ -157,6 +177,12 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
     }
 
     instructions = followUpMessage;
+  }
+
+  // Check if exhausted
+  if (attemptsUsed > maxFollowUps) {
+    await taskSource.failTask(task.id, "Max follow-ups exceeded");
+    return { outcome: "halted", error: "Max follow-ups exceeded" };
   }
 
   // Step 5: Report success

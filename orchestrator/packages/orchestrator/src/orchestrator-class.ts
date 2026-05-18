@@ -39,15 +39,20 @@ export class Orchestrator {
     for await (const task of this.taskSource.watchTasks()) {
       const agent = this.agents.get(task.agentId);
       if (agent) {
-        const result = await orchestrate({
-          task,
-          agent,
-          taskSource: this.taskSource,
-          engine: this.engine,
-          projectDir: process.cwd(),
-        });
+        try {
+          const result = await orchestrate({
+            task,
+            agent,
+            taskSource: this.taskSource,
+            engine: this.engine,
+            projectDir: process.cwd(),
+          });
 
-        console.log(`Task ${task.id} ${result.outcome}`);
+          console.log(`Task ${task.id} ${result.outcome}`);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          await this.taskSource.failTask(task.id, message);
+        }
       } else {
         await this.taskSource.failTask(task.id, `Unknown agent: ${task.agentId}`);
       }

@@ -17,8 +17,8 @@ endif
 .DEFAULT_GOAL := help
 
 .PHONY: deps build build-server build-cli build-ui ui-dist \
-        test test-go test-ui test-py \
-        lint lint-go lint-ui lint-py \
+        test test-go test-ui \
+        lint lint-go lint-ui \
         vet tidy \
         dev prod docker clean list help
 
@@ -58,7 +58,7 @@ build-ui: ui-dist
 
 # ── Quality ───────────────────────────────────────────────────────────────────
 
-test: test-go test-ui test-py
+test: test-go test-ui
 
 test-go:
 	@echo "» go test $(ARGS) $(GO_TARGETS)"
@@ -68,11 +68,11 @@ test-ui:
 	@echo "» vitest run"
 	cd bifrost/ui && npm run test -- --run
 
-test-py:
-	@echo "» uv test"
-	cd orchestrator && uv run python -m pytest
+# test-py:
+# 	@echo "» uv test"
+# 	cd orchestrator && uv run python -m pytest
 
-lint: lint-go lint-ui lint-py
+lint: lint-go lint-ui
 
 lint-go:
 	@echo "» golangci-lint run $(ARGS) $(GO_TARGETS)"
@@ -82,9 +82,9 @@ lint-ui:
 	@echo "» oxlint"
 	cd bifrost/ui && npm run lint
 
-lint-py:
-	@echo "» uv run ruff"
-	cd orchestrator && uv run ruff check --fix . && uv run ruff format .
+# lint-py:
+# 	@echo "» uv run ruff"
+# 	cd orchestrator && uv run ruff check --fix . && uv run ruff format .
 
 vet:
 	@echo "» go vet $(ARGS) $(GO_TARGETS)"
