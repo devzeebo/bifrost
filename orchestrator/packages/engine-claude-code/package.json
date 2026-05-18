@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "description": "Claude Code Agent SDK engine for Orchestrator Framework",
   "type": "module",
+  "files": [
+    "dist"
+  ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
