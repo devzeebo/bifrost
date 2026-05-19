@@ -5,7 +5,6 @@ export type EngineContext = {
   taskState: Record<string, unknown>;
   metadata: Record<string, unknown>;
   setState: (newState: Record<string, unknown>) => Promise<void>;
-  verbose: boolean;
   instructions?: string;
 };
 

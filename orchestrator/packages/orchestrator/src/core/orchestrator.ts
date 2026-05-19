@@ -3,6 +3,9 @@ import { validateTaskState } from "./validator";
 import type { Task, TaskSource } from "@bifrost-ai/task-source";
 import type { Engine, EngineContext, EngineResult } from "@bifrost-ai/engine";
 import { executeHooks } from "./hook-executor";
+import createDebug from "debug";
+
+const debug = createDebug("bifrost");
 
 type OrchestrationResult = {
   outcome: "completed" | "failed" | "halted" | "skipped";
@@ -42,6 +45,116 @@ const handleEngineFailure = async (
   return { outcome: "failed", error: engineResult.lastMessage ?? "unknown" };
 };
 
+type LoopOptions = {
+  task: Task;
+  agent: AgentDefinition;
+  taskSource: TaskSource;
+  engine: Engine;
+  engineContext: EngineContext;
+  hookContext: Omit<HookExecutionContext, "hookName">;
+  getCurrentTaskState: () => Record<string, unknown>;
+};
+
+type LoopResult = {
+  earlyReturn?: OrchestrationResult;
+  totalTelemetry: EngineResult["stats"];
+  numTurns: number;
+};
+
+const runEngineLoop = async (opts: LoopOptions): Promise<LoopResult> => {
+  const { task, agent, taskSource, engine, engineContext, hookContext, getCurrentTaskState } = opts;
+  const maxFollowUps = 10;
+  let attemptsUsed = 0;
+  let instructions: string | undefined = undefined;
+  let sessionId: string | undefined = undefined;
+  let totalTelemetry: EngineResult["stats"] = null;
+  let numTurns = 0;
+
+  while (((attemptsUsed += 1), attemptsUsed <= maxFollowUps)) {
+    numTurns += 1;
+    debug("engine execute attempt %d/%d task=%s", attemptsUsed, maxFollowUps, task.id);
+
+    const engineResult = await engine.execute(
+      { ...engineContext, taskState: getCurrentTaskState(), instructions },
+      sessionId,
+    );
+
+    debug(
+      "engine result success=%s cost=$%s",
+      engineResult.success,
+      engineResult.stats?.totalCostUsd?.toFixed(4) ?? "n/a",
+    );
+
+    if (!engineResult.success) {
+      debug("engine failure: %s", engineResult.lastMessage);
+      return {
+        earlyReturn: await handleEngineFailure(engineResult, task.id, taskSource),
+        totalTelemetry,
+        numTurns,
+      };
+    }
+
+    if (engineResult.stats) {
+      if (!totalTelemetry) {
+        totalTelemetry = { ...engineResult.stats };
+      } else {
+        totalTelemetry.durationMs += engineResult.stats.durationMs;
+        totalTelemetry.inputTokens += engineResult.stats.inputTokens;
+        totalTelemetry.outputTokens += engineResult.stats.outputTokens;
+        totalTelemetry.cacheReadTokens += engineResult.stats.cacheReadTokens;
+        totalTelemetry.cacheCreationTokens += engineResult.stats.cacheCreationTokens;
+        totalTelemetry.totalCostUsd += engineResult.stats.totalCostUsd;
+        totalTelemetry.numTurns += engineResult.stats.numTurns;
+      }
+    }
+
+    ({ sessionId } = engineResult);
+
+    const stopHookResults = await executeHooks({
+      hooks: agent.hooks.Stop,
+      lifecycle: "Stop",
+      context: hookContext,
+    });
+
+    let needsFollowUp = false;
+    let followUpMessage = "";
+
+    for (const hook of stopHookResults) {
+      if (hook.outcome === "fatal") {
+        debug("stop hook fatal: %s", hook.message);
+        await taskSource.failTask(task.id, `Stop hook failed: ${hook.message ?? "unknown error"}`);
+        return {
+          earlyReturn: { outcome: "failed", error: hook.message },
+          totalTelemetry,
+          numTurns,
+        };
+      }
+      if (hook.outcome === "follow-up") {
+        needsFollowUp = true;
+        followUpMessage = hook.message ?? "";
+        debug("stop hook follow-up: %s", followUpMessage);
+        break;
+      }
+    }
+
+    if (!needsFollowUp) {
+      break;
+    }
+    instructions = followUpMessage;
+  }
+
+  if (attemptsUsed > maxFollowUps) {
+    await taskSource.failTask(task.id, "Max follow-ups exceeded");
+    return {
+      earlyReturn: { outcome: "halted", error: "Max follow-ups exceeded" },
+      totalTelemetry,
+      numTurns,
+    };
+  }
+
+  return { totalTelemetry, numTurns };
+};
+
 /**
  * Execute the full orchestration lifecycle for a task.
  * FR-14: Orchestration Lifecycle
@@ -51,16 +164,19 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
   const { task, agent, taskSource, engine, projectDir } = options;
 
   const startTime = Date.now();
-  let totalTelemetry: EngineResult["stats"] = null;
-  let numTurns = 0;
+
+  debug("orchestrate task=%s agent=%s", task.id, agent.name);
 
   // Step 1: Validate taskState against agent parameter schema
   const validation = validateTaskState(task.taskState, agent.template.parameters);
 
   if (!validation.valid) {
+    debug("task %s validation failed: %s", task.id, validation.errors.join("; "));
     await taskSource.failTask(task.id, validation.errors.join("; "));
     return { outcome: "failed", error: validation.errors.join("; ") };
   }
+
+  debug("task %s validation passed", task.id);
 
   let currentTaskState = { ...task.taskState };
 
@@ -87,11 +203,13 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
 
   for (const hook of startHookResults) {
     if (hook.outcome === "fatal") {
+      debug("start hook fatal: %s", hook.message);
       await taskSource.failTask(task.id, `Start hook failed: ${hook.message ?? "unknown error"}`);
       return { outcome: "failed", error: hook.message };
     }
 
     if (hook.outcome === "skip") {
+      debug("start hook skip: %s", hook.message);
       await taskSource.completeTask(task.id);
       return { outcome: "skipped", skipReason: hook.message };
     }
@@ -108,87 +226,30 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
       currentTaskState = { ...newState };
       await taskSource.setState(task.id, newState);
     },
-    verbose: false,
   };
 
-  // Main execution loop (handles follow-ups)
-  const maxFollowUps = 10;
-  let attemptsUsed = 0;
-  let instructions: string | undefined = undefined;
-  let sessionId: string | undefined = undefined;
+  // Steps 3-4: Engine + stop hooks loop
+  const loopResult = await runEngineLoop({
+    task,
+    agent,
+    taskSource,
+    engine,
+    engineContext,
+    hookContext,
+    getCurrentTaskState: () => currentTaskState,
+  });
 
-  while (((attemptsUsed += 1), attemptsUsed <= maxFollowUps)) {
-    numTurns += 1;
-
-    const engineResult: EngineResult = await engine.execute(
-      {
-        ...engineContext,
-        taskState: currentTaskState,
-        instructions,
-      },
-      sessionId,
-    );
-
-    if (!engineResult.success) {
-      return handleEngineFailure(engineResult, task.id, taskSource);
-    }
-
-    if (engineResult.stats) {
-      if (!totalTelemetry) {
-        totalTelemetry = { ...engineResult.stats };
-      } else {
-        totalTelemetry.durationMs += engineResult.stats.durationMs;
-        totalTelemetry.inputTokens += engineResult.stats.inputTokens;
-        totalTelemetry.outputTokens += engineResult.stats.outputTokens;
-        totalTelemetry.cacheReadTokens += engineResult.stats.cacheReadTokens;
-        totalTelemetry.cacheCreationTokens += engineResult.stats.cacheCreationTokens;
-        totalTelemetry.totalCostUsd += engineResult.stats.totalCostUsd;
-        totalTelemetry.numTurns += engineResult.stats.numTurns;
-      }
-    }
-
-    ({ sessionId } = engineResult);
-
-    // Step 4: Execute post-task hooks
-    const stopHookResults = await executeHooks({
-      hooks: agent.hooks.Stop,
-      lifecycle: "Stop",
-      context: hookContext,
-    });
-
-    let needsFollowUp = false;
-    let followUpMessage = "";
-
-    for (const hook of stopHookResults) {
-      if (hook.outcome === "fatal") {
-        await taskSource.failTask(task.id, `Stop hook failed: ${hook.message ?? "unknown error"}`);
-        return { outcome: "failed", error: hook.message };
-      }
-
-      if (hook.outcome === "follow-up") {
-        needsFollowUp = true;
-        followUpMessage = hook.message ?? "";
-        break;
-      }
-    }
-
-    if (!needsFollowUp) {
-      break;
-    }
-
-    instructions = followUpMessage;
+  if (loopResult.earlyReturn) {
+    return loopResult.earlyReturn;
   }
 
-  // Check if exhausted
-  if (attemptsUsed > maxFollowUps) {
-    await taskSource.failTask(task.id, "Max follow-ups exceeded");
-    return { outcome: "halted", error: "Max follow-ups exceeded" };
-  }
+  const { totalTelemetry, numTurns } = loopResult;
 
   // Step 5: Report success
   await taskSource.completeTask(task.id);
 
   const durationMs = Date.now() - startTime;
+  debug("task %s completed in %dms", task.id, durationMs);
 
   return {
     outcome: "completed",

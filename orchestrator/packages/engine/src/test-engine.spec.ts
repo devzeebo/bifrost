@@ -14,7 +14,6 @@ describe("Test Engine", () => {
         taskState: {},
         metadata: {},
         setState: vi.fn().mockResolvedValue(null),
-        verbose: false,
       };
 
       const result = await engine.execute(context);
@@ -36,7 +35,6 @@ describe("Test Engine", () => {
         taskState: {},
         metadata: {},
         setState: vi.fn().mockResolvedValue(null),
-        verbose: false,
       };
 
       const result = await engine.execute(context);
@@ -58,7 +56,6 @@ describe("Test Engine", () => {
         taskState: {},
         metadata: {},
         setState: vi.fn().mockResolvedValue(null),
-        verbose: false,
       };
 
       const result = await engine.execute(context);
@@ -90,7 +87,6 @@ describe("Test Engine", () => {
         taskState: {},
         metadata: {},
         setState: vi.fn().mockResolvedValue(null),
-        verbose: false,
       };
 
       const result = await engine.execute(context);
@@ -113,7 +109,6 @@ describe("Test Engine", () => {
         taskState: {},
         metadata: {},
         setState: vi.fn().mockResolvedValue(null),
-        verbose: false,
       };
 
       const result = await engine.execute(context);
@@ -134,7 +129,6 @@ describe("Test Engine", () => {
         taskState: {},
         metadata: {},
         setState: vi.fn().mockResolvedValue(null),
-        verbose: false,
       };
 
       const start = Date.now();

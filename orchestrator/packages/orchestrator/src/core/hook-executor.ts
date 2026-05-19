@@ -1,4 +1,7 @@
 import type { HookSpec, HookResult, HookExecutionContext } from "./types";
+import createDebug from "debug";
+
+const debug = createDebug("bifrost");
 
 export type { HookExecutionContext, HookResult };
 
@@ -9,24 +12,24 @@ type ExecuteHooksOptions = {
 };
 
 export const executeHooks = async (options: ExecuteHooksOptions): Promise<HookResult[]> => {
-  const { hooks, context } = options;
+  const { hooks, lifecycle, context } = options;
   const results: HookResult[] = [];
 
   for (const hook of hooks) {
+    debug("%s hook %s start", lifecycle, hook.name);
     try {
       const result = await hook.fn({ ...context, hookName: hook.name });
 
+      debug("%s hook %s → %s", lifecycle, hook.name, result.outcome);
       results.push(result);
 
       if (result.outcome === "fatal") {
         break;
       }
     } catch (error) {
-      results.push({
-        outcome: "fatal",
-        message: error instanceof Error ? error.message : String(error),
-      });
-
+      const message = error instanceof Error ? error.message : String(error);
+      debug("%s hook %s threw: %s", lifecycle, hook.name, message);
+      results.push({ outcome: "fatal", message });
       break;
     }
   }

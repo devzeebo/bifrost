@@ -33,7 +33,6 @@ describe("Engine Interface", () => {
         taskState: {},
         metadata: {},
         setState: vi.fn().mockResolvedValue(void 0),
-        verbose: false,
       };
 
       const result = await engine.execute(context);
@@ -63,7 +62,6 @@ describe("Engine Interface", () => {
         taskState: {},
         metadata: {},
         setState: vi.fn().mockResolvedValue(void 0),
-        verbose: false,
       };
 
       // First call creates new session

@@ -64,7 +64,7 @@ describe("Engine Types", () => {
   });
 
   describe("EngineContext", () => {
-    it("should contain taskId, workingDir, agentName, taskState, metadata, setState, and verbose", () => {
+    it("should contain taskId, workingDir, agentName, taskState, metadata, and setState", () => {
       const context: EngineContext = {
         taskId: "task-123",
         workingDir: "/home/user/project",
@@ -72,7 +72,6 @@ describe("Engine Types", () => {
         taskState: { step: 1 },
         metadata: { priority: "high" },
         setState: vi.fn().mockResolvedValue(null),
-        verbose: true,
       };
 
       expect(context.taskId).toBe("task-123");
@@ -81,7 +80,6 @@ describe("Engine Types", () => {
       expect(context.taskState).toEqual({ step: 1 });
       expect(context.metadata).toEqual({ priority: "high" });
       expect(context.setState).toBeDefined();
-      expect(context.verbose).toBe(true);
     });
   });
 });

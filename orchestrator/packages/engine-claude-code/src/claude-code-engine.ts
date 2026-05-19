@@ -76,21 +76,22 @@ const buildStats = (resultData: SDKResultSuccess): ExecutionStats => {
 export class ClaudeCodeEngine implements Engine {
   // oxlint-disable-next-line class-methods-use-this -- method doesn't use `this`, that's fine
   public async execute(context: EngineContext, sessionId?: string): Promise<EngineResult> {
-    const { agentName, taskState, metadata, instructions, workingDir, verbose } = context;
+    const { agentName, taskState, metadata, instructions, workingDir } = context;
 
     const prompt = buildPrompt({ agentName, taskState, metadata, instructions });
+
+    debug("engine execute workingDir=%s sessionId=%s", workingDir, sessionId ?? "none");
+    debug("engine prompt: %s", prompt);
 
     const options = sessionId
       ? {
           workingDir,
           permissionMode: "acceptEdits" as const,
-          verbose,
           resume: sessionId,
         }
       : {
           workingDir,
           permissionMode: "acceptEdits" as const,
-          verbose,
         };
 
     let lastMessage: string | null = null;
@@ -101,17 +102,21 @@ export class ClaudeCodeEngine implements Engine {
       const queryGenerator = query({ prompt, options });
 
       for await (const message of queryGenerator) {
-        if (verbose) {
-          debug("%o", message);
-        }
+        debug(
+          "engine message type=%s subtype=%s",
+          message.type,
+          (message as { subtype?: string }).subtype ?? "-",
+        );
 
         if (isSystemInit(message)) {
           returnedSessionId = message.session_id;
+          debug("engine session_id=%s", returnedSessionId);
         }
 
         if (isResultSuccess(message)) {
           resultData = message;
           lastMessage = resultData.result;
+          debug("engine result: %s", lastMessage);
         }
 
         if (message.type === "assistant") {
@@ -122,6 +127,7 @@ export class ClaudeCodeEngine implements Engine {
         }
       }
     } catch (error) {
+      debug("engine error: %o", error);
       return {
         success: false,
         skipFulfill: false,

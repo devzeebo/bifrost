@@ -19,7 +19,6 @@ const makeContext = (overrides: Partial<EngineContext> = {}): EngineContext => (
   taskState: {},
   metadata: {},
   setState: vi.fn().mockResolvedValue(undefined),
-  verbose: false,
   ...overrides,
 });
 
@@ -254,13 +253,6 @@ describe("ClaudeCodeEngine", () => {
       expect(callPrompt.prompt).toContain("Context:");
       expect(callPrompt.prompt).toContain("file");
       expect(callPrompt.prompt).toContain("Be thorough");
-    });
-
-    it("should not throw when verbose is true", async () => {
-      mockQuery.mockReturnValue(mockStream(resultSuccess()));
-
-      const engine = new ClaudeCodeEngine();
-      await expect(engine.execute(makeContext({ verbose: true }))).resolves.toBeDefined();
     });
   });
 });
