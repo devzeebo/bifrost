@@ -304,8 +304,6 @@ func HandleForgeRune(ctx context.Context, realmID string, cmd ForgeRune, store c
 		return &core.NotFoundError{Entity: "rune", ID: cmd.ID}
 	}
 	// Shattered runes are tombstones - skip them silently (no-op).
-	// This allows recursive forging of sagas to succeed even when
-	// some children have been shattered.
 	if state.Status == "shattered" || state.Status != "draft" {
 		return nil
 	}
@@ -319,22 +317,6 @@ func HandleForgeRune(ctx context.Context, realmID string, cmd ForgeRune, store c
 		return err
 	}
 
-	var entry struct {
-		Count int `json:"count"`
-	}
-	err = projStore.Get(ctx, realmID, "rune_child_count", cmd.ID, &entry)
-	if err != nil {
-		if !isNotFoundError(err) {
-			return err
-		}
-		entry.Count = 0
-	}
-	for i := 1; i <= entry.Count; i++ {
-		childID := fmt.Sprintf("%s.%d", cmd.ID, i)
-		if err := HandleForgeRune(ctx, realmID, ForgeRune{ID: childID}, store, projStore); err != nil {
-			return err
-		}
-	}
 
 	return nil
 }

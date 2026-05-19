@@ -806,74 +806,6 @@ func TestForgeRune_AlreadyOpen(t *testing.T) {
 	})
 }
 
-func TestForgeRune_Saga(t *testing.T) {
-	t.Run("forging parent forges all draft children", func(t *testing.T) {
-		tc := newIntegrationTestContext(t)
-
-		// Given
-		tc.a_realm("realm-1")
-		tc.create_top_level_rune("Parent task", "", 1)
-		tc.no_error()
-		parentID := tc.createdEvent.ID
-		tc.project_all_events()
-
-		tc.create_child_rune("Child 1", "", 1)
-		tc.no_error()
-		child1ID := tc.createdEvent.ID
-		tc.project_all_events()
-
-		tc.create_child_rune("Child 2", "", 1)
-		tc.no_error()
-		child2ID := tc.createdEvent.ID
-		tc.project_all_events()
-
-		// When: forge parent
-		tc.forge_specific_rune(parentID)
-
-		// Then: no error, all three have RuneForged events
-		tc.no_error()
-		tc.rune_stream_has_event_type(parentID, domain.EventRuneForged)
-		tc.rune_stream_has_event_type(child1ID, domain.EventRuneForged)
-		tc.rune_stream_has_event_type(child2ID, domain.EventRuneForged)
-	})
-}
-
-func TestForgeRune_SagaSkipsNonDraft(t *testing.T) {
-	t.Run("forging parent skips already-open children", func(t *testing.T) {
-		tc := newIntegrationTestContext(t)
-
-		// Given
-		tc.a_realm("realm-1")
-		tc.create_top_level_rune("Parent task", "", 1)
-		tc.no_error()
-		parentID := tc.createdEvent.ID
-		tc.project_all_events()
-
-		tc.create_child_rune("Child 1", "", 1)
-		tc.no_error()
-		child1ID := tc.createdEvent.ID
-		tc.project_all_events()
-
-		tc.create_child_rune("Child 2", "", 1)
-		tc.no_error()
-		child2ID := tc.createdEvent.ID
-		tc.project_all_events()
-
-		// Forge child 1 independently
-		tc.forge_specific_rune(child1ID)
-		tc.no_error()
-
-		// When: forge parent
-		tc.forge_specific_rune(parentID)
-
-		// Then: no error, parent and child 2 get RuneForged, child 1 does not get a second RuneForged
-		tc.no_error()
-		tc.rune_stream_has_event_type(parentID, domain.EventRuneForged)
-		tc.rune_stream_has_event_type(child2ID, domain.EventRuneForged)
-		tc.rune_stream_has_event_count(child1ID, 2)
-	})
-}
-
 // --- Test Context ---
 
 type integrationTestContext struct {
@@ -1149,13 +1081,6 @@ func (tc *integrationTestContext) stream_has_event_type(index int, eventType str
 	require.NoError(tc.t, err)
 	require.Greater(tc.t, len(events), index, "stream has fewer events than expected index %d", index)
 	assert.Equal(tc.t, eventType, events[index].EventType)
-}
-
-func (tc *integrationTestContext) rune_stream_has_event_count(runeID string, expected int) {
-	tc.t.Helper()
-	events, err := tc.stack.EventStore.ReadStream(tc.ctx, tc.realmID, "rune-"+runeID, 0)
-	require.NoError(tc.t, err)
-	assert.Len(tc.t, events, expected, "expected %d events in stream rune-%s, got %d", expected, runeID, len(events))
 }
 
 func (tc *integrationTestContext) rune_stream_has_event_type(runeID, eventType string) {

@@ -130,7 +130,6 @@ export class ApiClient {
       updated_at: raw.updated_at ?? new Date(0).toISOString(),
       description: raw.description ?? "",
       assignee_id: raw.assignee_id,
-      saga_id: raw.saga_id,
       dependencies: normalizeDependencies(raw.dependencies),
       tags: Array.isArray(raw.tags)
         ? raw.tags

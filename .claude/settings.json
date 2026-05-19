@@ -6,6 +6,36 @@
         "hooks": [
           {
             "type": "command",
+            "if": "Bash(awk *)",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/dispatch node ban-sed"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(wc *)",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/dispatch node ban-sed"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(sed *)",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/dispatch node ban-sed"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
             "if": "Bash(npx *)",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/dispatch node ban-npx"
           }

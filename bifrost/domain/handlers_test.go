@@ -1401,35 +1401,6 @@ func TestHandleForgeRune_SkipsShattered(t *testing.T) {
 	})
 }
 
-func TestHandleForgeRune_SkipsShatteredChildren(t *testing.T) {
-	t.Run("succeeds when forging a saga with shattered child runes", func(t *testing.T) {
-		tc := newHandlerTestContext(t)
-
-		// Given: a parent rune with draft status
-		tc.a_realm("realm-1")
-		tc.an_event_store()
-		tc.a_store()
-		tc.existing_rune_in_stream("bf-1234", "draft")
-		// And: two children, one draft and one shattered
-		tc.existing_rune_in_stream("bf-1234.1", "draft")
-		tc.existing_rune_in_stream("bf-1234.2", "shattered")
-		tc.rune_has_children("bf-1234", 2)
-		tc.a_forge_rune_command("bf-1234")
-
-		// When
-		tc.handle_forge_rune()
-
-		// Then: the forge succeeds (skips the shattered child)
-		tc.no_error()
-		// Parent was forged
-		tc.event_was_appended_to_stream("rune-bf-1234")
-		// Draft child was forged
-		tc.event_was_appended_to_stream("rune-bf-1234.1")
-		// Shattered child was NOT forged
-		tc.event_was_not_appended_to_stream("rune-bf-1234.2")
-	})
-}
-
 func TestHandleFulfillRune_RejectsShattered(t *testing.T) {
 	t.Run("returns error when rune is shattered", func(t *testing.T) {
 		tc := newHandlerTestContext(t)
@@ -2228,13 +2199,6 @@ func (tc *handlerTestContext) event_was_appended_to_stream(streamID string) {
 		}
 	}
 	assert.True(tc.t, found, "expected Append to stream %q, got calls: %v", streamID, tc.eventStore.appendedCalls)
-}
-
-func (tc *handlerTestContext) event_was_not_appended_to_stream(streamID string) {
-	tc.t.Helper()
-	for _, call := range tc.eventStore.appendedCalls {
-		assert.NotEqual(tc.t, streamID, call.streamID, "expected no Append to stream %q", streamID)
-	}
 }
 
 func (tc *handlerTestContext) no_events_were_appended() {

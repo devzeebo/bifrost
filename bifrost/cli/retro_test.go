@@ -112,26 +112,6 @@ func TestRetroCommand(t *testing.T) {
 		tc.output_contains("(none)")
 	})
 
-	t.Run("fetches saga retro: human output shows all child runes", func(t *testing.T) {
-		tc := newRetroTestContext(t)
-
-		// Given
-		tc.server_that_returns_saga_retro([]sagaRetroEntry{
-			{id: "bf-a1b2.1", title: "Child 1", status: "fulfilled", items: []string{"Note 1"}},
-			{id: "bf-a1b2.2", title: "Child 2", status: "sealed", items: []string{}},
-		})
-		tc.client_configured()
-
-		// When
-		tc.execute_retro_fetch_with_human("bf-a1b2")
-
-		// Then
-		tc.command_has_no_error()
-		tc.output_contains("Child 1")
-		tc.output_contains("Child 2")
-		tc.output_contains("Note 1")
-	})
-
 	t.Run("fetches retro: returns error when server responds with error", func(t *testing.T) {
 		tc := newRetroTestContext(t)
 
@@ -162,12 +142,6 @@ type retroTestContext struct {
 	err                 error
 }
 
-type sagaRetroEntry struct {
-	id     string
-	title  string
-	status string
-	items  []string
-}
 
 func newRetroTestContext(t *testing.T) *retroTestContext {
 	t.Helper()
@@ -211,33 +185,6 @@ func (tc *retroTestContext) server_that_returns_single_rune_retro(id, title, sta
 		tc.receivedMethod = r.Method
 		tc.receivedPath = r.URL.Path
 		tc.receivedQueryParams = map[string]string{"id": r.URL.Query().Get("id")}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(response)
-	}))
-	tc.t.Cleanup(tc.server.Close)
-}
-
-func (tc *retroTestContext) server_that_returns_saga_retro(entries []sagaRetroEntry) {
-	tc.t.Helper()
-	response := make([]map[string]any, 0, len(entries))
-	for _, e := range entries {
-		retroItems := make([]map[string]any, 0, len(e.items))
-		for _, item := range e.items {
-			retroItems = append(retroItems, map[string]any{
-				"text":       item,
-				"created_at": "2026-01-15T10:00:00Z",
-			})
-		}
-		response = append(response, map[string]any{
-			"id":          e.id,
-			"title":       e.title,
-			"status":      e.status,
-			"retro_items": retroItems,
-		})
-	}
-	tc.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tc.receivedMethod = r.Method
-		tc.receivedPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(response)
 	}))

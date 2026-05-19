@@ -709,18 +709,6 @@ const Page = () => {
                 <span className="text-sm">{formatDate(rune.updated_at)}</span>
               </div>
 
-              {rune.saga_id && (
-                <div>
-                  <div
-                    className="text-xs uppercase tracking-wider block mb-1"
-                    style={{ color: "var(--color-text-muted)" }}
-                  >
-                    Saga
-                  </div>
-                  <span className="text-sm font-mono">{rune.saga_id}</span>
-                </div>
-              )}
-
               {rune.assignee_id && (
                 <div>
                   <div

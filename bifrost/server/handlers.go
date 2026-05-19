@@ -780,10 +780,9 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 	priorityFilter := r.URL.Query().Get("priority")
 	assigneeFilter := r.URL.Query().Get("assignee")
 	branchFilter := r.URL.Query().Get("branch")
-	sagaFilter := r.URL.Query().Get("saga")
 	tagFilters := parseTagFilters(r)
 
-	if statusFilter != "" || priorityFilter != "" || assigneeFilter != "" || branchFilter != "" || sagaFilter != "" || len(tagFilters) > 0 {
+	if statusFilter != "" || priorityFilter != "" || assigneeFilter != "" || branchFilter != "" || len(tagFilters) > 0 {
 		var filtered []json.RawMessage
 		for _, raw := range runes {
 			var item map[string]any
@@ -807,11 +806,6 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 			}
 			if branchFilter != "" {
 				if fmt.Sprintf("%v", item["branch"]) != branchFilter {
-					continue
-				}
-			}
-			if sagaFilter != "" {
-				if fmt.Sprintf("%v", item["parent_id"]) != sagaFilter {
 					continue
 				}
 			}
@@ -927,31 +921,6 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 		augmented = append(augmented, item)
 	}
 
-	isSagaFilter := r.URL.Query().Get("is_saga")
-	if isSagaFilter == "true" || isSagaFilter == "false" {
-		wantSaga := isSagaFilter == "true"
-		filtered := make([]map[string]any, 0, len(augmented))
-		for _, item := range augmented {
-			runeID := fmt.Sprintf("%v", item["id"])
-			if runeID == "" {
-				continue
-			}
-			var entry projectors.RuneChildCountEntry
-			err := h.projectionStore.Get(r.Context(), realmID, "rune_child_count", runeID, &entry)
-			if err != nil {
-				if isNotFound(err) {
-					entry.Count = 0
-				} else {
-					continue
-				}
-			}
-			isSaga := entry.Count > 0
-			if isSaga == wantSaga {
-				filtered = append(filtered, item)
-			}
-		}
-		augmented = filtered
-	}
 
 	writeJSON(w, http.StatusOK, augmented)
 }
@@ -980,19 +949,8 @@ func (h *Handlers) Ready(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		// Filter out sagas (is_saga=false)
-		runeID := fmt.Sprintf("%v", item["id"])
-		if runeID == "" {
-			continue
-		}
-		var childCount projectors.RuneChildCountEntry
-		err := h.projectionStore.Get(r.Context(), realmID, "rune_child_count", runeID, &childCount)
-		if err == nil && childCount.Count > 0 {
-			// Has children, so it's a saga - skip it
-			continue
-		}
-
 		// Filter to blocked=false
+		runeID := fmt.Sprintf("%v", item["id"])
 		var detail projectors.RuneDetail
 		err = h.projectionStore.Get(r.Context(), realmID, "rune_detail", runeID, &detail)
 		if err != nil {

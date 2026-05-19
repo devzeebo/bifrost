@@ -827,80 +827,6 @@ func TestListRunesHandler(t *testing.T) {
 		tc.status_is(http.StatusOK)
 		tc.response_array_has_length(3)
 	})
-
-	t.Run("excludes sagas when is_saga=false", func(t *testing.T) {
-		tc := newHandlerTestContext(t)
-
-		// Given
-		tc.handlers_configured()
-		tc.request_has_realm_id("realm-1")
-		tc.has_rune_summary("realm-1", "bf-0001", "open")
-		tc.has_rune_summary("realm-1", "bf-0002", "open")
-		tc.has_child_count("realm-1", "bf-0001", 2)
-
-		// When
-		tc.get("/runes?is_saga=false")
-
-		// Then
-		tc.status_is(http.StatusOK)
-		tc.response_array_has_length(1)
-		tc.response_array_contains_rune_id("bf-0002")
-		tc.response_array_does_not_contain_rune_id("bf-0001")
-	})
-
-	t.Run("returns only sagas when is_saga=true", func(t *testing.T) {
-		tc := newHandlerTestContext(t)
-
-		// Given
-		tc.handlers_configured()
-		tc.request_has_realm_id("realm-1")
-		tc.has_rune_summary("realm-1", "bf-0001", "open")
-		tc.has_rune_summary("realm-1", "bf-0002", "open")
-		tc.has_child_count("realm-1", "bf-0001", 2)
-
-		// When
-		tc.get("/runes?is_saga=true")
-
-		// Then
-		tc.status_is(http.StatusOK)
-		tc.response_array_has_length(1)
-		tc.response_array_contains_rune_id("bf-0001")
-	})
-
-	t.Run("includes rune with no RuneChildCount entry when is_saga=false", func(t *testing.T) {
-		tc := newHandlerTestContext(t)
-
-		// Given
-		tc.handlers_configured()
-		tc.request_has_realm_id("realm-1")
-		tc.has_rune_summary("realm-1", "bf-0001", "open")
-		tc.has_rune_summary("realm-1", "bf-0002", "open")
-
-		// When
-		tc.get("/runes?is_saga=false")
-
-		// Then
-		tc.status_is(http.StatusOK)
-		tc.response_array_has_length(2)
-	})
-
-	t.Run("is_saga filter is ignored when not provided", func(t *testing.T) {
-		tc := newHandlerTestContext(t)
-
-		// Given
-		tc.handlers_configured()
-		tc.request_has_realm_id("realm-1")
-		tc.has_rune_summary("realm-1", "bf-0001", "open")
-		tc.has_rune_summary("realm-1", "bf-0002", "open")
-		tc.has_child_count("realm-1", "bf-0001", 2)
-
-		// When
-		tc.get("/runes")
-
-		// Then
-		tc.status_is(http.StatusOK)
-		tc.response_array_has_length(2)
-	})
 }
 
 // --- Tests: Ready ---
@@ -940,24 +866,6 @@ func TestReadyHandler(t *testing.T) {
 		tc.content_type_is_json()
 		tc.response_array_has_length(2)
 		tc.response_array_does_not_contain_rune_id("bf-blocked")
-	})
-
-	t.Run("filters out saga runes", func(t *testing.T) {
-		tc := newHandlerTestContext(t)
-
-		// Given
-		tc.handlers_configured()
-		tc.request_has_realm_id("realm-1")
-		tc.has_saga_and_regular_runes("realm-1")
-
-		// When
-		tc.get("/ready")
-
-		// Then
-		tc.status_is(http.StatusOK)
-		tc.content_type_is_json()
-		tc.response_array_has_length(1)
-		tc.response_array_all_have_field_value("id", "bf-regular")
 	})
 
 	t.Run("returns empty array when no ready runes", func(t *testing.T) {
@@ -1620,12 +1528,6 @@ func (tc *handlerTestContext) has_rune_summary(realmID, runeID, status string) {
 	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_summary", runeID, summary)
 }
 
-func (tc *handlerTestContext) has_child_count(realmID, runeID string, count int) {
-	tc.t.Helper()
-	entry := projectors.RuneChildCountEntry{ParentRuneID: runeID, Count: count}
-	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_child_count", runeID, entry)
-}
-
 func (tc *handlerTestContext) has_rune_detail_with_dependencies(realmID, runeID string, deps []projectors.DependencyRef) {
 	tc.t.Helper()
 	detail := projectors.RuneDetail{ID: runeID, Dependencies: deps}
@@ -1745,25 +1647,6 @@ func (tc *handlerTestContext) has_blocked_and_unblocked_runes(realmID string) {
 		"id": "bf-unblocked", "title": "Unblocked", "status": "open",
 		"dependencies": []projectors.DependencyRef{},
 	})
-}
-
-func (tc *handlerTestContext) has_saga_and_regular_runes(realmID string) {
-	tc.t.Helper()
-	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_summary", "bf-saga", map[string]any{
-		"id": "bf-saga", "title": "Saga", "status": "open", "priority": 1.0,
-	})
-	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_summary", "bf-regular", map[string]any{
-		"id": "bf-regular", "title": "Regular", "status": "open", "priority": 1.0,
-	})
-	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_detail", "bf-saga", map[string]any{
-		"id": "bf-saga", "title": "Saga", "status": "open", "dependencies": []projectors.DependencyRef{},
-	})
-	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_detail", "bf-regular", map[string]any{
-		"id": "bf-regular", "title": "Regular", "status": "open", "dependencies": []projectors.DependencyRef{},
-	})
-	// Saga has a child count > 0
-	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_child_count", "bf-saga", map[string]any{"id": "bf-saga", "count": 1})
-	// Regular rune has no children (not in projection)
 }
 
 // --- When ---

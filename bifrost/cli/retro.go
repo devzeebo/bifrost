@@ -17,7 +17,7 @@ func NewRetroCmd(clientFn func() *Client, out *bytes.Buffer) *RetroCmd {
 
 	cmd := &cobra.Command{
 		Use:   "retro [id] [text]",
-		Short: "Add a retro item to a rune, or view retrospective for a rune or saga",
+		Short: "Add a retro item to a rune, or view retrospective for a rune",
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
@@ -40,25 +40,13 @@ func NewRetroCmd(clientFn func() *Client, out *bytes.Buffer) *RetroCmd {
 				return nil
 			}
 
-			// Fetch retro for rune or saga
+			// Fetch retro for rune
 			respBody, err := clientFn().DoGetWithParams("/retro", map[string]string{"id": id})
 			if err != nil {
 				return err
 			}
 
 			return PrintOutput(out, respBody, humanMode, func(w *bytes.Buffer, data []byte) {
-				// Try array first (saga response)
-				var runeList []map[string]any
-				if json.Unmarshal(data, &runeList) == nil {
-					for i, rune := range runeList {
-						if i > 0 {
-							fmt.Fprintln(w)
-						}
-						printRuneRetro(w, rune)
-					}
-					return
-				}
-				// Single rune response
 				var result map[string]any
 				if json.Unmarshal(data, &result) == nil {
 					printRuneRetro(w, result)

@@ -1,0 +1,5 @@
+#!/bin/bash
+# if: Bash(sed *)
+###
+
+deny 'using ANY bash command to read files is forbidden. use the "read" tool to read files';

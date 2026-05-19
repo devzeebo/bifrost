@@ -23,28 +23,13 @@ func TestRunOrchestrator(t *testing.T) {
 		dispatcher := &stubDispatcher{}
 
 		// When
-		tc.run_once(dispatcher, "", false, false)
+		tc.run_once(dispatcher, false, false)
 
 		// Then
 		tc.assert_request_made("GET", "/api/runes")
 		tc.assert_query_param("status", "open")
 		tc.assert_query_param("blocked", "false")
-		tc.assert_query_param("is_saga", "false")
-	})
-
-	t.Run("filters by saga when provided", func(t *testing.T) {
-		tc := newOrchestratorTestContext(t)
-
-		// Given
-		tc.ready_runes([]map[string]any{})
-		dispatcher := &stubDispatcher{}
-
-		// When
-		tc.run_once_with_saga(dispatcher, "bf-saga-1")
-
-		// Then
-		tc.assert_query_param("saga", "bf-saga-1")
-	})
+		})
 
 	t.Run("skips already-claimed runes", func(t *testing.T) {
 		tc := newOrchestratorTestContext(t)
@@ -56,7 +41,7 @@ func TestRunOrchestrator(t *testing.T) {
 		dispatcher := &stubDispatcher{result: &DispatchResult{Command: "echo", Args: []string{"hi"}}}
 
 		// When
-		tc.run_once(dispatcher, "", false, false)
+		tc.run_once(dispatcher, false, false)
 
 		// Then
 		assert.Equal(t, 0, dispatcher.callCount, "dispatcher should not be called for claimed runes")
@@ -71,7 +56,7 @@ func TestRunOrchestrator(t *testing.T) {
 		dispatcher := &stubDispatcher{result: &DispatchResult{Command: "true"}}
 
 		// When
-		tc.run_once(dispatcher, "", false, false)
+		tc.run_once(dispatcher, false, false)
 
 		// Then
 		tc.assert_request_made("POST", "/api/claim-rune")
@@ -87,7 +72,7 @@ func TestRunOrchestrator(t *testing.T) {
 		dispatcher := &failingDispatcher{}
 
 		// When
-		tc.run_once(dispatcher, "", false, false)
+		tc.run_once(dispatcher, false, false)
 
 		// Then
 		tc.assert_request_made("POST", "/api/unclaim-rune")
@@ -102,7 +87,7 @@ func TestRunOrchestrator(t *testing.T) {
 		dispatcher := &stubDispatcher{result: &DispatchResult{Command: ""}}
 
 		// When
-		tc.run_once(dispatcher, "", false, false)
+		tc.run_once(dispatcher, false, false)
 
 		// Then
 		tc.assert_request_made("POST", "/api/unclaim-rune")
@@ -117,7 +102,7 @@ func TestRunOrchestrator(t *testing.T) {
 		dispatcher := &stubDispatcher{result: &DispatchResult{Command: "true"}}
 
 		// When
-		tc.run_once(dispatcher, "", false, false)
+		tc.run_once(dispatcher, false, false)
 
 		// Then
 		tc.assert_request_made("POST", "/api/fulfill-rune")
@@ -132,7 +117,7 @@ func TestRunOrchestrator(t *testing.T) {
 		dispatcher := &stubDispatcher{result: &DispatchResult{Command: "sh", Args: []string{"-c", "exit 1"}}}
 
 		// When
-		tc.run_once(dispatcher, "", false, false)
+		tc.run_once(dispatcher, false, false)
 
 		// Then
 		tc.assert_no_request("POST", "/api/unclaim-rune")
@@ -148,7 +133,7 @@ func TestRunOrchestrator(t *testing.T) {
 		dispatcher := &stubDispatcher{result: &DispatchResult{Command: "sh", Args: []string{"-c", "exit 1"}}}
 
 		// When
-		tc.run_once(dispatcher, "", false, true)
+		tc.run_once(dispatcher, false, true)
 
 		// Then
 		tc.assert_request_made("POST", "/api/unclaim-rune")
@@ -164,7 +149,7 @@ func TestRunOrchestrator(t *testing.T) {
 		dispatcher := &stubDispatcher{result: &DispatchResult{Command: "echo", Args: []string{"hi"}}}
 
 		// When
-		tc.run_once(dispatcher, "", true, false)
+		tc.run_once(dispatcher, true, false)
 
 		// Then
 		assert.Equal(t, 1, dispatcher.callCount, "dispatcher should still be called in dry-run")
@@ -315,7 +300,7 @@ func (tc *orchestratorTestContext) client() *Client {
 	return NewClient(tc.server.URL, "test-key", "test-realm")
 }
 
-func (tc *orchestratorTestContext) run_once(d Dispatcher, saga string, dryRun, unclaimOnFailure bool) {
+func (tc *orchestratorTestContext) run_once(d Dispatcher, dryRun, unclaimOnFailure bool) {
 	tc.t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -324,16 +309,12 @@ func (tc *orchestratorTestContext) run_once(d Dispatcher, saga string, dryRun, u
 		Claimant:    "orchestrator",
 		Concurrency: 1,
 	}
-	err := runOrchestrator(ctx, tc.client(), cfg, d, saga, dryRun, true, unclaimOnFailure)
+	err := runOrchestrator(ctx, tc.client(), cfg, d, dryRun, true, unclaimOnFailure)
 	require.NoError(tc.t, err)
 	// runOrchestrator returns synchronously after all workers finish in --once mode,
 	// so no additional wait is needed — all requests have been made.
 }
 
-func (tc *orchestratorTestContext) run_once_with_saga(d Dispatcher, saga string) {
-	tc.t.Helper()
-	tc.run_once(d, saga, false, false)
-}
 
 func (tc *orchestratorTestContext) assert_request_made(method, path string) {
 	tc.t.Helper()

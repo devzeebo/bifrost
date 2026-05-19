@@ -25,7 +25,6 @@ func NewListCmd(clientFn func() *Client, out *bytes.Buffer) *ListCmd {
 			priority, _ := cmd.Flags().GetString("priority")
 			assignee, _ := cmd.Flags().GetString("assignee")
 			branch, _ := cmd.Flags().GetString("branch")
-			saga, _ := cmd.Flags().GetString("saga")
 			tags, _ := cmd.Flags().GetStringSlice("tag")
 			humanMode, _ := cmd.Flags().GetBool("human")
 
@@ -41,9 +40,6 @@ func NewListCmd(clientFn func() *Client, out *bytes.Buffer) *ListCmd {
 			}
 			if branch != "" {
 				params["branch"] = branch
-			}
-			if saga != "" {
-				params["saga"] = saga
 			}
 			if len(tags) > 0 {
 				normalized := make([]string, 0, len(tags))
@@ -114,7 +110,6 @@ func NewListCmd(clientFn func() *Client, out *bytes.Buffer) *ListCmd {
 	cmd.Flags().String("priority", "", "filter by priority (0-4)")
 	cmd.Flags().String("assignee", "", "filter by assignee name")
 	cmd.Flags().String("branch", "", "filter by branch name")
-	cmd.Flags().String("saga", "", "filter by parent saga ID")
 	cmd.Flags().StringSlice("tag", nil, "filter by tag (repeatable)")
 	cmd.Flags().Bool("human", false, "human-readable table output")
 

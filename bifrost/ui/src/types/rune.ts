@@ -34,7 +34,6 @@ export type RuneListItem = {
 export type RuneDetail = {
   description: string;
   branch?: string;
-  saga_id?: string;
   assignee_id?: string;
   dependencies: RuneRelationship[];
   tags: string[];
@@ -46,6 +45,5 @@ export type CreateRuneRequest = {
   priority: number;
   branch: string;
   parent_id?: string;
-  saga_id?: string;
   tags?: string[];
 };

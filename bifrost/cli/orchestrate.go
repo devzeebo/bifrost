@@ -82,7 +82,6 @@ func NewOrchestrateCmd(clientFn func() *Client, cfgFn func() *Config) *Orchestra
 				return fmt.Errorf("dispatcher script not found: %s", oCfg.Dispatcher)
 			}
 
-			saga, _ := cmd.Flags().GetString("saga")
 			dryRun, _ := cmd.Flags().GetBool("dry-run")
 			once, _ := cmd.Flags().GetBool("once")
 			unclaimOnFailure, _ := cmd.Flags().GetBool("unclaim-on-failure")
@@ -92,7 +91,7 @@ func NewOrchestrateCmd(clientFn func() *Client, cfgFn func() *Config) *Orchestra
 			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 			defer cancel()
 
-			return runOrchestrator(ctx, clientFn(), oCfg, dispatcher, saga, dryRun, once, unclaimOnFailure)
+			return runOrchestrator(ctx, clientFn(), oCfg, dispatcher, dryRun, once, unclaimOnFailure)
 		},
 	}
 
@@ -101,7 +100,6 @@ func NewOrchestrateCmd(clientFn func() *Client, cfgFn func() *Config) *Orchestra
 	cmd.Flags().Int("concurrency", 0, "number of parallel workers (default 1)")
 	cmd.Flags().String("claimant", "", "claimant name (default: system username)")
 	cmd.Flags().Bool("unclaim-on-failure", false, "unclaim rune when dispatched command exits non-zero")
-	cmd.Flags().String("saga", "", "only orchestrate runes in this saga")
 	cmd.Flags().Bool("dry-run", false, "resolve dispatch but do not execute or fulfill")
 	cmd.Flags().Bool("once", false, "process one batch then exit")
 
@@ -114,7 +112,6 @@ func runOrchestrator(
 	client *Client,
 	cfg OrchestrateConfig,
 	dispatcher Dispatcher,
-	saga string,
 	dryRun, once, unclaimOnFailure bool,
 ) error {
 	queue := make(chan map[string]any, cfg.Concurrency*2)
@@ -140,7 +137,7 @@ func runOrchestrator(
 	}
 
 	poll := func() {
-		runes, err := fetchReadyRunes(client, saga)
+		runes, err := fetchReadyRunes(client)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "orchestrate: poll error: %v\n", err)
 			return
@@ -203,14 +200,10 @@ func runOrchestrator(
 	}
 }
 
-func fetchReadyRunes(client *Client, saga string) ([]map[string]any, error) {
+func fetchReadyRunes(client *Client) ([]map[string]any, error) {
 	params := map[string]string{
 		"status":  "open",
 		"blocked": "false",
-		"is_saga": "false",
-	}
-	if saga != "" {
-		params["saga"] = saga
 	}
 
 	body, err := client.DoGetWithParams("/runes", params)

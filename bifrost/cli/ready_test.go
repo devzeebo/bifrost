@@ -200,17 +200,6 @@ func (tc *readyTestContext) request_path_was(expected string) {
 	assert.Equal(tc.t, expected, tc.receivedPath)
 }
 
-func (tc *readyTestContext) request_query_param_was(key, expected string) {
-	tc.t.Helper()
-	assert.Equal(tc.t, expected, tc.receivedQuery[key])
-}
-
-func (tc *readyTestContext) request_query_param_absent(key string) {
-	tc.t.Helper()
-	_, exists := tc.receivedQuery[key]
-	assert.False(tc.t, exists, "expected query param %q to be absent, but it was present", key)
-}
-
 func (tc *readyTestContext) request_query_params_empty() {
 	tc.t.Helper()
 	assert.Empty(tc.t, tc.receivedQuery, "expected no query params, but got %v", tc.receivedQuery)
