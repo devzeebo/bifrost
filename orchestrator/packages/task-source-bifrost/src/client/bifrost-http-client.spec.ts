@@ -57,6 +57,28 @@ describe("BifrostHttpClient", () => {
         "Bifrost API error: 500 Internal Server Error",
       );
     });
+
+    it("should return empty array when API returns null", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => null,
+      });
+
+      const runes = await client.getReadyRunes();
+
+      expect(runes).toEqual([]);
+    });
+
+    it("should return empty array when API returns undefined", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => undefined,
+      });
+
+      const runes = await client.getReadyRunes();
+
+      expect(runes).toEqual([]);
+    });
   });
 
   describe("claimRune", () => {
