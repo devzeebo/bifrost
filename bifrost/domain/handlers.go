@@ -83,6 +83,16 @@ func RebuildRuneState(events []core.Event) RuneState {
 			state.Status = "sealed"
 		case EventRuneFailed:
 			state.Status = "failed"
+		case EventRuneReopened:
+			var data RuneReopened
+			_ = json.Unmarshal(evt.Data, &data)
+			if data.Claimant != "" {
+				state.Status = "claimed"
+				state.Claimant = data.Claimant
+			} else {
+				state.Status = "open"
+				state.Claimant = ""
+			}
 		case EventRuneShattered:
 			state.Status = "shattered"
 		case EventRuneStateUpdated:
@@ -206,9 +216,6 @@ func HandleUpdateRune(ctx context.Context, realmID string, cmd UpdateRune, store
 	}
 	if state.Status == "sealed" {
 		return fmt.Errorf("cannot update sealed rune %q", cmd.ID)
-	}
-	if state.Status == "failed" {
-		return fmt.Errorf("cannot update failed rune %q", cmd.ID)
 	}
 	if state.Status == "shattered" {
 		return fmt.Errorf("cannot update shattered rune %q", cmd.ID)
@@ -611,6 +618,35 @@ func HandleShatterRune(ctx context.Context, realmID string, cmd ShatterRune, sto
 	streamID := runeStreamID(cmd.ID)
 	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
 		{EventType: EventRuneShattered, Data: shattered},
+	})
+	return err
+}
+
+func HandleReopenRune(ctx context.Context, realmID string, cmd ReopenRune, store core.EventStore) error {
+	state, events, err := readAndRebuild(ctx, realmID, cmd.ID, store)
+	if err != nil {
+		return err
+	}
+	if !state.Exists {
+		return &core.NotFoundError{Entity: "rune", ID: cmd.ID}
+	}
+	if state.Status != "failed" {
+		return fmt.Errorf("can only reopen failed runes")
+	}
+
+	claimant := ""
+	if cmd.AsClaimed {
+		claimant = state.Claimant
+		if claimant == "" {
+			return fmt.Errorf("cannot reopen as claimed: rune has no previous claimant")
+		}
+	}
+
+	reopened := RuneReopened{ID: cmd.ID, Claimant: claimant}
+
+	streamID := runeStreamID(cmd.ID)
+	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
+		{EventType: EventRuneReopened, Data: reopened},
 	})
 	return err
 }

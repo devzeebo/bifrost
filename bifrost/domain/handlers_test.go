@@ -1529,6 +1529,7 @@ type handlerTestContext struct {
 	forgeCmd    ForgeRune
 	fulfillCmd  FulfillRune
 	sealCmd   SealRune
+	reopenCmd ReopenRune
 	addDepCmd AddDependency
 	removeDepCmd RemoveDependency
 	addNoteCmd  AddNote
@@ -1825,6 +1826,26 @@ func (tc *handlerTestContext) empty_stream(runeID string) {
 	tc.eventStore.streams["rune-"+runeID] = []core.Event{}
 }
 
+func (tc *handlerTestContext) existing_failed_rune_in_stream(runeID, claimant string) {
+	tc.t.Helper()
+	tc.an_event_store()
+	events := []core.Event{
+		makeEvent(EventRuneCreated, RuneCreated{
+			ID: runeID, Title: "Failed rune", Priority: 1,
+		}),
+		makeEvent(EventRuneForged, RuneForged{
+			ID: runeID,
+		}),
+		makeEvent(EventRuneClaimed, RuneClaimed{
+			ID: runeID, Claimant: claimant,
+		}),
+		makeEvent(EventRuneFailed, RuneFailed{
+			ID: runeID, Reason: "it failed",
+		}),
+	}
+	tc.eventStore.streams["rune-"+runeID] = events
+}
+
 func (tc *handlerTestContext) with_branch_on_create_command(branch string) {
 	tc.t.Helper()
 	tc.createCmd.Branch = &branch
@@ -1962,6 +1983,14 @@ func (tc *handlerTestContext) a_shatter_rune_command(id string) {
 	}
 }
 
+func (tc *handlerTestContext) a_reopen_rune_command(id string, asClaimed bool) {
+	tc.t.Helper()
+	tc.reopenCmd = ReopenRune{
+		ID:        id,
+		AsClaimed: asClaimed,
+	}
+}
+
 func (tc *handlerTestContext) rune_in_rune_list(runeID, status string) {
 	tc.t.Helper()
 	tc.a_store()
@@ -2049,6 +2078,11 @@ func (tc *handlerTestContext) handle_forge_rune() {
 func (tc *handlerTestContext) handle_shatter_rune() {
 	tc.t.Helper()
 	tc.err = HandleShatterRune(tc.ctx, tc.realmID, tc.shatterCmd, tc.eventStore)
+}
+
+func (tc *handlerTestContext) handle_reopen_rune() {
+	tc.t.Helper()
+	tc.err = HandleReopenRune(tc.ctx, tc.realmID, tc.reopenCmd, tc.eventStore)
 }
 
 func (tc *handlerTestContext) handle_sweep_runes() {

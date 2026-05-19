@@ -48,6 +48,11 @@ type FailRune struct {
 	Reason string `json:"reason"`
 }
 
+type ReopenRune struct {
+	ID        string `json:"id"`
+	AsClaimed bool   `json:"as_claimed,omitempty"`
+}
+
 type ShatterRune struct {
 	ID string `json:"id"`
 }
