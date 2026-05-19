@@ -51,7 +51,7 @@ export class BifrostHttpClient {
   public async updateRuneState(runeId: string, taskState: Record<string, unknown>): Promise<void> {
     await this.request("/api/update-rune-state", {
       method: "POST",
-      body: JSON.stringify({ id: runeId, state: taskState }),
+      body: JSON.stringify({ rune_id: runeId, patch: JSON.stringify(taskState) }),
     });
   }
 

@@ -171,7 +171,7 @@ describe("BifrostHttpClient", () => {
         "https://bifrost.example.com/api/update-rune-state",
         expect.objectContaining({
           method: "POST",
-          body: '{"id":"rune-1","state":{"step":2,"progress":50}}',
+          body: '{"rune_id":"rune-1","patch":"{\\"step\\":2,\\"progress\\":50}"}',
         }),
       );
     });
