@@ -75,6 +75,8 @@ func (p *RuneDetailProjector) Handle(ctx context.Context, event core.Event, stor
 		return p.handleSealed(ctx, event, store)
 	case domain.EventRuneFailed:
 		return p.handleFailed(ctx, event, store)
+	case domain.EventRuneReopened:
+		return p.handleReopened(ctx, event, store)
 	case domain.EventRuneUnclaimed:
 		return p.handleUnclaimed(ctx, event, store)
 	case domain.EventDependencyAdded:
@@ -218,6 +220,26 @@ func (p *RuneDetailProjector) handleFailed(ctx context.Context, event core.Event
 		return err
 	}
 	detail.Status = "failed"
+	detail.UpdatedAt = event.Timestamp
+	return store.Put(ctx, event.RealmID, "rune_detail", data.ID, detail)
+}
+
+func (p *RuneDetailProjector) handleReopened(ctx context.Context, event core.Event, store core.ProjectionStore) error {
+	var data domain.RuneReopened
+	if err := json.Unmarshal(event.Data, &data); err != nil {
+		return err
+	}
+	var detail RuneDetail
+	if err := store.Get(ctx, event.RealmID, "rune_detail", data.ID, &detail); err != nil {
+		return err
+	}
+	if data.Claimant != "" {
+		detail.Status = "claimed"
+		detail.Claimant = data.Claimant
+	} else {
+		detail.Status = "open"
+		detail.Claimant = ""
+	}
 	detail.UpdatedAt = event.Timestamp
 	return store.Put(ctx, event.RealmID, "rune_detail", data.ID, detail)
 }

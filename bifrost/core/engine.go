@@ -104,35 +104,57 @@ func (e *projectionEngine) runCatchUpCycle(ctx context.Context) {
 	}
 
 	for _, realmID := range realmIDs {
-		for _, projector := range e.projectors {
-			if ctx.Err() != nil {
-				return
-			}
+		if ctx.Err() != nil {
+			return
+		}
 
-			checkpoint, err := e.checkpointStore.GetCheckpoint(ctx, realmID, projector.Name())
+		// Load per-projector checkpoints
+		checkpoints := make(map[string]int64, len(e.projectors))
+		minCheckpoint := int64(-1)
+		for _, projector := range e.projectors {
+			cp, err := e.checkpointStore.GetCheckpoint(ctx, realmID, projector.Name())
 			if err != nil {
 				log.Printf("catch-up: error getting checkpoint for %s/%s: %v", realmID, projector.Name(), err)
-				continue
+				cp = 0
 			}
-
-			events, err := e.eventStore.ReadAll(ctx, realmID, checkpoint)
-			if err != nil {
-				log.Printf("catch-up: error reading events for realm %s: %v", realmID, err)
-				continue
+			checkpoints[projector.Name()] = cp
+			if minCheckpoint < 0 || cp < minCheckpoint {
+				minCheckpoint = cp
 			}
+		}
+		if minCheckpoint < 0 {
+			minCheckpoint = 0
+		}
 
-			var lastPos int64
-			for _, event := range events {
+		events, err := e.eventStore.ReadAll(ctx, realmID, minCheckpoint)
+		if err != nil {
+			log.Printf("catch-up: error reading events for realm %s: %v", realmID, err)
+			continue
+		}
+
+		// Track last position seen per projector for checkpoint updates
+		lastPos := make(map[string]int64, len(e.projectors))
+
+		// Fan out each event to all projectors that haven't seen it yet, in event order
+		for _, event := range events {
+			for _, projector := range e.projectors {
+				if event.GlobalPosition <= checkpoints[projector.Name()] {
+					continue
+				}
 				if err := projector.Handle(ctx, event, e.projectionStore); err != nil {
 					log.Printf("catch-up: projector %q error on event %d: %v", projector.Name(), event.GlobalPosition, err)
 				}
-				lastPos = event.GlobalPosition
+				lastPos[projector.Name()] = event.GlobalPosition
 			}
+		}
 
-			if len(events) > 0 {
-				if err := e.checkpointStore.SetCheckpoint(ctx, realmID, projector.Name(), lastPos); err != nil {
-					log.Printf("catch-up: error setting checkpoint for %s/%s: %v", realmID, projector.Name(), err)
-				}
+		for _, projector := range e.projectors {
+			pos, ok := lastPos[projector.Name()]
+			if !ok {
+				continue
+			}
+			if err := e.checkpointStore.SetCheckpoint(ctx, realmID, projector.Name(), pos); err != nil {
+				log.Printf("catch-up: error setting checkpoint for %s/%s: %v", realmID, projector.Name(), err)
 			}
 		}
 	}
