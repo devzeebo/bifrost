@@ -226,6 +226,7 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
       currentTaskState = { ...newState };
       await taskSource.setState(task.id, newState);
     },
+    model: agent.model,
   };
 
   // Steps 3-4: Engine + stop hooks loop

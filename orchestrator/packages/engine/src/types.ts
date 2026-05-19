@@ -6,6 +6,7 @@ export type EngineContext = {
   metadata: Record<string, unknown>;
   setState: (newState: Record<string, unknown>) => Promise<void>;
   instructions?: string;
+  model?: string;
 };
 
 // FR-2: EngineResult MUST contain

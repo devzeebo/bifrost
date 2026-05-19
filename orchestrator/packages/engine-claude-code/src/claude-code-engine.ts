@@ -76,7 +76,7 @@ const buildStats = (resultData: SDKResultSuccess): ExecutionStats => {
 export class ClaudeCodeEngine implements Engine {
   // oxlint-disable-next-line class-methods-use-this -- method doesn't use `this`, that's fine
   public async execute(context: EngineContext, sessionId?: string): Promise<EngineResult> {
-    const { agentName, taskState, metadata, instructions, workingDir } = context;
+    const { agentName, taskState, metadata, instructions, workingDir, model } = context;
 
     const prompt = buildPrompt({ agentName, taskState, metadata, instructions });
 
@@ -88,10 +88,12 @@ export class ClaudeCodeEngine implements Engine {
           workingDir,
           permissionMode: "acceptEdits" as const,
           resume: sessionId,
+          ...(model && { model }),
         }
       : {
           workingDir,
           permissionMode: "acceptEdits" as const,
+          ...(model && { model }),
         };
 
     let lastMessage: string | null = null;

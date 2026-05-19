@@ -28,6 +28,7 @@ export type AgentDefinition = {
   template: Template;
   hooks: Hooks;
   promptBody: string;
+  model?: string;
 };
 
 export type Template = {

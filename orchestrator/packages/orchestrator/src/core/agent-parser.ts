@@ -118,6 +118,8 @@ export const parseAgentDefinition = (content: string): AgentDefinition | null =>
       }
     }
 
+    const model = typeof data.model === "string" ? data.model : undefined;
+
     return {
       name: data.name,
       description: data.description,
@@ -126,6 +128,7 @@ export const parseAgentDefinition = (content: string): AgentDefinition | null =>
       template: { parameters },
       hooks: { Start: [], Stop: [] },
       promptBody,
+      model,
     };
   } catch (error) {
     console.error("Failed to parse AGENT.md:", error);
