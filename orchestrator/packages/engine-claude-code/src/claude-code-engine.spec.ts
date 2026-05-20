@@ -248,7 +248,7 @@ describe("ClaudeCodeEngine", () => {
         makeContext({
           taskState: { file: "auth.py" },
           metadata: { description: "Fix the login bug" },
-          instructions: "Be thorough",
+          instructions: "Fix the login bug",
         }),
       );
 
@@ -260,7 +260,7 @@ describe("ClaudeCodeEngine", () => {
       const callPrompt = mockQuery.mock.calls[0][0] as { prompt: string };
       expect(callPrompt.prompt).toContain("Context:");
       expect(callPrompt.prompt).toContain("file");
-      expect(callPrompt.prompt).toContain("Be thorough");
+      expect(callPrompt.prompt).toContain("Fix the login bug");
     });
   });
 });

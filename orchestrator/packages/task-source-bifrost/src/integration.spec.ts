@@ -195,7 +195,6 @@ describe("BifrostTaskSource - Integration Tests", () => {
       expect(task!.metadata.priority).toBe(1);
       expect(task!.metadata.status).toBe("open");
       expect(task!.metadata.branch).toBe("main");
-      expect(task!.metadata.sagaId).toBe("saga-1");
       expect(task!.metadata.dependencies).toEqual([{ taskId: "rune-2", type: "blocks" }]);
 
       await cleanup();

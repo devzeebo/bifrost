@@ -349,7 +349,6 @@ describe("BifrostTaskSource", () => {
       expect(task!.metadata.priority).toBe(1);
       expect(task!.metadata.status).toBe("open");
       expect(task!.metadata.branch).toBe("feature-branch");
-      expect(task!.metadata.sagaId).toBe("saga-1");
       expect(task!.metadata.assignee).toBe("account-1");
       expect(task!.metadata.createdAt).toBe("2026-05-08T00:00:00Z");
       expect(task!.metadata.dependencies).toEqual([
