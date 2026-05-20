@@ -27,7 +27,6 @@ export type ReadyRune = {
 export type RuneDetail = ReadyRune & {
   description: string;
   branch?: string;
-  saga_id?: string;
   assignee_id?: string;
   dependencies: { target_id: string; relationship: string }[];
 };

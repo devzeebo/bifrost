@@ -19,6 +19,7 @@ describe("TaskSource Types", () => {
         agentId: "agent-1",
         taskState: { language: "Python", step: 1 },
         metadata: { priority: "high", tags: ["bug"] },
+        instructions: "Test task",
       };
 
       expect(task.id).toBe("task-123");
@@ -33,6 +34,7 @@ describe("TaskSource Types", () => {
         agentId: "agent-1",
         taskState: {},
         metadata: {},
+        instructions: "Test task",
       };
 
       expect(task.taskState).toEqual({});

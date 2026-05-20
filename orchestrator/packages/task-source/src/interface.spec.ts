@@ -22,6 +22,7 @@ describe("TaskSource Interface", () => {
             agentId: "agent-1",
             taskState: { step: 1 },
             metadata: { priority: "high" },
+            instructions: "Test task",
           };
         }
       }
@@ -47,6 +48,7 @@ describe("TaskSource Interface", () => {
             agentId: "agent-1",
             taskState: {},
             metadata: {},
+            instructions: "Test task",
           };
         },
         // oxlint-disable-next-line no-empty-function
@@ -69,6 +71,7 @@ describe("TaskSource Interface", () => {
             agentId: "agent-1",
             taskState: {},
             metadata: {},
+            instructions: "Test task",
           };
         },
         // oxlint-disable-next-line no-empty-function
@@ -91,6 +94,7 @@ describe("TaskSource Interface", () => {
             agentId: "agent-1",
             taskState: {},
             metadata: {},
+            instructions: "Test task",
           };
         },
         // oxlint-disable-next-line no-empty-function

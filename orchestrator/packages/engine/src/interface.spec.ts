@@ -39,6 +39,7 @@ describe("Engine Interface", () => {
         },
         taskState: {},
         metadata: {},
+        instructions: "test instructions",
         setState: vi.fn().mockResolvedValue(void 0),
       };
 
@@ -75,6 +76,7 @@ describe("Engine Interface", () => {
         },
         taskState: {},
         metadata: {},
+        instructions: "test instructions",
         setState: vi.fn().mockResolvedValue(void 0),
       };
 

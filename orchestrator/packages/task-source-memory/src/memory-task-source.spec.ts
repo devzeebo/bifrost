@@ -11,6 +11,7 @@ describe("MemoryTaskSource", () => {
         agentId: "agent-1",
         taskState: { foo: "bar" },
         metadata: { tags: ["bug"] },
+        instructions: "Test task",
       });
 
       const tasks: string[] = [];
@@ -34,6 +35,7 @@ describe("MemoryTaskSource", () => {
         agentId: "agent-1",
         taskState: {},
         metadata: {},
+        instructions: "Test task",
       });
 
       for await (const task of source.watchTasks()) {
@@ -51,6 +53,7 @@ describe("MemoryTaskSource", () => {
         agentId: "agent-1",
         taskState: {},
         metadata: {},
+        instructions: "Test task",
       });
 
       let yieldedCount = 0;
@@ -71,6 +74,7 @@ describe("MemoryTaskSource", () => {
         agentId: "agent-1",
         taskState: {},
         metadata: {},
+        instructions: "Test task",
       });
 
       await source.completeTask("task-1");
@@ -95,6 +99,7 @@ describe("MemoryTaskSource", () => {
         agentId: "agent-1",
         taskState: {},
         metadata: {},
+        instructions: "Test task",
       });
 
       await source.failTask("task-1", "Test error");
@@ -120,6 +125,7 @@ describe("MemoryTaskSource", () => {
         agentId: "agent-1",
         taskState: { foo: "bar" },
         metadata: {},
+        instructions: "Test task",
       });
 
       await source.setState("task-1", { foo: "baz", newField: "value" });
@@ -145,6 +151,7 @@ describe("MemoryTaskSource", () => {
         agentId: "agent-1",
         taskState: { step: 1 },
         metadata: { priority: "high" },
+        instructions: "Test task",
       });
 
       // Watch task
@@ -173,6 +180,7 @@ describe("MemoryTaskSource", () => {
         agentId: "agent-1",
         taskState: {},
         metadata: {},
+        instructions: "Test task",
       });
 
       for await (const task of source.watchTasks()) {

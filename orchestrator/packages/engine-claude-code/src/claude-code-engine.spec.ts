@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, type MockedFunction } from "vitest";
 import type { EngineContext } from "@bifrost-ai/engine";
 import type { query as queryFn, SDKMessage, Query } from "@anthropic-ai/claude-agent-sdk";
 
@@ -25,6 +25,7 @@ const makeContext = (overrides: Partial<EngineContext> = {}): EngineContext => (
   },
   taskState: {},
   metadata: {},
+  instructions: "Test instructions",
   setState: vi.fn().mockResolvedValue(undefined),
   ...overrides,
 });

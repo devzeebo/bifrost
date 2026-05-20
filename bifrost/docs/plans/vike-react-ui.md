@@ -39,7 +39,7 @@ The vike setup at `/admin-ui` is already configured with:
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | GET | `/health` | None | Health check |
-| GET | `/runes` | Viewer | List runes (supports `?status=`, `?priority=`, `?assignee=`, `?branch=`, `?blocked=`, `?is_saga=` filters) |
+| GET | `/runes` | Viewer | List runes (supports `?status=`, `?priority=`, `?assignee=`, `?branch=`, `?blocked=` filters) |
 | GET | `/rune?id=` | Viewer | Get rune details |
 | POST | `/create-rune` | Member | Create a new rune |
 | POST | `/update-rune` | Member | Update rune properties |
@@ -224,7 +224,7 @@ interface SessionInfo {
 
 **Features**:
 - Data table with columns: Title, Status, Priority, Assignee, Branch, Created, Actions
-- Filters: Status, Priority, Assignee, Blocked state, Saga status
+- Filters: Status, Priority, Assignee, Blocked state
 - Search: Filter by title/description
 - Sort: By any column
 - Click row to navigate to rune detail

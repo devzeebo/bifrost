@@ -21,7 +21,6 @@ The **Bifrost Task Source Plugin** (`@bifrost-ai/task-source-bifrost`) implement
 **Key Terms:**
 
 - **Rune**: A work item (issue, task, bug) in Bifrost with lifecycle states (draft → open → claimed → fulfilled/sealed)
-- **Saga**: An epic; a collection of related runes in Bifrost
 - **Realm**: A tenant namespace in Bifrost for organizing runes
 - **Task Source**: Orchestrator plugin that yields tasks via async iterator and handles coordination, state persistence, and completion reporting (per Orchestrator FR-1)
 - **Task**: Minimal unit containing `id`, `agentId`, `taskState`, and `metadata` (per Orchestrator FR-2)
@@ -81,7 +80,7 @@ Then the plugin yields a Task via the watchTasks() async iterator
 And the Task.id is the rune UUID
 And the Task.agentId is the agent-id from the tag
 And the Task.taskState is initialized from the Bifrost rune state
-And the Task.metadata contains rune fields (title, description, priority, branch, sagaId, createdAt, assignee)
+And the Task.metadata contains rune fields (title, description, priority, branch, createdAt, assignee)
 And the Task.metadata.dependencies contains array of DependencyRef
 And the Task.metadata.notes contains array of NoteEntry
 And the Task.metadata.acceptanceCriteria contains array of ACEntry
@@ -250,7 +249,6 @@ The plugin MUST map Bifrost rune fields to the Task type per Orchestrator FR-2:
   - `priority`: Rune priority (1-5) (number)
   - `status`: Rune status (draft, open, claimed, fulfilled, sealed) (string)
   - `branch`: Associated Git branch (string | undefined)
-  - `sagaId`: Parent saga UUID if exists (string | undefined)
   - `createdAt`: Rune creation timestamp (string)
   - `assignee`: Account ID of claimant (string | undefined)
   - `dependencies`: Array of DependencyRef (each has taskId and type)
@@ -274,7 +272,7 @@ The plugin MUST implement an HTTP client for Bifrost API communication:
 
 The plugin MUST use the following Bifrost HTTP API endpoints:
 
-- `GET /api/ready`: List ready runes (open, not blocked, not sagas) — NEW endpoint for v4
+- `GET /api/ready`: List ready runes (open, not blocked) — NEW endpoint for v4
 - `GET /api/rune`: Get single rune with full details
 - `POST /api/claim-rune`: Claim a rune (provides coordination)
 - `POST /api/fulfill-rune`: Mark rune as fulfilled
@@ -288,7 +286,7 @@ All data access is via HTTP API. No direct database access.
 The plugin MUST use the dedicated `/api/ready` endpoint to discover available runes:
 
 - Endpoint: `GET /api/ready`
-- Returns: Array of ready runes (open status, not blocked, not sagas)
+- Returns: Array of ready runes (open status, not blocked)
 - Bifrost's business logic determines which runes are "ready"
 - The plugin does NOT implement custom filtering logic
 

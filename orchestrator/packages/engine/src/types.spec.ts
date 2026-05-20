@@ -78,6 +78,7 @@ describe("Engine Types", () => {
         },
         taskState: { step: 1 },
         metadata: { priority: "high" },
+        instructions: "Review this code for quality",
         setState: vi.fn().mockResolvedValue(null),
       };
 

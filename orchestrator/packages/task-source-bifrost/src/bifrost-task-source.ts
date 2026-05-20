@@ -147,7 +147,6 @@ export class BifrostTaskSource implements TaskSource {
       priority: number;
       status: string;
       branch?: string;
-      saga_id?: string;
       assignee_id?: string;
       tags: string[];
       created_at: string;
@@ -165,7 +164,6 @@ export class BifrostTaskSource implements TaskSource {
         priority: rune.priority,
         status: rune.status,
         branch: rune.branch,
-        sagaId: rune.saga_id,
         assignee: rune.assignee_id,
         createdAt: rune.created_at,
         dependencies: rune.dependencies.map((dep) => ({
@@ -176,6 +174,7 @@ export class BifrostTaskSource implements TaskSource {
         acceptanceCriteria: [] as ACEntry[],
         retro: [] as RetroEntry[],
       },
+      instructions: rune.description,
     };
   }
 

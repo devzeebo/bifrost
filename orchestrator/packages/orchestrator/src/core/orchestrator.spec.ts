@@ -12,6 +12,7 @@ describe("Orchestrator", () => {
         agentId: "agent-1",
         taskState: { language: "Python" },
         metadata: { priority: "high" },
+        instructions: "Test task",
       };
 
       const agent: AgentDefinition = {
@@ -72,6 +73,7 @@ describe("Orchestrator", () => {
         agentId: "agent-1",
         taskState: {},
         metadata: {},
+        instructions: "Test task",
       };
 
       const agent: AgentDefinition = {
@@ -127,6 +129,7 @@ describe("Orchestrator", () => {
         agentId: "agent-1",
         taskState: { step: 1 },
         metadata: {},
+        instructions: "Test task",
       };
 
       const agent: AgentDefinition = {
@@ -182,6 +185,7 @@ describe("Orchestrator", () => {
         agentId: "agent-1",
         taskState: {},
         metadata: {},
+        instructions: "Test task",
       };
 
       const agent: AgentDefinition = {
@@ -242,6 +246,7 @@ describe("Orchestrator", () => {
         agentId: "agent-1",
         taskState: {},
         metadata: {},
+        instructions: "Test task",
       };
 
       const agent: AgentDefinition = {
@@ -300,6 +305,7 @@ describe("Orchestrator", () => {
         agentId: "agent-1",
         taskState: {},
         metadata: {},
+        instructions: "Test task",
       };
 
       const agent: AgentDefinition = {
@@ -359,6 +365,7 @@ describe("Orchestrator", () => {
         agentId: "agent-1",
         taskState: {},
         metadata: {},
+        instructions: "Test task",
       };
 
       let stopCallCount = 0;
@@ -431,6 +438,7 @@ describe("Orchestrator", () => {
         agentId: "agent-1",
         taskState: { step: 1 },
         metadata: {},
+        instructions: "Test task",
       };
 
       const agent: AgentDefinition = {

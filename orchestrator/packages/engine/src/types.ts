@@ -19,7 +19,7 @@ export type EngineContext = {
   taskState: Record<string, unknown>;
   metadata: Record<string, unknown>;
   setState: (newState: Record<string, unknown>) => Promise<void>;
-  instructions?: string;
+  instructions: string;
 };
 
 // FR-2: EngineResult MUST contain

@@ -22,6 +22,7 @@ describe("Test Engine", () => {
         agent: makeAgent("test-agent"),
         taskState: {},
         metadata: {},
+        instructions: "test instructions",
         setState: vi.fn().mockResolvedValue(null),
       };
 
@@ -43,6 +44,7 @@ describe("Test Engine", () => {
         agent: makeAgent("test-agent"),
         taskState: {},
         metadata: {},
+        instructions: "test instructions",
         setState: vi.fn().mockResolvedValue(null),
       };
 
@@ -64,6 +66,7 @@ describe("Test Engine", () => {
         agent: makeAgent("agent"),
         taskState: {},
         metadata: {},
+        instructions: "test instructions",
         setState: vi.fn().mockResolvedValue(null),
       };
 
@@ -95,6 +98,7 @@ describe("Test Engine", () => {
         agent: makeAgent("agent"),
         taskState: {},
         metadata: {},
+        instructions: "test instructions",
         setState: vi.fn().mockResolvedValue(null),
       };
 
@@ -117,6 +121,7 @@ describe("Test Engine", () => {
         agent: makeAgent("agent"),
         taskState: {},
         metadata: {},
+        instructions: "test instructions",
         setState: vi.fn().mockResolvedValue(null),
       };
 
@@ -137,6 +142,7 @@ describe("Test Engine", () => {
         agent: makeAgent("agent"),
         taskState: {},
         metadata: {},
+        instructions: "test instructions",
         setState: vi.fn().mockResolvedValue(null),
       };
 

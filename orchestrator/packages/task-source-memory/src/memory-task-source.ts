@@ -5,6 +5,7 @@ type InternalTask = {
   agentId: string;
   taskState: Record<string, unknown>;
   metadata: Record<string, unknown>;
+  instructions: string;
   status: "OPEN" | "IN_PROGRESS" | "COMPLETED" | "FAILED";
   error?: string;
 };
@@ -40,6 +41,7 @@ export class MemoryTaskSource implements TaskSource {
               agentId: task.agentId,
               taskState: task.taskState,
               metadata: task.metadata,
+              instructions: task.instructions,
             };
 
             return;

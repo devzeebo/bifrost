@@ -54,26 +54,18 @@ type BuildPromptOptions = {
   agentName: string;
   taskState: Record<string, unknown>;
   metadata: Record<string, unknown>;
-  instructions?: string;
+  instructions: string;
 };
 
 const buildPrompt = (options: BuildPromptOptions): string => {
-  const { agentName: _agentName, taskState, metadata, instructions } = options;
-  const parts: string[] = [];
-
-  if (metadata.description) {
-    parts.push(`Task: ${metadata.description}`);
-  }
+  const { agentName: _agentName, taskState, metadata: _metadata, instructions } = options;
+  const parts: string[] = [instructions];
 
   if (Object.keys(taskState).length > 0) {
     parts.push("\nContext:");
     for (const [key, value] of Object.entries(taskState)) {
       parts.push(`  ${key}: ${JSON.stringify(value)}`);
     }
-  }
-
-  if (instructions) {
-    parts.push(`\nInstructions: ${instructions}`);
   }
 
   return parts.join("\n");

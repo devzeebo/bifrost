@@ -15,6 +15,7 @@ export type Task = {
   agentId: string;
   taskState: Record<string, unknown>;
   metadata: Record<string, unknown>;
+  instructions: string;
 };
 
 export type DependencyRef = {

@@ -65,7 +65,7 @@ const runEngineLoop = async (opts: LoopOptions): Promise<LoopResult> => {
   const { task, agent, taskSource, engine, engineContext, hookContext, getCurrentTaskState } = opts;
   const maxFollowUps = 10;
   let attemptsUsed = 0;
-  let instructions: string | undefined = undefined;
+  let followUpInstructions: string | undefined = undefined;
   let sessionId: string | undefined = undefined;
   let totalTelemetry: EngineResult["stats"] = null;
   let numTurns = 0;
@@ -75,7 +75,11 @@ const runEngineLoop = async (opts: LoopOptions): Promise<LoopResult> => {
     debug("engine execute attempt %d/%d task=%s", attemptsUsed, maxFollowUps, task.id);
 
     const engineResult = await engine.execute(
-      { ...engineContext, taskState: getCurrentTaskState(), instructions },
+      {
+        ...engineContext,
+        taskState: getCurrentTaskState(),
+        instructions: followUpInstructions ?? engineContext.instructions,
+      },
       sessionId,
     );
 
@@ -140,7 +144,7 @@ const runEngineLoop = async (opts: LoopOptions): Promise<LoopResult> => {
     if (!needsFollowUp) {
       break;
     }
-    instructions = followUpMessage;
+    followUpInstructions = followUpMessage;
   }
 
   if (attemptsUsed > maxFollowUps) {
@@ -222,6 +226,7 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
     agent,
     taskState: currentTaskState,
     metadata: task.metadata,
+    instructions: task.instructions,
     setState: async (newState: Record<string, unknown>) => {
       currentTaskState = { ...newState };
       await taskSource.setState(task.id, newState);
