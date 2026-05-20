@@ -219,14 +219,13 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
   const engineContext: EngineContext = {
     taskId: task.id,
     workingDir: projectDir,
-    agentName: agent.name,
+    agent,
     taskState: currentTaskState,
     metadata: task.metadata,
     setState: async (newState: Record<string, unknown>) => {
       currentTaskState = { ...newState };
       await taskSource.setState(task.id, newState);
     },
-    model: agent.model,
   };
 
   // Steps 3-4: Engine + stop hooks loop

@@ -29,7 +29,14 @@ describe("Engine Interface", () => {
       const context: EngineContext = {
         taskId: "task-1",
         workingDir: "/test",
-        agentName: "test-agent",
+        agent: {
+          name: "test-agent",
+          description: "",
+          tools: [],
+          toolClasses: [],
+          template: { parameters: {} },
+          promptBody: "",
+        },
         taskState: {},
         metadata: {},
         setState: vi.fn().mockResolvedValue(void 0),
@@ -58,7 +65,14 @@ describe("Engine Interface", () => {
       const context: EngineContext = {
         taskId: "task-1",
         workingDir: "/test",
-        agentName: "test-agent",
+        agent: {
+          name: "test-agent",
+          description: "",
+          tools: [],
+          toolClasses: [],
+          template: { parameters: {} },
+          promptBody: "",
+        },
         taskState: {},
         metadata: {},
         setState: vi.fn().mockResolvedValue(void 0),

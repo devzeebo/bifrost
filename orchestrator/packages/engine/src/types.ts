@@ -1,12 +1,25 @@
+export type Template = {
+  parameters: Record<string, unknown>;
+};
+
+export type AgentDefinition = {
+  name: string;
+  description: string;
+  tools: string[];
+  toolClasses: string[];
+  template: Template;
+  promptBody: string;
+  model?: string;
+};
+
 export type EngineContext = {
   taskId: string;
   workingDir: string;
-  agentName: string;
+  agent: AgentDefinition;
   taskState: Record<string, unknown>;
   metadata: Record<string, unknown>;
   setState: (newState: Record<string, unknown>) => Promise<void>;
   instructions?: string;
-  model?: string;
 };
 
 // FR-2: EngineResult MUST contain

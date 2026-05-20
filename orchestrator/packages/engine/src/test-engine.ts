@@ -68,7 +68,7 @@ export class TestEngine implements Engine {
       skipFulfill: false,
       lastMessage: isFollowUp
         ? `Follow-up: ${this.#config.lastMessage} (session: ${this.#currentSessionId})`
-        : `${this.#config.lastMessage} (task: ${context.taskId}, agent: ${context.agentName})`,
+        : `${this.#config.lastMessage} (task: ${context.taskId}, agent: ${context.agent.name})`,
       stats,
       sessionId: this.#currentSessionId,
     };

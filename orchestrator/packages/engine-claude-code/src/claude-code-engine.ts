@@ -30,6 +30,26 @@ const extractContent = (message: SDKAssistantMessage): string | null => {
   return textBlocks.map((block) => block.text ?? "").join("\n");
 };
 
+const getMessagePreview = (message: SDKMessage): string => {
+  if (message.type === "assistant") {
+    const content = extractContent(message as SDKAssistantMessage);
+    if (content) {
+      return content.substring(0, 100).replace(/\n/g, " ");
+    }
+  } else if (message.type === "user") {
+    const userMsg = message as { content?: string };
+    if (userMsg.content) {
+      return userMsg.content.substring(0, 100).replace(/\n/g, " ");
+    }
+  } else if (message.type === "system") {
+    const sysMsg = message as { message?: string };
+    if (sysMsg.message) {
+      return sysMsg.message.substring(0, 100).replace(/\n/g, " ");
+    }
+  }
+  return "";
+};
+
 type BuildPromptOptions = {
   agentName: string;
   taskState: Record<string, unknown>;
@@ -76,24 +96,29 @@ const buildStats = (resultData: SDKResultSuccess): ExecutionStats => {
 export class ClaudeCodeEngine implements Engine {
   // oxlint-disable-next-line class-methods-use-this -- method doesn't use `this`, that's fine
   public async execute(context: EngineContext, sessionId?: string): Promise<EngineResult> {
-    const { agentName, taskState, metadata, instructions, workingDir, model } = context;
+    const { agent, taskState, metadata, instructions, workingDir } = context;
+    const { name: agentName, model, tools } = agent;
 
     const prompt = buildPrompt({ agentName, taskState, metadata, instructions });
 
     debug("engine execute workingDir=%s sessionId=%s", workingDir, sessionId ?? "none");
     debug("engine prompt: %s", prompt);
 
+    const toolOptions = { tools, allowedTools: tools };
+
     const options = sessionId
       ? {
           workingDir,
-          permissionMode: "acceptEdits" as const,
+          permissionMode: "dontAsk" as const,
           resume: sessionId,
           ...(model && { model }),
+          ...toolOptions,
         }
       : {
           workingDir,
-          permissionMode: "acceptEdits" as const,
+          permissionMode: "dontAsk" as const,
           ...(model && { model }),
+          ...toolOptions,
         };
 
     let lastMessage: string | null = null;
@@ -104,10 +129,12 @@ export class ClaudeCodeEngine implements Engine {
       const queryGenerator = query({ prompt, options });
 
       for await (const message of queryGenerator) {
+        const preview = getMessagePreview(message);
         debug(
-          "engine message type=%s subtype=%s",
+          "engine message type=%s subtype=%s preview=%s",
           message.type,
           (message as { subtype?: string }).subtype ?? "-",
+          preview ? `"${preview}..."` : "-",
         );
 
         if (isSystemInit(message)) {

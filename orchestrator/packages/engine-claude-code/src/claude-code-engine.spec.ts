@@ -15,7 +15,14 @@ import { ClaudeCodeEngine } from "./claude-code-engine";
 const makeContext = (overrides: Partial<EngineContext> = {}): EngineContext => ({
   taskId: "task-1",
   workingDir: "/test/project",
-  agentName: "test-agent",
+  agent: {
+    name: "test-agent",
+    description: "",
+    tools: [],
+    toolClasses: [],
+    template: { parameters: {} },
+    promptBody: "",
+  },
   taskState: {},
   metadata: {},
   setState: vi.fn().mockResolvedValue(undefined),

@@ -1,6 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import { TestEngine } from "./test-engine";
-import type { EngineContext } from "./types";
+import type { AgentDefinition, EngineContext } from "./types";
+
+const makeAgent = (name: string): AgentDefinition => ({
+  name,
+  description: "",
+  tools: [],
+  toolClasses: [],
+  template: { parameters: {} },
+  promptBody: "",
+});
 
 describe("Test Engine", () => {
   describe("Basic execution", () => {
@@ -10,7 +19,7 @@ describe("Test Engine", () => {
       const context: EngineContext = {
         taskId: "task-1",
         workingDir: "/test/project",
-        agentName: "test-agent",
+        agent: makeAgent("test-agent"),
         taskState: {},
         metadata: {},
         setState: vi.fn().mockResolvedValue(null),
@@ -31,7 +40,7 @@ describe("Test Engine", () => {
       const context: EngineContext = {
         taskId: "task-1",
         workingDir: "/test/project",
-        agentName: "test-agent",
+        agent: makeAgent("test-agent"),
         taskState: {},
         metadata: {},
         setState: vi.fn().mockResolvedValue(null),
@@ -52,7 +61,7 @@ describe("Test Engine", () => {
       const context: EngineContext = {
         taskId: "task-1",
         workingDir: "/test",
-        agentName: "agent",
+        agent: makeAgent("agent"),
         taskState: {},
         metadata: {},
         setState: vi.fn().mockResolvedValue(null),
@@ -83,7 +92,7 @@ describe("Test Engine", () => {
       const context: EngineContext = {
         taskId: "task-1",
         workingDir: "/test",
-        agentName: "agent",
+        agent: makeAgent("agent"),
         taskState: {},
         metadata: {},
         setState: vi.fn().mockResolvedValue(null),
@@ -105,7 +114,7 @@ describe("Test Engine", () => {
       const context: EngineContext = {
         taskId: "task-1",
         workingDir: "/test",
-        agentName: "agent",
+        agent: makeAgent("agent"),
         taskState: {},
         metadata: {},
         setState: vi.fn().mockResolvedValue(null),
@@ -125,7 +134,7 @@ describe("Test Engine", () => {
       const context: EngineContext = {
         taskId: "task-1",
         workingDir: "/test",
-        agentName: "agent",
+        agent: makeAgent("agent"),
         taskState: {},
         metadata: {},
         setState: vi.fn().mockResolvedValue(null),

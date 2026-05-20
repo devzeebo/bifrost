@@ -1,5 +1,9 @@
 // FR-4: Agent Definition File types
 
+import type { AgentDefinition as BaseAgentDefinition } from "@bifrost-ai/engine";
+
+export type { AgentDefinition as BaseAgentDefinition, Template } from "@bifrost-ai/engine";
+
 export type HookResult = {
   outcome: "success" | "follow-up" | "fatal" | "skip";
   message?: string;
@@ -20,22 +24,11 @@ export type HookSpec = {
   fn: HookFn;
 };
 
-export type AgentDefinition = {
-  name: string;
-  description: string;
-  tools: string[];
-  toolClasses: string[];
-  template: Template;
-  hooks: Hooks;
-  promptBody: string;
-  model?: string;
-};
-
-export type Template = {
-  parameters: Record<string, unknown>;
-};
-
 export type Hooks = {
   Start: HookSpec[];
   Stop: HookSpec[];
+};
+
+export type AgentDefinition = BaseAgentDefinition & {
+  hooks: Hooks;
 };
