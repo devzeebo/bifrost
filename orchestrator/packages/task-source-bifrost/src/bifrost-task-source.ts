@@ -98,7 +98,6 @@ export class BifrostTaskSource implements TaskSource {
           pollInterval = defaultPollInterval;
 
           yield BifrostTaskSource.mapToTask(detail, agentId);
-          return;
         }
 
         pollInterval = Math.min(pollInterval * 2, maxPollInterval);
