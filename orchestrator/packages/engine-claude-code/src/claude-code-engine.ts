@@ -100,7 +100,8 @@ export class ClaudeCodeEngine implements Engine {
     debug("engine execute workingDir=%s sessionId=%s", workingDir, sessionId ?? "none");
     debug("engine prompt: %s", prompt);
 
-    const toolOptions = { tools, allowedTools: tools };
+    const bareToolNames = [...new Set(tools.map((tool) => tool.replace(/\(.*\)$/, "")))];
+    const toolOptions = { tools: bareToolNames, allowedTools: tools };
 
     const options = sessionId
       ? {

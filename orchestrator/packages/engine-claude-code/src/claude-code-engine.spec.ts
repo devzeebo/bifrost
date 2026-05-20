@@ -240,6 +240,33 @@ describe("ClaudeCodeEngine", () => {
       expect(result.stats).toBeNull();
     });
 
+    it("should pass bare tool names to tools and full permissions to allowedTools", async () => {
+      mockQuery.mockReturnValue(mockStream(resultSuccess()));
+
+      const engine = new ClaudeCodeEngine();
+      await engine.execute(
+        makeContext({
+          agent: {
+            name: "test-agent",
+            description: "",
+            tools: ["Write(/**/*.spec.ts)", "Write(/**/*.spec.tsx)", "Read"],
+            toolClasses: [],
+            template: { parameters: {} },
+            promptBody: "This is the agent definition",
+          },
+        }),
+      );
+
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          options: expect.objectContaining({
+            tools: ["Write", "Read"],
+            allowedTools: ["Write(/**/*.spec.ts)", "Write(/**/*.spec.tsx)", "Read"],
+          }),
+        }),
+      );
+    });
+
     it("should build prompt from context metadata", async () => {
       mockQuery.mockReturnValue(mockStream(resultSuccess()));
 
