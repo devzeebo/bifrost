@@ -21,7 +21,7 @@ const makeContext = (overrides: Partial<EngineContext> = {}): EngineContext => (
     tools: [],
     toolClasses: [],
     template: { parameters: {} },
-    promptBody: "",
+    promptBody: "This is the agent definition",
   },
   taskState: {},
   metadata: {},
@@ -257,10 +257,11 @@ describe("ClaudeCodeEngine", () => {
           prompt: expect.stringContaining("Fix the login bug"),
         }),
       );
-      const callPrompt = mockQuery.mock.calls[0][0] as { prompt: string };
-      expect(callPrompt.prompt).toContain("Context:");
-      expect(callPrompt.prompt).toContain("file");
-      expect(callPrompt.prompt).toContain("Fix the login bug");
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          prompt: expect.stringContaining("This is the agent definition"),
+        }),
+      );
     });
   });
 });

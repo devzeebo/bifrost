@@ -1,4 +1,10 @@
-import type { Engine, EngineContext, EngineResult, ExecutionStats } from "@bifrost-ai/engine";
+import type {
+  AgentDefinition,
+  Engine,
+  EngineContext,
+  EngineResult,
+  ExecutionStats,
+} from "@bifrost-ai/engine";
 import {
   query,
   type SDKMessage,
@@ -51,22 +57,20 @@ const getMessagePreview = (message: SDKMessage): string => {
 };
 
 type BuildPromptOptions = {
-  agentName: string;
+  agent: AgentDefinition;
   taskState: Record<string, unknown>;
   metadata: Record<string, unknown>;
   instructions: string;
 };
 
-const buildPrompt = (options: BuildPromptOptions): string => {
-  const { agentName: _agentName, taskState, metadata: _metadata, instructions } = options;
-  const parts: string[] = [instructions];
+const promptSection = (name: string, body: string) => `<${name}>${body}</${name}>`;
 
-  if (Object.keys(taskState).length > 0) {
-    parts.push("\nContext:");
-    for (const [key, value] of Object.entries(taskState)) {
-      parts.push(`  ${key}: ${JSON.stringify(value)}`);
-    }
-  }
+const buildPrompt = (options: BuildPromptOptions): string => {
+  const { agent, metadata: _metadata, instructions } = options;
+  const parts: string[] = [
+    promptSection("AgentDefinition", agent.promptBody),
+    promptSection("FeatureDefinition", instructions),
+  ];
 
   return parts.join("\n");
 };
@@ -89,9 +93,9 @@ export class ClaudeCodeEngine implements Engine {
   // oxlint-disable-next-line class-methods-use-this -- method doesn't use `this`, that's fine
   public async execute(context: EngineContext, sessionId?: string): Promise<EngineResult> {
     const { agent, taskState, metadata, instructions, workingDir } = context;
-    const { name: agentName, model, tools } = agent;
+    const { model, tools } = agent;
 
-    const prompt = buildPrompt({ agentName, taskState, metadata, instructions });
+    const prompt = buildPrompt({ agent, taskState, metadata, instructions });
 
     debug("engine execute workingDir=%s sessionId=%s", workingDir, sessionId ?? "none");
     debug("engine prompt: %s", prompt);
