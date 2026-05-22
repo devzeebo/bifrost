@@ -187,9 +187,13 @@ describe("ClaudeCodeEngine", () => {
       expect(followUpResult.sessionId).toBe("sess-continue");
 
       const secondCall = mockQuery.mock.calls[1][0] as {
+        prompt: string;
         options: { resume: string };
       };
       expect(secondCall.options.resume).toBe("sess-continue");
+      expect(secondCall.prompt).toBe("Test instructions");
+      expect(secondCall.prompt).not.toContain("<AgentDefinition>");
+      expect(secondCall.prompt).not.toContain("<FeatureDefinition>");
     });
 
     it("should extract text from assistant messages", async () => {
@@ -267,7 +271,7 @@ describe("ClaudeCodeEngine", () => {
       );
     });
 
-    it("should build prompt from context metadata", async () => {
+    it("should build prompt with agent prompt in AgentDefinition and task instructions in FeatureDefinition", async () => {
       mockQuery.mockReturnValue(mockStream(resultSuccess()));
 
       const engine = new ClaudeCodeEngine();
@@ -279,16 +283,11 @@ describe("ClaudeCodeEngine", () => {
         }),
       );
 
-      expect(mockQuery).toHaveBeenCalledWith(
-        expect.objectContaining({
-          prompt: expect.stringContaining("Fix the login bug"),
-        }),
+      const call = mockQuery.mock.calls[0][0] as { prompt: string };
+      expect(call.prompt).toContain(
+        "<AgentDefinition>This is the agent definition</AgentDefinition>",
       );
-      expect(mockQuery).toHaveBeenCalledWith(
-        expect.objectContaining({
-          prompt: expect.stringContaining("This is the agent definition"),
-        }),
-      );
+      expect(call.prompt).toContain("<FeatureDefinition>Fix the login bug</FeatureDefinition>");
     });
   });
 

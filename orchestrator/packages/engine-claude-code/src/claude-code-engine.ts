@@ -95,7 +95,9 @@ export class ClaudeCodeEngine implements Engine {
     const { agent, taskState, metadata, instructions, workingDir } = context;
     const { model, tools } = agent;
 
-    const prompt = buildPrompt({ agent, taskState, metadata, instructions });
+    const prompt = sessionId
+      ? instructions
+      : buildPrompt({ agent, taskState, metadata, instructions });
 
     debug("engine execute workingDir=%s sessionId=%s", workingDir, sessionId ?? "none");
     debug("engine prompt: %s", prompt);

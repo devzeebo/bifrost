@@ -235,7 +235,7 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
     .filter((result) => result.outcome === "success")
     .reduce<ExecutionOverrides>((acc, result) => ({ ...acc, ...result.overrides }), {});
 
-  const renderedBody = renderPrompt(agent.promptBody, {
+  const renderedAgentPrompt = renderPrompt(agent.promptBody, {
     taskId: task.id,
     metadata: task.metadata,
     taskState: currentTaskState,
@@ -246,11 +246,12 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
     workingDir: executionOverrides.cwd ?? projectDir,
     agent: {
       ...agent,
+      promptBody: renderedAgentPrompt,
       tools: executionOverrides.tools ?? agent.tools,
     },
     taskState: currentTaskState,
     metadata: task.metadata,
-    instructions: executionOverrides.instructions ?? renderedBody,
+    instructions: executionOverrides.instructions ?? task.instructions,
     setState: async (newState: Record<string, unknown>) => {
       currentTaskState = { ...newState };
       await taskSource.setState(task.id, newState);
