@@ -1,4 +1,4 @@
-import type { AgentDefinition, HookExecutionContext } from "./types";
+import type { AgentDefinition, ExecutionOverrides, HookExecutionContext } from "./types";
 import { validateTaskState } from "./validator";
 import type { Task, TaskSource } from "@bifrost-ai/task-source";
 import type { Engine, EngineContext, EngineResult } from "@bifrost-ai/engine";
@@ -220,13 +220,20 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
   }
 
   // Step 3: Invoke engine with setState callback
+  const executionOverrides = startHookResults
+    .filter((result) => result.outcome === "success")
+    .reduce<ExecutionOverrides>((acc, result) => ({ ...acc, ...result.overrides }), {});
+
   const engineContext: EngineContext = {
     taskId: task.id,
-    workingDir: projectDir,
-    agent,
+    workingDir: executionOverrides.cwd ?? projectDir,
+    agent: {
+      ...agent,
+      tools: executionOverrides.tools ?? agent.tools,
+    },
     taskState: currentTaskState,
     metadata: task.metadata,
-    instructions: task.instructions,
+    instructions: executionOverrides.instructions ?? task.instructions,
     setState: async (newState: Record<string, unknown>) => {
       currentTaskState = { ...newState };
       await taskSource.setState(task.id, newState);

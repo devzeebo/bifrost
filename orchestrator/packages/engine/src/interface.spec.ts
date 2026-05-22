@@ -33,7 +33,7 @@ describe("Engine Interface", () => {
           name: "test-agent",
           description: "",
           tools: [],
-          toolClasses: [],
+
           template: { parameters: {} },
           promptBody: "",
         },
@@ -70,7 +70,7 @@ describe("Engine Interface", () => {
           name: "test-agent",
           description: "",
           tools: [],
-          toolClasses: [],
+
           template: { parameters: {} },
           promptBody: "",
         },

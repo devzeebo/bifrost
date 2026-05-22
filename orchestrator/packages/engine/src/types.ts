@@ -14,7 +14,6 @@ export type AgentDefinition = {
   name: string;
   description: string;
   tools: AgentTool[];
-  toolClasses: string[];
   template: Template;
   promptBody: string;
   model?: string;

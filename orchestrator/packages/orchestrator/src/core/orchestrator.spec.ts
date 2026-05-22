@@ -19,7 +19,7 @@ describe("Orchestrator", () => {
         name: "reviewer",
         description: "Code review agent",
         tools: ["readFile", "edit"],
-        toolClasses: [],
+
         template: { parameters: { language: { type: "string" } } },
         hooks: { Start: [], Stop: [] },
         promptBody: "Review the code.",
@@ -80,7 +80,7 @@ describe("Orchestrator", () => {
         name: "reviewer",
         description: "Code review agent",
         tools: [],
-        toolClasses: [],
+
         template: { parameters: { language: { type: "string" } } },
         hooks: { Start: [], Stop: [] },
         promptBody: "Review the code.",
@@ -136,7 +136,7 @@ describe("Orchestrator", () => {
         name: "test",
         description: "Test",
         tools: [],
-        toolClasses: [],
+
         template: { parameters: {} },
         hooks: { Start: [], Stop: [] },
         promptBody: "Test",
@@ -192,7 +192,7 @@ describe("Orchestrator", () => {
         name: "test",
         description: "Test",
         tools: [],
-        toolClasses: [],
+
         template: { parameters: {} },
         hooks: {
           Start: [
@@ -253,7 +253,7 @@ describe("Orchestrator", () => {
         name: "test",
         description: "Test",
         tools: [],
-        toolClasses: [],
+
         template: { parameters: {} },
         hooks: {
           Start: [
@@ -312,7 +312,7 @@ describe("Orchestrator", () => {
         name: "test",
         description: "Test",
         tools: [],
-        toolClasses: [],
+
         template: { parameters: {} },
         hooks: {
           Start: [],
@@ -374,7 +374,7 @@ describe("Orchestrator", () => {
         name: "test",
         description: "Test",
         tools: [],
-        toolClasses: [],
+
         template: { parameters: {} },
         hooks: {
           Start: [],
@@ -432,6 +432,370 @@ describe("Orchestrator", () => {
       expect(mockEngine.execute).toHaveBeenCalledTimes(2);
     });
 
+    it("should apply cwd override from Start hook to engineContext", async () => {
+      const task: Task = {
+        id: "task-1",
+        agentId: "agent-1",
+        taskState: {},
+        metadata: {},
+        instructions: "Test task",
+      };
+
+      const agent: AgentDefinition = {
+        name: "test",
+        description: "Test",
+        tools: ["Read"],
+
+        template: { parameters: {} },
+        hooks: {
+          Start: [
+            {
+              name: "set-cwd",
+              fn: async () => ({
+                outcome: "success" as const,
+                overrides: { cwd: "/other/dir" },
+              }),
+            },
+          ],
+          Stop: [],
+        },
+        promptBody: "Test",
+      };
+
+      const mockTaskSource: TaskSource = {
+        async *watchTasks(): AsyncGenerator<Task> {
+          yield task;
+        },
+        completeTask: vi.fn().mockResolvedValue(void 0),
+        failTask: vi.fn().mockResolvedValue(void 0),
+        setState: vi.fn().mockResolvedValue(void 0),
+      };
+
+      let capturedWorkingDir: string | null = null;
+
+      const mockEngine: Engine = {
+        execute: vi.fn().mockImplementation(async (context) => {
+          capturedWorkingDir = context.workingDir;
+          return { success: true, skipFulfill: false, lastMessage: "Done", stats: null };
+        }),
+      };
+
+      await orchestrate({
+        task,
+        agent,
+        taskSource: mockTaskSource,
+        engine: mockEngine,
+        projectDir: "/default/dir",
+      });
+
+      expect(capturedWorkingDir).toBe("/other/dir");
+    });
+
+    it("should apply tools override from Start hook to engineContext", async () => {
+      const task: Task = {
+        id: "task-1",
+        agentId: "agent-1",
+        taskState: {},
+        metadata: {},
+        instructions: "Test task",
+      };
+
+      const agent: AgentDefinition = {
+        name: "test",
+        description: "Test",
+        tools: ["Read", "Edit"],
+
+        template: { parameters: {} },
+        hooks: {
+          Start: [
+            {
+              name: "restrict-tools",
+              fn: async () => ({
+                outcome: "success" as const,
+                overrides: { tools: [{ name: "Bash", allow: ["git *"] }] },
+              }),
+            },
+          ],
+          Stop: [],
+        },
+        promptBody: "Test",
+      };
+
+      const mockTaskSource: TaskSource = {
+        async *watchTasks(): AsyncGenerator<Task> {
+          yield task;
+        },
+        completeTask: vi.fn().mockResolvedValue(void 0),
+        failTask: vi.fn().mockResolvedValue(void 0),
+        setState: vi.fn().mockResolvedValue(void 0),
+      };
+
+      let capturedTools: unknown = null;
+
+      const mockEngine: Engine = {
+        execute: vi.fn().mockImplementation(async (context) => {
+          capturedTools = context.agent.tools;
+          return { success: true, skipFulfill: false, lastMessage: "Done", stats: null };
+        }),
+      };
+
+      await orchestrate({
+        task,
+        agent,
+        taskSource: mockTaskSource,
+        engine: mockEngine,
+        projectDir: "/project",
+      });
+
+      expect(capturedTools).toEqual([{ name: "Bash", allow: ["git *"] }]);
+    });
+
+    it("should apply instructions override from Start hook to engineContext", async () => {
+      const task: Task = {
+        id: "task-1",
+        agentId: "agent-1",
+        taskState: {},
+        metadata: {},
+        instructions: "Original instructions",
+      };
+
+      const agent: AgentDefinition = {
+        name: "test",
+        description: "Test",
+        tools: [],
+
+        template: { parameters: {} },
+        hooks: {
+          Start: [
+            {
+              name: "override-instructions",
+              fn: async () => ({
+                outcome: "success" as const,
+                overrides: { instructions: "Override instructions" },
+              }),
+            },
+          ],
+          Stop: [],
+        },
+        promptBody: "Test",
+      };
+
+      const mockTaskSource: TaskSource = {
+        async *watchTasks(): AsyncGenerator<Task> {
+          yield task;
+        },
+        completeTask: vi.fn().mockResolvedValue(void 0),
+        failTask: vi.fn().mockResolvedValue(void 0),
+        setState: vi.fn().mockResolvedValue(void 0),
+      };
+
+      let capturedInstructions: string | null = null;
+
+      const mockEngine: Engine = {
+        execute: vi.fn().mockImplementation(async (context) => {
+          capturedInstructions = context.instructions;
+          return { success: true, skipFulfill: false, lastMessage: "Done", stats: null };
+        }),
+      };
+
+      await orchestrate({
+        task,
+        agent,
+        taskSource: mockTaskSource,
+        engine: mockEngine,
+        projectDir: "/project",
+      });
+
+      expect(capturedInstructions).toBe("Override instructions");
+    });
+
+    it("should use last hook value when multiple hooks set the same override field", async () => {
+      const task: Task = {
+        id: "task-1",
+        agentId: "agent-1",
+        taskState: {},
+        metadata: {},
+        instructions: "Test task",
+      };
+
+      const agent: AgentDefinition = {
+        name: "test",
+        description: "Test",
+        tools: [],
+
+        template: { parameters: {} },
+        hooks: {
+          Start: [
+            {
+              name: "first",
+              fn: async () => ({ outcome: "success" as const, overrides: { cwd: "/first/dir" } }),
+            },
+            {
+              name: "second",
+              fn: async () => ({ outcome: "success" as const, overrides: { cwd: "/second/dir" } }),
+            },
+          ],
+          Stop: [],
+        },
+        promptBody: "Test",
+      };
+
+      const mockTaskSource: TaskSource = {
+        async *watchTasks(): AsyncGenerator<Task> {
+          yield task;
+        },
+        completeTask: vi.fn().mockResolvedValue(void 0),
+        failTask: vi.fn().mockResolvedValue(void 0),
+        setState: vi.fn().mockResolvedValue(void 0),
+      };
+
+      let capturedWorkingDir: string | null = null;
+
+      const mockEngine: Engine = {
+        execute: vi.fn().mockImplementation(async (context) => {
+          capturedWorkingDir = context.workingDir;
+          return { success: true, skipFulfill: false, lastMessage: "Done", stats: null };
+        }),
+      };
+
+      await orchestrate({
+        task,
+        agent,
+        taskSource: mockTaskSource,
+        engine: mockEngine,
+        projectDir: "/default",
+      });
+
+      expect(capturedWorkingDir).toBe("/second/dir");
+    });
+
+    it("should compose overrides from multiple hooks setting disjoint fields", async () => {
+      const task: Task = {
+        id: "task-1",
+        agentId: "agent-1",
+        taskState: {},
+        metadata: {},
+        instructions: "Original",
+      };
+
+      const agent: AgentDefinition = {
+        name: "test",
+        description: "Test",
+        tools: ["Read"],
+
+        template: { parameters: {} },
+        hooks: {
+          Start: [
+            {
+              name: "set-cwd",
+              fn: async () => ({ outcome: "success" as const, overrides: { cwd: "/custom/dir" } }),
+            },
+            {
+              name: "set-instructions",
+              fn: async () => ({
+                outcome: "success" as const,
+                overrides: { instructions: "Custom instructions" },
+              }),
+            },
+          ],
+          Stop: [],
+        },
+        promptBody: "Test",
+      };
+
+      const mockTaskSource: TaskSource = {
+        async *watchTasks(): AsyncGenerator<Task> {
+          yield task;
+        },
+        completeTask: vi.fn().mockResolvedValue(void 0),
+        failTask: vi.fn().mockResolvedValue(void 0),
+        setState: vi.fn().mockResolvedValue(void 0),
+      };
+
+      let capturedWorkingDir: string | null = null;
+      let capturedInstructions: string | null = null;
+
+      const mockEngine: Engine = {
+        execute: vi.fn().mockImplementation(async (context) => {
+          capturedWorkingDir = context.workingDir;
+          capturedInstructions = context.instructions;
+          return { success: true, skipFulfill: false, lastMessage: "Done", stats: null };
+        }),
+      };
+
+      await orchestrate({
+        task,
+        agent,
+        taskSource: mockTaskSource,
+        engine: mockEngine,
+        projectDir: "/default",
+      });
+
+      expect(capturedWorkingDir).toBe("/custom/dir");
+      expect(capturedInstructions).toBe("Custom instructions");
+    });
+
+    it("should not apply overrides from fatal Start hooks", async () => {
+      const task: Task = {
+        id: "task-1",
+        agentId: "agent-1",
+        taskState: {},
+        metadata: {},
+        instructions: "Original",
+      };
+
+      const agent: AgentDefinition = {
+        name: "test",
+        description: "Test",
+        tools: [],
+
+        template: { parameters: {} },
+        hooks: {
+          Start: [
+            {
+              name: "fatal-with-overrides",
+              fn: async () => ({
+                outcome: "fatal" as const,
+                message: "Failed",
+                overrides: { cwd: "/should-not-apply" },
+              }),
+            },
+          ],
+          Stop: [],
+        },
+        promptBody: "Test",
+      };
+
+      const mockTaskSource: TaskSource = {
+        async *watchTasks(): AsyncGenerator<Task> {
+          yield task;
+        },
+        completeTask: vi.fn().mockResolvedValue(void 0),
+        failTask: vi.fn().mockResolvedValue(void 0),
+        setState: vi.fn().mockResolvedValue(void 0),
+      };
+
+      const mockEngine: Engine = {
+        execute: vi.fn().mockResolvedValue({
+          success: true,
+          skipFulfill: false,
+          lastMessage: "Done",
+          stats: null,
+        }),
+      };
+
+      const result = await orchestrate({
+        task,
+        agent,
+        taskSource: mockTaskSource,
+        engine: mockEngine,
+        projectDir: "/default",
+      });
+
+      expect(result.outcome).toBe("failed");
+      expect(mockEngine.execute).not.toHaveBeenCalled();
+    });
+
     it("should propagate state changes from Start hooks to engine", async () => {
       const task: Task = {
         id: "task-1",
@@ -445,7 +809,7 @@ describe("Orchestrator", () => {
         name: "test",
         description: "Test",
         tools: [],
-        toolClasses: [],
+
         template: { parameters: {} },
         hooks: {
           Start: [

@@ -1,12 +1,23 @@
 // FR-4: Agent Definition File types
 
-import type { AgentDefinition as BaseAgentDefinition } from "@bifrost-ai/engine";
+import type { AgentDefinition as BaseAgentDefinition, AgentTool } from "@bifrost-ai/engine";
 
-export type { AgentDefinition as BaseAgentDefinition, Template } from "@bifrost-ai/engine";
+export type {
+  AgentDefinition as BaseAgentDefinition,
+  AgentTool,
+  Template,
+} from "@bifrost-ai/engine";
+
+export type ExecutionOverrides = {
+  tools?: AgentTool[];
+  cwd?: string;
+  instructions?: string;
+};
 
 export type HookResult = {
   outcome: "success" | "follow-up" | "fatal" | "skip";
   message?: string;
+  overrides?: ExecutionOverrides;
 };
 
 export type HookExecutionContext = {

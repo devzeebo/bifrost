@@ -6,7 +6,7 @@ const makeAgent = (name: string): AgentDefinition => ({
   name,
   description: "",
   tools: [],
-  toolClasses: [],
+
   template: { parameters: {} },
   promptBody: "",
 });

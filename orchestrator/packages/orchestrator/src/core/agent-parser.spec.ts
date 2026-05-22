@@ -12,8 +12,6 @@ description: Code review agent
 tools:
   - readFile
   - edit
-toolClasses:
-  - linter
 template:
   parameters:
     language:
@@ -31,12 +29,11 @@ You are a code reviewer. Review the changes for {{language.name}}.
 
       const agent = parseAgentDefinition(content);
 
-      // Then the agent name, description, tools, toolClasses, template parameter schema, and prompt body are all accessible
+      // Then the agent name, description, tools, template parameter schema, and prompt body are all accessible
       expect(agent).toBeDefined();
       expect(agent?.name).toBe("reviewer");
       expect(agent?.description).toBe("Code review agent");
       expect(agent?.tools).toEqual(["readFile", "edit"]);
-      expect(agent?.toolClasses).toEqual(["linter"]);
       expect(agent?.template.parameters).toBeDefined();
       expect(agent?.promptBody).toContain("You are a code reviewer");
       expect(agent?.hooks.Start).toEqual([]);

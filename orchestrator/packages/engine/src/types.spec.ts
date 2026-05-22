@@ -72,7 +72,7 @@ describe("Engine Types", () => {
           name: "reviewer",
           description: "Code review agent",
           tools: [],
-          toolClasses: [],
+
           template: { parameters: {} },
           promptBody: "Review the code.",
         },

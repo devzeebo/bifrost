@@ -79,6 +79,24 @@ describe("Hook Executor", () => {
     });
   });
 
+  describe("Overrides passthrough", () => {
+    it("should return overrides unchanged in hook result", async () => {
+      const hooks: HookSpec[] = [
+        {
+          name: "with-overrides",
+          fn: async () => ({
+            outcome: "success" as const,
+            overrides: { cwd: "/custom/dir", instructions: "Do something" },
+          }),
+        },
+      ];
+
+      const results = await executeHooks({ hooks, lifecycle: "Start", context: baseContext });
+
+      expect(results[0].overrides).toEqual({ cwd: "/custom/dir", instructions: "Do something" });
+    });
+  });
+
   describe("Error handling", () => {
     it("should treat thrown errors as fatal", async () => {
       const hooks: HookSpec[] = [

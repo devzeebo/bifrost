@@ -82,9 +82,6 @@ export const parseAgentDefinition = (content: string): AgentDefinition | null =>
       return null;
     }
 
-    // Extract toolClasses (optional, defaults to empty array)
-    const toolClasses = Array.isArray(data.toolClasses) ? (data.toolClasses as string[]) : [];
-
     // Extract template.parameters
     const templateData = data.template as Record<string, unknown> | undefined;
     const parameters = (templateData?.parameters as Record<string, unknown>) || {};
@@ -124,7 +121,6 @@ export const parseAgentDefinition = (content: string): AgentDefinition | null =>
       name: data.name,
       description: data.description,
       tools: data.tools as string[],
-      toolClasses,
       template: { parameters },
       hooks: { Start: [], Stop: [] },
       promptBody,

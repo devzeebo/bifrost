@@ -19,7 +19,7 @@ const makeContext = (overrides: Partial<EngineContext> = {}): EngineContext => (
     name: "test-agent",
     description: "",
     tools: [],
-    toolClasses: [],
+
     template: { parameters: {} },
     promptBody: "This is the agent definition",
   },
@@ -250,7 +250,7 @@ describe("ClaudeCodeEngine", () => {
             name: "test-agent",
             description: "",
             tools: ["Write(/**/*.spec.ts)", "Write(/**/*.spec.tsx)", "Read"],
-            toolClasses: [],
+
             template: { parameters: {} },
             promptBody: "This is the agent definition",
           },
@@ -308,7 +308,7 @@ describe("ClaudeCodeEngine", () => {
                 allow: ["/src/**", "/**/*.spec.ts"],
               },
             ],
-            toolClasses: [],
+
             template: { parameters: {} },
             promptBody: "This is the agent definition",
           },
@@ -340,7 +340,7 @@ describe("ClaudeCodeEngine", () => {
                 deny: ["/src/package.json"],
               },
             ],
-            toolClasses: [],
+
             template: { parameters: {} },
             promptBody: "This is the agent definition",
           },
@@ -374,7 +374,7 @@ describe("ClaudeCodeEngine", () => {
                 deny: ["/src/package.json"],
               },
             ],
-            toolClasses: [],
+
             template: { parameters: {} },
             promptBody: "This is the agent definition",
           },
@@ -407,7 +407,7 @@ describe("ClaudeCodeEngine", () => {
                 allow: ["/src/**", "/**/*.spec.ts"],
               },
             ],
-            toolClasses: [],
+
             template: { parameters: {} },
             promptBody: "This is the agent definition",
           },
@@ -430,7 +430,7 @@ describe("ClaudeCodeEngine", () => {
             name: "test-agent",
             description: "",
             tools: ["Read", "Write"],
-            toolClasses: [],
+
             template: { parameters: {} },
             promptBody: "This is the agent definition",
           },
