@@ -1,12 +1,5 @@
 import { parseAgentDefinition } from "./core/agent-parser";
-import { renderPrompt } from "./core/handlebars-renderer";
 import type { AgentDefinition } from "./core/types";
-
-type AgentTemplateData = {
-  taskId: string;
-  metadata: Record<string, unknown>;
-  taskState: Record<string, unknown>;
-};
 
 const deepMerge = <Type extends object>(target: Partial<Type>, source: Partial<Type>): Type => {
   const result = { ...target };
@@ -43,11 +36,9 @@ const deepMerge = <Type extends object>(target: Partial<Type>, source: Partial<T
 
 export const loadAgent = async (
   def: string,
-  templateData: AgentTemplateData,
   agent?: Partial<AgentDefinition>,
 ): Promise<AgentDefinition> => {
-  const rendered = renderPrompt(def, templateData);
-  const definition = parseAgentDefinition(rendered);
+  const definition = parseAgentDefinition(def);
   if (!definition) {
     throw new Error("Failed to parse agent definition");
   }

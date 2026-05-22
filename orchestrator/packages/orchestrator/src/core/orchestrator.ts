@@ -1,5 +1,6 @@
 import type { AgentDefinition, ExecutionOverrides, HookExecutionContext } from "./types";
 import { validateTaskState } from "./validator";
+import { renderPrompt } from "./handlebars-renderer";
 import type { Task, TaskSource } from "@bifrost-ai/task-source";
 import type { Engine, EngineContext, EngineResult } from "@bifrost-ai/engine";
 import { executeHooks } from "./hook-executor";
@@ -234,6 +235,12 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
     .filter((result) => result.outcome === "success")
     .reduce<ExecutionOverrides>((acc, result) => ({ ...acc, ...result.overrides }), {});
 
+  const renderedBody = renderPrompt(agent.promptBody, {
+    taskId: task.id,
+    metadata: task.metadata,
+    taskState: currentTaskState,
+  });
+
   const engineContext: EngineContext = {
     taskId: task.id,
     workingDir: executionOverrides.cwd ?? projectDir,
@@ -243,7 +250,7 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
     },
     taskState: currentTaskState,
     metadata: task.metadata,
-    instructions: executionOverrides.instructions ?? agent.promptBody,
+    instructions: executionOverrides.instructions ?? renderedBody,
     setState: async (newState: Record<string, unknown>) => {
       currentTaskState = { ...newState };
       await taskSource.setState(task.id, newState);
