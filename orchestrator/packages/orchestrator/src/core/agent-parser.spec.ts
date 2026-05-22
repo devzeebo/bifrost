@@ -149,4 +149,141 @@ Use the {{framework}} for {{language}}.
       expect(agent).toBeNull();
     });
   });
+
+  describe("Tool permission syntax", () => {
+    it("should accept shorthand string tools", () => {
+      // Given an AGENT.md with tools as plain strings
+      const content = `---
+name: test-agent
+description: Test
+tools:
+  - Read
+  - Edit
+---
+Test prompt
+`;
+
+      const agent = parseAgentDefinition(content);
+
+      // Then tools remain as strings unchanged
+      expect(agent).toBeDefined();
+      expect(agent?.tools).toEqual(["Read", "Edit"]);
+    });
+
+    it("should accept object tool with allow and deny", () => {
+      // Given an AGENT.md with a tool object containing name, allow, and deny
+      const content = `---
+name: test-agent
+description: Test
+tools:
+  - name: Write
+    allow:
+      - /src/**
+      - /**/*.spec.ts
+    deny:
+      - /src/package.json
+---
+Test prompt
+`;
+
+      const agent = parseAgentDefinition(content);
+
+      // Then the tool object is preserved with all properties
+      expect(agent).toBeDefined();
+      expect(agent?.tools).toHaveLength(1);
+      const tool = agent?.tools[0];
+      expect(tool).toMatchObject({
+        name: "Write",
+        allow: ["/src/**", "/**/*.spec.ts"],
+        deny: ["/src/package.json"],
+      });
+    });
+
+    it("should accept mixed shorthand and object tools", () => {
+      // Given an AGENT.md with both string and object tools
+      const content = `---
+name: test-agent
+description: Test
+tools:
+  - Read
+  - name: Write
+    allow:
+      - /src/**
+    deny:
+      - /src/package.json
+---
+Test prompt
+`;
+
+      const agent = parseAgentDefinition(content);
+
+      // Then both formats are preserved in the array
+      expect(agent).toBeDefined();
+      expect(agent?.tools).toHaveLength(2);
+      expect(agent?.tools[0]).toBe("Read");
+      expect(agent?.tools[1]).toMatchObject({
+        name: "Write",
+        allow: ["/src/**"],
+        deny: ["/src/package.json"],
+      });
+    });
+
+    it("should accept object tool with only allow (no deny)", () => {
+      // Given a tool object with only name and allow
+      const content = `---
+name: test-agent
+description: Test
+tools:
+  - name: Write
+    allow:
+      - /src/**
+      - /**/*.spec.ts
+---
+Test prompt
+`;
+
+      const agent = parseAgentDefinition(content);
+
+      // Then the tool parses correctly without deny property
+      expect(agent).toBeDefined();
+      expect(agent?.tools).toHaveLength(1);
+      const tool = agent?.tools[0];
+      expect(tool).toMatchObject({
+        name: "Write",
+        allow: ["/src/**", "/**/*.spec.ts"],
+      });
+      expect(
+        typeof tool === "object" && tool !== null ? (tool as { deny?: unknown }).deny : undefined,
+      ).toBeUndefined();
+    });
+
+    it("should accept object tool with only deny (no allow)", () => {
+      // Given a tool object with only name and deny
+      const content = `---
+name: test-agent
+description: Test
+tools:
+  - name: Write
+    deny:
+      - /src/package.json
+      - /src/tsconfig.json
+---
+Test prompt
+`;
+
+      const agent = parseAgentDefinition(content);
+
+      // Then the tool parses correctly without allow property
+      expect(agent).toBeDefined();
+      expect(agent?.tools).toHaveLength(1);
+      const tool = agent?.tools[0];
+      expect(tool).toMatchObject({
+        name: "Write",
+        deny: ["/src/package.json", "/src/tsconfig.json"],
+      });
+      expect(
+        typeof tool === "object" && tool !== null ? (tool as { allow?: unknown }).allow : undefined,
+      ).toBeUndefined();
+    });
+  });
 });

@@ -2,10 +2,18 @@ export type Template = {
   parameters: Record<string, unknown>;
 };
 
+export type AgentTool =
+  | string
+  | {
+      name: string;
+      allow?: string[];
+      deny?: string[];
+    };
+
 export type AgentDefinition = {
   name: string;
   description: string;
-  tools: string[];
+  tools: AgentTool[];
   toolClasses: string[];
   template: Template;
   promptBody: string;

@@ -291,4 +291,156 @@ describe("ClaudeCodeEngine", () => {
       );
     });
   });
+
+  describe("Tool permission expansion", () => {
+    it("should expand object tool with allow patterns into allowedTools", async () => {
+      mockQuery.mockReturnValue(mockStream(resultSuccess()));
+
+      const engine = new ClaudeCodeEngine();
+      await engine.execute(
+        makeContext({
+          agent: {
+            name: "test-agent",
+            description: "",
+            tools: [
+              {
+                name: "Write",
+                allow: ["/src/**", "/**/*.spec.ts"],
+              },
+            ],
+            toolClasses: [],
+            template: { parameters: {} },
+            promptBody: "This is the agent definition",
+          },
+        }),
+      );
+
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          options: expect.objectContaining({
+            tools: ["Write"],
+            allowedTools: ["Write(/src/**)", "Write(/**/*.spec.ts)"],
+          }),
+        }),
+      );
+    });
+
+    it("should expand object tool deny patterns into denyTools", async () => {
+      mockQuery.mockReturnValue(mockStream(resultSuccess()));
+
+      const engine = new ClaudeCodeEngine();
+      await engine.execute(
+        makeContext({
+          agent: {
+            name: "test-agent",
+            description: "",
+            tools: [
+              {
+                name: "Write",
+                deny: ["/src/package.json"],
+              },
+            ],
+            toolClasses: [],
+            template: { parameters: {} },
+            promptBody: "This is the agent definition",
+          },
+        }),
+      );
+
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          options: expect.objectContaining({
+            tools: ["Write"],
+            denyTools: ["Write(/src/package.json)"],
+          }),
+        }),
+      );
+    });
+
+    it("should handle mixed shorthand and object tools", async () => {
+      mockQuery.mockReturnValue(mockStream(resultSuccess()));
+
+      const engine = new ClaudeCodeEngine();
+      await engine.execute(
+        makeContext({
+          agent: {
+            name: "test-agent",
+            description: "",
+            tools: [
+              "Read",
+              {
+                name: "Write",
+                allow: ["/src/**"],
+                deny: ["/src/package.json"],
+              },
+            ],
+            toolClasses: [],
+            template: { parameters: {} },
+            promptBody: "This is the agent definition",
+          },
+        }),
+      );
+
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          options: expect.objectContaining({
+            tools: ["Read", "Write"],
+            allowedTools: ["Read", "Write(/src/**)"],
+            denyTools: ["Write(/src/package.json)"],
+          }),
+        }),
+      );
+    });
+
+    it("should omit denyTools when no deny patterns", async () => {
+      mockQuery.mockReturnValue(mockStream(resultSuccess()));
+
+      const engine = new ClaudeCodeEngine();
+      await engine.execute(
+        makeContext({
+          agent: {
+            name: "test-agent",
+            description: "",
+            tools: [
+              {
+                name: "Write",
+                allow: ["/src/**", "/**/*.spec.ts"],
+              },
+            ],
+            toolClasses: [],
+            template: { parameters: {} },
+            promptBody: "This is the agent definition",
+          },
+        }),
+      );
+
+      const call = mockQuery.mock.calls[0][0] as {
+        options: Record<string, unknown>;
+      };
+      expect(call.options.denyTools).toBeUndefined();
+    });
+
+    it("should omit allowedTools when no allow patterns and only shorthand tools", async () => {
+      mockQuery.mockReturnValue(mockStream(resultSuccess()));
+
+      const engine = new ClaudeCodeEngine();
+      await engine.execute(
+        makeContext({
+          agent: {
+            name: "test-agent",
+            description: "",
+            tools: ["Read", "Write"],
+            toolClasses: [],
+            template: { parameters: {} },
+            promptBody: "This is the agent definition",
+          },
+        }),
+      );
+
+      const call = mockQuery.mock.calls[0][0] as {
+        options: Record<string, unknown>;
+      };
+      expect(call.options.allowedTools).toEqual(["Read", "Write"]);
+    });
+  });
 });
