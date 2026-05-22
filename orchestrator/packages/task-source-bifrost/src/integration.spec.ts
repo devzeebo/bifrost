@@ -175,8 +175,12 @@ describe("BifrostTaskSource - Integration Tests", () => {
             created_at: "2026-05-08T00:00:00Z",
             updated_at: "2026-05-08T00:00:00Z",
             branch: "main",
-            saga_id: "saga-1",
+            parent_id: "saga-1",
             dependencies: [{ target_id: "rune-2", relationship: "blocks" }],
+            notes: [],
+            acceptance_criteria: [],
+            retro_items: [],
+            state: {},
           }),
         } as Response);
       }) as unknown as typeof global.fetch;
@@ -241,6 +245,10 @@ describe("BifrostTaskSource - Integration Tests", () => {
             created_at: "2026-05-08T00:00:00Z",
             updated_at: "2026-05-08T00:00:00Z",
             dependencies: [],
+            notes: [],
+            acceptance_criteria: [],
+            retro_items: [],
+            state: {},
           }),
         } as Response);
       }) as unknown as typeof global.fetch;

@@ -138,6 +138,10 @@ export class ClaudeCodeEngine implements Engine {
           ...toolOptions,
         };
 
+    if (!sessionId) {
+      debug("engine options: %o", options);
+    }
+
     let lastMessage: string | null = null;
     let resultData: SDKResultSuccess | undefined = undefined;
     let returnedSessionId: string | undefined = sessionId;

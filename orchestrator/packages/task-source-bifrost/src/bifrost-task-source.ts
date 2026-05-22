@@ -1,15 +1,8 @@
-import type {
-  ACEntry,
-  DependencyRef,
-  NoteEntry,
-  RetroEntry,
-  Task,
-  TaskSource,
-} from "@bifrost-ai/task-source";
+import type { Task, TaskSource } from "@bifrost-ai/task-source";
 import { BifrostHttpClient } from "./client/bifrost-http-client";
 import { loadConfig } from "./config/config-loader";
 import { CredentialLoader } from "./config/credential-loader";
-import type { BifrostTaskSourceConfig } from "./types";
+import type { BifrostTaskSourceConfig, RuneDetail } from "./types";
 import createDebug from "debug";
 
 const debug = createDebug("bifrost");
@@ -138,40 +131,36 @@ export class BifrostTaskSource implements TaskSource {
     return agentTag.slice(6);
   }
 
-  public static mapToTask(
-    rune: {
-      id: string;
-      title: string;
-      description: string;
-      priority: number;
-      status: string;
-      branch?: string;
-      assignee_id?: string;
-      tags: string[];
-      created_at: string;
-      dependencies: { target_id: string; relationship: string }[];
-    },
-    agentId: string,
-  ): Task {
+  public static mapToTask(rune: RuneDetail, agentId: string): Task {
     return {
       id: rune.id,
       agentId,
-      taskState: {},
+      taskState: rune.state ?? {},
       metadata: {
         title: rune.title,
         description: rune.description,
         priority: rune.priority,
         status: rune.status,
         branch: rune.branch,
+        parentId: rune.parent_id,
+        type: rune.type,
         assignee: rune.assignee_id,
+        tags: rune.tags,
+        realmId: rune.realm_id,
         createdAt: rune.created_at,
+        updatedAt: rune.updated_at,
         dependencies: rune.dependencies.map((dep) => ({
           taskId: dep.target_id,
           type: dep.relationship,
-        })) as DependencyRef[],
-        notes: [] as NoteEntry[],
-        acceptanceCriteria: [] as ACEntry[],
-        retro: [] as RetroEntry[],
+        })),
+        notes: rune.notes.map((note) => ({ content: note.text, createdAt: note.created_at })),
+        acceptanceCriteria: rune.acceptance_criteria.map((ac) => ({
+          id: ac.id,
+          scenario: ac.scenario,
+          criteria: ac.description,
+          satisfied: false,
+        })),
+        retro: rune.retro_items.map((item) => ({ content: item.text, createdAt: item.created_at })),
       },
       instructions: rune.description,
     };

@@ -85,6 +85,10 @@ describe("BifrostTaskSource", () => {
             created_at: "2026-05-08T00:00:00Z",
             updated_at: "2026-05-08T00:00:00Z",
             dependencies: [],
+            notes: [],
+            acceptance_criteria: [],
+            retro_items: [],
+            state: {},
           }),
         });
 
@@ -183,6 +187,10 @@ describe("BifrostTaskSource", () => {
             created_at: "2026-05-08T00:00:00Z",
             updated_at: "2026-05-08T00:00:00Z",
             dependencies: [],
+            notes: [],
+            acceptance_criteria: [],
+            retro_items: [],
+            state: {},
           }),
         });
 
@@ -321,14 +329,20 @@ describe("BifrostTaskSource", () => {
             tags: ["agent:implementer"],
             realm_id: "test-realm",
             created_at: "2026-05-08T00:00:00Z",
-            updated_at: "2026-05-08T00:00:00Z",
+            updated_at: "2026-05-08T01:00:00Z",
             branch: "feature-branch",
-            saga_id: "saga-1",
+            parent_id: "saga-1",
             assignee_id: "account-1",
             dependencies: [
               { target_id: "rune-2", relationship: "blocks" },
               { target_id: "rune-3", relationship: "relates_to" },
             ],
+            notes: [{ text: "A note", created_at: "2026-05-08T00:30:00Z" }],
+            acceptance_criteria: [
+              { id: "ac-1", scenario: "Given something", description: "it works" },
+            ],
+            retro_items: [{ text: "Went well", created_at: "2026-05-08T00:45:00Z" }],
+            state: { step: 1 },
           }),
         });
 
@@ -355,6 +369,18 @@ describe("BifrostTaskSource", () => {
         { taskId: "rune-2", type: "blocks" },
         { taskId: "rune-3", type: "relates_to" },
       ]);
+      expect(task!.metadata.parentId).toBe("saga-1");
+      expect(task!.metadata.updatedAt).toBe("2026-05-08T01:00:00Z");
+      expect(task!.metadata.notes).toEqual([
+        { content: "A note", createdAt: "2026-05-08T00:30:00Z" },
+      ]);
+      expect(task!.metadata.acceptanceCriteria).toEqual([
+        { id: "ac-1", scenario: "Given something", criteria: "it works", satisfied: false },
+      ]);
+      expect(task!.metadata.retro).toEqual([
+        { content: "Went well", createdAt: "2026-05-08T00:45:00Z" },
+      ]);
+      expect(task!.taskState).toEqual({ step: 1 });
     });
   });
 });
