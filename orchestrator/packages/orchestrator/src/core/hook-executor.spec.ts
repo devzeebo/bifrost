@@ -4,6 +4,8 @@ import type { HookSpec } from "./types";
 
 describe("Hook Executor", () => {
   const baseContext = {
+    taskId: "test-task-id",
+    metadata: {},
     projectDir: "/test/project",
     params: { language: "python" },
     getTaskState: () => ({ language: { name: "python" } }),
