@@ -21,9 +21,11 @@ export type HookResult = {
 };
 
 export type HookExecutionContext = {
+  taskId: string;
   projectDir: string;
   hookName: string;
   params: Record<string, unknown>;
+  metadata: Record<string, unknown>;
   getTaskState: () => Record<string, unknown>;
   setTaskState: (newState: Record<string, unknown>) => Promise<void>;
 };
