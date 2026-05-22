@@ -359,6 +359,65 @@ describe("Orchestrator", () => {
       );
     });
 
+    it("should leave task unfulfilled when Stop hook returns skip", async () => {
+      const task: Task = {
+        id: "task-1",
+        agentId: "agent-1",
+        taskState: {},
+        metadata: {},
+        instructions: "Test task",
+      };
+
+      const agent: AgentDefinition = {
+        name: "test",
+        description: "Test",
+        tools: [],
+
+        template: { parameters: {} },
+        hooks: {
+          Start: [],
+          Stop: [
+            {
+              name: "skip-hook",
+              fn: async () => ({ outcome: "skip" as const, message: "not ready yet" }),
+            },
+          ],
+        },
+        promptBody: "Test",
+      };
+
+      const mockTaskSource: TaskSource = {
+        async *watchTasks(): AsyncGenerator<Task> {
+          yield task;
+        },
+        completeTask: vi.fn().mockResolvedValue(void 0),
+        failTask: vi.fn().mockResolvedValue(void 0),
+        setState: vi.fn().mockResolvedValue(void 0),
+      };
+
+      const mockEngine: Engine = {
+        execute: vi.fn().mockResolvedValue({
+          success: true,
+          skipFulfill: false,
+          lastMessage: "Done",
+          stats: null,
+        }),
+      };
+
+      const result = await orchestrate({
+        task,
+        agent,
+        taskSource: mockTaskSource,
+        engine: mockEngine,
+        projectDir: "/test/project",
+      });
+
+      expect(result.outcome).toBe("skipped");
+      expect(result.skipReason).toBe("not ready yet");
+      expect(mockTaskSource.completeTask).not.toHaveBeenCalled();
+      expect(mockTaskSource.failTask).not.toHaveBeenCalled();
+    });
+
     it("should support follow-up loop when Stop hook returns follow-up", async () => {
       const task: Task = {
         id: "task-1",

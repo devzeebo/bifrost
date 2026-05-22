@@ -133,6 +133,14 @@ const runEngineLoop = async (opts: LoopOptions): Promise<LoopResult> => {
           numTurns,
         };
       }
+      if (hook.outcome === "skip") {
+        debug("stop hook skip: %s", hook.message);
+        return {
+          earlyReturn: { outcome: "skipped", skipReason: hook.message },
+          totalTelemetry,
+          numTurns,
+        };
+      }
       if (hook.outcome === "follow-up") {
         needsFollowUp = true;
         followUpMessage = hook.message ?? "";
