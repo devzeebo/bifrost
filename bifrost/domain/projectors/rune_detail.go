@@ -207,7 +207,11 @@ func (p *RuneDetailProjector) handleSealed(ctx context.Context, event core.Event
 	}
 	detail.Status = "sealed"
 	detail.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_detail", data.ID, detail)
+	if err := store.Put(ctx, event.RealmID, "rune_detail", data.ID, detail); err != nil {
+		return err
+	}
+	p.removeBlockedByFromDependents(ctx, event.RealmID, data.ID, detail.Dependencies, store)
+	return nil
 }
 
 func (p *RuneDetailProjector) handleFailed(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -307,7 +311,31 @@ func (p *RuneDetailProjector) handleShattered(ctx context.Context, event core.Ev
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
+	var detail RuneDetail
+	if err := store.Get(ctx, event.RealmID, "rune_detail", data.ID, &detail); err == nil {
+		p.removeBlockedByFromDependents(ctx, event.RealmID, data.ID, detail.Dependencies, store)
+	}
 	return store.Delete(ctx, event.RealmID, "rune_detail", data.ID)
+}
+
+func (p *RuneDetailProjector) removeBlockedByFromDependents(ctx context.Context, realmID, blockerID string, deps []DependencyRef, store core.ProjectionStore) {
+	for _, dep := range deps {
+		if dep.Relationship != domain.RelBlocks {
+			continue
+		}
+		var blocked RuneDetail
+		if err := store.Get(ctx, realmID, "rune_detail", dep.TargetID, &blocked); err != nil {
+			continue
+		}
+		filtered := make([]DependencyRef, 0, len(blocked.Dependencies))
+		for _, d := range blocked.Dependencies {
+			if d.TargetID != blockerID || d.Relationship != domain.RelBlockedBy {
+				filtered = append(filtered, d)
+			}
+		}
+		blocked.Dependencies = filtered
+		_ = store.Put(ctx, realmID, "rune_detail", dep.TargetID, blocked)
+	}
 }
 
 func (p *RuneDetailProjector) handleNoted(ctx context.Context, event core.Event, store core.ProjectionStore) error {

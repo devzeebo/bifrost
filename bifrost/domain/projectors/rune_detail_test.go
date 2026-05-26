@@ -174,6 +174,43 @@ func TestRuneDetailProjector(t *testing.T) {
 		tc.stored_detail_has_status("sealed")
 	})
 
+	t.Run("removes blocked_by edges from dependents when blocker is sealed", func(t *testing.T) {
+		tc := newRuneDetailTestContext(t)
+
+		// Given
+		tc.a_rune_detail_projector()
+		tc.a_store()
+		// bf-blocker blocks bf-dependent — both edges stored
+		tc.existing_detail_with_dependency("bf-blocker", "bf-dependent", "blocks")
+		tc.existing_detail_with_dependency("bf-dependent", "bf-blocker", "blocked_by")
+		tc.a_rune_sealed_event("bf-blocker", "done")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		dependent := tc.get_detail_for("bf-dependent")
+		assert.Empty(t, dependent.Dependencies, "blocked_by edge should be removed from dependent")
+	})
+
+	t.Run("tolerates sealed rune with no blocks edges", func(t *testing.T) {
+		tc := newRuneDetailTestContext(t)
+
+		// Given
+		tc.a_rune_detail_projector()
+		tc.a_store()
+		tc.existing_detail("bf-a1b2", "Fix the bridge", "", "open", 1, "", "")
+		tc.a_rune_sealed_event("bf-a1b2", "no dependents")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.stored_detail_has_status("sealed")
+	})
+
 	t.Run("handles RuneUnclaimed by setting status to open and clearing claimant", func(t *testing.T) {
 		tc := newRuneDetailTestContext(t)
 
@@ -350,6 +387,43 @@ func TestRuneDetailProjector(t *testing.T) {
 		// Then
 		tc.no_error()
 		tc.detail_was_deleted("bf-a1b2")
+	})
+
+	t.Run("removes blocked_by edges from dependents when blocker is shattered", func(t *testing.T) {
+		tc := newRuneDetailTestContext(t)
+
+		// Given
+		tc.a_rune_detail_projector()
+		tc.a_store()
+		// bf-blocker blocks bf-dependent — both edges stored
+		tc.existing_detail_with_dependency("bf-blocker", "bf-dependent", "blocks")
+		tc.existing_detail_with_dependency("bf-dependent", "bf-blocker", "blocked_by")
+		tc.a_rune_shattered_event("bf-blocker")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.detail_was_deleted("bf-blocker")
+		dependent := tc.get_detail_for("bf-dependent")
+		assert.Empty(t, dependent.Dependencies, "blocked_by edge should be removed from dependent")
+	})
+
+	t.Run("tolerates shattered rune with no rune_detail record", func(t *testing.T) {
+		tc := newRuneDetailTestContext(t)
+
+		// Given
+		tc.a_rune_detail_projector()
+		tc.a_store()
+		tc.a_rune_shattered_event("bf-ghost")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.detail_was_deleted("bf-ghost")
 	})
 
 	t.Run("TableName returns rune_detail", func(t *testing.T) {
@@ -794,4 +868,12 @@ func (tc *runeDetailTestContext) get_stored_detail() *RuneDetail {
 		tc.t.Fatal("no detail was stored")
 	}
 	return tc.storedDetail
+}
+
+func (tc *runeDetailTestContext) get_detail_for(id string) RuneDetail {
+	tc.t.Helper()
+	var detail RuneDetail
+	err := tc.store.Get(tc.ctx, tc.realmID, "rune_detail", id, &detail)
+	require.NoError(tc.t, err, "expected detail for %s to exist", id)
+	return detail
 }
