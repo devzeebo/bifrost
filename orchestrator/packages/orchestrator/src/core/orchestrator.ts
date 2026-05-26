@@ -1,4 +1,9 @@
-import type { AgentDefinition, ExecutionOverrides, HookExecutionContext } from "./types";
+import type {
+  AgentDefinition,
+  OrchestrationContext,
+  HookExecutionContext,
+  HookResult,
+} from "./types";
 import { validateTaskState } from "./validator";
 import { renderPrompt } from "./handlebars-renderer";
 import type { Task, TaskSource } from "@bifrost-ai/task-source";
@@ -28,7 +33,7 @@ type OrchestrateOptions = {
   agent: AgentDefinition;
   taskSource: TaskSource;
   engine: Engine;
-  projectDir: string;
+  context: OrchestrationContext;
 };
 
 const handleEngineFailure = async (
@@ -174,7 +179,7 @@ const runEngineLoop = async (opts: LoopOptions): Promise<LoopResult> => {
  * US-3: Agent Operator - Dispatch agent on task
  */
 export const orchestrate = async (options: OrchestrateOptions): Promise<OrchestrationResult> => {
-  const { task, agent, taskSource, engine, projectDir } = options;
+  const { task, agent, taskSource, engine, context } = options;
 
   const startTime = Date.now();
 
@@ -200,41 +205,48 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
     await taskSource.setState(task.id, arg);
   };
 
-  // Step 2: Execute pre-task hooks
   const hookContext: Omit<HookExecutionContext, "hookName"> = {
     taskId: task.id,
-    projectDir,
+    context,
     params: task.taskState,
     metadata: task.metadata,
     getTaskState,
     setTaskState,
   };
 
-  const startHookResults = await executeHooks({
-    hooks: agent.hooks.Start,
-    lifecycle: "Start",
-    context: hookContext,
-  });
+  // Step 2: Execute pre-task hooks; hooks mutate context directly
+  const startHookResults: HookResult[] = [];
 
-  for (const hook of startHookResults) {
-    if (hook.outcome === "fatal") {
-      debug("start hook fatal: %s", hook.message);
-      await taskSource.failTask(task.id, `Start hook failed: ${hook.message ?? "unknown error"}`);
-      return { outcome: "failed", error: hook.message };
+  for (const hookSpec of agent.hooks.Start) {
+    debug("Start hook %s start", hookSpec.name);
+    const result = await hookSpec
+      .fn({ ...hookContext, hookName: hookSpec.name })
+      .then((res) => {
+        debug("Start hook %s → %s", hookSpec.name, res.outcome);
+        return res;
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        debug("Start hook %s threw: %s", hookSpec.name, message);
+        return { outcome: "fatal" as const, message };
+      });
+
+    startHookResults.push(result);
+
+    if (result.outcome === "fatal") {
+      debug("start hook fatal: %s", result.message);
+      await taskSource.failTask(task.id, `Start hook failed: ${result.message ?? "unknown error"}`);
+      return { outcome: "failed", error: result.message };
     }
 
-    if (hook.outcome === "skip") {
-      debug("start hook skip: %s", hook.message);
+    if (result.outcome === "skip") {
+      debug("start hook skip: %s", result.message);
       await taskSource.completeTask(task.id);
-      return { outcome: "skipped", skipReason: hook.message };
+      return { outcome: "skipped", skipReason: result.message };
     }
   }
 
   // Step 3: Invoke engine with setState callback
-  const executionOverrides = startHookResults
-    .filter((result) => result.outcome === "success")
-    .reduce<ExecutionOverrides>((acc, result) => ({ ...acc, ...result.overrides }), {});
-
   const renderedAgentPrompt = renderPrompt(agent.promptBody, {
     taskId: task.id,
     metadata: task.metadata,
@@ -243,15 +255,15 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
 
   const engineContext: EngineContext = {
     taskId: task.id,
-    workingDir: executionOverrides.cwd ?? projectDir,
+    workingDir: context.projectDir,
     agent: {
       ...agent,
       promptBody: renderedAgentPrompt,
-      tools: executionOverrides.tools ?? agent.tools,
+      tools: context.tools ?? agent.tools,
     },
     taskState: currentTaskState,
     metadata: task.metadata,
-    instructions: executionOverrides.instructions ?? task.instructions,
+    instructions: context.instructions,
     setState: async (newState: Record<string, unknown>) => {
       currentTaskState = { ...newState };
       await taskSource.setState(task.id, newState);

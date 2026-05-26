@@ -801,9 +801,10 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 	priorityFilter := r.URL.Query().Get("priority")
 	assigneeFilter := r.URL.Query().Get("assignee")
 	branchFilter := r.URL.Query().Get("branch")
+	parentFilter := r.URL.Query().Get("parent_id")
 	tagFilters := parseTagFilters(r)
 
-	if statusFilter != "" || priorityFilter != "" || assigneeFilter != "" || branchFilter != "" || len(tagFilters) > 0 {
+	if statusFilter != "" || priorityFilter != "" || assigneeFilter != "" || branchFilter != "" || parentFilter != "" || len(tagFilters) > 0 {
 		var filtered []json.RawMessage
 		for _, raw := range runes {
 			var item map[string]any
@@ -827,6 +828,11 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 			}
 			if branchFilter != "" {
 				if fmt.Sprintf("%v", item["branch"]) != branchFilter {
+					continue
+				}
+			}
+			if parentFilter != "" {
+				if fmt.Sprintf("%v", item["parent_id"]) != parentFilter {
 					continue
 				}
 			}
@@ -958,6 +964,8 @@ func (h *Handlers) Ready(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	parentFilter := r.URL.Query().Get("parent_id")
+
 	var ready []map[string]any
 	for _, raw := range runes {
 		var item map[string]any
@@ -967,6 +975,10 @@ func (h *Handlers) Ready(w http.ResponseWriter, r *http.Request) {
 
 		// Filter to status=open
 		if fmt.Sprintf("%v", item["status"]) != "open" {
+			continue
+		}
+
+		if parentFilter != "" && fmt.Sprintf("%v", item["parent_id"]) != parentFilter {
 			continue
 		}
 

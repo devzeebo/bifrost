@@ -1,12 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
 import { executeHooks } from "./hook-executor";
-import type { HookSpec } from "./types";
+import type { HookSpec, OrchestrationContext } from "./types";
 
 describe("Hook Executor", () => {
+  const makeContext = (): OrchestrationContext => ({
+    projectDir: "/test/project",
+    instructions: "Test task",
+  });
+
   const baseContext = {
     taskId: "test-task-id",
     metadata: {},
-    projectDir: "/test/project",
+    context: makeContext(),
     params: { language: "python" },
     getTaskState: () => ({ language: { name: "python" } }),
     setTaskState: vi.fn().mockResolvedValue(void 0),
@@ -81,21 +86,31 @@ describe("Hook Executor", () => {
     });
   });
 
-  describe("Overrides passthrough", () => {
-    it("should return overrides unchanged in hook result", async () => {
+  describe("Context mutation", () => {
+    it("should allow hooks to mutate projectDir on shared context", async () => {
+      const sharedContext = makeContext();
+      const hookCtx = { ...baseContext, context: sharedContext };
+
       const hooks: HookSpec[] = [
         {
-          name: "with-overrides",
-          fn: async () => ({
-            outcome: "success" as const,
-            overrides: { cwd: "/custom/dir", instructions: "Do something" },
-          }),
+          name: "set-cwd",
+          fn: async (ctx) => {
+            ctx.context.projectDir = "/custom/dir";
+            return { outcome: "success" as const };
+          },
+        },
+        {
+          name: "read-cwd",
+          fn: async (ctx) => {
+            expect(ctx.context.projectDir).toBe("/custom/dir");
+            return { outcome: "success" as const };
+          },
         },
       ];
 
-      const results = await executeHooks({ hooks, lifecycle: "Start", context: baseContext });
+      await executeHooks({ hooks, lifecycle: "Start", context: hookCtx });
 
-      expect(results[0].overrides).toEqual({ cwd: "/custom/dir", instructions: "Do something" });
+      expect(sharedContext.projectDir).toBe("/custom/dir");
     });
   });
 

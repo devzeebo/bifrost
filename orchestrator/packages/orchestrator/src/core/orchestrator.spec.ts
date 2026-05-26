@@ -1,8 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { orchestrate } from "./orchestrator";
-import type { AgentDefinition } from "./types";
+import type { AgentDefinition, OrchestrationContext } from "./types";
 import type { Task, TaskSource } from "@bifrost-ai/task-source";
 import type { Engine } from "@bifrost-ai/engine";
+
+const makeContext = (overrides?: Partial<OrchestrationContext>): OrchestrationContext => ({
+  projectDir: "/test/project",
+  instructions: "Test task",
+  ...overrides,
+});
 
 describe("Orchestrator", () => {
   describe("task execution lifecycle", () => {
@@ -59,7 +65,7 @@ describe("Orchestrator", () => {
         agent,
         taskSource: mockTaskSource,
         engine: mockEngine,
-        projectDir: "/test/project",
+        context: makeContext(),
       });
 
       expect(result.outcome).toBe("completed");
@@ -112,7 +118,7 @@ describe("Orchestrator", () => {
         agent,
         taskSource: mockTaskSource,
         engine: mockEngine,
-        projectDir: "/test/project",
+        context: makeContext(),
       });
 
       expect(result.outcome).toBe("failed");
@@ -170,7 +176,7 @@ describe("Orchestrator", () => {
         agent,
         taskSource: mockTaskSource,
         engine: mockEngine,
-        projectDir: "/test/project",
+        context: makeContext(),
       });
 
       expect(capturedSetState).toBeDefined();
@@ -229,7 +235,7 @@ describe("Orchestrator", () => {
         agent,
         taskSource: mockTaskSource,
         engine: mockEngine,
-        projectDir: "/test/project",
+        context: makeContext(),
       });
 
       expect(result.outcome).toBe("failed");
@@ -290,7 +296,7 @@ describe("Orchestrator", () => {
         agent,
         taskSource: mockTaskSource,
         engine: mockEngine,
-        projectDir: "/test/project",
+        context: makeContext(),
       });
 
       expect(result.outcome).toBe("skipped");
@@ -349,7 +355,7 @@ describe("Orchestrator", () => {
         agent,
         taskSource: mockTaskSource,
         engine: mockEngine,
-        projectDir: "/test/project",
+        context: makeContext(),
       });
 
       expect(result.outcome).toBe("failed");
@@ -409,7 +415,7 @@ describe("Orchestrator", () => {
         agent,
         taskSource: mockTaskSource,
         engine: mockEngine,
-        projectDir: "/test/project",
+        context: makeContext(),
       });
 
       expect(result.outcome).toBe("skipped");
@@ -484,14 +490,14 @@ describe("Orchestrator", () => {
         agent,
         taskSource: mockTaskSource,
         engine: mockEngine,
-        projectDir: "/test/project",
+        context: makeContext(),
       });
 
       expect(result.outcome).toBe("completed");
       expect(mockEngine.execute).toHaveBeenCalledTimes(2);
     });
 
-    it("should apply cwd override from Start hook to engineContext", async () => {
+    it("should apply cwd set by Start hook to engineContext", async () => {
       const task: Task = {
         id: "task-1",
         agentId: "agent-1",
@@ -510,10 +516,10 @@ describe("Orchestrator", () => {
           Start: [
             {
               name: "set-cwd",
-              fn: async () => ({
-                outcome: "success" as const,
-                overrides: { cwd: "/other/dir" },
-              }),
+              fn: async (ctx) => {
+                ctx.context.projectDir = "/other/dir";
+                return { outcome: "success" as const };
+              },
             },
           ],
           Stop: [],
@@ -544,13 +550,13 @@ describe("Orchestrator", () => {
         agent,
         taskSource: mockTaskSource,
         engine: mockEngine,
-        projectDir: "/default/dir",
+        context: makeContext({ projectDir: "/default/dir" }),
       });
 
       expect(capturedWorkingDir).toBe("/other/dir");
     });
 
-    it("should apply tools override from Start hook to engineContext", async () => {
+    it("should apply tools set by Start hook to engineContext", async () => {
       const task: Task = {
         id: "task-1",
         agentId: "agent-1",
@@ -569,10 +575,10 @@ describe("Orchestrator", () => {
           Start: [
             {
               name: "restrict-tools",
-              fn: async () => ({
-                outcome: "success" as const,
-                overrides: { tools: [{ name: "Bash", allow: ["git *"] }] },
-              }),
+              fn: async (ctx) => {
+                ctx.context.tools = [{ name: "Bash", allow: ["git *"] }];
+                return { outcome: "success" as const };
+              },
             },
           ],
           Stop: [],
@@ -603,13 +609,13 @@ describe("Orchestrator", () => {
         agent,
         taskSource: mockTaskSource,
         engine: mockEngine,
-        projectDir: "/project",
+        context: makeContext({ projectDir: "/project" }),
       });
 
       expect(capturedTools).toEqual([{ name: "Bash", allow: ["git *"] }]);
     });
 
-    it("should apply instructions override from Start hook to engineContext", async () => {
+    it("should apply instructions set by Start hook to engineContext", async () => {
       const task: Task = {
         id: "task-1",
         agentId: "agent-1",
@@ -628,10 +634,10 @@ describe("Orchestrator", () => {
           Start: [
             {
               name: "override-instructions",
-              fn: async () => ({
-                outcome: "success" as const,
-                overrides: { instructions: "Override instructions" },
-              }),
+              fn: async (ctx) => {
+                ctx.context.instructions = "Override instructions";
+                return { outcome: "success" as const };
+              },
             },
           ],
           Stop: [],
@@ -662,13 +668,13 @@ describe("Orchestrator", () => {
         agent,
         taskSource: mockTaskSource,
         engine: mockEngine,
-        projectDir: "/project",
+        context: makeContext({ projectDir: "/project", instructions: "Original instructions" }),
       });
 
       expect(capturedInstructions).toBe("Override instructions");
     });
 
-    it("should use last hook value when multiple hooks set the same override field", async () => {
+    it("should use last hook value when multiple hooks set the same context field", async () => {
       const task: Task = {
         id: "task-1",
         agentId: "agent-1",
@@ -687,11 +693,17 @@ describe("Orchestrator", () => {
           Start: [
             {
               name: "first",
-              fn: async () => ({ outcome: "success" as const, overrides: { cwd: "/first/dir" } }),
+              fn: async (ctx) => {
+                ctx.context.projectDir = "/first/dir";
+                return { outcome: "success" as const };
+              },
             },
             {
               name: "second",
-              fn: async () => ({ outcome: "success" as const, overrides: { cwd: "/second/dir" } }),
+              fn: async (ctx) => {
+                ctx.context.projectDir = "/second/dir";
+                return { outcome: "success" as const };
+              },
             },
           ],
           Stop: [],
@@ -722,13 +734,13 @@ describe("Orchestrator", () => {
         agent,
         taskSource: mockTaskSource,
         engine: mockEngine,
-        projectDir: "/default",
+        context: makeContext({ projectDir: "/default" }),
       });
 
       expect(capturedWorkingDir).toBe("/second/dir");
     });
 
-    it("should compose overrides from multiple hooks setting disjoint fields", async () => {
+    it("should compose context mutations from multiple hooks setting disjoint fields", async () => {
       const task: Task = {
         id: "task-1",
         agentId: "agent-1",
@@ -747,14 +759,17 @@ describe("Orchestrator", () => {
           Start: [
             {
               name: "set-cwd",
-              fn: async () => ({ outcome: "success" as const, overrides: { cwd: "/custom/dir" } }),
+              fn: async (ctx) => {
+                ctx.context.projectDir = "/custom/dir";
+                return { outcome: "success" as const };
+              },
             },
             {
               name: "set-instructions",
-              fn: async () => ({
-                outcome: "success" as const,
-                overrides: { instructions: "Custom instructions" },
-              }),
+              fn: async (ctx) => {
+                ctx.context.instructions = "Custom instructions";
+                return { outcome: "success" as const };
+              },
             },
           ],
           Stop: [],
@@ -787,14 +802,14 @@ describe("Orchestrator", () => {
         agent,
         taskSource: mockTaskSource,
         engine: mockEngine,
-        projectDir: "/default",
+        context: makeContext({ projectDir: "/default", instructions: "Original" }),
       });
 
       expect(capturedWorkingDir).toBe("/custom/dir");
       expect(capturedInstructions).toBe("Custom instructions");
     });
 
-    it("should not apply overrides from fatal Start hooks", async () => {
+    it("should not apply context mutations from fatal Start hooks", async () => {
       const task: Task = {
         id: "task-1",
         agentId: "agent-1",
@@ -812,12 +827,11 @@ describe("Orchestrator", () => {
         hooks: {
           Start: [
             {
-              name: "fatal-with-overrides",
-              fn: async () => ({
-                outcome: "fatal" as const,
-                message: "Failed",
-                overrides: { cwd: "/should-not-apply" },
-              }),
+              name: "fatal-with-mutation",
+              fn: async (ctx) => {
+                ctx.context.projectDir = "/should-not-apply";
+                return { outcome: "fatal" as const, message: "Failed" };
+              },
             },
           ],
           Stop: [],
@@ -848,7 +862,7 @@ describe("Orchestrator", () => {
         agent,
         taskSource: mockTaskSource,
         engine: mockEngine,
-        projectDir: "/default",
+        context: makeContext({ projectDir: "/default" }),
       });
 
       expect(result.outcome).toBe("failed");
@@ -913,7 +927,7 @@ describe("Orchestrator", () => {
         agent,
         taskSource: mockTaskSource,
         engine: mockEngine,
-        projectDir: "/test/project",
+        context: makeContext(),
       });
 
       expect(engineReceivedState).toEqual({ step: 2, updatedBy: "hook" });

@@ -8,22 +8,21 @@ export type {
   Template,
 } from "@bifrost-ai/engine";
 
-export type ExecutionOverrides = {
+export type OrchestrationContext = {
+  projectDir: string;
   tools?: AgentTool[];
-  cwd?: string;
-  instructions?: string;
+  instructions: string;
 };
 
 export type HookResult = {
   outcome: "success" | "follow-up" | "fatal" | "skip";
   message?: string;
-  overrides?: ExecutionOverrides;
 };
 
 export type HookExecutionContext = {
   taskId: string;
-  projectDir: string;
   hookName: string;
+  context: OrchestrationContext;
   params: Record<string, unknown>;
   metadata: Record<string, unknown>;
   getTaskState: () => Record<string, unknown>;
@@ -44,4 +43,27 @@ export type Hooks = {
 
 export type AgentDefinition = BaseAgentDefinition & {
   hooks: Hooks;
+};
+
+export type BeforeDispatchHookContext = {
+  taskId: string;
+  agentId: string;
+  hookName: string;
+  context: OrchestrationContext;
+  taskState: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+};
+
+export type BeforeDispatchHookResult = {
+  outcome: "success" | "fatal" | "skip";
+  message?: string;
+};
+
+export type BeforeDispatchHookFn = (
+  ctx: BeforeDispatchHookContext,
+) => Promise<BeforeDispatchHookResult>;
+
+export type BeforeDispatchHookSpec = {
+  name: string;
+  fn: BeforeDispatchHookFn;
 };

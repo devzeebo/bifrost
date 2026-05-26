@@ -15,8 +15,9 @@ export class BifrostHttpClient {
     this.token = token;
   }
 
-  public async getReadyRunes(): Promise<ReadyRune[]> {
-    const response = await this.request("/api/ready", { method: "GET" });
+  public async getReadyRunes(parentId?: string): Promise<ReadyRune[]> {
+    const url = parentId ? `/api/ready?parent_id=${encodeURIComponent(parentId)}` : "/api/ready";
+    const response = await this.request(url, { method: "GET" });
     return (response as ReadyRune[]) ?? [];
   }
 
