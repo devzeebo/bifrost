@@ -6,18 +6,16 @@ import { dirname, join } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const setPackageVersion = async (pkgDir, version, updateBifrostDeps = false) => {
+const setPackageVersion = async (pkgDir, version) => {
   const pkgPath = join(pkgDir, "package.json");
   const pkg = JSON.parse(await readFile(pkgPath, "utf-8"));
   pkg.version = version;
 
-  // Update sibling @bifrost-ai dependencies
   for (const depType of ["dependencies", "devDependencies", "peerDependencies"]) {
     if (pkg[depType]) {
       for (const [name] of Object.entries(pkg[depType])) {
         if (name.startsWith("@bifrost-ai/")) {
-          // publish: use exact version, restore: use ^0.0.0
-          pkg[depType][name] = updateBifrostDeps ? version : "^0.0.0";
+          pkg[depType][name] = version;
         }
       }
     }
@@ -54,6 +52,14 @@ const targetSemver = packageJson.version;
 
 const pkgDir = (pkgName) => join(__dirname, "packages", pkgName.replace(/.*?\//g, ""));
 
+// Snapshot original package.json contents before any mutations
+const originalContents = new Map();
+for (const pkgName of publishOrder) {
+  const pkgPath = join(pkgDir(pkgName), "package.json");
+  // oxlint-disable-next-line no-await-in-loop
+  originalContents.set(pkgName, await readFile(pkgPath, "utf-8"));
+}
+
 try {
   // Update versions, build and publish packages
   for (const pkgName of publishOrder) {
@@ -66,7 +72,7 @@ try {
 
       // Bump version with build suffix and update sibling deps
       // oxlint-disable-next-line no-await-in-loop
-      await setPackageVersion(currentPath, `${targetSemver}-${buildNumber}`, true);
+      await setPackageVersion(currentPath, `${targetSemver}-${buildNumber}`);
 
       // Build package
       console.log(`Building ${pkgName}...`);
@@ -86,12 +92,12 @@ try {
     stdio: "inherit",
   });
 
-  // reset the versions locally
+  // Restore original package.json contents verbatim
   for (const pkgName of publishOrder) {
     try {
-      const currentPath = pkgDir(pkgName);
+      const pkgPath = join(pkgDir(pkgName), "package.json");
       // oxlint-disable-next-line no-await-in-loop
-      await setPackageVersion(currentPath, currentVersion, false);
+      await writeFile(pkgPath, originalContents.get(pkgName));
     } catch {
       // do nothing
     }

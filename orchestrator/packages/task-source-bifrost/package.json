@@ -1,6 +1,6 @@
 {
   "name": "@bifrost-ai/task-source-bifrost",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Bifrost task source plugin for Orchestrator Framework",
   "type": "module",
   "files": [
@@ -18,7 +18,7 @@
     "build": "vite build"
   },
   "dependencies": {
-    "@bifrost-ai/task-source": "^0.0.0",
+    "@bifrost-ai/task-source": "^0.0.1",
     "yaml": "^2.9.0"
   }
 }
