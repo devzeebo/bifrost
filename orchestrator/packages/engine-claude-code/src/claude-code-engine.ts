@@ -1,5 +1,6 @@
 import type {
   AgentDefinition,
+  AgentTool,
   Engine,
   EngineContext,
   EngineResult,
@@ -11,6 +12,7 @@ import {
   type SDKAssistantMessage,
   type SDKSystemMessage,
   type SDKResultSuccess,
+  type McpSdkServerConfigWithInstance,
 } from "@anthropic-ai/claude-agent-sdk";
 import createDebug from "debug";
 
@@ -89,8 +91,70 @@ const buildStats = (resultData: SDKResultSuccess): ExecutionStats => {
   };
 };
 
+const mcpServerNamePattern = /^mcp__([^_]+(?:_[^_]+)*)__/;
+
+export type ToolkitConstructor = (context: EngineContext) => McpSdkServerConfigWithInstance;
+
 export class ClaudeCodeEngine implements Engine {
-  // oxlint-disable-next-line class-methods-use-this -- method doesn't use `this`, that's fine
+  private toolkits = new Map<string, McpSdkServerConfigWithInstance | ToolkitConstructor>();
+
+  public registerToolkit(
+    name: string,
+    toolkit: McpSdkServerConfigWithInstance | ToolkitConstructor,
+  ): void {
+    this.toolkits.set(name, toolkit);
+  }
+
+  private resolveToolOptions(
+    tools: AgentTool[],
+    context: EngineContext,
+  ): {
+    bareToolNames: string[];
+    toolOptions: { tools: string[]; allowedTools: string[]; denyTools?: string[] };
+    mcpServersOption: { mcpServers: Record<string, McpSdkServerConfigWithInstance> } | undefined;
+  } {
+    const bareToolNames = [
+      ...new Set(
+        tools.map((tool) => (typeof tool === "string" ? tool.replace(/\(.*\)$/, "") : tool.name)),
+      ),
+    ];
+    const allowedTools = tools.flatMap((tool) => {
+      if (typeof tool === "string") {
+        return [tool];
+      }
+      return (tool.allow ?? []).map((pattern: string) => `${tool.name}(${pattern})`);
+    });
+    const denyPatterns = tools.flatMap((tool) => {
+      if (typeof tool === "string") {
+        return [];
+      }
+      return (tool.deny ?? []).map((pattern: string) => `${tool.name}(${pattern})`);
+    });
+    const toolOptions = {
+      tools: bareToolNames,
+      allowedTools,
+      ...(denyPatterns.length > 0 && { denyTools: denyPatterns }),
+    };
+
+    const activeServerNames = new Set(
+      bareToolNames
+        .map((toolName) => mcpServerNamePattern.exec(toolName)?.[1])
+        .filter(
+          (serverName): serverName is string => serverName !== null && serverName !== undefined,
+        ),
+    );
+    const mcpServers: Record<string, McpSdkServerConfigWithInstance> = {};
+    for (const name of activeServerNames) {
+      const entry = this.toolkits.get(name);
+      if (entry !== undefined && entry !== null) {
+        mcpServers[name] = typeof entry === "function" ? entry(context) : entry;
+      }
+    }
+    const mcpServersOption = Object.keys(mcpServers).length > 0 ? { mcpServers } : undefined;
+
+    return { bareToolNames, toolOptions, mcpServersOption };
+  }
+
   public async execute(context: EngineContext, sessionId?: string): Promise<EngineResult> {
     const { agent, taskState, metadata, instructions, workingDir } = context;
     const { model, tools } = agent;
@@ -102,42 +166,23 @@ export class ClaudeCodeEngine implements Engine {
     debug("engine execute workingDir=%s sessionId=%s", workingDir, sessionId ?? "none");
     debug("engine prompt: %s", prompt);
 
-    const bareToolNames = [
-      ...new Set(
-        tools.map((tool) => (typeof tool === "string" ? tool.replace(/\(.*\)$/, "") : tool.name)),
-      ),
-    ];
-    const allowedTools = tools.flatMap((tool) => {
-      if (typeof tool === "string") {
-        return [tool];
-      }
-      return (tool.allow ?? []).map((pattern) => `${tool.name}(${pattern})`);
-    });
-    const denyPatterns = tools.flatMap((tool) => {
-      if (typeof tool === "string") {
-        return [];
-      }
-      return (tool.deny ?? []).map((pattern) => `${tool.name}(${pattern})`);
-    });
-    const toolOptions = {
-      tools: bareToolNames,
-      allowedTools,
-      ...(denyPatterns.length > 0 && { denyTools: denyPatterns }),
-    };
+    const { toolOptions, mcpServersOption } = this.resolveToolOptions(tools, context);
 
     const options = sessionId
       ? {
-          workingDir,
+          cwd: workingDir,
           permissionMode: "dontAsk" as const,
           resume: sessionId,
           ...(model && { model }),
           ...toolOptions,
+          ...mcpServersOption,
         }
       : {
-          workingDir,
+          cwd: workingDir,
           permissionMode: "dontAsk" as const,
           ...(model && { model }),
           ...toolOptions,
+          ...mcpServersOption,
         };
 
     if (!sessionId) {

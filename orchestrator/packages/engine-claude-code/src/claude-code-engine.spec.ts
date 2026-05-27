@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi, type MockedFunction } from "vitest";
 import type { EngineContext } from "@bifrost-ai/engine";
-import type { query as queryFn, SDKMessage, Query } from "@anthropic-ai/claude-agent-sdk";
+import type {
+  query as queryFn,
+  SDKMessage,
+  Query,
+  McpSdkServerConfigWithInstance,
+} from "@anthropic-ai/claude-agent-sdk";
 
 vi.mock("@anthropic-ai/claude-agent-sdk", () => ({
   query: vi.fn(),
@@ -10,7 +15,7 @@ vi.mock("debug", () => ({
   default: vi.fn(() => vi.fn()),
 }));
 
-import { ClaudeCodeEngine } from "./claude-code-engine";
+import { ClaudeCodeEngine, type ToolkitConstructor } from "./claude-code-engine";
 
 const makeContext = (overrides: Partial<EngineContext> = {}): EngineContext => ({
   taskId: "task-1",
@@ -156,6 +161,34 @@ describe("ClaudeCodeEngine", () => {
       const result = await engine.execute(makeContext());
 
       expect(result.sessionId).toBe("sess-abc");
+    });
+
+    it("should pass workingDir as cwd to the SDK", async () => {
+      mockQuery.mockReturnValue(
+        mockStream(systemInit("sess-cwd"), resultSuccess({ session_id: "sess-cwd" })),
+      );
+
+      const engine = new ClaudeCodeEngine();
+      await engine.execute(makeContext({ workingDir: "/some/worktree/path" }));
+
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          options: expect.objectContaining({ cwd: "/some/worktree/path" }),
+        }),
+      );
+    });
+
+    it("should pass workingDir as cwd when resuming a session", async () => {
+      mockQuery.mockReturnValue(mockStream(resultSuccess({ session_id: "sess-resume" })));
+
+      const engine = new ClaudeCodeEngine();
+      await engine.execute(makeContext({ workingDir: "/some/worktree/path" }), "sess-resume");
+
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          options: expect.objectContaining({ cwd: "/some/worktree/path" }),
+        }),
+      );
     });
 
     it("should support session continuation via sessionId parameter", async () => {
@@ -440,6 +473,173 @@ describe("ClaudeCodeEngine", () => {
         options: Record<string, unknown>;
       };
       expect(call.options.allowedTools).toEqual(["Read", "Write"]);
+    });
+  });
+
+  describe("registerToolkit", () => {
+    const makeToolkit = (name: string): McpSdkServerConfigWithInstance =>
+      ({
+        type: "sdk",
+        name,
+        instance: {} as McpSdkServerConfigWithInstance["instance"],
+      }) satisfies McpSdkServerConfigWithInstance;
+
+    it("should pass registered toolkit to mcpServers when agent uses its tools", async () => {
+      mockQuery.mockReturnValue(mockStream(resultSuccess()));
+
+      const engine = new ClaudeCodeEngine();
+      const toolkit = makeToolkit("mycustomtoolkit");
+      engine.registerToolkit("mycustomtoolkit", toolkit);
+
+      await engine.execute(
+        makeContext({
+          agent: {
+            name: "test-agent",
+            description: "",
+            tools: ["mcp__mycustomtoolkit__toolone", "mcp__mycustomtoolkit__tooltwo"],
+            template: { parameters: {} },
+            promptBody: "This is the agent definition",
+          },
+        }),
+      );
+
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          options: expect.objectContaining({
+            mcpServers: { mycustomtoolkit: toolkit },
+          }),
+        }),
+      );
+    });
+
+    it("should not include a toolkit when no agent tools reference it", async () => {
+      mockQuery.mockReturnValue(mockStream(resultSuccess()));
+
+      const engine = new ClaudeCodeEngine();
+      engine.registerToolkit("unusedtoolkit", makeToolkit("unusedtoolkit"));
+
+      await engine.execute(
+        makeContext({
+          agent: {
+            name: "test-agent",
+            description: "",
+            tools: ["Read", "Write"],
+            template: { parameters: {} },
+            promptBody: "This is the agent definition",
+          },
+        }),
+      );
+
+      const call = mockQuery.mock.calls[0][0] as { options: Record<string, unknown> };
+      expect(call.options.mcpServers).toBeUndefined();
+    });
+
+    it("should omit mcpServers entirely when no toolkits are registered", async () => {
+      mockQuery.mockReturnValue(mockStream(resultSuccess()));
+
+      const engine = new ClaudeCodeEngine();
+
+      await engine.execute(
+        makeContext({
+          agent: {
+            name: "test-agent",
+            description: "",
+            tools: ["Read"],
+            template: { parameters: {} },
+            promptBody: "This is the agent definition",
+          },
+        }),
+      );
+
+      const call = mockQuery.mock.calls[0][0] as { options: Record<string, unknown> };
+      expect(call.options.mcpServers).toBeUndefined();
+    });
+
+    it("should only include toolkits whose tools are referenced by the agent", async () => {
+      mockQuery.mockReturnValue(mockStream(resultSuccess()));
+
+      const engine = new ClaudeCodeEngine();
+      const activeToolkit = makeToolkit("activetoolkit");
+      const inactiveToolkit = makeToolkit("inactivetoolkit");
+      engine.registerToolkit("activetoolkit", activeToolkit);
+      engine.registerToolkit("inactivetoolkit", inactiveToolkit);
+
+      await engine.execute(
+        makeContext({
+          agent: {
+            name: "test-agent",
+            description: "",
+            tools: ["mcp__activetoolkit__toolone"],
+            template: { parameters: {} },
+            promptBody: "This is the agent definition",
+          },
+        }),
+      );
+
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          options: expect.objectContaining({
+            mcpServers: { activetoolkit: activeToolkit },
+          }),
+        }),
+      );
+    });
+
+    it("should call a toolkit constructor with the engine context and pass the result to mcpServers", async () => {
+      mockQuery.mockReturnValue(mockStream(resultSuccess()));
+
+      const engine = new ClaudeCodeEngine();
+      const builtToolkit = makeToolkit("constructedtoolkit");
+      const constructor: ToolkitConstructor = vi.fn().mockReturnValue(builtToolkit);
+      engine.registerToolkit("constructedtoolkit", constructor);
+
+      const context = makeContext({
+        workingDir: "/project/cwd",
+        agent: {
+          name: "test-agent",
+          description: "",
+          tools: ["mcp__constructedtoolkit__mytool"],
+          template: { parameters: {} },
+          promptBody: "This is the agent definition",
+        },
+      });
+      await engine.execute(context);
+
+      expect(constructor).toHaveBeenCalledWith(context);
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          options: expect.objectContaining({
+            mcpServers: { constructedtoolkit: builtToolkit },
+          }),
+        }),
+      );
+    });
+
+    it("should pass the full engine context including workingDir to the toolkit constructor", async () => {
+      mockQuery.mockReturnValue(mockStream(resultSuccess()));
+
+      const engine = new ClaudeCodeEngine();
+      const captured: { context: EngineContext | undefined } = { context: undefined };
+      const constructor: ToolkitConstructor = (ctx) => {
+        captured.context = ctx;
+        return makeToolkit("ctxcheck");
+      };
+      engine.registerToolkit("ctxcheck", constructor);
+
+      const context = makeContext({
+        workingDir: "/some/specific/path",
+        agent: {
+          name: "test-agent",
+          description: "",
+          tools: ["mcp__ctxcheck__tool"],
+          template: { parameters: {} },
+          promptBody: "This is the agent definition",
+        },
+      });
+      await engine.execute(context);
+
+      expect(captured.context?.workingDir).toBe("/some/specific/path");
+      expect(captured.context?.taskId).toBe(context.taskId);
     });
   });
 });
