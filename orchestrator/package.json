@@ -1,6 +1,6 @@
 {
   "name": "orchestrator",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Unified Orchestrator Framework - AI agent task execution system",
   "private": true,
   "type": "module",

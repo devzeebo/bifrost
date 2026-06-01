@@ -114,6 +114,11 @@ export class BifrostTaskSource implements TaskSource {
     await client.failRune(taskId, error);
   }
 
+  public async pauseTask(taskId: string): Promise<void> {
+    const client = await this.#getClient();
+    await client.unclaimRune(taskId);
+  }
+
   public async setState(taskId: string, taskState: Record<string, unknown>): Promise<void> {
     try {
       const client = await this.#getClient();

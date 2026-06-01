@@ -77,6 +77,16 @@ export class MemoryTaskSource implements TaskSource {
     this.#claimed.delete(taskId);
   }
 
+  public async pauseTask(taskId: string): Promise<void> {
+    const task = this.#tasks.get(taskId);
+    if (!task) {
+      throw new Error(`Task ${taskId} not found`);
+    }
+
+    task.status = "OPEN";
+    this.#claimed.delete(taskId);
+  }
+
   public async setState(taskId: string, taskState: Record<string, unknown>): Promise<void> {
     const task = this.#tasks.get(taskId);
     if (!task) {

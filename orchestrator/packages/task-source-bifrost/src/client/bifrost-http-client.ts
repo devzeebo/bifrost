@@ -49,6 +49,13 @@ export class BifrostHttpClient {
     });
   }
 
+  public async unclaimRune(runeId: string): Promise<void> {
+    await this.request("/api/unclaim-rune", {
+      method: "POST",
+      body: JSON.stringify({ id: runeId }),
+    });
+  }
+
   public async updateRuneState(runeId: string, taskState: Record<string, unknown>): Promise<void> {
     await this.request("/api/update-rune-state", {
       method: "POST",

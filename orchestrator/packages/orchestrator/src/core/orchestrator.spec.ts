@@ -40,6 +40,8 @@ describe("Orchestrator", () => {
         // oxlint-disable-next-line no-empty-function
         failTask: vi.fn().mockResolvedValue(void 0),
         // oxlint-disable-next-line no-empty-function
+        pauseTask: vi.fn().mockResolvedValue(void 0),
+        // oxlint-disable-next-line no-empty-function
         setState: vi.fn().mockResolvedValue(void 0),
       };
 
@@ -101,6 +103,8 @@ describe("Orchestrator", () => {
         // oxlint-disable-next-line no-empty-function
         failTask: vi.fn().mockResolvedValue(void 0),
         // oxlint-disable-next-line no-empty-function
+        pauseTask: vi.fn().mockResolvedValue(void 0),
+        // oxlint-disable-next-line no-empty-function
         setState: vi.fn().mockResolvedValue(void 0),
       };
 
@@ -154,6 +158,7 @@ describe("Orchestrator", () => {
         },
         completeTask: vi.fn().mockResolvedValue(void 0),
         failTask: vi.fn().mockResolvedValue(void 0),
+        pauseTask: vi.fn().mockResolvedValue(void 0),
         setState: vi.fn().mockResolvedValue(void 0),
       };
 
@@ -218,6 +223,7 @@ describe("Orchestrator", () => {
         },
         completeTask: vi.fn().mockResolvedValue(void 0),
         failTask: vi.fn().mockResolvedValue(void 0),
+        pauseTask: vi.fn().mockResolvedValue(void 0),
         setState: vi.fn().mockResolvedValue(void 0),
       };
 
@@ -279,6 +285,7 @@ describe("Orchestrator", () => {
         },
         completeTask: vi.fn().mockResolvedValue(void 0),
         failTask: vi.fn().mockResolvedValue(void 0),
+        pauseTask: vi.fn().mockResolvedValue(void 0),
         setState: vi.fn().mockResolvedValue(void 0),
       };
 
@@ -338,6 +345,7 @@ describe("Orchestrator", () => {
         },
         completeTask: vi.fn().mockResolvedValue(void 0),
         failTask: vi.fn().mockResolvedValue(void 0),
+        pauseTask: vi.fn().mockResolvedValue(void 0),
         setState: vi.fn().mockResolvedValue(void 0),
       };
 
@@ -365,7 +373,7 @@ describe("Orchestrator", () => {
       );
     });
 
-    it("should leave task unfulfilled when Stop hook returns skip", async () => {
+    it("should pause task when Stop hook returns pause", async () => {
       const task: Task = {
         id: "task-1",
         agentId: "agent-1",
@@ -384,8 +392,8 @@ describe("Orchestrator", () => {
           Start: [],
           Stop: [
             {
-              name: "skip-hook",
-              fn: async () => ({ outcome: "skip" as const, message: "not ready yet" }),
+              name: "pause-hook",
+              fn: async () => ({ outcome: "pause" as const, message: "not ready yet" }),
             },
           ],
         },
@@ -398,6 +406,7 @@ describe("Orchestrator", () => {
         },
         completeTask: vi.fn().mockResolvedValue(void 0),
         failTask: vi.fn().mockResolvedValue(void 0),
+        pauseTask: vi.fn().mockResolvedValue(void 0),
         setState: vi.fn().mockResolvedValue(void 0),
       };
 
@@ -418,8 +427,9 @@ describe("Orchestrator", () => {
         context: makeContext(),
       });
 
-      expect(result.outcome).toBe("skipped");
-      expect(result.skipReason).toBe("not ready yet");
+      expect(result.outcome).toBe("paused");
+      expect(result.pauseReason).toBe("not ready yet");
+      expect(mockTaskSource.pauseTask).toHaveBeenCalledWith("task-1");
       expect(mockTaskSource.completeTask).not.toHaveBeenCalled();
       expect(mockTaskSource.failTask).not.toHaveBeenCalled();
     });
@@ -465,6 +475,7 @@ describe("Orchestrator", () => {
         },
         completeTask: vi.fn().mockResolvedValue(void 0),
         failTask: vi.fn().mockResolvedValue(void 0),
+        pauseTask: vi.fn().mockResolvedValue(void 0),
         setState: vi.fn().mockResolvedValue(void 0),
       };
 
@@ -533,6 +544,7 @@ describe("Orchestrator", () => {
         },
         completeTask: vi.fn().mockResolvedValue(void 0),
         failTask: vi.fn().mockResolvedValue(void 0),
+        pauseTask: vi.fn().mockResolvedValue(void 0),
         setState: vi.fn().mockResolvedValue(void 0),
       };
 
@@ -592,6 +604,7 @@ describe("Orchestrator", () => {
         },
         completeTask: vi.fn().mockResolvedValue(void 0),
         failTask: vi.fn().mockResolvedValue(void 0),
+        pauseTask: vi.fn().mockResolvedValue(void 0),
         setState: vi.fn().mockResolvedValue(void 0),
       };
 
@@ -651,6 +664,7 @@ describe("Orchestrator", () => {
         },
         completeTask: vi.fn().mockResolvedValue(void 0),
         failTask: vi.fn().mockResolvedValue(void 0),
+        pauseTask: vi.fn().mockResolvedValue(void 0),
         setState: vi.fn().mockResolvedValue(void 0),
       };
 
@@ -717,6 +731,7 @@ describe("Orchestrator", () => {
         },
         completeTask: vi.fn().mockResolvedValue(void 0),
         failTask: vi.fn().mockResolvedValue(void 0),
+        pauseTask: vi.fn().mockResolvedValue(void 0),
         setState: vi.fn().mockResolvedValue(void 0),
       };
 
@@ -783,6 +798,7 @@ describe("Orchestrator", () => {
         },
         completeTask: vi.fn().mockResolvedValue(void 0),
         failTask: vi.fn().mockResolvedValue(void 0),
+        pauseTask: vi.fn().mockResolvedValue(void 0),
         setState: vi.fn().mockResolvedValue(void 0),
       };
 
@@ -845,6 +861,7 @@ describe("Orchestrator", () => {
         },
         completeTask: vi.fn().mockResolvedValue(void 0),
         failTask: vi.fn().mockResolvedValue(void 0),
+        pauseTask: vi.fn().mockResolvedValue(void 0),
         setState: vi.fn().mockResolvedValue(void 0),
       };
 
@@ -905,6 +922,7 @@ describe("Orchestrator", () => {
         },
         completeTask: vi.fn().mockResolvedValue(void 0),
         failTask: vi.fn().mockResolvedValue(void 0),
+        pauseTask: vi.fn().mockResolvedValue(void 0),
         setState: vi.fn().mockResolvedValue(void 0),
       };
 

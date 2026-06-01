@@ -24,31 +24,84 @@ const isSystemInit = (message: SDKMessage): message is SDKSystemMessage =>
 const isResultSuccess = (message: SDKMessage): message is SDKResultSuccess =>
   message.type === "result" && message.subtype === "success";
 
+type ContentBlock = {
+  type?: string;
+  text?: string;
+  name?: string;
+  input?: unknown;
+  tool_use_id?: string;
+  content?: unknown;
+};
+
+const formatToolInput = (input: unknown): string => {
+  if (!input || typeof input !== "object") {
+    return String(input ?? "");
+  }
+  const entries = Object.entries(input as Record<string, unknown>).slice(0, 3);
+  return entries.map(([key, val]) => `${key}=${String(val).substring(0, 40)}`).join(", ");
+};
+
 const extractContent = (message: SDKAssistantMessage): string | null => {
-  const msg = message.message as { content?: { type?: string; text?: string }[] | null } | null;
+  const msg = message.message as { content?: ContentBlock[] | null } | null;
   if (!msg?.content) {
     return null;
   }
 
-  const textBlocks = msg.content.filter((block) => block.type === "text" && block.text);
-  if (textBlocks.length === 0) {
-    return null;
+  const parts: string[] = [];
+  for (const block of msg.content) {
+    if (block.type === "text" && block.text) {
+      parts.push(block.text.substring(0, 100).replace(/\n/g, " "));
+    } else if (block.type === "tool_use" && block.name) {
+      const args = formatToolInput(block.input);
+      parts.push(`ToolCall(${block.name}${args ? `, ${args}` : ""})`);
+    }
   }
 
-  return textBlocks.map((block) => block.text ?? "").join("\n");
+  return parts.length > 0 ? parts.join(" | ") : null;
+};
+
+const extractToolResultPreview = (resultContent: unknown): string => {
+  if (typeof resultContent === "string") {
+    return resultContent.substring(0, 80);
+  }
+  if (Array.isArray(resultContent)) {
+    return resultContent
+      .map((block: ContentBlock) => block.text ?? "")
+      .join("")
+      .substring(0, 80);
+  }
+  return "";
+};
+
+const extractUserPreview = (message: SDKMessage): string | null => {
+  const userMsg = message as { message?: { content?: string | ContentBlock[] } };
+  const content = userMsg.message?.content;
+  if (!content) {
+    return null;
+  }
+  if (typeof content === "string") {
+    return content.substring(0, 100).replace(/\n/g, " ");
+  }
+
+  const parts: string[] = [];
+  for (const block of content) {
+    if (block.type === "tool_result") {
+      const preview = extractToolResultPreview(block.content);
+      parts.push(
+        `ToolResult(${block.tool_use_id ?? "?"}${preview ? `: ${preview.replace(/\n/g, " ")}` : ""})`,
+      );
+    } else if (block.type === "text" && block.text) {
+      parts.push(block.text.substring(0, 100).replace(/\n/g, " "));
+    }
+  }
+  return parts.length > 0 ? parts.join(" | ") : null;
 };
 
 const getMessagePreview = (message: SDKMessage): string => {
   if (message.type === "assistant") {
-    const content = extractContent(message as SDKAssistantMessage);
-    if (content) {
-      return content.substring(0, 100).replace(/\n/g, " ");
-    }
+    return extractContent(message as SDKAssistantMessage) ?? "";
   } else if (message.type === "user") {
-    const userMsg = message as { content?: string };
-    if (userMsg.content) {
-      return userMsg.content.substring(0, 100).replace(/\n/g, " ");
-    }
+    return extractUserPreview(message) ?? "";
   } else if (message.type === "system") {
     const sysMsg = message as { message?: string };
     if (sysMsg.message) {

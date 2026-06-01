@@ -14,7 +14,7 @@ import createDebug from "debug";
 const debug = createDebug("bifrost");
 
 type OrchestrationResult = {
-  outcome: "completed" | "failed" | "halted" | "skipped";
+  outcome: "completed" | "failed" | "halted" | "skipped" | "paused";
   telemetry?: {
     durationMs: number;
     inputTokens: number;
@@ -26,6 +26,7 @@ type OrchestrationResult = {
   };
   error?: string;
   skipReason?: string;
+  pauseReason?: string;
 };
 
 type OrchestrateOptions = {
@@ -139,10 +140,11 @@ const runEngineLoop = async (opts: LoopOptions): Promise<LoopResult> => {
           numTurns,
         };
       }
-      if (hook.outcome === "skip") {
-        debug("stop hook skip: %s", hook.message);
+      if (hook.outcome === "pause") {
+        debug("stop hook pause: %s", hook.message);
+        await taskSource.pauseTask(task.id);
         return {
-          earlyReturn: { outcome: "skipped", skipReason: hook.message },
+          earlyReturn: { outcome: "paused", pauseReason: hook.message },
           totalTelemetry,
           numTurns,
         };

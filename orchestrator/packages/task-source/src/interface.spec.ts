@@ -13,6 +13,9 @@ describe("TaskSource Interface", () => {
         public failTask(): Promise<void> {
           return Promise.resolve();
         }
+        public pauseTask(): Promise<void> {
+          return Promise.resolve();
+        }
         public setState(): Promise<void> {
           return Promise.resolve();
         }
@@ -56,6 +59,8 @@ describe("TaskSource Interface", () => {
         // oxlint-disable-next-line no-empty-function
         async failTask(_taskId: string, _error: string): Promise<void> {},
         // oxlint-disable-next-line no-empty-function
+        async pauseTask(_taskId: string): Promise<void> {},
+        // oxlint-disable-next-line no-empty-function
         async setState(_taskId: string, _taskState: Record<string, unknown>): Promise<void> {},
       };
 
@@ -79,6 +84,8 @@ describe("TaskSource Interface", () => {
         // oxlint-disable-next-line no-empty-function
         async failTask(_taskId: string, _error: string): Promise<void> {},
         // oxlint-disable-next-line no-empty-function
+        async pauseTask(_taskId: string): Promise<void> {},
+        // oxlint-disable-next-line no-empty-function
         async setState(_taskId: string, _taskState: Record<string, unknown>): Promise<void> {},
       };
 
@@ -101,6 +108,8 @@ describe("TaskSource Interface", () => {
         async completeTask(_taskId: string): Promise<void> {},
         // oxlint-disable-next-line no-empty-function
         async failTask(_taskId: string, _error: string): Promise<void> {},
+        // oxlint-disable-next-line no-empty-function
+        async pauseTask(_taskId: string): Promise<void> {},
         // oxlint-disable-next-line no-empty-function
         async setState(_taskId: string, _taskState: Record<string, unknown>): Promise<void> {},
       };

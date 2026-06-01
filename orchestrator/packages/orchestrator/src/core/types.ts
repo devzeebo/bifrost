@@ -15,7 +15,7 @@ export type OrchestrationContext = {
 };
 
 export type HookResult = {
-  outcome: "success" | "follow-up" | "fatal" | "skip";
+  outcome: "success" | "follow-up" | "fatal" | "skip" | "pause";
   message?: string;
 };
 
