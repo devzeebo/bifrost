@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -19,6 +20,7 @@ type projectionEngine struct {
 	wg     sync.WaitGroup
 
 	registeredTables []string
+	tableToProjector map[string]string
 }
 
 type EngineOption func(*projectionEngine)
@@ -31,10 +33,11 @@ func WithPollInterval(d time.Duration) EngineOption {
 
 func NewProjectionEngine(eventStore EventStore, projectionStore ProjectionStore, checkpointStore CheckpointStore, opts ...EngineOption) *projectionEngine {
 	e := &projectionEngine{
-		eventStore:      eventStore,
-		projectionStore: projectionStore,
-		checkpointStore: checkpointStore,
-		pollInterval:    1 * time.Second,
+		eventStore:       eventStore,
+		projectionStore:  projectionStore,
+		checkpointStore:  checkpointStore,
+		pollInterval:     1 * time.Second,
+		tableToProjector: make(map[string]string),
 	}
 	for _, opt := range opts {
 		opt(e)
@@ -52,6 +55,7 @@ func (e *projectionEngine) Register(projector Projector) error {
 	// Only register after successful table creation
 	e.projectors = append(e.projectors, projector)
 	e.registeredTables = append(e.registeredTables, tableName)
+	e.tableToProjector[tableName] = projector.Name()
 	return nil
 }
 
@@ -60,12 +64,12 @@ func (e *projectionEngine) RegisteredTables() []string {
 }
 
 func (e *projectionEngine) RunSync(ctx context.Context, events []Event) error {
-	for _, projector := range e.projectors {
-		for _, event := range events {
-			if err := projector.Handle(ctx, event, e.projectionStore); err != nil {
-				log.Printf("projector %q error: %v", projector.Name(), err)
-			}
-		}
+	for _, event := range events {
+		// syncAdvanced tracks which projectors completed in this RunSync call.
+		// Checkpoints are not written during sync, so cross-projector reads rely on
+		// this in-memory set instead of checkpoint lookups.
+		syncAdvanced := make(map[string]bool, len(e.projectors))
+		e.runProjectorsForEvent(ctx, event, e.projectors, "sync", syncAdvanced)
 	}
 	return nil
 }
@@ -137,14 +141,16 @@ func (e *projectionEngine) runCatchUpCycle(ctx context.Context) {
 
 		// Fan out each event to all projectors that haven't seen it yet, in event order
 		for _, event := range events {
+			// Build the subset of projectors that need this event
+			var pending []Projector
 			for _, projector := range e.projectors {
-				if event.GlobalPosition <= checkpoints[projector.Name()] {
-					continue
+				if event.GlobalPosition > checkpoints[projector.Name()] {
+					pending = append(pending, projector)
 				}
-				if err := projector.Handle(ctx, event, e.projectionStore); err != nil {
-					log.Printf("catch-up: projector %q error on event %d: %v", projector.Name(), event.GlobalPosition, err)
-				}
-				lastPos[projector.Name()] = event.GlobalPosition
+			}
+			advanced := e.runProjectorsForEvent(ctx, event, pending, "catch-up", nil)
+			for name, pos := range advanced {
+				lastPos[name] = pos
 			}
 		}
 
@@ -158,6 +164,55 @@ func (e *projectionEngine) runCatchUpCycle(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// runProjectorsForEvent runs pending projectors against a single event, retrying
+// any that return ErrProjectorNotReady until no further progress is made.
+// Returns a map of projector name → GlobalPosition for each projector that
+// successfully processed the event (used by the catch-up loop to update lastPos).
+//
+// syncAdvanced, when non-nil, is used instead of checkpoint lookups to determine
+// whether a dependency projector has processed the current event. This is required
+// for RunSync where checkpoints are not written mid-call.
+func (e *projectionEngine) runProjectorsForEvent(ctx context.Context, event Event, pending []Projector, logPrefix string, syncAdvanced map[string]bool) map[string]int64 {
+	advanced := make(map[string]int64, len(pending))
+	for len(pending) > 0 {
+		var deferred []Projector
+		progress := false
+		for _, projector := range pending {
+			store := &checkpointAwareStore{
+				ProjectionStore:  e.projectionStore,
+				checkpointStore:  e.checkpointStore,
+				realmID:          event.RealmID,
+				currentPos:       event.GlobalPosition,
+				ownTable:         projector.TableName(),
+				tableToProjector: e.tableToProjector,
+				syncAdvanced:     syncAdvanced,
+			}
+			err := projector.Handle(ctx, event, store)
+			if err != nil {
+				var notReady *ErrProjectorNotReady
+				if errors.As(err, &notReady) {
+					deferred = append(deferred, projector)
+					continue
+				}
+				log.Printf("%s: projector %q error on event %d: %v", logPrefix, projector.Name(), event.GlobalPosition, err)
+			}
+			advanced[projector.Name()] = event.GlobalPosition
+			if syncAdvanced != nil {
+				syncAdvanced[projector.Name()] = true
+			}
+			progress = true
+		}
+		if !progress {
+			for _, projector := range deferred {
+				log.Printf("%s: projector %q could not be satisfied for event %d (dependency not ready)", logPrefix, projector.Name(), event.GlobalPosition)
+			}
+			break
+		}
+		pending = deferred
+	}
+	return advanced
 }
 
 func (e *projectionEngine) Stop() error {

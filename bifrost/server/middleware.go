@@ -366,6 +366,35 @@ func resolveRealmID(ctx context.Context, realmIdent string, roles map[string]str
 		matches = append(matches, realmID)
 	}
 
+	// Fallback: iterate known realm IDs and check realm_directory for a name match.
+	// This handles the case where RealmNames is not populated in the account_auth projection.
+	if len(matches) == 0 {
+		knownIDs := make([]string, 0, len(roles))
+		for id := range roles {
+			knownIDs = append(knownIDs, id)
+		}
+		for _, r := range realms {
+			if roles == nil {
+				knownIDs = append(knownIDs, r)
+			} else if _, ok := roles[r]; !ok {
+				knownIDs = append(knownIDs, r)
+			}
+		}
+		for _, realmID := range knownIDs {
+			var dirEntry struct {
+				Name   string `json:"name"`
+				Status string `json:"status"`
+			}
+			if err := projectionStore.Get(ctx, "_admin", "realm_directory", realmID, &dirEntry); err != nil {
+				continue
+			}
+			if dirEntry.Name != realmIdent || dirEntry.Status == "suspended" {
+				continue
+			}
+			matches = append(matches, realmID)
+		}
+	}
+
 	if len(matches) > 1 {
 		return "", ErrForbidden("Realm name is ambiguous; use realm ID instead")
 	}
