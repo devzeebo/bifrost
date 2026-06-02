@@ -1,6 +1,6 @@
 {
   "name": "@bifrost-ai/orchestrator",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Orchestrator Framework for AI agents",
   "type": "module",
   "files": [
@@ -12,8 +12,8 @@
     "build": "vite build"
   },
   "dependencies": {
-    "@bifrost-ai/task-source": "^0.0.1",
-    "@bifrost-ai/engine": "^0.0.1",
+    "@bifrost-ai/task-source": "^0.0.2",
+    "@bifrost-ai/engine": "^0.0.2",
     "gray-matter": "^4.0.3",
     "handlebars": "^4.7.9"
   }

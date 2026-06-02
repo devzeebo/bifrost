@@ -145,7 +145,7 @@ func requireRealmExists(ctx context.Context, realmID string, projectionStore cor
 		Status  string `json:"status"`
 	}
 	var entry realmDirectoryEntry
-	err := projectionStore.Get(ctx, realmID, "realm_directory", realmID, &entry)
+	err := projectionStore.Get(ctx, "_admin", "realm_directory", realmID, &entry)
 	if err != nil {
 		var nfe *core.NotFoundError
 		if errors.As(err, &nfe) {

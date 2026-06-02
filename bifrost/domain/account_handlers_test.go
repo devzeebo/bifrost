@@ -1021,7 +1021,7 @@ func (tc *accountHandlerTestContext) a_grant_realm_command(accountID, realmID st
 func (tc *accountHandlerTestContext) realm_exists_in_directory(realmID, name string) {
 	tc.t.Helper()
 	tc.a_store()
-	tc.projectionStore.data[realmID+":realm_directory:"+realmID] = map[string]any{
+	tc.projectionStore.data["_admin:realm_directory:"+realmID] = map[string]any{
 		"realm_id": realmID,
 		"name":    name,
 		"status":  "active",

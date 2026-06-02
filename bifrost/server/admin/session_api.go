@@ -177,7 +177,7 @@ func getRealmNames(ctx context.Context, projectionStore core.ProjectionStore, re
 			continue
 		}
 		var realm projectors.RealmDirectoryEntry
-		if err := projectionStore.Get(ctx, realmID, "realm_directory", realmID, &realm); err == nil {
+		if err := projectionStore.Get(ctx, "_admin", "realm_directory", realmID, &realm); err == nil {
 			names[realmID] = realm.Name
 		}
 		// Skip realms without a directory entry (orphaned/phantom realms)

@@ -1,6 +1,6 @@
 {
   "name": "@bifrost-ai/task-source",
-  "version": "0.0.2-build.1780346600986",
+  "version": "0.0.2",
   "description": "Task Source interface and types for Orchestrator Framework",
   "type": "module",
   "files": [

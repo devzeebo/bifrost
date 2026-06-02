@@ -240,7 +240,7 @@ func TestUISessionAPI_GetSession(t *testing.T) {
 
 	t.Run("uses realm_directory for realm names", func(t *testing.T) {
 		// Set up realm_directory entry
-		store.data[compositeKey("realm-1", "realm_directory", "realm-1")] = projectors.RealmDirectoryEntry{
+		store.data[compositeKey("_admin", "realm_directory", "realm-1")] = projectors.RealmDirectoryEntry{
 			RealmID:   "realm-1",
 			Name:      "My Test Realm",
 			Status:    "active",

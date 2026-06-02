@@ -83,7 +83,6 @@ func TestAccountAuthProjector(t *testing.T) {
 		// Given
 		tc.an_account_auth_projector()
 		tc.a_store()
-		tc.realm_exists_in_directory("realm-1", "Test Realm")
 		tc.existing_entry("acct-1", "alice", "active")
 		tc.a_realm_granted_event("acct-1", "realm-1")
 
@@ -121,7 +120,6 @@ func TestAccountAuthProjector(t *testing.T) {
 		// Given
 		tc.an_account_auth_projector()
 		tc.a_store()
-		tc.realm_exists_in_directory("realm-1", "Test Realm")
 		tc.existing_entry("acct-1", "alice", "active")
 		tc.a_role_assigned_event("acct-1", "realm-1", "admin")
 
@@ -140,7 +138,6 @@ func TestAccountAuthProjector(t *testing.T) {
 		// Given
 		tc.an_account_auth_projector()
 		tc.a_store()
-		tc.realm_exists_in_directory("realm-1", "Test Realm")
 		tc.existing_entry_with_realms("acct-1", "alice", "active", []string{"realm-1"})
 		tc.a_role_assigned_event("acct-1", "realm-1", "owner")
 
@@ -209,7 +206,6 @@ func TestAccountAuthProjector(t *testing.T) {
 		// Given
 		tc.an_account_auth_projector()
 		tc.a_store()
-		tc.realm_exists_in_directory("realm-1", "Test Realm")
 		tc.existing_entry_with_realms("acct-1", "alice", "active", []string{"realm-1"})
 		tc.a_realm_granted_event("acct-1", "realm-1")
 
@@ -228,7 +224,6 @@ func TestAccountAuthProjector(t *testing.T) {
 		// Given
 		tc.an_account_auth_projector()
 		tc.a_store()
-		tc.realm_exists_in_directory("realm-1", "Test Realm")
 		tc.existing_entry_with_realms("acct-1", "alice", "active", []string{"realm-1"})
 		tc.a_role_assigned_event("acct-1", "realm-1", "admin")
 
@@ -303,16 +298,6 @@ func (tc *accountAuthTestContext) an_account_auth_projector() {
 func (tc *accountAuthTestContext) a_store() {
 	tc.t.Helper()
 	tc.store = newMockProjectionStore()
-}
-
-func (tc *accountAuthTestContext) realm_exists_in_directory(realmID, name string) {
-	tc.t.Helper()
-	key := realmID + ":realm_directory:" + realmID
-	tc.store.data[key] = RealmDirectoryEntry{
-		RealmID: realmID,
-		Name:    name,
-		Status:  "active",
-	}
 }
 
 func (tc *accountAuthTestContext) an_account_created_event(accountID, username string) {

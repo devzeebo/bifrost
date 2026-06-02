@@ -1537,7 +1537,7 @@ func (tc *handlerTestContext) has_rune_detail_with_dependencies(realmID, runeID 
 func (tc *handlerTestContext) has_realm_list() {
 	tc.t.Helper()
 	tc.eventStore.appendToStream("realm-1", "realm-1", "realm.created", map[string]string{})
-	_ = tc.projectionStore.Put(context.Background(), "realm-1", "realm_directory", "realm-1", map[string]string{
+	_ = tc.projectionStore.Put(context.Background(), "_admin", "realm_directory", "realm-1", map[string]string{
 		"realm_id": "realm-1", "name": "Test Realm", "status": "active",
 	})
 }
@@ -1545,14 +1545,14 @@ func (tc *handlerTestContext) has_realm_list() {
 func (tc *handlerTestContext) has_suspended_realm(realmID, name string) {
 	tc.t.Helper()
 	tc.eventStore.appendToStream(realmID, realmID, "realm.created", map[string]string{})
-	_ = tc.projectionStore.Put(context.Background(), realmID, "realm_directory", realmID, map[string]string{
+	_ = tc.projectionStore.Put(context.Background(), "_admin", "realm_directory", realmID, map[string]string{
 		"realm_id": realmID, "name": name, "status": "suspended",
 	})
 }
 
 func (tc *handlerTestContext) realm_exists_in_directory(realmID, name string) {
 	tc.t.Helper()
-	_ = tc.projectionStore.Put(context.Background(), realmID, "realm_directory", realmID, map[string]string{
+	_ = tc.projectionStore.Put(context.Background(), "_admin", "realm_directory", realmID, map[string]string{
 		"realm_id": realmID, "name": name, "status": "active",
 	})
 }
@@ -1962,7 +1962,7 @@ func (m *mockProjectionEngine) RunSync(ctx context.Context, events []core.Event)
 			if evt.EventType == domain.EventRealmCreated {
 				var created domain.RealmCreated
 				_ = json.Unmarshal(evt.Data, &created)
-				_ = m.store.Put(ctx, created.RealmID, "realm_directory", created.RealmID, map[string]string{
+				_ = m.store.Put(ctx, "_admin", "realm_directory", created.RealmID, map[string]string{
 					"realm_id": created.RealmID, "name": created.Name, "status": "active",
 				})
 			}
@@ -1980,7 +1980,7 @@ func (m *mockProjectionEngine) RunCatchUpOnce(ctx context.Context) {
 				if evt.EventType == domain.EventRealmCreated {
 					var created domain.RealmCreated
 					_ = json.Unmarshal(evt.Data, &created)
-					_ = m.store.Put(ctx, created.RealmID, "realm_directory", created.RealmID, map[string]string{
+					_ = m.store.Put(ctx, "_admin", "realm_directory", created.RealmID, map[string]string{
 						"realm_id": created.RealmID, "name": created.Name, "status": "active",
 					})
 				}

@@ -99,17 +99,6 @@ func (p *AccountAuthProjector) handleRealmGranted(ctx context.Context, event cor
 		return fmt.Errorf("account_auth: unmarshal %s: %w", domain.EventRealmGranted, err)
 	}
 
-	// Get realm name for RealmNames mapping (skip for _admin)
-	var realmName string
-	if data.RealmID != "_admin" {
-		var realmEntry RealmDirectoryEntry
-		if err := store.Get(ctx, data.RealmID, "realm_directory", data.RealmID, &realmEntry); err != nil {
-			// Realm doesn't exist, skip this event
-			return nil
-		}
-		realmName = realmEntry.Name
-	}
-
 	var entry AccountAuthEntry
 	if err := store.Get(ctx, event.RealmID, "account_auth", data.AccountID, &entry); err != nil {
 		return err
@@ -127,12 +116,6 @@ func (p *AccountAuthProjector) handleRealmGranted(ctx context.Context, event cor
 		entry.Roles = make(map[string]string)
 	}
 	entry.Roles[data.RealmID] = "member"
-	if realmName != "" {
-		if entry.RealmNames == nil {
-			entry.RealmNames = make(map[string]string)
-		}
-		entry.RealmNames[data.RealmID] = realmName
-	}
 	return store.Put(ctx, event.RealmID, "account_auth", data.AccountID, entry)
 }
 
@@ -160,17 +143,6 @@ func (p *AccountAuthProjector) handleRoleAssigned(ctx context.Context, event cor
 		return fmt.Errorf("account_auth: unmarshal %s: %w", domain.EventRoleAssigned, err)
 	}
 
-	// Get realm name for RealmNames mapping (skip for _admin)
-	var realmName string
-	if data.RealmID != "_admin" {
-		var realmEntry RealmDirectoryEntry
-		if err := store.Get(ctx, data.RealmID, "realm_directory", data.RealmID, &realmEntry); err != nil {
-			// Realm doesn't exist, skip this event
-			return nil
-		}
-		realmName = realmEntry.Name
-	}
-
 	var entry AccountAuthEntry
 	if err := store.Get(ctx, event.RealmID, "account_auth", data.AccountID, &entry); err != nil {
 		return err
@@ -187,14 +159,6 @@ func (p *AccountAuthProjector) handleRoleAssigned(ctx context.Context, event cor
 	// Add realm to list if not already present
 	if !alreadyInRealms {
 		entry.Realms = append(entry.Realms, data.RealmID)
-	}
-
-	// Add realm name mapping
-	if realmName != "" {
-		if entry.RealmNames == nil {
-			entry.RealmNames = make(map[string]string)
-		}
-		entry.RealmNames[data.RealmID] = realmName
 	}
 
 	return store.Put(ctx, event.RealmID, "account_auth", data.AccountID, entry)

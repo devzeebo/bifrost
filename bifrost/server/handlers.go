@@ -1084,11 +1084,10 @@ func (h *Handlers) ListRealms(w http.ResponseWriter, r *http.Request) {
 
 	includeSuspended := r.URL.Query().Get("include_suspended") == "true"
 
-	// Fetch each realm's directory entry from its own namespace
 	var realms []json.RawMessage
 	for _, id := range realmIDs {
 		var entry projectors.RealmDirectoryEntry
-		if err := h.projectionStore.Get(ctx, id, "realm_directory", id, &entry); err != nil {
+		if err := h.projectionStore.Get(ctx, "_admin", "realm_directory", id, &entry); err != nil {
 			continue
 		}
 		if !includeSuspended && entry.Status == "suspended" {
@@ -1147,7 +1146,7 @@ func (h *Handlers) GetRealm(w http.ResponseWriter, r *http.Request) {
 
 	// Get realm info from realm_directory
 	var realmInfo projectors.RealmDirectoryEntry
-	err := h.projectionStore.Get(r.Context(), realmID, "realm_directory", realmID, &realmInfo)
+	err := h.projectionStore.Get(r.Context(), "_admin", "realm_directory", realmID, &realmInfo)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "realm not found")
 		return

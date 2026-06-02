@@ -778,7 +778,7 @@ func (tc *testContext) store_has_realm(realmID, name, status string) {
 		"status":     status,
 		"created_at": "2026-01-01T00:00:00Z",
 	}
-	tc.store.put(realmID, "realm_directory", realmID, entry)
+	tc.store.put("_admin", "realm_directory", realmID, entry)
 	// Also populate realmNames for account auth entry
 	if tc.realmNames == nil {
 		tc.realmNames = make(map[string]string)

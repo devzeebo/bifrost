@@ -1,6 +1,6 @@
 {
   "name": "@bifrost-ai/engine",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Engine interface and types for Orchestrator Framework",
   "type": "module",
   "files": [

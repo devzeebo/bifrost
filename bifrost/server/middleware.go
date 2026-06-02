@@ -357,7 +357,7 @@ func resolveRealmID(ctx context.Context, realmIdent string, roles map[string]str
 		var entry struct {
 			Status string `json:"status"`
 		}
-		if err := projectionStore.Get(ctx, realmID, "realm_directory", realmID, &entry); err != nil {
+		if err := projectionStore.Get(ctx, "_admin", "realm_directory", realmID, &entry); err != nil {
 			continue
 		}
 		if entry.Status == "suspended" {
