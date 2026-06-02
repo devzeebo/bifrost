@@ -1064,13 +1064,19 @@ func (h *Handlers) ListRealms(w http.ResponseWriter, r *http.Request) {
 		if err := h.projectionStore.Get(ctx, "_admin", "account_auth", accountID, &accountEntry); err == nil {
 			isSysAdmin := accountEntry.Roles["_admin"] == "admin" || accountEntry.Roles["_admin"] == "owner"
 			if isSysAdmin {
-				// System admins see all realms
-				ids, err := h.eventStore.ListRealmIDs(ctx)
+				// System admins see all realms — read from projection, not event store
+				entries, err := h.projectionStore.List(ctx, "_admin", "realm_directory")
 				if err != nil {
 					writeError(w, http.StatusInternalServerError, "failed to list realms")
 					return
 				}
-				realmIDs = ids
+				for _, raw := range entries {
+					var entry projectors.RealmDirectoryEntry
+					if err := json.Unmarshal(raw, &entry); err != nil {
+						continue
+					}
+					realmIDs = append(realmIDs, entry.RealmID)
+				}
 			} else {
 				// Regular users see only their realms
 				for id := range accountEntry.Roles {
