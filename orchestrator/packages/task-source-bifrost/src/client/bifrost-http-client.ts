@@ -42,10 +42,10 @@ export class BifrostHttpClient {
     });
   }
 
-  public async failRune(runeId: string, error: string): Promise<void> {
+  public async failRune(runeId: string, reason: string): Promise<void> {
     await this.request("/api/fail-rune", {
       method: "POST",
-      body: JSON.stringify({ id: runeId, error }),
+      body: JSON.stringify({ id: runeId, reason }),
     });
   }
 
@@ -98,6 +98,9 @@ export class BifrostHttpClient {
           (error as { status?: number }).status = 404;
           throw error;
         }
+
+        debug("Response body: %s", await response.text());
+
         throw new Error(`Bifrost API error: ${response.status} ${response.statusText}`);
       }
 

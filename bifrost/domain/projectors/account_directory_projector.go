@@ -34,6 +34,9 @@ func (e *AccountDirectoryEntry) PATCount() int {
 	return len(e.PATs)
 }
 
+// AccountDirectoryTable is the typed table reference for this projector.
+var AccountDirectoryTable = core.TableRef[AccountDirectoryEntry]{Name: "account_directory"}
+
 // AccountDirectoryProjector projects account directory information.
 type AccountDirectoryProjector struct{}
 
@@ -42,11 +45,11 @@ func NewAccountDirectoryProjector() *AccountDirectoryProjector {
 }
 
 func (p *AccountDirectoryProjector) Name() string {
-	return "account_directory"
+	return AccountDirectoryTable.Name
 }
 
 func (p *AccountDirectoryProjector) TableName() string {
-	return "account_directory"
+	return AccountDirectoryTable.Name
 }
 
 func (p *AccountDirectoryProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -78,8 +81,7 @@ func (p *AccountDirectoryProjector) handleAccountCreated(ctx context.Context, ev
 	}
 
 	// Check if account already exists for idempotency
-	var existing AccountDirectoryEntry
-	if err := store.Get(ctx, "_admin", "account_directory", data.AccountID, &existing); err == nil {
+	if _, err := core.GetRef(ctx, store, "_admin", AccountDirectoryTable, data.AccountID); err == nil {
 		// Account already exists, idempotent - don't reset accumulated state
 		return nil
 	} else {
@@ -100,7 +102,7 @@ func (p *AccountDirectoryProjector) handleAccountCreated(ctx context.Context, ev
 		PATs:      []PATEntry{},
 		CreatedAt: data.CreatedAt,
 	}
-	return store.Put(ctx, "_admin", "account_directory", data.AccountID, entry)
+	return core.PutRef(ctx, store, "_admin", AccountDirectoryTable, data.AccountID, entry)
 }
 
 func (p *AccountDirectoryProjector) handleAccountSuspended(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -108,12 +110,12 @@ func (p *AccountDirectoryProjector) handleAccountSuspended(ctx context.Context, 
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var entry AccountDirectoryEntry
-	if err := store.Get(ctx, "_admin", "account_directory", data.AccountID, &entry); err != nil {
+	entry, err := core.GetRef(ctx, store, "_admin", AccountDirectoryTable, data.AccountID)
+	if err != nil {
 		return err
 	}
 	entry.Status = "suspended"
-	return store.Put(ctx, "_admin", "account_directory", data.AccountID, entry)
+	return core.PutRef(ctx, store, "_admin", AccountDirectoryTable, data.AccountID, entry)
 }
 
 func (p *AccountDirectoryProjector) handleRealmGranted(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -121,8 +123,8 @@ func (p *AccountDirectoryProjector) handleRealmGranted(ctx context.Context, even
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var entry AccountDirectoryEntry
-	if err := store.Get(ctx, "_admin", "account_directory", data.AccountID, &entry); err != nil {
+	entry, err := core.GetRef(ctx, store, "_admin", AccountDirectoryTable, data.AccountID)
+	if err != nil {
 		return err
 	}
 	// Check for duplicate for idempotency
@@ -136,7 +138,7 @@ func (p *AccountDirectoryProjector) handleRealmGranted(ctx context.Context, even
 		entry.Roles = make(map[string]string)
 	}
 	entry.Roles[data.RealmID] = "member"
-	return store.Put(ctx, "_admin", "account_directory", data.AccountID, entry)
+	return core.PutRef(ctx, store, "_admin", AccountDirectoryTable, data.AccountID, entry)
 }
 
 func (p *AccountDirectoryProjector) handleRealmRevoked(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -144,13 +146,13 @@ func (p *AccountDirectoryProjector) handleRealmRevoked(ctx context.Context, even
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var entry AccountDirectoryEntry
-	if err := store.Get(ctx, "_admin", "account_directory", data.AccountID, &entry); err != nil {
+	entry, err := core.GetRef(ctx, store, "_admin", AccountDirectoryTable, data.AccountID)
+	if err != nil {
 		return err
 	}
 	entry.Realms = removeString(entry.Realms, data.RealmID)
 	delete(entry.Roles, data.RealmID)
-	return store.Put(ctx, "_admin", "account_directory", data.AccountID, entry)
+	return core.PutRef(ctx, store, "_admin", AccountDirectoryTable, data.AccountID, entry)
 }
 
 func (p *AccountDirectoryProjector) handleRoleAssigned(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -158,8 +160,8 @@ func (p *AccountDirectoryProjector) handleRoleAssigned(ctx context.Context, even
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var entry AccountDirectoryEntry
-	if err := store.Get(ctx, "_admin", "account_directory", data.AccountID, &entry); err != nil {
+	entry, err := core.GetRef(ctx, store, "_admin", AccountDirectoryTable, data.AccountID)
+	if err != nil {
 		return err
 	}
 	if entry.Roles == nil {
@@ -170,7 +172,7 @@ func (p *AccountDirectoryProjector) handleRoleAssigned(ctx context.Context, even
 	if !alreadyInRealms {
 		entry.Realms = append(entry.Realms, data.RealmID)
 	}
-	return store.Put(ctx, "_admin", "account_directory", data.AccountID, entry)
+	return core.PutRef(ctx, store, "_admin", AccountDirectoryTable, data.AccountID, entry)
 }
 
 func (p *AccountDirectoryProjector) handleRoleRevoked(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -178,8 +180,8 @@ func (p *AccountDirectoryProjector) handleRoleRevoked(ctx context.Context, event
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var entry AccountDirectoryEntry
-	if err := store.Get(ctx, "_admin", "account_directory", data.AccountID, &entry); err != nil {
+	entry, err := core.GetRef(ctx, store, "_admin", AccountDirectoryTable, data.AccountID)
+	if err != nil {
 		return err
 	}
 	
@@ -204,7 +206,7 @@ func (p *AccountDirectoryProjector) handleRoleRevoked(ctx context.Context, event
 		delete(entry.Roles, data.RealmID)
 	}
 	
-	return store.Put(ctx, "_admin", "account_directory", data.AccountID, entry)
+	return core.PutRef(ctx, store, "_admin", AccountDirectoryTable, data.AccountID, entry)
 }
 
 func (p *AccountDirectoryProjector) handlePATCreated(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -212,8 +214,8 @@ func (p *AccountDirectoryProjector) handlePATCreated(ctx context.Context, event 
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var entry AccountDirectoryEntry
-	if err := store.Get(ctx, "_admin", "account_directory", data.AccountID, &entry); err != nil {
+	entry, err := core.GetRef(ctx, store, "_admin", AccountDirectoryTable, data.AccountID)
+	if err != nil {
 		return err
 	}
 	// Check for duplicate for idempotency
@@ -228,7 +230,7 @@ func (p *AccountDirectoryProjector) handlePATCreated(ctx context.Context, event 
 		Label:     data.Label,
 		CreatedAt: data.CreatedAt,
 	})
-	return store.Put(ctx, "_admin", "account_directory", data.AccountID, entry)
+	return core.PutRef(ctx, store, "_admin", AccountDirectoryTable, data.AccountID, entry)
 }
 
 func (p *AccountDirectoryProjector) handlePATRevoked(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -236,8 +238,8 @@ func (p *AccountDirectoryProjector) handlePATRevoked(ctx context.Context, event 
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var entry AccountDirectoryEntry
-	if err := store.Get(ctx, "_admin", "account_directory", data.AccountID, &entry); err != nil {
+	entry, err := core.GetRef(ctx, store, "_admin", AccountDirectoryTable, data.AccountID)
+	if err != nil {
 		return err
 	}
 	// Remove PAT from array (idempotent - no-op if not found)
@@ -248,5 +250,5 @@ func (p *AccountDirectoryProjector) handlePATRevoked(ctx context.Context, event 
 		}
 	}
 	entry.PATs = filtered
-	return store.Put(ctx, "_admin", "account_directory", data.AccountID, entry)
+	return core.PutRef(ctx, store, "_admin", AccountDirectoryTable, data.AccountID, entry)
 }

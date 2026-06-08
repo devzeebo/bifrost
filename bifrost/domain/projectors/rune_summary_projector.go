@@ -24,6 +24,9 @@ type RuneSummary struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// RuneSummaryTable is the typed table reference for this projector.
+var RuneSummaryTable = core.TableRef[RuneSummary]{Name: "rune_summary"}
+
 // RuneSummaryProjector projects rune events into a summary table.
 type RuneSummaryProjector struct{}
 
@@ -34,12 +37,12 @@ func NewRuneSummaryProjector() *RuneSummaryProjector {
 
 // Name returns the projector name.
 func (p *RuneSummaryProjector) Name() string {
-	return "rune_summary"
+	return RuneSummaryTable.Name
 }
 
 // TableName returns the projection table name.
 func (p *RuneSummaryProjector) TableName() string {
-	return "rune_summary"
+	return RuneSummaryTable.Name
 }
 
 // Handle processes events and updates the projection.
@@ -86,7 +89,7 @@ func (p *RuneSummaryProjector) handleCreated(ctx context.Context, event core.Eve
 		CreatedAt: event.Timestamp,
 		UpdatedAt: event.Timestamp,
 	}
-	return store.Put(ctx, event.RealmID, "rune_summary", data.ID, summary)
+	return core.PutRef(ctx, store, event.RealmID, RuneSummaryTable, data.ID, summary)
 }
 
 func (p *RuneSummaryProjector) handleForged(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -94,13 +97,13 @@ func (p *RuneSummaryProjector) handleForged(ctx context.Context, event core.Even
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var summary RuneSummary
-	if err := store.Get(ctx, event.RealmID, "rune_summary", data.ID, &summary); err != nil {
+	summary, err := core.GetRef(ctx, store, event.RealmID, RuneSummaryTable, data.ID)
+	if err != nil {
 		return err
 	}
 	summary.Status = "open"
 	summary.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_summary", data.ID, summary)
+	return core.PutRef(ctx, store, event.RealmID, RuneSummaryTable, data.ID, summary)
 }
 
 func (p *RuneSummaryProjector) handleUpdated(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -108,8 +111,8 @@ func (p *RuneSummaryProjector) handleUpdated(ctx context.Context, event core.Eve
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var summary RuneSummary
-	if err := store.Get(ctx, event.RealmID, "rune_summary", data.ID, &summary); err != nil {
+	summary, err := core.GetRef(ctx, store, event.RealmID, RuneSummaryTable, data.ID)
+	if err != nil {
 		return err
 	}
 	if data.Title != nil {
@@ -123,7 +126,7 @@ func (p *RuneSummaryProjector) handleUpdated(ctx context.Context, event core.Eve
 	}
 	summary.Tags = applyTagMutations(summary.Tags, data.Tags, data.AddTags, data.RemoveTags)
 	summary.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_summary", data.ID, summary)
+	return core.PutRef(ctx, store, event.RealmID, RuneSummaryTable, data.ID, summary)
 }
 
 func (p *RuneSummaryProjector) handleClaimed(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -131,14 +134,14 @@ func (p *RuneSummaryProjector) handleClaimed(ctx context.Context, event core.Eve
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var summary RuneSummary
-	if err := store.Get(ctx, event.RealmID, "rune_summary", data.ID, &summary); err != nil {
+	summary, err := core.GetRef(ctx, store, event.RealmID, RuneSummaryTable, data.ID)
+	if err != nil {
 		return err
 	}
 	summary.Status = "claimed"
 	summary.Claimant = data.Claimant
 	summary.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_summary", data.ID, summary)
+	return core.PutRef(ctx, store, event.RealmID, RuneSummaryTable, data.ID, summary)
 }
 
 func (p *RuneSummaryProjector) handleFulfilled(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -146,13 +149,13 @@ func (p *RuneSummaryProjector) handleFulfilled(ctx context.Context, event core.E
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var summary RuneSummary
-	if err := store.Get(ctx, event.RealmID, "rune_summary", data.ID, &summary); err != nil {
+	summary, err := core.GetRef(ctx, store, event.RealmID, RuneSummaryTable, data.ID)
+	if err != nil {
 		return err
 	}
 	summary.Status = "fulfilled"
 	summary.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_summary", data.ID, summary)
+	return core.PutRef(ctx, store, event.RealmID, RuneSummaryTable, data.ID, summary)
 }
 
 func (p *RuneSummaryProjector) handleSealed(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -160,13 +163,13 @@ func (p *RuneSummaryProjector) handleSealed(ctx context.Context, event core.Even
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var summary RuneSummary
-	if err := store.Get(ctx, event.RealmID, "rune_summary", data.ID, &summary); err != nil {
+	summary, err := core.GetRef(ctx, store, event.RealmID, RuneSummaryTable, data.ID)
+	if err != nil {
 		return err
 	}
 	summary.Status = "sealed"
 	summary.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_summary", data.ID, summary)
+	return core.PutRef(ctx, store, event.RealmID, RuneSummaryTable, data.ID, summary)
 }
 
 func (p *RuneSummaryProjector) handleFailed(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -174,13 +177,13 @@ func (p *RuneSummaryProjector) handleFailed(ctx context.Context, event core.Even
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var summary RuneSummary
-	if err := store.Get(ctx, event.RealmID, "rune_summary", data.ID, &summary); err != nil {
+	summary, err := core.GetRef(ctx, store, event.RealmID, RuneSummaryTable, data.ID)
+	if err != nil {
 		return err
 	}
 	summary.Status = "failed"
 	summary.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_summary", data.ID, summary)
+	return core.PutRef(ctx, store, event.RealmID, RuneSummaryTable, data.ID, summary)
 }
 
 func (p *RuneSummaryProjector) handleReopened(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -188,8 +191,8 @@ func (p *RuneSummaryProjector) handleReopened(ctx context.Context, event core.Ev
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var summary RuneSummary
-	if err := store.Get(ctx, event.RealmID, "rune_summary", data.ID, &summary); err != nil {
+	summary, err := core.GetRef(ctx, store, event.RealmID, RuneSummaryTable, data.ID)
+	if err != nil {
 		return err
 	}
 	if data.Claimant != "" {
@@ -200,7 +203,7 @@ func (p *RuneSummaryProjector) handleReopened(ctx context.Context, event core.Ev
 		summary.Claimant = ""
 	}
 	summary.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_summary", data.ID, summary)
+	return core.PutRef(ctx, store, event.RealmID, RuneSummaryTable, data.ID, summary)
 }
 
 func (p *RuneSummaryProjector) handleUnclaimed(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -208,14 +211,14 @@ func (p *RuneSummaryProjector) handleUnclaimed(ctx context.Context, event core.E
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var summary RuneSummary
-	if err := store.Get(ctx, event.RealmID, "rune_summary", data.ID, &summary); err != nil {
+	summary, err := core.GetRef(ctx, store, event.RealmID, RuneSummaryTable, data.ID)
+	if err != nil {
 		return err
 	}
 	summary.Status = "open"
 	summary.Claimant = ""
 	summary.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_summary", data.ID, summary)
+	return core.PutRef(ctx, store, event.RealmID, RuneSummaryTable, data.ID, summary)
 }
 
 func (p *RuneSummaryProjector) handleShattered(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -223,5 +226,5 @@ func (p *RuneSummaryProjector) handleShattered(ctx context.Context, event core.E
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	return store.Delete(ctx, event.RealmID, "rune_summary", data.ID)
+	return core.DeleteRef(ctx, store, event.RealmID, RuneSummaryTable, data.ID)
 }

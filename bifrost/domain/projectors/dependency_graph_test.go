@@ -482,7 +482,7 @@ func (tc *depGraphTestContext) existing_dep_lookup(runeID, targetID, relationshi
 	tc.t.Helper()
 	tc.a_store()
 	key := "dep:" + runeID + ":" + targetID + ":" + relationship
-	tc.store.put(tc.realmID, "dependency_graph", key, true)
+	tc.store.put(tc.realmID, "dependency_graph_exists", key, GraphDepExistsEntry{Exists: true})
 }
 
 // --- When ---
@@ -574,10 +574,10 @@ func (tc *depGraphTestContext) target_has_dependent_count(runeID string, expecte
 func (tc *depGraphTestContext) dep_lookup_exists(runeID, targetID, relationship string) {
 	tc.t.Helper()
 	key := "dep:" + runeID + ":" + targetID + ":" + relationship
-	var exists bool
-	err := tc.store.Get(tc.ctx, tc.realmID, "dependency_graph", key, &exists)
+	var entry GraphDepExistsEntry
+	err := tc.store.Get(tc.ctx, tc.realmID, "dependency_graph_exists", key, &entry)
 	assert.NoError(tc.t, err, "expected dep lookup key to exist")
-	assert.True(tc.t, exists)
+	assert.True(tc.t, entry.Exists)
 }
 
 func (tc *depGraphTestContext) no_entry_exists(runeID string) {
@@ -620,10 +620,10 @@ func (tc *depGraphTestContext) source_has_no_dependency(runeID, targetID string)
 func (tc *depGraphTestContext) dep_lookup_does_not_exist(runeID, targetID, relationship string) {
 	tc.t.Helper()
 	key := "dep:" + runeID + ":" + targetID + ":" + relationship
-	var exists bool
-	err := tc.store.Get(tc.ctx, tc.realmID, "dependency_graph", key, &exists)
+	var entry GraphDepExistsEntry
+	err := tc.store.Get(tc.ctx, tc.realmID, "dependency_graph_exists", key, &entry)
 	if err == nil {
-		assert.False(tc.t, exists, "expected dep lookup key to not exist")
+		assert.False(tc.t, entry.Exists, "expected dep lookup key to not exist")
 	}
 	// NotFoundError is also acceptable — means it was deleted
 }

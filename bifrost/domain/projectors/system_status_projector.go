@@ -16,6 +16,9 @@ type SystemStatusEntry struct {
 	RealmIDs        []string `json:"realm_ids"`
 }
 
+// SystemStatusTable is the typed table reference for this projector.
+var SystemStatusTable = core.TableRef[SystemStatusEntry]{Name: "system_status"}
+
 // SystemStatusProjector projects system-wide status information.
 // Tracks which accounts have admin/owner role in _admin realm and which realms exist.
 type SystemStatusProjector struct{}
@@ -25,11 +28,11 @@ func NewSystemStatusProjector() *SystemStatusProjector {
 }
 
 func (p *SystemStatusProjector) Name() string {
-	return "system_status"
+	return SystemStatusTable.Name
 }
 
 func (p *SystemStatusProjector) TableName() string {
-	return "system_status"
+	return SystemStatusTable.Name
 }
 
 func (p *SystemStatusProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -53,8 +56,7 @@ func (p *SystemStatusProjector) handleAccountCreated(ctx context.Context, event 
 	}
 
 	// Check if status already exists for idempotency
-	var existing SystemStatusEntry
-	if err := store.Get(ctx, "_admin", "system_status", "status", &existing); err == nil {
+	if _, err := core.GetRef(ctx, store, "_admin", SystemStatusTable, "status"); err == nil {
 		// Status already exists, idempotent - don't reset accumulated state
 		return nil
 	} else {
@@ -71,7 +73,7 @@ func (p *SystemStatusProjector) handleAccountCreated(ctx context.Context, event 
 		AdminAccountIDs: []string{},
 		RealmIDs:        []string{},
 	}
-	return store.Put(ctx, "_admin", "system_status", "status", entry)
+	return core.PutRef(ctx, store, "_admin", SystemStatusTable, "status", entry)
 }
 
 func (p *SystemStatusProjector) handleRoleAssigned(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -85,8 +87,8 @@ func (p *SystemStatusProjector) handleRoleAssigned(ctx context.Context, event co
 		return nil
 	}
 
-	var entry SystemStatusEntry
-	if err := store.Get(ctx, "_admin", "system_status", "status", &entry); err != nil {
+	entry, err := core.GetRef(ctx, store, "_admin", SystemStatusTable, "status")
+	if err != nil {
 		return err
 	}
 
@@ -98,7 +100,7 @@ func (p *SystemStatusProjector) handleRoleAssigned(ctx context.Context, event co
 	}
 
 	entry.AdminAccountIDs = append(entry.AdminAccountIDs, data.AccountID)
-	return store.Put(ctx, "_admin", "system_status", "status", entry)
+	return core.PutRef(ctx, store, "_admin", SystemStatusTable, "status", entry)
 }
 
 func (p *SystemStatusProjector) handleRoleRevoked(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -112,8 +114,8 @@ func (p *SystemStatusProjector) handleRoleRevoked(ctx context.Context, event cor
 		return nil
 	}
 
-	var entry SystemStatusEntry
-	if err := store.Get(ctx, "_admin", "system_status", "status", &entry); err != nil {
+	entry, err := core.GetRef(ctx, store, "_admin", SystemStatusTable, "status")
+	if err != nil {
 		return err
 	}
 
@@ -125,7 +127,7 @@ func (p *SystemStatusProjector) handleRoleRevoked(ctx context.Context, event cor
 		}
 	}
 	entry.AdminAccountIDs = filtered
-	return store.Put(ctx, "_admin", "system_status", "status", entry)
+	return core.PutRef(ctx, store, "_admin", SystemStatusTable, "status", entry)
 }
 
 func (p *SystemStatusProjector) handleRealmCreated(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -134,8 +136,8 @@ func (p *SystemStatusProjector) handleRealmCreated(ctx context.Context, event co
 		return err
 	}
 
-	var entry SystemStatusEntry
-	if err := store.Get(ctx, "_admin", "system_status", "status", &entry); err != nil {
+	entry, err := core.GetRef(ctx, store, "_admin", SystemStatusTable, "status")
+	if err != nil {
 		return err
 	}
 
@@ -147,5 +149,5 @@ func (p *SystemStatusProjector) handleRealmCreated(ctx context.Context, event co
 	}
 
 	entry.RealmIDs = append(entry.RealmIDs, data.RealmID)
-	return store.Put(ctx, "_admin", "system_status", "status", entry)
+	return core.PutRef(ctx, store, "_admin", SystemStatusTable, "status", entry)
 }

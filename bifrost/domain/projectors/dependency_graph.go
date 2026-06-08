@@ -30,6 +30,17 @@ type GraphEntry struct {
 	Dependents   []GraphDependent  `json:"dependents"`
 }
 
+// GraphDepExistsEntry records that a specific dependency edge exists (for idempotency checks).
+type GraphDepExistsEntry struct {
+	Exists bool `json:"exists"`
+}
+
+// DependencyGraphTable is the typed table reference for this projector.
+var DependencyGraphTable = core.TableRef[GraphEntry]{Name: "dependency_graph"}
+
+// DependencyGraphExistsTable is the typed table reference for dep-existence lookup entries.
+var DependencyGraphExistsTable = core.TableRef[GraphDepExistsEntry]{Name: "dependency_graph_exists"}
+
 type DependencyGraphProjector struct{}
 
 func NewDependencyGraphProjector() *DependencyGraphProjector {
@@ -37,11 +48,11 @@ func NewDependencyGraphProjector() *DependencyGraphProjector {
 }
 
 func (p *DependencyGraphProjector) Name() string {
-	return "dependency_graph"
+	return DependencyGraphTable.Name
 }
 
 func (p *DependencyGraphProjector) TableName() string {
-	return "dependency_graph"
+	return DependencyGraphTable.Name
 }
 
 func (p *DependencyGraphProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -57,8 +68,7 @@ func (p *DependencyGraphProjector) Handle(ctx context.Context, event core.Event,
 }
 
 func (p *DependencyGraphProjector) getOrCreateEntry(ctx context.Context, realmID, runeID string, store core.ProjectionStore) (GraphEntry, error) {
-	var entry GraphEntry
-	err := store.Get(ctx, realmID, "dependency_graph", runeID, &entry)
+	entry, err := core.GetRef(ctx, store, realmID, DependencyGraphTable, runeID)
 	if err != nil {
 		if isNotFoundError(err) {
 			return GraphEntry{
@@ -84,8 +94,8 @@ func (p *DependencyGraphProjector) handleAdded(ctx context.Context, event core.E
 
 	// Check if dependency already exists for idempotency
 	depKey := "dep:" + data.RuneID + ":" + data.TargetID + ":" + data.Relationship
-	var exists bool
-	if err := store.Get(ctx, event.RealmID, "dependency_graph", depKey, &exists); err == nil && exists {
+	existing, err := core.GetRef(ctx, store, event.RealmID, DependencyGraphExistsTable, depKey)
+	if err == nil && existing.Exists {
 		return nil // Already exists, idempotent
 	}
 
@@ -98,7 +108,7 @@ func (p *DependencyGraphProjector) handleAdded(ctx context.Context, event core.E
 		TargetID:     data.TargetID,
 		Relationship: data.Relationship,
 	})
-	if err := store.Put(ctx, event.RealmID, "dependency_graph", data.RuneID, sourceEntry); err != nil {
+	if err := core.PutRef(ctx, store, event.RealmID, DependencyGraphTable, data.RuneID, sourceEntry); err != nil {
 		return err
 	}
 
@@ -111,12 +121,12 @@ func (p *DependencyGraphProjector) handleAdded(ctx context.Context, event core.E
 		SourceID:     data.RuneID,
 		Relationship: data.Relationship,
 	})
-	if err := store.Put(ctx, event.RealmID, "dependency_graph", data.TargetID, targetEntry); err != nil {
+	if err := core.PutRef(ctx, store, event.RealmID, DependencyGraphTable, data.TargetID, targetEntry); err != nil {
 		return err
 	}
 
 	// Store dep lookup key for existence checks
-	return store.Put(ctx, event.RealmID, "dependency_graph", depKey, true)
+	return core.PutRef(ctx, store, event.RealmID, DependencyGraphExistsTable, depKey, GraphDepExistsEntry{Exists: true})
 }
 
 func (p *DependencyGraphProjector) handleShattered(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -143,13 +153,13 @@ func (p *DependencyGraphProjector) handleShattered(ctx context.Context, event co
 			}
 		}
 		targetEntry.Dependents = filtered
-		if err := store.Put(ctx, event.RealmID, "dependency_graph", dep.TargetID, targetEntry); err != nil {
+		if err := core.PutRef(ctx, store, event.RealmID, DependencyGraphTable, dep.TargetID, targetEntry); err != nil {
 			return err
 		}
 
 		// Remove dep lookup key
 		depKey := "dep:" + data.ID + ":" + dep.TargetID + ":" + dep.Relationship
-		if err := store.Delete(ctx, event.RealmID, "dependency_graph", depKey); err != nil {
+		if err := core.DeleteRef(ctx, store, event.RealmID, DependencyGraphExistsTable, depKey); err != nil {
 			return err
 		}
 	}
@@ -167,13 +177,13 @@ func (p *DependencyGraphProjector) handleShattered(ctx context.Context, event co
 			}
 		}
 		sourceEntry.Dependencies = filtered
-		if err := store.Put(ctx, event.RealmID, "dependency_graph", dep.SourceID, sourceEntry); err != nil {
+		if err := core.PutRef(ctx, store, event.RealmID, DependencyGraphTable, dep.SourceID, sourceEntry); err != nil {
 			return err
 		}
 	}
 
 	// Delete the shattered rune's own graph entry
-	return store.Delete(ctx, event.RealmID, "dependency_graph", data.ID)
+	return core.DeleteRef(ctx, store, event.RealmID, DependencyGraphTable, data.ID)
 }
 
 func (p *DependencyGraphProjector) handleRemoved(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -198,7 +208,7 @@ func (p *DependencyGraphProjector) handleRemoved(ctx context.Context, event core
 		}
 	}
 	sourceEntry.Dependencies = filtered
-	if err := store.Put(ctx, event.RealmID, "dependency_graph", data.RuneID, sourceEntry); err != nil {
+	if err := core.PutRef(ctx, store, event.RealmID, DependencyGraphTable, data.RuneID, sourceEntry); err != nil {
 		return err
 	}
 
@@ -214,11 +224,11 @@ func (p *DependencyGraphProjector) handleRemoved(ctx context.Context, event core
 		}
 	}
 	targetEntry.Dependents = filteredDeps
-	if err := store.Put(ctx, event.RealmID, "dependency_graph", data.TargetID, targetEntry); err != nil {
+	if err := core.PutRef(ctx, store, event.RealmID, DependencyGraphTable, data.TargetID, targetEntry); err != nil {
 		return err
 	}
 
 	// Remove dep lookup key
 	depKey := "dep:" + data.RuneID + ":" + data.TargetID + ":" + data.Relationship
-	return store.Delete(ctx, event.RealmID, "dependency_graph", depKey)
+	return core.DeleteRef(ctx, store, event.RealmID, DependencyGraphExistsTable, depKey)
 }

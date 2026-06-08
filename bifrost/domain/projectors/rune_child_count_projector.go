@@ -17,6 +17,9 @@ type RuneChildCountEntry struct {
 	Count        int    `json:"count"`
 }
 
+// RuneChildCountTable is the typed table reference for this projector.
+var RuneChildCountTable = core.TableRef[RuneChildCountEntry]{Name: "rune_child_count"}
+
 // RuneChildCountProjector projects child count for runes.
 type RuneChildCountProjector struct{}
 
@@ -27,12 +30,12 @@ func NewRuneChildCountProjector() *RuneChildCountProjector {
 
 // Name returns the projector name.
 func (p *RuneChildCountProjector) Name() string {
-	return "rune_child_count"
+	return RuneChildCountTable.Name
 }
 
 // TableName returns the projection table name.
 func (p *RuneChildCountProjector) TableName() string {
-	return "rune_child_count"
+	return RuneChildCountTable.Name
 }
 
 // Handle processes events and updates the projection.
@@ -54,14 +57,12 @@ func (p *RuneChildCountProjector) Handle(ctx context.Context, event core.Event, 
 	sequenceNum := extractSequenceNumber(data.ID)
 
 	// Get current entry
-	var entry RuneChildCountEntry
-	err := store.Get(ctx, event.RealmID, "rune_child_count", data.ParentID, &entry)
+	entry, err := core.GetRef(ctx, store, event.RealmID, RuneChildCountTable, data.ParentID)
 	if err != nil {
 		var nfe *core.NotFoundError
 		if !errors.As(err, &nfe) {
 			return err
 		}
-		// New entry
 		entry = RuneChildCountEntry{
 			ParentRuneID: data.ParentID,
 			Count:        0,
@@ -71,7 +72,7 @@ func (p *RuneChildCountProjector) Handle(ctx context.Context, event core.Event, 
 	// Idempotency: only increment if count < sequence number
 	if entry.Count < sequenceNum {
 		entry.Count = sequenceNum
-		return store.Put(ctx, event.RealmID, "rune_child_count", data.ParentID, entry)
+		return core.PutRef(ctx, store, event.RealmID, RuneChildCountTable, data.ParentID, entry)
 	}
 
 	// Already processed this or a later sequence, no-op

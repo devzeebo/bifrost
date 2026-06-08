@@ -14,6 +14,9 @@ import (
 // Table: dependency_existence
 // Key: {rune_id}:{target_id}:{relationship}
 // Events: DependencyAdded (insert), DependencyRemoved (delete)
+// DependencyExistenceTable is the typed table reference for this projector.
+var DependencyExistenceTable = core.TableRef[core.DependencyExistenceDoc]{Name: "dependency_existence"}
+
 type DependencyExistenceProjector struct{}
 
 func NewDependencyExistenceProjector() *DependencyExistenceProjector {
@@ -21,11 +24,11 @@ func NewDependencyExistenceProjector() *DependencyExistenceProjector {
 }
 
 func (p *DependencyExistenceProjector) Name() string {
-	return "dependency_existence"
+	return DependencyExistenceTable.Name
 }
 
 func (p *DependencyExistenceProjector) TableName() string {
-	return "dependency_existence"
+	return DependencyExistenceTable.Name
 }
 
 func (p *DependencyExistenceProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -56,7 +59,7 @@ func (p *DependencyExistenceProjector) handleAdded(ctx context.Context, event co
 		Relationship: data.Relationship,
 	}
 
-	return store.Put(ctx, event.RealmID, p.TableName(), key, doc)
+	return core.PutRef(ctx, store, event.RealmID, DependencyExistenceTable, key, doc)
 }
 
 func (p *DependencyExistenceProjector) handleRemoved(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -71,5 +74,5 @@ func (p *DependencyExistenceProjector) handleRemoved(ctx context.Context, event 
 	}
 
 	key := data.RuneID + ":" + data.TargetID + ":" + data.Relationship
-	return store.Delete(ctx, event.RealmID, p.TableName(), key)
+	return core.DeleteRef(ctx, store, event.RealmID, DependencyExistenceTable, key)
 }

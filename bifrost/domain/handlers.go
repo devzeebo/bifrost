@@ -421,6 +421,21 @@ func HandleAddDependency(ctx context.Context, realmID string, cmd AddDependency,
 		cmd.Relationship = ReflectRelationship(cmd.Relationship)
 	}
 
+	const maxRetries = 10
+	for attempt := range maxRetries {
+		err := handleAddDependencyOnce(ctx, realmID, cmd, store, projStore)
+		if err == nil {
+			return nil
+		}
+		var concErr *core.ConcurrencyError
+		if !errors.As(err, &concErr) || attempt == maxRetries-1 {
+			return err
+		}
+	}
+	return nil
+}
+
+func handleAddDependencyOnce(ctx context.Context, realmID string, cmd AddDependency, store core.EventStore, projStore core.ProjectionStore) error {
 	sourceState, sourceEvents, err := readAndRebuild(ctx, realmID, cmd.RuneID, store)
 	if err != nil {
 		return err
@@ -503,6 +518,21 @@ func HandleRemoveDependency(ctx context.Context, realmID string, cmd RemoveDepen
 		cmd.Relationship = ReflectRelationship(cmd.Relationship)
 	}
 
+	const maxRetries = 10
+	for attempt := range maxRetries {
+		err := handleRemoveDependencyOnce(ctx, realmID, cmd, store, projStore)
+		if err == nil {
+			return nil
+		}
+		var concErr *core.ConcurrencyError
+		if !errors.As(err, &concErr) || attempt == maxRetries-1 {
+			return err
+		}
+	}
+	return nil
+}
+
+func handleRemoveDependencyOnce(ctx context.Context, realmID string, cmd RemoveDependency, store core.EventStore, projStore core.ProjectionStore) error {
 	state, events, err := readAndRebuild(ctx, realmID, cmd.RuneID, store)
 	if err != nil {
 		return err

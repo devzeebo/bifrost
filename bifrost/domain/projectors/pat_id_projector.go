@@ -15,6 +15,9 @@ type PATIDEntry struct {
 	AccountID string `json:"account_id"`
 }
 
+// PATByIDTable is the typed table reference for this projector.
+var PATByIDTable = core.TableRef[PATIDEntry]{Name: "pat_by_id"}
+
 // PATIDProjector projects PAT lookup by PAT ID.
 type PATIDProjector struct{}
 
@@ -30,7 +33,7 @@ func (p *PATIDProjector) Name() string {
 
 // TableName returns the projection table name.
 func (p *PATIDProjector) TableName() string {
-	return "pat_by_id"
+	return PATByIDTable.Name
 }
 
 // Handle processes events and updates the projection.
@@ -54,7 +57,7 @@ func (p *PATIDProjector) handlePATCreated(ctx context.Context, event core.Event,
 		KeyHash:   data.KeyHash,
 		AccountID: data.AccountID,
 	}
-	return store.Put(ctx, event.RealmID, "pat_by_id", data.PATID, entry)
+	return core.PutRef(ctx, store, event.RealmID, PATByIDTable, data.PATID, entry)
 }
 
 func (p *PATIDProjector) handlePATRevoked(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -62,5 +65,5 @@ func (p *PATIDProjector) handlePATRevoked(ctx context.Context, event core.Event,
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	return store.Delete(ctx, event.RealmID, "pat_by_id", data.PATID)
+	return core.DeleteRef(ctx, store, event.RealmID, PATByIDTable, data.PATID)
 }

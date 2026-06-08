@@ -14,6 +14,9 @@ type UsernameLookupEntry struct {
 	AccountID string `json:"account_id"`
 }
 
+// UsernameLookupTable is the typed table reference for this projector.
+var UsernameLookupTable = core.TableRef[UsernameLookupEntry]{Name: "username_lookup"}
+
 // UsernameLookupProjector provides O(1) username-to-account-ID resolution.
 type UsernameLookupProjector struct{}
 
@@ -22,11 +25,11 @@ func NewUsernameLookupProjector() *UsernameLookupProjector {
 }
 
 func (p *UsernameLookupProjector) Name() string {
-	return "username_lookup"
+	return UsernameLookupTable.Name
 }
 
 func (p *UsernameLookupProjector) TableName() string {
-	return "username_lookup"
+	return UsernameLookupTable.Name
 }
 
 func (p *UsernameLookupProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -44,8 +47,7 @@ func (p *UsernameLookupProjector) handleAccountCreated(ctx context.Context, even
 	}
 
 	// Check if entry already exists for idempotency
-	var existing UsernameLookupEntry
-	if err := store.Get(ctx, "_admin", "username_lookup", data.Username, &existing); err == nil {
+	if _, err := core.GetRef(ctx, store, "_admin", UsernameLookupTable, data.Username); err == nil {
 		// Entry already exists, idempotent - don't overwrite
 		return nil
 	}
@@ -54,5 +56,5 @@ func (p *UsernameLookupProjector) handleAccountCreated(ctx context.Context, even
 		Username:  data.Username,
 		AccountID: data.AccountID,
 	}
-	return store.Put(ctx, "_admin", "username_lookup", data.Username, entry)
+	return core.PutRef(ctx, store, "_admin", UsernameLookupTable, data.Username, entry)
 }

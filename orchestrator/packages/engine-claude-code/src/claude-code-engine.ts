@@ -16,7 +16,7 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import createDebug from "debug";
 
-const debug = createDebug("bifrost");
+const debug = createDebug("bifrost:engine-claude-code");
 
 const isSystemInit = (message: SDKMessage): message is SDKSystemMessage =>
   message.type === "system" && message.subtype === "init";
@@ -196,6 +196,9 @@ export class ClaudeCodeEngine implements Engine {
           (serverName): serverName is string => serverName !== null && serverName !== undefined,
         ),
     );
+
+    debug("creating tools workingDir=%s", context.workingDir);
+
     const mcpServers: Record<string, McpSdkServerConfigWithInstance> = {};
     for (const name of activeServerNames) {
       const entry = this.toolkits.get(name);
@@ -203,6 +206,9 @@ export class ClaudeCodeEngine implements Engine {
         mcpServers[name] = typeof entry === "function" ? entry(context) : entry;
       }
     }
+
+    debug("mcp tools created count=%s", Object.keys(mcpServers).length);
+
     const mcpServersOption = Object.keys(mcpServers).length > 0 ? { mcpServers } : undefined;
 
     return { bareToolNames, toolOptions, mcpServersOption };
@@ -216,8 +222,8 @@ export class ClaudeCodeEngine implements Engine {
       ? instructions
       : buildPrompt({ agent, taskState, metadata, instructions });
 
-    debug("engine execute workingDir=%s sessionId=%s", workingDir, sessionId ?? "none");
-    debug("engine prompt: %s", prompt);
+    debug("execute workingDir=%s sessionId=%s", workingDir, sessionId ?? "none");
+    debug("prompt: %s", prompt);
 
     const { toolOptions, mcpServersOption } = this.resolveToolOptions(tools, context);
 
@@ -239,7 +245,7 @@ export class ClaudeCodeEngine implements Engine {
         };
 
     if (!sessionId) {
-      debug("engine options: %o", options);
+      debug("options: %o", options);
     }
 
     let lastMessage: string | null = null;
@@ -252,7 +258,7 @@ export class ClaudeCodeEngine implements Engine {
       for await (const message of queryGenerator) {
         const preview = getMessagePreview(message);
         debug(
-          "engine message type=%s subtype=%s preview=%s",
+          "message type=%s subtype=%s preview=%s",
           message.type,
           (message as { subtype?: string }).subtype ?? "-",
           preview ? `"${preview}..."` : "-",
@@ -260,13 +266,13 @@ export class ClaudeCodeEngine implements Engine {
 
         if (isSystemInit(message)) {
           returnedSessionId = message.session_id;
-          debug("engine session_id=%s", returnedSessionId);
+          debug("session_id=%s", returnedSessionId);
         }
 
         if (isResultSuccess(message)) {
           resultData = message;
           lastMessage = resultData.result;
-          debug("engine result: %s", lastMessage);
+          debug("result: %s", lastMessage);
         }
 
         if (message.type === "assistant") {
@@ -277,7 +283,7 @@ export class ClaudeCodeEngine implements Engine {
         }
       }
     } catch (error) {
-      debug("engine error: %o", error);
+      debug("error: %o", error);
       return {
         success: false,
         skipFulfill: false,

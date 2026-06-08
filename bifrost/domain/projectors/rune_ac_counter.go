@@ -12,6 +12,9 @@ type ACCounter struct {
 	Count int `json:"count"`
 }
 
+// RuneACCounterTable is the typed table reference for this projector.
+var RuneACCounterTable = core.TableRef[ACCounter]{Name: "rune_ac_counter"}
+
 type RuneACCounterProjector struct{}
 
 func NewRuneACCounterProjector() *RuneACCounterProjector {
@@ -19,11 +22,11 @@ func NewRuneACCounterProjector() *RuneACCounterProjector {
 }
 
 func (p *RuneACCounterProjector) Name() string {
-	return "rune_ac_counter"
+	return RuneACCounterTable.Name
 }
 
 func (p *RuneACCounterProjector) TableName() string {
-	return "rune_ac_counter"
+	return RuneACCounterTable.Name
 }
 
 func (p *RuneACCounterProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -41,12 +44,11 @@ func (p *RuneACCounterProjector) handleACAdded(ctx context.Context, event core.E
 	}
 
 	// Get or create counter for this rune
-	counter := ACCounter{Count: 0}
-	_ = store.Get(ctx, event.RealmID, "rune_ac_counter", data.RuneID, &counter)
+	counter, _ := core.GetRef(ctx, store, event.RealmID, RuneACCounterTable, data.RuneID)
 
 	// Note: ID parsing is done in handlers.go, here we just increment the counter
 	// The counter represents the highest AC number ever issued for this rune
 	counter.Count++
 
-	return store.Put(ctx, event.RealmID, "rune_ac_counter", data.RuneID, counter)
+	return core.PutRef(ctx, store, event.RealmID, RuneACCounterTable, data.RuneID, counter)
 }

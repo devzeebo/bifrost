@@ -17,6 +17,9 @@ type DependencyCycleCheckDoc struct {
 	TargetID string `json:"target_id"`
 }
 
+// DependencyCycleCheckTable is the typed table reference for this projector.
+var DependencyCycleCheckTable = core.TableRef[DependencyCycleCheckDoc]{Name: "dependency_cycle_check"}
+
 // DependencyCycleCheckProjector maintains a table where each row represents
 // a potential cycle edge. Row existence is the answer to "would adding this edge create a cycle?".
 // Table: dependency_cycle_check
@@ -36,8 +39,7 @@ func (p *DependencyCycleCheckProjector) getTransitivePredecessors(ctx context.Co
 	}
 	visited[targetID] = true
 
-	var entry GraphEntry
-	err := store.Get(ctx, realmID, "dependency_graph", targetID, &entry)
+	entry, err := core.GetRef(ctx, store, realmID, RuneDependencyGraphTable, targetID)
 	if err != nil {
 		if isNotFoundErrorLocal(err) {
 			return nil, nil // No dependencies for this node
@@ -48,7 +50,6 @@ func (p *DependencyCycleCheckProjector) getTransitivePredecessors(ctx context.Co
 	var predecessors []string
 	for _, dep := range entry.Dependencies {
 		predecessors = append(predecessors, dep.TargetID)
-		// Recursively get transitive predecessors
 		transPreds, err := p.getTransitivePredecessors(ctx, realmID, dep.TargetID, store, visited)
 		if err != nil {
 			return nil, err
@@ -66,8 +67,7 @@ func (p *DependencyCycleCheckProjector) getTransitiveSuccessors(ctx context.Cont
 	}
 	visited[sourceID] = true
 
-	var entry GraphEntry
-	err := store.Get(ctx, realmID, "dependency_graph", sourceID, &entry)
+	entry, err := core.GetRef(ctx, store, realmID, RuneDependencyGraphTable, sourceID)
 	if err != nil {
 		if isNotFoundErrorLocal(err) {
 			return nil, nil // No dependents for this node
@@ -78,7 +78,6 @@ func (p *DependencyCycleCheckProjector) getTransitiveSuccessors(ctx context.Cont
 	var successors []string
 	for _, dep := range entry.Dependents {
 		successors = append(successors, dep.SourceID)
-		// Recursively get transitive successors
 		transSuccs, err := p.getTransitiveSuccessors(ctx, realmID, dep.SourceID, store, visited)
 		if err != nil {
 			return nil, err
@@ -94,11 +93,11 @@ func NewDependencyCycleCheckProjector() *DependencyCycleCheckProjector {
 }
 
 func (p *DependencyCycleCheckProjector) Name() string {
-	return "dependency_cycle_check"
+	return DependencyCycleCheckTable.Name
 }
 
 func (p *DependencyCycleCheckProjector) TableName() string {
-	return "dependency_cycle_check"
+	return DependencyCycleCheckTable.Name
 }
 
 func (p *DependencyCycleCheckProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -146,7 +145,7 @@ func (p *DependencyCycleCheckProjector) handleAdded(ctx context.Context, event c
 				SourceID: source,
 				TargetID: target,
 			}
-			if err := store.Put(ctx, event.RealmID, p.TableName(), key, doc); err != nil {
+			if err := core.PutRef(ctx, store, event.RealmID, DependencyCycleCheckTable, key, doc); err != nil {
 				return fmt.Errorf("store transitive edge %s->%s: %w", source, target, err)
 			}
 		}
@@ -182,5 +181,5 @@ func (p *DependencyCycleCheckProjector) handleRemoved(ctx context.Context, event
 	// the graph is fully recomputed, but it won't allow actual cycles
 	
 	key := data.RuneID + ":" + data.TargetID
-	return store.Delete(ctx, event.RealmID, p.TableName(), key)
+	return core.DeleteRef(ctx, store, event.RealmID, DependencyCycleCheckTable, key)
 }

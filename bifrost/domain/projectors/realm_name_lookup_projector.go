@@ -14,6 +14,9 @@ type RealmNameLookupEntry struct {
 	RealmID string `json:"realm_id"`
 }
 
+// RealmNameLookupTable is the typed table reference for this projector.
+var RealmNameLookupTable = core.TableRef[RealmNameLookupEntry]{Name: "realm_name_lookup"}
+
 // RealmNameLookupProjector provides O(1) realm-name-to-ID resolution.
 type RealmNameLookupProjector struct{}
 
@@ -22,11 +25,11 @@ func NewRealmNameLookupProjector() *RealmNameLookupProjector {
 }
 
 func (p *RealmNameLookupProjector) Name() string {
-	return "realm_name_lookup"
+	return RealmNameLookupTable.Name
 }
 
 func (p *RealmNameLookupProjector) TableName() string {
-	return "realm_name_lookup"
+	return RealmNameLookupTable.Name
 }
 
 func (p *RealmNameLookupProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -44,8 +47,7 @@ func (p *RealmNameLookupProjector) handleRealmCreated(ctx context.Context, event
 	}
 
 	// Check if entry already exists for idempotency
-	var existing RealmNameLookupEntry
-	if err := store.Get(ctx, "_admin", "realm_name_lookup", data.Name, &existing); err == nil {
+	if _, err := core.GetRef(ctx, store, "_admin", RealmNameLookupTable, data.Name); err == nil {
 		// Entry already exists, idempotent - don't overwrite
 		return nil
 	}
@@ -54,5 +56,5 @@ func (p *RealmNameLookupProjector) handleRealmCreated(ctx context.Context, event
 		Name:    data.Name,
 		RealmID: data.RealmID,
 	}
-	return store.Put(ctx, "_admin", "realm_name_lookup", data.Name, entry)
+	return core.PutRef(ctx, store, "_admin", RealmNameLookupTable, data.Name, entry)
 }

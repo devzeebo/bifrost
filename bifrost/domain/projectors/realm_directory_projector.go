@@ -16,6 +16,9 @@ type RealmDirectoryEntry struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// RealmDirectoryTable is the typed table reference for this projector.
+var RealmDirectoryTable = core.TableRef[RealmDirectoryEntry]{Name: "realm_directory"}
+
 type RealmDirectoryProjector struct{}
 
 func NewRealmDirectoryProjector() *RealmDirectoryProjector {
@@ -23,11 +26,11 @@ func NewRealmDirectoryProjector() *RealmDirectoryProjector {
 }
 
 func (p *RealmDirectoryProjector) Name() string {
-	return "realm_directory"
+	return RealmDirectoryTable.Name
 }
 
 func (p *RealmDirectoryProjector) TableName() string {
-	return "realm_directory"
+	return RealmDirectoryTable.Name
 }
 
 func (p *RealmDirectoryProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -51,7 +54,7 @@ func (p *RealmDirectoryProjector) handleCreated(ctx context.Context, event core.
 		Status:    "active",
 		CreatedAt: data.CreatedAt,
 	}
-	return store.Put(ctx, "_admin", "realm_directory", data.RealmID, entry)
+	return core.PutRef(ctx, store, "_admin", RealmDirectoryTable, data.RealmID, entry)
 }
 
 func (p *RealmDirectoryProjector) handleSuspended(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -59,10 +62,10 @@ func (p *RealmDirectoryProjector) handleSuspended(ctx context.Context, event cor
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var entry RealmDirectoryEntry
-	if err := store.Get(ctx, "_admin", "realm_directory", data.RealmID, &entry); err != nil {
+	entry, err := core.GetRef(ctx, store, "_admin", RealmDirectoryTable, data.RealmID)
+	if err != nil {
 		return err
 	}
 	entry.Status = "suspended"
-	return store.Put(ctx, "_admin", "realm_directory", data.RealmID, entry)
+	return core.PutRef(ctx, store, "_admin", RealmDirectoryTable, data.RealmID, entry)
 }

@@ -25,6 +25,9 @@ type RuneRetro struct {
 	UpdatedAt   time.Time    `json:"updated_at"`
 }
 
+// RuneRetroTable is the typed table reference for this projector.
+var RuneRetroTable = core.TableRef[RuneRetro]{Name: "rune_retro"}
+
 type RuneRetroProjector struct{}
 
 func NewRuneRetroProjector() *RuneRetroProjector {
@@ -32,11 +35,11 @@ func NewRuneRetroProjector() *RuneRetroProjector {
 }
 
 func (p *RuneRetroProjector) Name() string {
-	return "rune_retro"
+	return RuneRetroTable.Name
 }
 
 func (p *RuneRetroProjector) TableName() string {
-	return "rune_retro"
+	return RuneRetroTable.Name
 }
 
 func (p *RuneRetroProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -103,7 +106,7 @@ func (p *RuneRetroProjector) handleCreated(ctx context.Context, event core.Event
 		CreatedAt:   event.Timestamp,
 		UpdatedAt:   event.Timestamp,
 	}
-	return store.Put(ctx, event.RealmID, "rune_retro", data.ID, retro)
+	return core.PutRef(ctx, store, event.RealmID, RuneRetroTable, data.ID, retro)
 }
 
 func (p *RuneRetroProjector) handleUpdated(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -111,8 +114,8 @@ func (p *RuneRetroProjector) handleUpdated(ctx context.Context, event core.Event
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var retro RuneRetro
-	if err := store.Get(ctx, event.RealmID, "rune_retro", data.ID, &retro); err != nil {
+	retro, err := core.GetRef(ctx, store, event.RealmID, RuneRetroTable, data.ID)
+	if err != nil {
 		return err
 	}
 	if data.Title != nil {
@@ -122,18 +125,18 @@ func (p *RuneRetroProjector) handleUpdated(ctx context.Context, event core.Event
 		retro.Description = *data.Description
 	}
 	retro.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_retro", data.ID, retro)
+	return core.PutRef(ctx, store, event.RealmID, RuneRetroTable, data.ID, retro)
 }
 
 func (p *RuneRetroProjector) handleStatusChange(ctx context.Context, event core.Event, store core.ProjectionStore, status string, getID func(core.Event) string) error {
 	id := getID(event)
-	var retro RuneRetro
-	if err := store.Get(ctx, event.RealmID, "rune_retro", id, &retro); err != nil {
+	retro, err := core.GetRef(ctx, store, event.RealmID, RuneRetroTable, id)
+	if err != nil {
 		return err
 	}
 	retro.Status = status
 	retro.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_retro", id, retro)
+	return core.PutRef(ctx, store, event.RealmID, RuneRetroTable, id, retro)
 }
 
 func (p *RuneRetroProjector) handleRetroed(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -141,8 +144,8 @@ func (p *RuneRetroProjector) handleRetroed(ctx context.Context, event core.Event
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var retro RuneRetro
-	if err := store.Get(ctx, event.RealmID, "rune_retro", data.RuneID, &retro); err != nil {
+	retro, err := core.GetRef(ctx, store, event.RealmID, RuneRetroTable, data.RuneID)
+	if err != nil {
 		return err
 	}
 	// Idempotency: skip if same text + timestamp already exists.
@@ -156,5 +159,5 @@ func (p *RuneRetroProjector) handleRetroed(ctx context.Context, event core.Event
 		CreatedAt: event.Timestamp,
 	})
 	retro.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_retro", data.RuneID, retro)
+	return core.PutRef(ctx, store, event.RealmID, RuneRetroTable, data.RuneID, retro)
 }

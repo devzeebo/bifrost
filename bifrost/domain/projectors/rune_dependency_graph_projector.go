@@ -27,6 +27,10 @@ type RuneDependencyGraphEntry struct {
 	Dependents   []RuneDependencyGraphDependent `json:"dependents"`
 }
 
+// RuneDependencyGraphTable is the typed table reference for this projector.
+// Import and use this from other projectors to get compile-time safety.
+var RuneDependencyGraphTable = core.TableRef[RuneDependencyGraphEntry]{Name: "rune_dependency_graph"}
+
 // RuneDependencyGraphProjector maintains the dependency graph for each rune.
 type RuneDependencyGraphProjector struct{}
 
@@ -37,12 +41,12 @@ func NewRuneDependencyGraphProjector() *RuneDependencyGraphProjector {
 
 // Name returns the projector name.
 func (p *RuneDependencyGraphProjector) Name() string {
-	return "rune_dependency_graph"
+	return RuneDependencyGraphTable.Name
 }
 
 // TableName returns the projection table name.
 func (p *RuneDependencyGraphProjector) TableName() string {
-	return "rune_dependency_graph"
+	return RuneDependencyGraphTable.Name
 }
 
 // Handle processes events.
@@ -59,8 +63,7 @@ func (p *RuneDependencyGraphProjector) Handle(ctx context.Context, event core.Ev
 }
 
 func (p *RuneDependencyGraphProjector) getOrCreateEntry(ctx context.Context, realmID, runeID string, store core.ProjectionStore) (RuneDependencyGraphEntry, error) {
-	var entry RuneDependencyGraphEntry
-	err := store.Get(ctx, realmID, "rune_dependency_graph", runeID, &entry)
+	entry, err := core.GetRef(ctx, store, realmID, RuneDependencyGraphTable, runeID)
 	if err != nil {
 		if isNotFoundError(err) {
 			return RuneDependencyGraphEntry{
@@ -111,7 +114,7 @@ func (p *RuneDependencyGraphProjector) handleAdded(ctx context.Context, event co
 					SourceID:     data.RuneID,
 					Relationship: data.Relationship,
 				})
-				if err := store.Put(ctx, event.RealmID, "rune_dependency_graph", data.TargetID, targetEntry); err != nil {
+				if err := core.PutRef(ctx, store, event.RealmID, RuneDependencyGraphTable, data.TargetID, targetEntry); err != nil {
 					return err
 				}
 			}
@@ -123,7 +126,7 @@ func (p *RuneDependencyGraphProjector) handleAdded(ctx context.Context, event co
 		TargetID:     data.TargetID,
 		Relationship: data.Relationship,
 	})
-	if err := store.Put(ctx, event.RealmID, "rune_dependency_graph", data.RuneID, sourceEntry); err != nil {
+	if err := core.PutRef(ctx, store, event.RealmID, RuneDependencyGraphTable, data.RuneID, sourceEntry); err != nil {
 		return err
 	}
 
@@ -136,7 +139,7 @@ func (p *RuneDependencyGraphProjector) handleAdded(ctx context.Context, event co
 		SourceID:     data.RuneID,
 		Relationship: data.Relationship,
 	})
-	if err := store.Put(ctx, event.RealmID, "rune_dependency_graph", data.TargetID, targetEntry); err != nil {
+	if err := core.PutRef(ctx, store, event.RealmID, RuneDependencyGraphTable, data.TargetID, targetEntry); err != nil {
 		return err
 	}
 
@@ -165,7 +168,7 @@ func (p *RuneDependencyGraphProjector) handleRemoved(ctx context.Context, event 
 		}
 	}
 	sourceEntry.Dependencies = filtered
-	if err := store.Put(ctx, event.RealmID, "rune_dependency_graph", data.RuneID, sourceEntry); err != nil {
+	if err := core.PutRef(ctx, store, event.RealmID, RuneDependencyGraphTable, data.RuneID, sourceEntry); err != nil {
 		return err
 	}
 
@@ -181,7 +184,7 @@ func (p *RuneDependencyGraphProjector) handleRemoved(ctx context.Context, event 
 		}
 	}
 	targetEntry.Dependents = filteredDeps
-	if err := store.Put(ctx, event.RealmID, "rune_dependency_graph", data.TargetID, targetEntry); err != nil {
+	if err := core.PutRef(ctx, store, event.RealmID, RuneDependencyGraphTable, data.TargetID, targetEntry); err != nil {
 		return err
 	}
 
@@ -212,7 +215,7 @@ func (p *RuneDependencyGraphProjector) handleShattered(ctx context.Context, even
 			}
 		}
 		targetEntry.Dependents = filtered
-		if err := store.Put(ctx, event.RealmID, "rune_dependency_graph", dep.TargetID, targetEntry); err != nil {
+		if err := core.PutRef(ctx, store, event.RealmID, RuneDependencyGraphTable, dep.TargetID, targetEntry); err != nil {
 			return err
 		}
 	}
@@ -230,11 +233,11 @@ func (p *RuneDependencyGraphProjector) handleShattered(ctx context.Context, even
 			}
 		}
 		sourceEntry.Dependencies = filtered
-		if err := store.Put(ctx, event.RealmID, "rune_dependency_graph", dep.SourceID, sourceEntry); err != nil {
+		if err := core.PutRef(ctx, store, event.RealmID, RuneDependencyGraphTable, dep.SourceID, sourceEntry); err != nil {
 			return err
 		}
 	}
 
 	// Delete the shattered rune's own graph entry
-	return store.Delete(ctx, event.RealmID, "rune_dependency_graph", data.ID)
+	return core.DeleteRef(ctx, store, event.RealmID, RuneDependencyGraphTable, data.ID)
 }

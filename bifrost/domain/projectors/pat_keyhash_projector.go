@@ -9,6 +9,9 @@ import (
 	"github.com/devzeebo/bifrost/domain"
 )
 
+// PATByKeyhashTable is the typed table reference for this projector.
+var PATByKeyhashTable = core.TableRef[string]{Name: "pat_by_keyhash"}
+
 // PATKeyhashProjector projects PAT keyhash-to-PATID lookup for token validation.
 type PATKeyhashProjector struct{}
 
@@ -24,7 +27,7 @@ func (p *PATKeyhashProjector) Name() string {
 
 // TableName returns the projection table name.
 func (p *PATKeyhashProjector) TableName() string {
-	return "pat_by_keyhash"
+	return PATByKeyhashTable.Name
 }
 
 // Handle processes events and updates the projection.
@@ -44,7 +47,7 @@ func (p *PATKeyhashProjector) handlePATCreated(ctx context.Context, event core.E
 		return err
 	}
 	// Store PAT ID keyed by keyhash for token validation lookup
-	return store.Put(ctx, event.RealmID, "pat_by_keyhash", data.KeyHash, data.PATID)
+	return core.PutRef(ctx, store, event.RealmID, PATByKeyhashTable, data.KeyHash, data.PATID)
 }
 
 func (p *PATKeyhashProjector) handlePATRevoked(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -53,8 +56,8 @@ func (p *PATKeyhashProjector) handlePATRevoked(ctx context.Context, event core.E
 		return err
 	}
 	// We need to look up the keyhash from the PAT ID to delete the entry
-	var patEntry PATIDEntry
-	if err := store.Get(ctx, event.RealmID, "pat_by_id", data.PATID, &patEntry); err != nil {
+	patEntry, err := core.GetRef(ctx, store, event.RealmID, PATByIDTable, data.PATID)
+	if err != nil {
 		var nfe *core.NotFoundError
 		if errors.As(err, &nfe) {
 			// If the PAT entry doesn't exist, nothing to delete
@@ -63,5 +66,5 @@ func (p *PATKeyhashProjector) handlePATRevoked(ctx context.Context, event core.E
 		// For any other error (database, decode, etc.), propagate it
 		return err
 	}
-	return store.Delete(ctx, event.RealmID, "pat_by_keyhash", patEntry.KeyHash)
+	return core.DeleteRef(ctx, store, event.RealmID, PATByKeyhashTable, patEntry.KeyHash)
 }

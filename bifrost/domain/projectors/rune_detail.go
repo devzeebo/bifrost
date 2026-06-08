@@ -45,6 +45,9 @@ type RuneDetail struct {
 	UpdatedAt          time.Time       `json:"updated_at"`
 }
 
+// RuneDetailTable is the typed table reference for this projector.
+var RuneDetailTable = core.TableRef[RuneDetail]{Name: "rune_detail"}
+
 type RuneDetailProjector struct{}
 
 func NewRuneDetailProjector() *RuneDetailProjector {
@@ -52,11 +55,11 @@ func NewRuneDetailProjector() *RuneDetailProjector {
 }
 
 func (p *RuneDetailProjector) Name() string {
-	return "rune_detail"
+	return RuneDetailTable.Name
 }
 
 func (p *RuneDetailProjector) TableName() string {
-	return "rune_detail"
+	return RuneDetailTable.Name
 }
 
 func (p *RuneDetailProjector) Handle(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -124,7 +127,7 @@ func (p *RuneDetailProjector) handleCreated(ctx context.Context, event core.Even
 		CreatedAt:          event.Timestamp,
 		UpdatedAt:          event.Timestamp,
 	}
-	return store.Put(ctx, event.RealmID, "rune_detail", data.ID, detail)
+	return core.PutRef(ctx, store, event.RealmID, RuneDetailTable, data.ID, detail)
 }
 
 func (p *RuneDetailProjector) handleForged(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -132,13 +135,13 @@ func (p *RuneDetailProjector) handleForged(ctx context.Context, event core.Event
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var detail RuneDetail
-	if err := store.Get(ctx, event.RealmID, "rune_detail", data.ID, &detail); err != nil {
+	detail, err := core.GetRef(ctx, store, event.RealmID, RuneDetailTable, data.ID)
+	if err != nil {
 		return err
 	}
 	detail.Status = "open"
 	detail.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_detail", data.ID, detail)
+	return core.PutRef(ctx, store, event.RealmID, RuneDetailTable, data.ID, detail)
 }
 
 func (p *RuneDetailProjector) handleUpdated(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -146,8 +149,8 @@ func (p *RuneDetailProjector) handleUpdated(ctx context.Context, event core.Even
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var detail RuneDetail
-	if err := store.Get(ctx, event.RealmID, "rune_detail", data.ID, &detail); err != nil {
+	detail, err := core.GetRef(ctx, store, event.RealmID, RuneDetailTable, data.ID)
+	if err != nil {
 		return err
 	}
 	if data.Title != nil {
@@ -164,7 +167,7 @@ func (p *RuneDetailProjector) handleUpdated(ctx context.Context, event core.Even
 	}
 	detail.Tags = applyTagMutations(detail.Tags, data.Tags, data.AddTags, data.RemoveTags)
 	detail.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_detail", data.ID, detail)
+	return core.PutRef(ctx, store, event.RealmID, RuneDetailTable, data.ID, detail)
 }
 
 func (p *RuneDetailProjector) handleClaimed(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -172,14 +175,14 @@ func (p *RuneDetailProjector) handleClaimed(ctx context.Context, event core.Even
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var detail RuneDetail
-	if err := store.Get(ctx, event.RealmID, "rune_detail", data.ID, &detail); err != nil {
+	detail, err := core.GetRef(ctx, store, event.RealmID, RuneDetailTable, data.ID)
+	if err != nil {
 		return err
 	}
 	detail.Status = "claimed"
 	detail.Claimant = data.Claimant
 	detail.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_detail", data.ID, detail)
+	return core.PutRef(ctx, store, event.RealmID, RuneDetailTable, data.ID, detail)
 }
 
 func (p *RuneDetailProjector) handleFulfilled(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -187,13 +190,13 @@ func (p *RuneDetailProjector) handleFulfilled(ctx context.Context, event core.Ev
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var detail RuneDetail
-	if err := store.Get(ctx, event.RealmID, "rune_detail", data.ID, &detail); err != nil {
+	detail, err := core.GetRef(ctx, store, event.RealmID, RuneDetailTable, data.ID)
+	if err != nil {
 		return err
 	}
 	detail.Status = "fulfilled"
 	detail.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_detail", data.ID, detail)
+	return core.PutRef(ctx, store, event.RealmID, RuneDetailTable, data.ID, detail)
 }
 
 func (p *RuneDetailProjector) handleSealed(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -201,13 +204,13 @@ func (p *RuneDetailProjector) handleSealed(ctx context.Context, event core.Event
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var detail RuneDetail
-	if err := store.Get(ctx, event.RealmID, "rune_detail", data.ID, &detail); err != nil {
+	detail, err := core.GetRef(ctx, store, event.RealmID, RuneDetailTable, data.ID)
+	if err != nil {
 		return err
 	}
 	detail.Status = "sealed"
 	detail.UpdatedAt = event.Timestamp
-	if err := store.Put(ctx, event.RealmID, "rune_detail", data.ID, detail); err != nil {
+	if err := core.PutRef(ctx, store, event.RealmID, RuneDetailTable, data.ID, detail); err != nil {
 		return err
 	}
 	p.removeBlockedByFromDependents(ctx, event.RealmID, data.ID, detail.Dependencies, store)
@@ -219,13 +222,13 @@ func (p *RuneDetailProjector) handleFailed(ctx context.Context, event core.Event
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var detail RuneDetail
-	if err := store.Get(ctx, event.RealmID, "rune_detail", data.ID, &detail); err != nil {
+	detail, err := core.GetRef(ctx, store, event.RealmID, RuneDetailTable, data.ID)
+	if err != nil {
 		return err
 	}
 	detail.Status = "failed"
 	detail.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_detail", data.ID, detail)
+	return core.PutRef(ctx, store, event.RealmID, RuneDetailTable, data.ID, detail)
 }
 
 func (p *RuneDetailProjector) handleReopened(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -233,8 +236,8 @@ func (p *RuneDetailProjector) handleReopened(ctx context.Context, event core.Eve
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var detail RuneDetail
-	if err := store.Get(ctx, event.RealmID, "rune_detail", data.ID, &detail); err != nil {
+	detail, err := core.GetRef(ctx, store, event.RealmID, RuneDetailTable, data.ID)
+	if err != nil {
 		return err
 	}
 	if data.Claimant != "" {
@@ -245,7 +248,7 @@ func (p *RuneDetailProjector) handleReopened(ctx context.Context, event core.Eve
 		detail.Claimant = ""
 	}
 	detail.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_detail", data.ID, detail)
+	return core.PutRef(ctx, store, event.RealmID, RuneDetailTable, data.ID, detail)
 }
 
 func (p *RuneDetailProjector) handleUnclaimed(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -253,14 +256,14 @@ func (p *RuneDetailProjector) handleUnclaimed(ctx context.Context, event core.Ev
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var detail RuneDetail
-	if err := store.Get(ctx, event.RealmID, "rune_detail", data.ID, &detail); err != nil {
+	detail, err := core.GetRef(ctx, store, event.RealmID, RuneDetailTable, data.ID)
+	if err != nil {
 		return err
 	}
 	detail.Status = "open"
 	detail.Claimant = ""
 	detail.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_detail", data.ID, detail)
+	return core.PutRef(ctx, store, event.RealmID, RuneDetailTable, data.ID, detail)
 }
 
 func (p *RuneDetailProjector) handleDependencyAdded(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -268,8 +271,8 @@ func (p *RuneDetailProjector) handleDependencyAdded(ctx context.Context, event c
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var detail RuneDetail
-	if err := store.Get(ctx, event.RealmID, "rune_detail", data.RuneID, &detail); err != nil {
+	detail, err := core.GetRef(ctx, store, event.RealmID, RuneDetailTable, data.RuneID)
+	if err != nil {
 		return err
 	}
 	// Check for duplicate for idempotency
@@ -283,7 +286,7 @@ func (p *RuneDetailProjector) handleDependencyAdded(ctx context.Context, event c
 		Relationship: data.Relationship,
 	})
 	detail.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_detail", data.RuneID, detail)
+	return core.PutRef(ctx, store, event.RealmID, RuneDetailTable, data.RuneID, detail)
 }
 
 func (p *RuneDetailProjector) handleDependencyRemoved(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -291,8 +294,8 @@ func (p *RuneDetailProjector) handleDependencyRemoved(ctx context.Context, event
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var detail RuneDetail
-	if err := store.Get(ctx, event.RealmID, "rune_detail", data.RuneID, &detail); err != nil {
+	detail, err := core.GetRef(ctx, store, event.RealmID, RuneDetailTable, data.RuneID)
+	if err != nil {
 		return err
 	}
 	filtered := make([]DependencyRef, 0, len(detail.Dependencies))
@@ -303,7 +306,7 @@ func (p *RuneDetailProjector) handleDependencyRemoved(ctx context.Context, event
 	}
 	detail.Dependencies = filtered
 	detail.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_detail", data.RuneID, detail)
+	return core.PutRef(ctx, store, event.RealmID, RuneDetailTable, data.RuneID, detail)
 }
 
 func (p *RuneDetailProjector) handleShattered(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -311,11 +314,10 @@ func (p *RuneDetailProjector) handleShattered(ctx context.Context, event core.Ev
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var detail RuneDetail
-	if err := store.Get(ctx, event.RealmID, "rune_detail", data.ID, &detail); err == nil {
+	if detail, err := core.GetRef(ctx, store, event.RealmID, RuneDetailTable, data.ID); err == nil {
 		p.removeBlockedByFromDependents(ctx, event.RealmID, data.ID, detail.Dependencies, store)
 	}
-	return store.Delete(ctx, event.RealmID, "rune_detail", data.ID)
+	return core.DeleteRef(ctx, store, event.RealmID, RuneDetailTable, data.ID)
 }
 
 func (p *RuneDetailProjector) removeBlockedByFromDependents(ctx context.Context, realmID, blockerID string, deps []DependencyRef, store core.ProjectionStore) {
@@ -323,8 +325,8 @@ func (p *RuneDetailProjector) removeBlockedByFromDependents(ctx context.Context,
 		if dep.Relationship != domain.RelBlocks {
 			continue
 		}
-		var blocked RuneDetail
-		if err := store.Get(ctx, realmID, "rune_detail", dep.TargetID, &blocked); err != nil {
+		blocked, err := core.GetRef(ctx, store, realmID, RuneDetailTable, dep.TargetID)
+		if err != nil {
 			continue
 		}
 		filtered := make([]DependencyRef, 0, len(blocked.Dependencies))
@@ -334,7 +336,7 @@ func (p *RuneDetailProjector) removeBlockedByFromDependents(ctx context.Context,
 			}
 		}
 		blocked.Dependencies = filtered
-		_ = store.Put(ctx, realmID, "rune_detail", dep.TargetID, blocked)
+		_ = core.PutRef(ctx, store, realmID, RuneDetailTable, dep.TargetID, blocked)
 	}
 }
 
@@ -343,8 +345,8 @@ func (p *RuneDetailProjector) handleNoted(ctx context.Context, event core.Event,
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var detail RuneDetail
-	if err := store.Get(ctx, event.RealmID, "rune_detail", data.RuneID, &detail); err != nil {
+	detail, err := core.GetRef(ctx, store, event.RealmID, RuneDetailTable, data.RuneID)
+	if err != nil {
 		return err
 	}
 	// Check for duplicate for idempotency (notes are unique by text + timestamp)
@@ -358,7 +360,7 @@ func (p *RuneDetailProjector) handleNoted(ctx context.Context, event core.Event,
 		CreatedAt: event.Timestamp,
 	})
 	detail.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_detail", data.RuneID, detail)
+	return core.PutRef(ctx, store, event.RealmID, RuneDetailTable, data.RuneID, detail)
 }
 
 func (p *RuneDetailProjector) handleRetroed(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -366,8 +368,8 @@ func (p *RuneDetailProjector) handleRetroed(ctx context.Context, event core.Even
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var detail RuneDetail
-	if err := store.Get(ctx, event.RealmID, "rune_detail", data.RuneID, &detail); err != nil {
+	detail, err := core.GetRef(ctx, store, event.RealmID, RuneDetailTable, data.RuneID)
+	if err != nil {
 		return err
 	}
 	// Check for duplicate for idempotency (retro items are unique by text + timestamp)
@@ -381,7 +383,7 @@ func (p *RuneDetailProjector) handleRetroed(ctx context.Context, event core.Even
 		CreatedAt: event.Timestamp,
 	})
 	detail.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_detail", data.RuneID, detail)
+	return core.PutRef(ctx, store, event.RealmID, RuneDetailTable, data.RuneID, detail)
 }
 
 func (p *RuneDetailProjector) handleACAdded(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -389,8 +391,8 @@ func (p *RuneDetailProjector) handleACAdded(ctx context.Context, event core.Even
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var detail RuneDetail
-	if err := store.Get(ctx, event.RealmID, "rune_detail", data.RuneID, &detail); err != nil {
+	detail, err := core.GetRef(ctx, store, event.RealmID, RuneDetailTable, data.RuneID)
+	if err != nil {
 		return err
 	}
 	// Check for duplicate for idempotency (AC items are unique by ID + timestamp)
@@ -405,7 +407,7 @@ func (p *RuneDetailProjector) handleACAdded(ctx context.Context, event core.Even
 		Description: data.Description,
 	})
 	detail.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_detail", data.RuneID, detail)
+	return core.PutRef(ctx, store, event.RealmID, RuneDetailTable, data.RuneID, detail)
 }
 
 func (p *RuneDetailProjector) handleACUpdated(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -413,8 +415,8 @@ func (p *RuneDetailProjector) handleACUpdated(ctx context.Context, event core.Ev
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var detail RuneDetail
-	if err := store.Get(ctx, event.RealmID, "rune_detail", data.RuneID, &detail); err != nil {
+	detail, err := core.GetRef(ctx, store, event.RealmID, RuneDetailTable, data.RuneID)
+	if err != nil {
 		return err
 	}
 	// Find and update the AC entry
@@ -426,7 +428,7 @@ func (p *RuneDetailProjector) handleACUpdated(ctx context.Context, event core.Ev
 		}
 	}
 	detail.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_detail", data.RuneID, detail)
+	return core.PutRef(ctx, store, event.RealmID, RuneDetailTable, data.RuneID, detail)
 }
 
 func (p *RuneDetailProjector) handleACRemoved(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -434,8 +436,8 @@ func (p *RuneDetailProjector) handleACRemoved(ctx context.Context, event core.Ev
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var detail RuneDetail
-	if err := store.Get(ctx, event.RealmID, "rune_detail", data.RuneID, &detail); err != nil {
+	detail, err := core.GetRef(ctx, store, event.RealmID, RuneDetailTable, data.RuneID)
+	if err != nil {
 		return err
 	}
 	// Remove the AC entry by ID
@@ -447,7 +449,7 @@ func (p *RuneDetailProjector) handleACRemoved(ctx context.Context, event core.Ev
 	}
 	detail.AcceptanceCriteria = filtered
 	detail.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_detail", data.RuneID, detail)
+	return core.PutRef(ctx, store, event.RealmID, RuneDetailTable, data.RuneID, detail)
 }
 
 func (p *RuneDetailProjector) handleStateUpdated(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -455,18 +457,17 @@ func (p *RuneDetailProjector) handleStateUpdated(ctx context.Context, event core
 	if err := json.Unmarshal(event.Data, &data); err != nil {
 		return err
 	}
-	var detail RuneDetail
-	if err := store.Get(ctx, event.RealmID, "rune_detail", data.RuneID, &detail); err != nil {
+	detail, err := core.GetRef(ctx, store, event.RealmID, RuneDetailTable, data.RuneID)
+	if err != nil {
 		return err
 	}
 	// Apply merge patch to state
 	if detail.State == nil {
 		detail.State = make(map[string]any)
 	}
-	_, err := domain.MergePatch(detail.State, data.Patch)
-	if err != nil {
+	if _, err = domain.MergePatch(detail.State, data.Patch); err != nil {
 		return err
 	}
 	detail.UpdatedAt = event.Timestamp
-	return store.Put(ctx, event.RealmID, "rune_detail", data.RuneID, detail)
+	return core.PutRef(ctx, store, event.RealmID, RuneDetailTable, data.RuneID, detail)
 }
