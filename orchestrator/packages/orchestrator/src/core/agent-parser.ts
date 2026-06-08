@@ -92,26 +92,30 @@ export const parseAgentDefinition = (content: string): AgentDefinition | null =>
     // Get all declared parameter paths
     const declaredParams = getDeclaredParameters(parameters);
 
+    const builtinTokens = new Set(["taskId"]);
+
     // Validate that all used tokens are declared
     for (const token of usedTokens) {
-      // Check if token or any of its parent paths are declared
-      let isDeclared = declaredParams.has(token);
+      if (!builtinTokens.has(token)) {
+        // Check if token or any of its parent paths are declared
+        let isDeclared = declaredParams.has(token);
 
-      // Check for parent paths (e.g., if using "context.prDescription", check if "context" or "context?" is declared)
-      if (!isDeclared) {
-        const parts = token.split(".");
-        for (let index = parts.length; index > 0; index -= 2) {
-          const parentPath = parts.slice(0, index).join(".");
-          if (declaredParams.has(parentPath) || declaredParams.has(`${parentPath}?`)) {
-            isDeclared = true;
-            break;
+        // Check for parent paths (e.g., if using "context.prDescription", check if "context" or "context?" is declared)
+        if (!isDeclared) {
+          const parts = token.split(".");
+          for (let index = parts.length; index > 0; index -= 2) {
+            const parentPath = parts.slice(0, index).join(".");
+            if (declaredParams.has(parentPath) || declaredParams.has(`${parentPath}?`)) {
+              isDeclared = true;
+              break;
+            }
           }
         }
-      }
 
-      if (!isDeclared) {
-        console.error(`Undeclared Handlebars token: ${token}`);
-        return null;
+        if (!isDeclared) {
+          console.error(`Undeclared Handlebars token: ${token}`);
+          return null;
+        }
       }
     }
 

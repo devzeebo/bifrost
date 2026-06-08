@@ -145,6 +145,23 @@ Use the {{framework}} for {{language}}.
       // Then parsing fails identifying the undeclared token by name
       expect(agent).toBeNull();
     });
+
+    it("should allow {{taskId}} token without it being declared in template.parameters", () => {
+      const content = `---
+name: test-agent
+description: Test
+tools: []
+template:
+  parameters: {}
+---
+Working on task {{taskId}}.
+`;
+
+      const agent = parseAgentDefinition(content);
+
+      expect(agent).not.toBeNull();
+      expect(agent?.promptBody).toContain("{{taskId}}");
+    });
   });
 
   describe("Tool permission syntax", () => {

@@ -187,17 +187,7 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
 
   debug("orchestrate task=%s agent=%s", task.id, agent.name);
 
-  // Step 1: Validate taskState against agent parameter schema
-  const validation = validateTaskState(task.taskState, agent.template.parameters);
-
-  if (!validation.valid) {
-    debug("task %s validation failed: %s", task.id, validation.errors.join("; "));
-    await taskSource.failTask(task.id, validation.errors.join("; "));
-    return { outcome: "failed", error: validation.errors.join("; ") };
-  }
-
-  debug("task %s validation passed", task.id);
-
+  // Step 1: Set up mutable task state and hook context
   let currentTaskState = { ...task.taskState };
 
   const getTaskState = () => ({ ...currentTaskState });
@@ -216,7 +206,7 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
     setTaskState,
   };
 
-  // Step 2: Execute pre-task hooks; hooks mutate context directly
+  // Step 2: Execute pre-task hooks; hooks may mutate context and task state
   const startHookResults: HookResult[] = [];
 
   for (const hookSpec of agent.hooks.Start) {
@@ -248,7 +238,22 @@ export const orchestrate = async (options: OrchestrateOptions): Promise<Orchestr
     }
   }
 
-  // Step 3: Invoke engine with setState callback
+  // Step 3: Validate post-hook task state against agent parameter schema
+  // taskId is injected alongside taskState for Handlebars, so include it here too
+  const validation = validateTaskState(
+    { taskId: task.id, ...currentTaskState },
+    agent.template.parameters,
+  );
+
+  if (!validation.valid) {
+    debug("task %s validation failed: %s", task.id, validation.errors.join("; "));
+    await taskSource.failTask(task.id, validation.errors.join("; "));
+    return { outcome: "failed", error: validation.errors.join("; ") };
+  }
+
+  debug("task %s validation passed", task.id);
+
+  // Step 4: Render prompt with post-hook task state and taskId
   const renderedAgentPrompt = renderPrompt(agent.promptBody, {
     taskId: task.id,
     metadata: task.metadata,
