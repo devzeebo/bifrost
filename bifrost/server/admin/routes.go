@@ -1,19 +1,26 @@
 package admin
 
 import (
+	"context"
 	"io/fs"
 	"net/http"
 
 	"github.com/devzeebo/bifrost/core"
 )
 
+// ProjectionEngine is the interface for running sync projections.
+type ProjectionEngine interface {
+	RunCatchUpOnce(ctx context.Context)
+}
+
 // RouteConfig holds the configuration for registering admin routes.
 type RouteConfig struct {
-	AuthConfig       *AuthConfig
-	ProjectionStore  core.ProjectionStore
-	EventStore       core.EventStore
-	ViteDevServerURL string // URL of Vite dev server (development mode, e.g., "http://localhost:3000")
-	UIFS             fs.FS  // Optional: custom filesystem for UI (for testing). Defaults to embedded UIFiles.
+	AuthConfig        *AuthConfig
+	ProjectionStore   core.ProjectionStore
+	EventStore        core.EventStore
+	ProjectionEngine  ProjectionEngine
+	ViteDevServerURL  string // URL of Vite dev server (development mode, e.g., "http://localhost:3000")
+	UIFS              fs.FS  // Optional: custom filesystem for UI (for testing). Defaults to embedded UIFiles.
 }
 
 // RegisterRoutesResult contains the result of registering admin routes.

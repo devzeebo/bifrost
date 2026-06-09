@@ -199,6 +199,7 @@ func Run(ctx context.Context, cfg *Config) error {
 		AuthConfig:       adminAuthConfig,
 		ProjectionStore:  projectionStore,
 		EventStore:       eventStore,
+		ProjectionEngine: engine,
 		ViteDevServerURL: cfg.ViteDevServerURL,
 	})
 	if err != nil {

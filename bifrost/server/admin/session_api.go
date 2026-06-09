@@ -321,6 +321,10 @@ func handleCreateAdmin(cfg *RouteConfig) http.HandlerFunc {
 				return
 			}
 			resp.RealmID = realmResult.RealmID
+			// Sync projections so realm_directory is populated before role assignment.
+			if cfg.ProjectionEngine != nil {
+				cfg.ProjectionEngine.RunCatchUpOnce(r.Context())
+			}
 		}
 
 		// Conditionally create sysadmin
