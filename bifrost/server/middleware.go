@@ -406,6 +406,21 @@ func resolveRealmID(ctx context.Context, realmIdent string, roles map[string]str
 	return "", ErrForbidden("No access to realm")
 }
 
+// ProjectionSyncMiddleware runs RunCatchUpOnce after the handler when the request
+// includes "sync=true" as a query parameter. This lets callers opt in to blocking
+// until projections have caught up to any events written during the request, so the
+// next read (from CLI, UI, or another request) sees a consistent state.
+func ProjectionSyncMiddleware(engine ProjectionEngine) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			next.ServeHTTP(w, r)
+			if r.URL.Query().Get("sync") == "true" {
+				engine.RunCatchUpOnce(r.Context())
+			}
+		})
+	}
+}
+
 // AuthError represents an authentication/authorization error with HTTP status
 type AuthError struct {
 	Status  int

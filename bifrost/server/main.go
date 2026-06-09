@@ -205,8 +205,8 @@ func Run(ctx context.Context, cfg *Config) error {
 		return fmt.Errorf("register admin routes: %w", err)
 	}
 
-	// Use the wrapped handler (may include Vike proxy)
-	handler := result.Handler
+	// Wrap with opt-in projection sync middleware (?sync=true blocks until projections catch up)
+	handler := ProjectionSyncMiddleware(engine)(result.Handler)
 
 	// 6. Create and start HTTP server
 	srv := &http.Server{

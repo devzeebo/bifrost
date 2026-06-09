@@ -180,7 +180,7 @@ export class ApiClient {
 
   // Onboarding
   public async createAdmin(request: CreateAdminRequest): Promise<CreateAdminResponse> {
-    return this.request<CreateAdminResponse>("/ui/onboarding/create-admin", {
+    return this.request<CreateAdminResponse>("/ui/onboarding/create-admin?sync=true", {
       method: "POST",
       body: JSON.stringify(request),
     });

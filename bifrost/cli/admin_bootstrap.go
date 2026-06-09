@@ -85,7 +85,7 @@ func doBootstrapRequest(baseURL string, req map[string]interface{}) ([]byte, err
 		return nil, err
 	}
 
-	url := baseURL + "/api/ui/onboarding/create-admin"
+	url := baseURL + "/api/ui/onboarding/create-admin?sync=true"
 	httpReq, err := http.NewRequest("POST", url, bytes.NewReader(body))
 	if err != nil {
 		return nil, err

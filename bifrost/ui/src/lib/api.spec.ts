@@ -171,7 +171,7 @@ describe("ApiClient", () => {
       const result = await apiClient.createAdmin(createAdminRequest);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "/api/ui/onboarding/create-admin",
+        "/api/ui/onboarding/create-admin?sync=true",
         expect.objectContaining({
           method: "POST",
           body: JSON.stringify(createAdminRequest),
