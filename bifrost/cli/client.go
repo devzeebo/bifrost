@@ -15,6 +15,7 @@ type Client struct {
 	baseURL    string
 	apiKey     string
 	realm      string
+	sync       bool
 	httpClient *http.Client
 }
 
@@ -39,6 +40,13 @@ func (c *Client) DoRequest(method, path string, body []byte) (*http.Response, er
 	apiPath := path
 	if len(path) > 0 && path[0] == '/' && !strings.HasPrefix(path, "/api") {
 		apiPath = "/api" + path
+	}
+	if c.sync {
+		if strings.Contains(apiPath, "?") {
+			apiPath += "&sync=true"
+		} else {
+			apiPath += "?sync=true"
+		}
 	}
 	fullURL := c.baseURL + apiPath
 	debugLog("--> %s %s", method, fullURL)

@@ -49,13 +49,17 @@ func NewRootCmd() *RootCmd {
 			}
 
 			root.Cfg = cfg
-			root.Client = NewClient(cfg.URL, cfg.APIKey, cfg.Realm)
+			sync, _ := cmd.Root().PersistentFlags().GetBool("sync")
+			client := NewClient(cfg.URL, cfg.APIKey, cfg.Realm)
+			client.sync = sync
+			root.Client = client
 			return nil
 		},
 	}
 
 	cmd.PersistentFlags().Bool("human", false, "formatted table/text output")
 	cmd.PersistentFlags().Bool("json", false, "force JSON output (default)")
+	cmd.PersistentFlags().Bool("sync", false, "block until server projections have caught up after each write")
 
 	root.Command = cmd
 
