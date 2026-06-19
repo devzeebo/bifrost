@@ -89,7 +89,13 @@ func (p *SystemStatusProjector) handleRoleAssigned(ctx context.Context, event co
 
 	entry, err := core.GetRef(ctx, store, "_admin", SystemStatusTable, "status")
 	if err != nil {
-		return err
+		var nfe *core.NotFoundError
+		if errors.As(err, &nfe) {
+			// Status doesn't exist, initialize it
+			entry = SystemStatusEntry{AdminAccountIDs: []string{}, RealmIDs: []string{}}
+		} else {
+			return err
+		}
 	}
 
 	// Check for duplicate for idempotency
@@ -116,7 +122,13 @@ func (p *SystemStatusProjector) handleRoleRevoked(ctx context.Context, event cor
 
 	entry, err := core.GetRef(ctx, store, "_admin", SystemStatusTable, "status")
 	if err != nil {
-		return err
+		var nfe *core.NotFoundError
+		if errors.As(err, &nfe) {
+			// Status doesn't exist, nothing to revoke
+			return nil
+		} else {
+			return err
+		}
 	}
 
 	// Remove account from admin list (idempotent - no-op if not found)
@@ -138,7 +150,13 @@ func (p *SystemStatusProjector) handleRealmCreated(ctx context.Context, event co
 
 	entry, err := core.GetRef(ctx, store, "_admin", SystemStatusTable, "status")
 	if err != nil {
-		return err
+		var nfe *core.NotFoundError
+		if errors.As(err, &nfe) {
+			// Status doesn't exist, initialize it
+			entry = SystemStatusEntry{AdminAccountIDs: []string{}, RealmIDs: []string{}}
+		} else {
+			return err
+		}
 	}
 
 	// Check for duplicate for idempotency
