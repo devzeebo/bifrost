@@ -24,6 +24,7 @@ export default defineConfig({
     "no-void": "off",
     "typescript/explicit-function-return-type": "off",
     "typescript/explicit-module-boundary-types": "off",
+    "max-params": "off",
   },
   overrides: [
     {
