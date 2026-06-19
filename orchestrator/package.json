@@ -5,7 +5,8 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "packages/**"
+    "packages/**",
+    "atif/**"
   ],
   "scripts": {
     "test": "vitest run",

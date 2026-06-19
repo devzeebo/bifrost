@@ -15,6 +15,9 @@
       "path": "./packages/engine-claude-code"
     },
     {
+      "path": "./packages/engine-devin-cli"
+    },
+    {
       "path": "./packages/task-source"
     },
     {
@@ -22,6 +25,12 @@
     },
     {
       "path": "./packages/task-source-memory"
+    },
+    {
+      "path": "./atif/claude-code"
+    },
+    {
+      "path": "./atif/core"
     }
   ]
 }

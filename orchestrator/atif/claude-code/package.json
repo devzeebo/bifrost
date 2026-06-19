@@ -1,0 +1,31 @@
+{
+  "name": "@atif/claude-code",
+  "version": "1.0.0",
+  "description": "Convert Claude Code JSONL conversation logs to ATIF format",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "vite build",
+    "test": "vitest run",
+    "lint": "cd ../.. && npm run lint -- atif/claude-code/"
+  },
+  "dependencies": {
+    "@atif/core": "^1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "vite": "^8.0.14",
+    "vite-plugin-dts": "^5.0.1",
+    "vitest": "^4.1.7"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "@bifrost-ai/engine-devin-cli",
+  "version": "0.0.1",
+  "description": "Devin CLI engine for Orchestrator Framework",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "vite build",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@bifrost-ai/engine": "^0.0.2"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.4",
+    "typescript": "^5.7.3"
+  }
+}
