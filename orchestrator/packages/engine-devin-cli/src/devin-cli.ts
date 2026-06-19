@@ -16,8 +16,9 @@ export class DevinCli {
     prompt: string,
     sessionId?: string,
     tools?: AgentTool[],
+    taskId?: string,
   ): Promise<DevinCliResult> {
-    const args = DevinCli.#buildArgs(prompt, sessionId, tools);
+    const args = DevinCli.#buildArgs(prompt, sessionId, tools, taskId);
     const process = spawn("devin", args, {
       cwd: this.#cwd,
       stdio: ["ignore", "pipe", "pipe"],
@@ -48,17 +49,22 @@ export class DevinCli {
     this.#permissionManager.cleanup();
   }
 
-  static #buildArgs(prompt: string, sessionId?: string, tools?: AgentTool[]): string[] {
+  static #buildArgs(
+    prompt: string,
+    sessionId?: string,
+    tools?: AgentTool[],
+    taskId?: string,
+  ): string[] {
     const args = ["-p", "--"]; // Print mode + prompt separator
 
     if (sessionId) {
       args.unshift("-r", sessionId); // Resume specific session
     }
 
-    if (tools && tools.length > 0) {
+    if (tools && tools.length > 0 && taskId) {
       const permManager = new PermissionManager();
       const permissions = PermissionManager.convertToolsToPermissions(tools);
-      const configPath = permManager.createConfig(permissions);
+      const configPath = permManager.createConfig(taskId, permissions);
       args.push("--config", configPath);
     }
 

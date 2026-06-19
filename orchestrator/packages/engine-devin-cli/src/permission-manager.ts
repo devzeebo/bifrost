@@ -1,5 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 export type DevinConfig = {
@@ -11,10 +10,14 @@ export type DevinConfig = {
 };
 
 export class PermissionManager {
-  #configDir: string;
+  static #CONFIG_DIR = "/tmp/bifrost-ai/engine-devin";
+  #configPath: string | null = null;
 
   public constructor() {
-    this.#configDir = mkdtempSync(join(tmpdir(), "devin-config-"));
+    // Ensure config directory exists
+    if (!existsSync(PermissionManager.#CONFIG_DIR)) {
+      mkdirSync(PermissionManager.#CONFIG_DIR, { recursive: true });
+    }
   }
 
   /**
@@ -50,26 +53,28 @@ export class PermissionManager {
   }
 
   /**
-   * Create a temp config file with permissions for this session
+   * Create a config file with permissions for this session
    */
-  public createConfig(permissions: DevinConfig["permissions"]): string {
+  public createConfig(taskId: string, permissions: DevinConfig["permissions"]): string {
     const config: DevinConfig = {
       permissions: permissions ?? { allow: [], deny: [], ask: [] },
     };
 
-    const configPath = join(this.#configDir, "config.json");
-    writeFileSync(configPath, JSON.stringify(config, null, 2));
-    return configPath;
+    this.#configPath = join(PermissionManager.#CONFIG_DIR, `${taskId}.config.json`);
+    writeFileSync(this.#configPath, JSON.stringify(config, null, 2));
+    return this.#configPath;
   }
 
   /**
-   * Clean up temp config directory
+   * Clean up config file
    */
   public cleanup(): void {
-    try {
-      rmSync(this.#configDir, { recursive: true });
-    } catch {
-      // Ignore cleanup errors
+    if (this.#configPath) {
+      try {
+        rmSync(this.#configPath);
+      } catch {
+        // Ignore cleanup errors
+      }
     }
   }
 

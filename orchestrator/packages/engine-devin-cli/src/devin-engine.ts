@@ -15,7 +15,12 @@ export class DevinCliEngine implements Engine {
 
     try {
       // Execute via CLI with agent tools for permissions
-      const result = await this.#cli.execute(context.instructions, sessionId, context.agent.tools);
+      const result = await this.#cli.execute(
+        context.instructions,
+        sessionId,
+        context.agent.tools,
+        context.taskId,
+      );
 
       if (!result.success) {
         return DevinCliEngine.#handleError(result.stderr, new Error(result.stderr));

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, afterEach } from "vitest";
 import { PermissionManager } from "./permission-manager.js";
 
 describe("PermissionManager", () => {
-  let permissionManager: PermissionManager = new PermissionManager();
+  let permissionManager: PermissionManager = null!;
 
   beforeEach(() => {
     permissionManager = new PermissionManager();
@@ -62,27 +62,26 @@ describe("PermissionManager", () => {
         ask: [],
       };
 
-      const configPath = permissionManager.createConfig(permissions);
+      const configPath = permissionManager.createConfig("task-123", permissions);
 
-      expect(configPath).toBeTruthy();
-      // Config file should be in a temp directory
-      expect(configPath).toMatch(/devin-config/);
+      expect(configPath).toBe("/tmp/bifrost-a/engine-devin/task-123.config.json");
     });
 
     it("should create config with default permissions if none provided", () => {
-      const configPath = permissionManager.createConfig(undefined);
+      const permissions = { allow: [], deny: [], ask: [] };
+      const configPath = permissionManager.createConfig("task-456", permissions);
 
-      expect(configPath).toBeTruthy();
+      expect(configPath).toBe("/tmp/bifrost-a/engine-devin/task-456.config.json");
     });
   });
 
   describe("cleanup", () => {
-    it("should clean up temp directory", () => {
+    it("should clean up config file", () => {
       const manager = new PermissionManager();
 
       // Create a config
       const permissions = { allow: ["Read(**)"], deny: [], ask: [] };
-      manager.createConfig(permissions);
+      manager.createConfig("task-cleanup", permissions);
 
       // Cleanup should not throw
       expect(() => manager.cleanup()).not.toThrow();
