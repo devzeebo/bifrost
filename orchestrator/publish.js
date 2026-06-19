@@ -30,6 +30,7 @@ const publishOrder = [
   "@bifrost-ai/engine",
   "@bifrost-ai/task-source-bifrost",
   "@bifrost-ai/engine-claude-code",
+  "@bifrost-ai/engine-devin-cli",
   "@bifrost-ai/orchestrator", // Main CLI entry point
 ];
 
