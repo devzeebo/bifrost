@@ -14,8 +14,8 @@ export class DevinCliEngine implements Engine {
     const startTime = Date.now();
 
     try {
-      // Execute via CLI
-      const result = await this.#cli.execute(context.instructions, sessionId);
+      // Execute via CLI with agent tools for permissions
+      const result = await this.#cli.execute(context.instructions, sessionId, context.agent.tools);
 
       if (!result.success) {
         return DevinCliEngine.#handleError(result.stderr, new Error(result.stderr));

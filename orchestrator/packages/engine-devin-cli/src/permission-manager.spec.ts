@@ -1,0 +1,91 @@
+import { beforeEach, describe, expect, it, afterEach } from "vitest";
+import { PermissionManager } from "./permission-manager.js";
+
+describe("PermissionManager", () => {
+  let permissionManager: PermissionManager = new PermissionManager();
+
+  beforeEach(() => {
+    permissionManager = new PermissionManager();
+  });
+
+  afterEach(() => {
+    permissionManager.cleanup();
+  });
+
+  describe("convertToolsToPermissions", () => {
+    it("should convert simple tool names to Devin permissions", () => {
+      const tools = ["Read", "Write", "Bash"];
+      const permissions = PermissionManager.convertToolsToPermissions(tools);
+
+      expect(permissions?.allow).toEqual(["Read(**)", "Write(**)", "Exec(**)"]);
+      expect(permissions?.deny).toEqual([]);
+    });
+
+    it("should handle tools with allow patterns", () => {
+      const tools = [
+        {
+          name: "Write",
+          allow: ["src/**/*.ts", "lib/**/*.ts"],
+          deny: ["**/*.test.ts"],
+        },
+      ];
+      const permissions = PermissionManager.convertToolsToPermissions(tools);
+
+      expect(permissions?.allow).toContain("Write(src/**/*.ts)");
+      expect(permissions?.allow).toContain("Write(lib/**/*.ts)");
+      expect(permissions?.deny).toContain("Write(**/*.test.ts)");
+    });
+
+    it("should handle empty tools array", () => {
+      const permissions = PermissionManager.convertToolsToPermissions([]);
+
+      expect(permissions?.allow).toEqual([]);
+      expect(permissions?.deny).toEqual([]);
+      expect(permissions?.ask).toEqual([]);
+    });
+
+    it("should map tool names with action keywords correctly", () => {
+      const tools = ["Bash", "Edit", "WebSearch"];
+      const permissions = PermissionManager.convertToolsToPermissions(tools);
+
+      expect(permissions?.allow).toContain("Exec(**)");
+      expect(permissions?.allow).toContain("Write(**)"); // Edit → Write in Devin
+      expect(permissions?.allow).toContain("Fetch(**)"); // WebSearch → Fetch
+    });
+  });
+
+  describe("createConfig", () => {
+    it("should create a config file with permissions", () => {
+      const permissions = {
+        allow: ["Read(src/**)", "Exec(npm run)"],
+        deny: ["Exec(rm)"],
+        ask: [],
+      };
+
+      const configPath = permissionManager.createConfig(permissions);
+
+      expect(configPath).toBeTruthy();
+      // Config file should be in a temp directory
+      expect(configPath).toMatch(/devin-config/);
+    });
+
+    it("should create config with default permissions if none provided", () => {
+      const configPath = permissionManager.createConfig(undefined);
+
+      expect(configPath).toBeTruthy();
+    });
+  });
+
+  describe("cleanup", () => {
+    it("should clean up temp directory", () => {
+      const manager = new PermissionManager();
+
+      // Create a config
+      const permissions = { allow: ["Read(**)"], deny: [], ask: [] };
+      manager.createConfig(permissions);
+
+      // Cleanup should not throw
+      expect(() => manager.cleanup()).not.toThrow();
+    });
+  });
+});

@@ -1,15 +1,23 @@
 import { spawn } from "node:child_process";
 import type { DevinCliResult } from "./devin-types.js";
+import { PermissionManager } from "./permission-manager.js";
+import type { AgentTool } from "@bifrost-ai/engine";
 
 export class DevinCli {
   #cwd: string;
+  #permissionManager: PermissionManager;
 
   public constructor(cwd: string) {
     this.#cwd = cwd;
+    this.#permissionManager = new PermissionManager();
   }
 
-  public async execute(prompt: string, sessionId?: string): Promise<DevinCliResult> {
-    const args = DevinCli.#buildArgs(prompt, sessionId);
+  public async execute(
+    prompt: string,
+    sessionId?: string,
+    tools?: AgentTool[],
+  ): Promise<DevinCliResult> {
+    const args = DevinCli.#buildArgs(prompt, sessionId, tools);
     const process = spawn("devin", args, {
       cwd: this.#cwd,
       stdio: ["ignore", "pipe", "pipe"],
@@ -36,11 +44,22 @@ export class DevinCli {
     };
   }
 
-  static #buildArgs(prompt: string, sessionId?: string): string[] {
+  public cleanup(): void {
+    this.#permissionManager.cleanup();
+  }
+
+  static #buildArgs(prompt: string, sessionId?: string, tools?: AgentTool[]): string[] {
     const args = ["-p", "--"]; // Print mode + prompt separator
 
     if (sessionId) {
       args.unshift("-r", sessionId); // Resume specific session
+    }
+
+    if (tools && tools.length > 0) {
+      const permManager = new PermissionManager();
+      const permissions = PermissionManager.convertToolsToPermissions(tools);
+      const configPath = permManager.createConfig(permissions);
+      args.push("--config", configPath);
     }
 
     args.push(prompt);

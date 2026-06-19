@@ -67,7 +67,11 @@ describe("DevinCliEngine", () => {
 
       expect(result.success).toBe(true);
       expect(result.sessionId).toBe("existing-session-456");
-      expect(mockExecute).toHaveBeenCalledWith("Test instructions", "existing-session-456");
+      expect(mockExecute).toHaveBeenCalledWith(
+        "Test instructions",
+        "existing-session-456",
+        [], // No tools in this test
+      );
     });
 
     it("should handle CLI errors gracefully", async () => {
