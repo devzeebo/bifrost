@@ -247,7 +247,7 @@ describe("BifrostTaskSource", () => {
         expect.stringContaining("/api/fail-rune"),
         expect.objectContaining({
           method: "POST",
-          body: '{"id":"rune-1","error":"Task failed"}',
+          body: '{"id":"rune-1","reason":"Task failed"}',
         }),
       );
     });

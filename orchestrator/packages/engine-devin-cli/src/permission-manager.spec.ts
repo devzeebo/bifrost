@@ -64,14 +64,14 @@ describe("PermissionManager", () => {
 
       const configPath = permissionManager.createConfig("task-123", permissions);
 
-      expect(configPath).toBe("/tmp/bifrost-a/engine-devin/task-123.config.json");
+      expect(configPath).toBe("/tmp/bifrost-ai/engine-devin/task-123.config.json");
     });
 
     it("should create config with default permissions if none provided", () => {
       const permissions = { allow: [], deny: [], ask: [] };
       const configPath = permissionManager.createConfig("task-456", permissions);
 
-      expect(configPath).toBe("/tmp/bifrost-a/engine-devin/task-456.config.json");
+      expect(configPath).toBe("/tmp/bifrost-ai/engine-devin/task-456.config.json");
     });
   });
 

@@ -51,6 +51,7 @@ describe("BifrostHttpClient", () => {
         ok: false,
         status: 500,
         statusText: "Internal Server Error",
+        text: async () => "Error details",
       });
 
       await expect(client.getReadyRunes()).rejects.toThrow(
@@ -150,7 +151,7 @@ describe("BifrostHttpClient", () => {
         "https://bifrost.example.com/api/fail-rune",
         expect.objectContaining({
           method: "POST",
-          body: '{"id":"rune-1","error":"Test failure"}',
+          body: '{"id":"rune-1","reason":"Test failure"}',
         }),
       );
     });

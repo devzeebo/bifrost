@@ -6,9 +6,9 @@ import { DevinCliEngine } from "./devin-engine.js";
 const mockExecute = vi.fn();
 
 vi.mock("./devin-cli.js", () => ({
-  DevinCli: vi.fn().mockImplementation(() => ({
-    execute: mockExecute,
-  })),
+  DevinCli: class {
+    public execute = mockExecute;
+  },
 }));
 
 const makeContext = (overrides: Partial<EngineContext> = {}): EngineContext => ({
@@ -71,6 +71,7 @@ describe("DevinCliEngine", () => {
         "Test instructions",
         "existing-session-456",
         [], // No tools in this test
+        "task-1", // taskId
       );
     });
 
