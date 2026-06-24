@@ -16,7 +16,7 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import createDebug from "debug";
 
-const debug = createDebug("bifrost:engine-claude-code");
+const debug = createDebug("bifrost:engine:claude-code");
 
 const isSystemInit = (message: SDKMessage): message is SDKSystemMessage =>
   message.type === "system" && message.subtype === "init";
@@ -38,7 +38,7 @@ const formatToolInput = (input: unknown): string => {
     return String(input ?? "");
   }
   const entries = Object.entries(input as Record<string, unknown>).slice(0, 3);
-  return entries.map(([key, val]) => `${key}=${String(val).substring(0, 40)}`).join(", ");
+  return entries.map(([key, val]) => `${key}=${String(val)}`).join(", ");
 };
 
 const extractContent = (message: SDKAssistantMessage): string | null => {
@@ -50,7 +50,7 @@ const extractContent = (message: SDKAssistantMessage): string | null => {
   const parts: string[] = [];
   for (const block of msg.content) {
     if (block.type === "text" && block.text) {
-      parts.push(block.text.substring(0, 100).replace(/\n/g, " "));
+      parts.push(block.text.replace(/\n/g, " "));
     } else if (block.type === "tool_use" && block.name) {
       const args = formatToolInput(block.input);
       parts.push(`ToolCall(${block.name}${args ? `, ${args}` : ""})`);
@@ -62,13 +62,10 @@ const extractContent = (message: SDKAssistantMessage): string | null => {
 
 const extractToolResultPreview = (resultContent: unknown): string => {
   if (typeof resultContent === "string") {
-    return resultContent.substring(0, 80);
+    return resultContent;
   }
   if (Array.isArray(resultContent)) {
-    return resultContent
-      .map((block: ContentBlock) => block.text ?? "")
-      .join("")
-      .substring(0, 80);
+    return resultContent.map((block: ContentBlock) => block.text ?? "").join("");
   }
   return "";
 };
@@ -80,7 +77,7 @@ const extractUserPreview = (message: SDKMessage): string | null => {
     return null;
   }
   if (typeof content === "string") {
-    return content.substring(0, 100).replace(/\n/g, " ");
+    return content.replace(/\n/g, " ");
   }
 
   const parts: string[] = [];
@@ -91,7 +88,7 @@ const extractUserPreview = (message: SDKMessage): string | null => {
         `ToolResult(${block.tool_use_id ?? "?"}${preview ? `: ${preview.replace(/\n/g, " ")}` : ""})`,
       );
     } else if (block.type === "text" && block.text) {
-      parts.push(block.text.substring(0, 100).replace(/\n/g, " "));
+      parts.push(block.text.replace(/\n/g, " "));
     }
   }
   return parts.length > 0 ? parts.join(" | ") : null;
@@ -105,7 +102,7 @@ const getMessagePreview = (message: SDKMessage): string => {
   } else if (message.type === "system") {
     const sysMsg = message as { message?: string };
     if (sysMsg.message) {
-      return sysMsg.message.substring(0, 100).replace(/\n/g, " ");
+      return sysMsg.message.replace(/\n/g, " ");
     }
   }
   return "";
