@@ -12,8 +12,8 @@ This guide shows how to create a new agent in the Bifrost Orchestrator by walkin
 
 ## Table of Contents
 
-  - [Agent Anatomy](L41-L65)
-  - [Step 1: Create AGENT.md](L66-L82)
+- [Agent Anatomy](L41-L65)
+- [Step 1: Create AGENT.md](L66-L82)
 - [Agent Name](L83-L355)
   - [Your Purpose](L87-L90)
   - [Core Principles](L91-L95)
@@ -103,6 +103,7 @@ Describe what this agent accomplishes.
 ```
 
 **Key frontmatter fields:**
+
 - `model`: Claude model (`sonnet`, `opus`, `haiku`)
 - `name`: Agent identifier
 - `description`: One-line summary
@@ -133,6 +134,7 @@ export const createMyAgent = async (): Promise<AgentDefinition> => {
 ```
 
 **Pattern:**
+
 1. Import `loadAgent` and hook functions
 2. Import AGENT.md with `?raw` suffix (Vite feature)
 3. Call `loadAgent()` to parse the markdown
@@ -151,10 +153,7 @@ Run before the agent executes. Use for setup, data collection, or context inject
 // src/hooks/Start.d/setup.ts
 import { HookExecutionContext, HookFn } from "@bifrost-ai/orchestrator";
 
-export const startHook_setup: HookFn = async ({
-  context,
-  setTaskState,
-}: HookExecutionContext) => {
+export const startHook_setup: HookFn = async ({ context, setTaskState }: HookExecutionContext) => {
   const { projectDir } = context;
 
   // Collect data or run setup logic
@@ -206,11 +205,13 @@ export const stopHook_validate: HookFn = async ({
 ```
 
 **Hook outcomes:**
+
 - `success`: Proceed to next phase
 - `follow-up`: Agent needs another attempt (message shown to agent)
 - `abort`: Stop execution with error
 
 **Hook context:**
+
 - `context.projectDir`: Working directory
 - `context.instructions`: Agent prompt (mutable, append to add context)
 - `setTaskState(data)`: Store data for later hooks
@@ -250,7 +251,7 @@ Hooks can append to `context.instructions` to inject dynamic data into the agent
 context.instructions += `
 ## Current Inventory
 
-${items.map(item => `- ${item.name}: ${item.count}`).join("\n")}
+${items.map((item) => `- ${item.name}: ${item.count}`).join("\n")}
 `;
 ```
 
@@ -273,16 +274,16 @@ Specify tools in AGENT.md frontmatter using glob patterns:
 
 ```yaml
 tools:
-  - Read(./**)                  # Read anything in working directory
-  - Edit(*.ts)                   # Edit TypeScript files
+  - Read(./**) # Read anything in working directory
+  - Edit(*.ts) # Edit TypeScript files
   - Edit(*.tsx)
-  - Write(*.spec.ts)            # Write test files
+  - Write(*.spec.ts) # Write test files
   - Glob(./**)
   - Grep(./**)
   - Search(./**)
-  - LSP                         # Language server features
-  - mcp__context7__*            # All context7 MCP tools
-  - mcp__devzeebo_node__*       # All devzeebo node MCP tools
+  - LSP # Language server features
+  - mcp__context7__* # All context7 MCP tools
+  - mcp__devzeebo_node__* # All devzeebo node MCP tools
 ```
 
 ### Follow-up Loops
@@ -352,7 +353,6 @@ tools:
   - Glob(./**)
   - Grep(./**)
 ---
-
 # BDD Red Phase Agent
 
 You execute the **Red** phase of the BDD cycle. Write failing tests that specify desired behavior.
