@@ -1,0 +1,90 @@
+name: Bug report
+description: Report something that is broken or behaves unexpectedly
+title: "[bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report! Before opening this,
+        please search existing issues to avoid duplicates. Security issues
+        should NOT be reported here — see SECURITY.md instead.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: A clear, one-or-two-sentence description of the bug.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Exact steps to trigger the behavior.
+      placeholder: |
+        1. Run `...`
+        2. Call `...`
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What you expected to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened.
+    validations:
+      required: true
+  - type: input
+    id: bifrost-version
+    attributes:
+      label: Bifrost version
+      placeholder: "e.g. v0.4.2 or git SHA"
+    validations:
+      required: true
+  - type: input
+    id: go-version
+    attributes:
+      label: Go version
+      placeholder: "go version"
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js version
+      placeholder: "node -v"
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: db-driver
+    attributes:
+      label: Database driver
+      options:
+        - sqlite
+        - postgres
+        - N/A
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs & stack traces
+      description: Relevant log output, error messages, or stack traces. Paste between the backticks.
+      render: shell
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Anything else relevant — config, screenshots, related runes.

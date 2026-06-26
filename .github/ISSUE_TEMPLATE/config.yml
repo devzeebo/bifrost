@@ -1,0 +1,9 @@
+# Disables the "open a blank issue" button. Set to true if you want raw issues.
+blank_issues_enabled: true
+contact_links:
+  - name: Questions & discussions
+    url: https://github.com/devzeebo/bifrost/issues
+    about: No GitHub Discussions yet — ask questions in issues.
+  - name: Security report
+    url: https://github.com/devzeebo/bifrost/security
+    about: Report security vulnerabilities privately via the Security tab. Do not open a public issue.

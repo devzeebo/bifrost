@@ -81,12 +81,12 @@ Top-level runes require either `--branch` or `--no-branch`. Child runes (created
 
 Bifrost uses per-realm role-based access control (RBAC). Each account is assigned one role per realm:
 
-| Role       | Level | Can do                                           |
-|------------|-------|--------------------------------------------------|
-| `owner`    | 4     | Everything, including managing owners             |
-| `admin`    | 3     | Assign/revoke roles, plus all member actions      |
-| `member`   | 2     | Create and manage runes                           |
-| `viewer`   | 1     | Read-only access                                  |
+| Role     | Level | Can do                                       |
+| -------- | ----- | -------------------------------------------- |
+| `owner`  | 4     | Everything, including managing owners        |
+| `admin`  | 3     | Assign/revoke roles, plus all member actions |
+| `member` | 2     | Create and manage runes                      |
+| `viewer` | 1     | Read-only access                             |
 
 `bf admin grant` assigns the `member` role by default. Use `bf admin assign-role` for a specific role. See **[Developing Bifrost](docs/DEVELOPMENT.md#roles--rbac)** for full details.
 
@@ -111,13 +111,13 @@ jwt_signing_key: your_base64_encoded_key_here
 
 **Environment variables** (override config file):
 
-| Variable                   | Description                          | Default          |
-|----------------------------|--------------------------------------|------------------|
+| Variable                   | Description                            | Default        |
+| -------------------------- | -------------------------------------- | -------------- |
 | `BIFROST_DB_DRIVER`        | Database driver (`sqlite`, `postgres`) | `sqlite`       |
-| `BIFROST_DB_PATH`          | Database path/connection string      | `./bifrost.db`   |
-| `BIFROST_PORT`             | HTTP listen port                     | `8080`           |
-| `BIFROST_CATCHUP_INTERVAL` | Projection catch-up poll interval    | `1s`             |
-| `ADMIN_JWT_SIGNING_KEY`    | JWT signing key (base64-encoded)     | generated temp   |
+| `BIFROST_DB_PATH`          | Database path/connection string        | `./bifrost.db` |
+| `BIFROST_PORT`             | HTTP listen port                       | `8080`         |
+| `BIFROST_CATCHUP_INTERVAL` | Projection catch-up poll interval      | `1s`           |
+| `ADMIN_JWT_SIGNING_KEY`    | JWT signing key (base64-encoded)       | generated temp |
 
 ### JWT Authentication
 
@@ -128,6 +128,7 @@ The server uses JWT tokens for admin authentication. Configure the signing key u
 3. **Auto-generation**: Server generates a temporary key (sessions invalidate on restart)
 
 Generate a secure key:
+
 ```bash
 openssl rand -base64 32
 ```
@@ -151,6 +152,7 @@ sudo systemctl enable --now bifrost
 ```
 
 The package installs:
+
 - `/usr/bin/bf` — CLI client
 - `/usr/bin/bifrost-server` — server
 - `/etc/bifrost/server.yaml` — config file (backup on upgrade)
@@ -192,11 +194,20 @@ See the [skill documentation](./skills/bifrost-rune-workflow.md) for complete us
 
 ## Glossary
 
-| Term      | Meaning                                      |
-|-----------|----------------------------------------------|
-| **Rune**  | A work item (issue, task, bug, etc.)         |
-| **Saga**  | An epic; collection of related runes         |
+| Term      | Meaning                                       |
+| --------- | --------------------------------------------- |
+| **Rune**  | A work item (issue, task, bug, etc.)          |
+| **Saga**  | An epic; collection of related runes          |
 | **Realm** | A tenant; isolated namespace with credentials |
+
+## Contributing
+
+Contributions are welcome! See **[CONTRIBUTING.md](../CONTRIBUTING.md)** for setup,
+coding conventions, testing, and the pull-request workflow. By participating, you
+agree to uphold the [Code of Conduct](../CODE_OF_CONDUCT.md).
+
+To report a security vulnerability, follow [SECURITY.md](../SECURITY.md) — do **not**
+open a public issue.
 
 ## Documentation
 
