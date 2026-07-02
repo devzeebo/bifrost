@@ -7,6 +7,9 @@ export function createRpcScriptContext(task: Task, rpc: RpcClient): ScriptContex
   const state = { ...task.taskState };
 
   return {
+    taskId: task.taskId,
+    agentType: task.agentType,
+    agentName: task.agentName,
     get taskState() {
       return state;
     },
@@ -14,7 +17,7 @@ export function createRpcScriptContext(task: Task, rpc: RpcClient): ScriptContex
     async setState(nextState: Record<string, unknown>) {
       Object.assign(state, nextState);
       await rpc.call("taskSource.setState", {
-        taskId: task.id,
+        taskId: task.taskId,
         taskState: state,
       });
     },

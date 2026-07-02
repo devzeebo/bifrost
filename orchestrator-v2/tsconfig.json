@@ -15,6 +15,12 @@
     },
     {
       "path": "./packages/runner/tsconfig.json"
+    },
+    {
+      "path": "./packages/engine/tsconfig.json"
+    },
+    {
+      "path": "./packages/agent-3-task/tsconfig.json"
     }
   ],
   "include": ["./vite.config.ts"]

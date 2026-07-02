@@ -1,7 +1,7 @@
 {
-  "name": "@bifrost-ai/interfaces-task",
+  "name": "@bifrost-ai/engine",
   "version": "0.1.0",
-  "description": "",
+  "description": "Engine interface and types for Bifrost orchestrator v2",
   "license": "MIT",
   "files": [
     "dist"
@@ -17,18 +17,16 @@
   "scripts": {
     "build": "vp pack",
     "dev": "vp pack --watch",
-    "test": "vp test --passWithNoTests",
+    "test": "vp test",
     "check": "vp check",
     "prepublishOnly": "vp run build"
-  },
-  "dependencies": {
-    "@bifrost-ai/interfaces-task-source": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",
     "@typescript/native-preview": "catalog:",
     "bumpp": "catalog:",
     "typescript": "catalog:",
-    "vite-plus": "catalog:"
+    "vite-plus": "catalog:",
+    "vitest-gwt": "catalog:"
   }
 }

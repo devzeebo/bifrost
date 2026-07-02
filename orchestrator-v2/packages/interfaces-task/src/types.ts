@@ -1,3 +1,5 @@
+import type { AgentType } from "@bifrost-ai/interfaces-task-source";
+
 export type ExecutionStats = {
   durationMs: number;
   inputTokens: number;
@@ -9,6 +11,9 @@ export type ExecutionStats = {
 };
 
 export type ScriptContext = {
+  taskId: string;
+  agentType: AgentType;
+  agentName: string;
   taskState: Record<string, unknown>;
   readonly metadata: Record<string, unknown>;
   setState: (state: Record<string, unknown>) => Promise<void>;

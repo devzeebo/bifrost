@@ -2,7 +2,10 @@
   "extends": "../../tsconfig.base.json",
   "references": [
     {
-      "path": "../interfaces-task-source"
+      "path": "../engine"
+    },
+    {
+      "path": "../interfaces-task"
     }
   ]
 }

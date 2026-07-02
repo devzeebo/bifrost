@@ -11,6 +11,8 @@ A rebuild of the Bifrost orchestrator as a thin **get-work + dispatch** system. 
 | `@bifrost-ai/protocol`               | Signed WebSocket RPC between orchestrator and runners                 |
 | `@bifrost-ai/orchestrator`           | Thin orchestrator: stream tasks, dispatch to runners, record outcomes |
 | `@bifrost-ai/runner`                 | Remote script runner: config-driven dial, execute, report outcomes    |
+| `@bifrost-ai/engine`                 | Engine interface, types, and `TestEngine` for development/testing     |
+| `@bifrost-ai/agent-3-task`           | Task Agent — single-shot LLM execution as a script                    |
 
 For design background and how each piece fits together, see [docs/](docs/).
 
@@ -52,6 +54,7 @@ const echo: ScriptTaskDefinition = {
 
 A script receives:
 
+- `taskId`, `agentType`, `agentName` — from the dispatched task
 - `taskState` — mutable per-task state (persisted via the task source)
 - `metadata` — read-only context attached when the task was created
 - `setState(state)` — persist state updates back to the source
@@ -68,8 +71,9 @@ import type { Task, TaskSource } from "@bifrost-ai/interfaces-task-source";
 const taskSource: TaskSource = {
   async *watchTasks() {
     yield {
-      id: "task-1",
-      scriptName: "echo",
+      taskId: "task-1",
+      agentType: "script",
+      agentName: "echo",
       taskState: {},
       metadata: { message: "hello" },
     } satisfies Task;
@@ -125,11 +129,12 @@ Runners dial the orchestrator over WebSocket. With `runner.yaml` present, keys a
 
 ```typescript
 import { Runner } from "@bifrost-ai/runner";
+import { createTaskAgent } from "@bifrost-ai/agent-3-task";
 
 const runner = new Runner();
 
-runner.registerScript(echo);
-// plugins enroll via runner.registerScript()
+runner.registerAgent("script", echo);
+runner.registerAgent("task", createTaskAgent({ engine, agent: reviewerAgent }));
 
 await runner.start();
 ```
@@ -185,3 +190,4 @@ This work tracks the Orchestrator v2 rebuild:
 - [#36 Runner package](https://github.com/devzeebo/bifrost/issues/36)
 - [#37 Task Agent (`agent-3-task`)](https://github.com/devzeebo/bifrost/issues/37) — [lifecycle docs](docs/agent-3-task.md)
 - [#39 Workflow Agent (`agent-4-workflow`)](https://github.com/devzeebo/bifrost/issues/39) — [lifecycle docs](docs/agent-4-workflow.md)
+- [#41 Structured output package](https://github.com/devzeebo/bifrost/issues/41) — schemas, sentinel files, JSON/YAML validation

@@ -107,19 +107,19 @@ describe("runner", () => {
     },
   });
 
-  test("registerScript throws on duplicate name", {
+  test("registerAgent throws on duplicate name within a type", {
     given: {
       empty_runner,
     },
     when: {
-      registering_duplicate_script,
+      registering_duplicate_agent,
     },
     then: {
       duplicate_error_thrown,
     },
   });
 
-  test("plugin enrollment via registerScript", {
+  test("plugin enrollment via registerAgent", {
     given: {
       task_source_with_echo_task,
       orchestrator_running,
@@ -152,8 +152,9 @@ async function teardown_runner(this: Context) {
 function task_source_with_echo_task(this: Context) {
   this.taskSource = createMemoryTaskSource([
     {
-      id: "task-1",
-      scriptName: "echo",
+      taskId: "task-1",
+      agentType: "script",
+      agentName: "echo",
       taskState: {},
       metadata: { message: "hello" },
     },
@@ -163,8 +164,9 @@ function task_source_with_echo_task(this: Context) {
 function task_source_with_fail_task(this: Context) {
   this.taskSource = createMemoryTaskSource([
     {
-      id: "task-fail",
-      scriptName: "fail",
+      taskId: "task-fail",
+      agentType: "script",
+      agentName: "fail",
       taskState: {},
       metadata: {},
     },
@@ -174,8 +176,9 @@ function task_source_with_fail_task(this: Context) {
 function task_source_with_pause_task(this: Context) {
   this.taskSource = createMemoryTaskSource([
     {
-      id: "task-pause",
-      scriptName: "pause",
+      taskId: "task-pause",
+      agentType: "script",
+      agentName: "pause",
       taskState: {},
       metadata: {},
     },
@@ -217,17 +220,17 @@ async function runner_config_written(this: Context) {
 
 function runner_with_echo_registered(this: Context) {
   this.runner = new Runner({ configPath: this.configPath });
-  this.runner.registerScript(echoScript);
+  this.runner.registerAgent("script", echoScript);
 }
 
 function runner_with_fail_registered(this: Context) {
   this.runner = new Runner({ configPath: this.configPath });
-  this.runner.registerScript(failScript);
+  this.runner.registerAgent("script", failScript);
 }
 
 function runner_with_pause_registered(this: Context) {
   this.runner = new Runner({ configPath: this.configPath });
-  this.runner.registerScript(pauseScript);
+  this.runner.registerAgent("script", pauseScript);
 }
 
 function empty_runner(this: Context) {
@@ -240,7 +243,7 @@ function runner_with_plugin_enrollment(this: Context) {
 }
 
 function enrollEchoPlugin(runner: Runner): void {
-  runner.registerScript(echoScript);
+  runner.registerAgent("script", echoScript);
 }
 
 async function runner_started(this: Context) {
@@ -248,10 +251,10 @@ async function runner_started(this: Context) {
   await delay(50);
 }
 
-async function registering_duplicate_script(this: Context) {
-  this.runner.registerScript(echoScript);
+async function registering_duplicate_agent(this: Context) {
+  this.runner.registerAgent("script", echoScript);
   try {
-    this.runner.registerScript(echoScript);
+    this.runner.registerAgent("script", echoScript);
     this.duplicateError = null;
   } catch (error) {
     this.duplicateError = error as Error;
@@ -287,7 +290,7 @@ function task_is_paused(this: Context) {
 }
 
 function duplicate_error_thrown(this: Context) {
-  expect(this.duplicateError?.message).toContain("Script already registered");
+  expect(this.duplicateError?.message).toContain("Already registered");
 }
 
 function indentPem(pem: string): string {

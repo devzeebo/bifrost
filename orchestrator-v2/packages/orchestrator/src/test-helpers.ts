@@ -193,12 +193,12 @@ async function handleDispatch(
   });
 
   if (behavior.setStateOnDispatch !== undefined) {
-    const requestId = `set-state-${task.id}`;
+    const requestId = `set-state-${task.taskId}`;
     runner.send({
       kind: "rpc.request",
       id: requestId,
       method: "taskSource.setState",
-      params: { taskId: task.id, taskState: behavior.setStateOnDispatch },
+      params: { taskId: task.taskId, taskState: behavior.setStateOnDispatch },
     });
     await waitForRpcResponse(runner, requestId);
   }
@@ -207,14 +207,14 @@ async function handleDispatch(
     await delay(behavior.dispatchDelayMs);
   }
 
-  const terminalId = `terminal-${task.id}`;
+  const terminalId = `terminal-${task.taskId}`;
   switch (outcome) {
     case "complete":
       runner.send({
         kind: "rpc.request",
         id: terminalId,
         method: "task.complete",
-        params: { taskId: task.id },
+        params: { taskId: task.taskId },
       });
       break;
     case "fail":
@@ -222,7 +222,7 @@ async function handleDispatch(
         kind: "rpc.request",
         id: terminalId,
         method: "task.fail",
-        params: { taskId: task.id, message: behavior.failMessage ?? "failed" },
+        params: { taskId: task.taskId, message: behavior.failMessage ?? "failed" },
       });
       break;
     case "pause":
@@ -230,7 +230,7 @@ async function handleDispatch(
         kind: "rpc.request",
         id: terminalId,
         method: "task.pause",
-        params: { taskId: task.id },
+        params: { taskId: task.taskId },
       });
       break;
   }
@@ -256,10 +256,11 @@ function waitForRpcResponse(runner: RunnerPeer, id: string): Promise<void> {
   });
 }
 
-export function sampleTask(id: string): Task {
+export function sampleTask(taskId: string): Task {
   return {
-    id,
-    scriptName: "echo",
+    taskId,
+    agentType: "script",
+    agentName: "echo",
     taskState: {},
     metadata: {},
   };

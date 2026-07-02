@@ -53,12 +53,12 @@ flowchart LR
 
 Higher-level agents are built on the [script task interface](script-tasks.md), but they behave very differently:
 
-|              | Task Agent               | Workflow Agent                                       |
-| ------------ | ------------------------ | ---------------------------------------------------- |
-| **Job**      | Run one LLM conversation | Coordinate multiple Task Agents through a step graph |
-| **Dispatches** | Once                   | Twice — schedule, then verify                        |
-| **Children** | None (leaf)              | One Task Agent per step, all created on first dispatch |
-| **Waits on** | Nothing                  | All children, as blockers registered on first dispatch |
+|                | Task Agent               | Workflow Agent                                         |
+| -------------- | ------------------------ | ------------------------------------------------------ |
+| **Job**        | Run one LLM conversation | Coordinate multiple Task Agents through a step graph   |
+| **Dispatches** | Once                     | Twice — schedule, then verify                          |
+| **Children**   | None (leaf)              | One Task Agent per step, all created on first dispatch |
+| **Waits on**   | Nothing                  | All children, as blockers registered on first dispatch |
 
 See [agent-3-task.md](agent-3-task.md) and [agent-4-workflow.md](agent-4-workflow.md) for walkthroughs with concrete examples.
 
@@ -70,7 +70,8 @@ interfaces-task-source   Task + TaskSource contracts
 protocol                 Wire format, signing, WebSocket peers
 orchestrator             Dispatch loop, peer registry, RPC routing
 runner                   Script execution, config, heartbeat, dispatch handling
-agent-3-task             Task Agent — engine loop as a leaf script (planned)
+engine                   Engine interface, types, and TestEngine
+agent-3-task             Task Agent — single-shot engine execution as a leaf script
 agent-4-workflow         Workflow Agent — DAG scheduling as a script (planned)
 ```
 
@@ -86,5 +87,5 @@ The runner package consumes `protocol` and `interfaces-task` to execute scripts 
 | Thin orchestrator (`orchestrator`)               | Done                                                           |
 | Runner package                                   | Done                                                           |
 | Bifrost task source adapter                      | Planned ([#40](https://github.com/devzeebo/bifrost/issues/40)) |
-| Task Agent (`agent-3-task`)                      | Planned ([#37](https://github.com/devzeebo/bifrost/issues/37)) |
+| Task Agent (`agent-3-task`)                      | Done ([#37](https://github.com/devzeebo/bifrost/issues/37))    |
 | Workflow Agent (`agent-4-workflow`)              | Planned ([#39](https://github.com/devzeebo/bifrost/issues/39)) |

@@ -11,7 +11,7 @@ export function dispatchTask(
   registry: PeerRegistry,
 ): string {
   const dispatchId = createDispatchId();
-  tracker.register(dispatchId, { taskId: task.id, peerId: peer.peerId });
+  tracker.register(dispatchId, { taskId: task.taskId, peerId: peer.peerId });
   registry.markDispatched(peer.peerId);
   peer.send({
     kind: "rpc.request",

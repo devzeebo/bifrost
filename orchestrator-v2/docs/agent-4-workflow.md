@@ -120,11 +120,11 @@ The workflow creates all three child Task Agents at once. Research has no depend
 
 **Waiting — children run in order**
 
-| Event | What the task source does |
-|---|---|
-| Research completes | Promotes Implement to live; dispatches it |
-| Implement completes | Promotes Test to live; dispatches it |
-| Test completes | Last blocker clears; workflow becomes ready |
+| Event               | What the task source does                   |
+| ------------------- | ------------------------------------------- |
+| Research completes  | Promotes Implement to live; dispatches it   |
+| Implement completes | Promotes Test to live; dispatches it        |
+| Test completes      | Last blocker clears; workflow becomes ready |
 
 The workflow does not run during any of this.
 
@@ -152,12 +152,12 @@ Consider a diamond: **Plan → {Build, Document} → Review**.
 
 **Waiting:**
 
-| Event | What happens |
-|---|---|
-| Plan completes | Build and Document both become ready; dispatched concurrently |
-| Build completes | Review still blocked by Document |
-| Document completes | Review becomes ready; dispatched |
-| Review completes | All blockers clear |
+| Event              | What happens                                                  |
+| ------------------ | ------------------------------------------------------------- |
+| Plan completes     | Build and Document both become ready; dispatched concurrently |
+| Build completes    | Review still blocked by Document                              |
+| Document completes | Review becomes ready; dispatched                              |
+| Review completes   | All blockers clear                                            |
 
 **Dispatch 2** verifies all four succeeded and completes.
 
@@ -179,24 +179,24 @@ If a child exhausts all retry attempts and **permanently fails**, the workflow's
 
 ## How blocking works
 
-| | Task Agent | Workflow Agent |
-|---|---|---|
-| **Dispatches (happy path)** | 1 | 2 — schedule, then verify |
-| **Children** | None | One Task Agent per step, all created on first dispatch |
-| **Waits on** | Nothing | All children, registered as blockers on first dispatch |
-| **Wakes up when** | N/A | Every child blocker has cleared |
-| **Checks on children mid-flight** | N/A | Never — only on the verify dispatch |
+|                                   | Task Agent | Workflow Agent                                         |
+| --------------------------------- | ---------- | ------------------------------------------------------ |
+| **Dispatches (happy path)**       | 1          | 2 — schedule, then verify                              |
+| **Children**                      | None       | One Task Agent per step, all created on first dispatch |
+| **Waits on**                      | Nothing    | All children, registered as blockers on first dispatch |
+| **Wakes up when**                 | N/A        | Every child blocker has cleared                        |
+| **Checks on children mid-flight** | N/A        | Never — only on the verify dispatch                    |
 
 The orchestrator never inspects the dependency graph. It dispatches whatever the task source says is ready.
 
 ## What the workflow owns vs. what it delegates
 
-| Workflow Agent handles | Task source / children handle |
-|---|---|
-| Creating the full step graph on first dispatch | Which children are runnable at any moment |
-| Wiring dependency edges between children | Promoting children as prerequisites complete |
-| Registering blockers and pausing | Dispatching children to runners |
-| Final verification and stat aggregation | Running LLM conversations, retries, producing output |
+| Workflow Agent handles                         | Task source / children handle                        |
+| ---------------------------------------------- | ---------------------------------------------------- |
+| Creating the full step graph on first dispatch | Which children are runnable at any moment            |
+| Wiring dependency edges between children       | Promoting children as prerequisites complete         |
+| Registering blockers and pausing               | Dispatching children to runners                      |
+| Final verification and stat aggregation        | Running LLM conversations, retries, producing output |
 
 ## Open questions
 

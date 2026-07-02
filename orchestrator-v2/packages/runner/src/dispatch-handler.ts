@@ -1,27 +1,32 @@
-import type { Task } from "@bifrost-ai/interfaces-task-source";
+import {
+  missingTaskFields,
+  missingTaskFieldsMessage,
+  validateTask,
+} from "@bifrost-ai/interfaces-task-source";
+import type { ScriptTaskDefinition } from "@bifrost-ai/interfaces-task";
 import type { FramePayload, RunnerPeer } from "@bifrost-ai/protocol";
 
 import { executeScript } from "./execute-script.js";
 import { sendRpcResponse, type RpcClient } from "./rpc-client.js";
 import { createRpcScriptContext } from "./script-context.js";
-import type { ScriptRegistry } from "./script-registry.js";
+import type { Registry } from "./registry.js";
 
 export function registerDispatchHandler(
   peer: RunnerPeer,
-  registry: ScriptRegistry,
+  registries: Map<string, Registry<ScriptTaskDefinition>>,
   rpc: RpcClient,
 ): () => void {
   return peer.subscribe(
     (payload) => payload.kind === "rpc.request" && payload.method === "dispatch",
     (payload) => {
-      void handleDispatch(peer, registry, rpc, payload);
+      void handleDispatch(peer, registries, rpc, payload);
     },
   );
 }
 
 async function handleDispatch(
   peer: RunnerPeer,
-  registry: ScriptRegistry,
+  registries: Map<string, Registry<ScriptTaskDefinition>>,
   rpc: RpcClient,
   payload: FramePayload,
 ): Promise<void> {
@@ -29,19 +34,21 @@ async function handleDispatch(
     return;
   }
 
-  const task = payload.params as Task;
-  if (!isTask(task)) {
+  const task = payload.params;
+  if (!validateTask(task)) {
+    const missing = missingTaskFields(task);
     sendRpcResponse(peer, payload.id, {
       accepted: false,
-      reason: "Invalid dispatch params",
+      reason: missingTaskFieldsMessage(missing),
     });
     return;
   }
 
-  if (!registry.has(task.scriptName)) {
+  const handler = registries.get(task.agentType)?.get(task.agentName);
+  if (handler === undefined) {
     sendRpcResponse(peer, payload.id, {
       accepted: false,
-      reason: `Unknown script: ${task.scriptName}`,
+      reason: `Unknown agent: ${task.agentName}`,
     });
     return;
   }
@@ -49,35 +56,20 @@ async function handleDispatch(
   sendRpcResponse(peer, payload.id, { accepted: true });
 
   const ctx = createRpcScriptContext(task, rpc);
-  const result = await executeScript(registry, task.scriptName, ctx);
+  const result = await executeScript(handler, ctx);
 
   switch (result.outcome) {
     case "completed":
-      await rpc.call("task.complete", { taskId: task.id });
+      await rpc.call("task.complete", { taskId: task.taskId });
       break;
     case "failed":
       await rpc.call("task.fail", {
-        taskId: task.id,
+        taskId: task.taskId,
         message: result.message ?? "failed",
       });
       break;
     case "paused":
-      await rpc.call("task.pause", { taskId: task.id });
+      await rpc.call("task.pause", { taskId: task.taskId });
       break;
   }
-}
-
-function isTask(value: unknown): value is Task {
-  if (value === null || typeof value !== "object") {
-    return false;
-  }
-  const record = value as Partial<Task>;
-  return (
-    typeof record.id === "string" &&
-    typeof record.scriptName === "string" &&
-    record.taskState !== null &&
-    typeof record.taskState === "object" &&
-    record.metadata !== null &&
-    typeof record.metadata === "object"
-  );
 }

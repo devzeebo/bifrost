@@ -219,7 +219,7 @@ async function slow_runner_connected(this: Context) {
   await this.connectRunner(this.runnerIdentity, {
     dispatchDelayMs: 200,
     onDispatch: async (task) => {
-      this.dispatchedTaskIds.push(task.id);
+      this.dispatchedTaskIds.push(task.taskId);
       return "complete";
     },
   });
