@@ -36,6 +36,13 @@ export function loadKeyPair(options: LoadKeyPairOptions): PeerIdentity {
   };
 }
 
+export function loadTrustedPublicKey(options: {
+  keyId: string;
+  publicKeyPem: string;
+}): ReadonlyMap<string, KeyObject> {
+  return new Map([[options.keyId, createPublicKey(options.publicKeyPem)]]);
+}
+
 export function exportPublicKeyPem(publicKey: KeyObject): string {
   return publicKey.export({ format: "pem", type: "spki" }).toString();
 }

@@ -106,10 +106,22 @@ createRunnerPeer({ identity, trustedPublicKeys, url }): Promise<RunnerPeer>
 ## Frame payload types
 
 ```typescript
-type RpcRequest   = { kind: "rpc.request";  id: string; method: string; params: unknown }
-type RpcResponse  = { kind: "rpc.response"; id: string; result?: unknown; error?: { code, message } }
-type RpcStreamEvent = { kind: "rpc.stream"; id: string; seq: number; event: "data"|"end"|"error"; data?; error? }
-type Heartbeat    = { kind: "heartbeat"; runnerId: string }
+type RpcRequest = { kind: "rpc.request"; id: string; method: string; params: unknown };
+type RpcResponse = {
+  kind: "rpc.response";
+  id: string;
+  result?: unknown;
+  error?: { code; message };
+};
+type RpcStreamEvent = {
+  kind: "rpc.stream";
+  id: string;
+  seq: number;
+  event: "data" | "end" | "error";
+  data?;
+  error?;
+};
+type Heartbeat = { kind: "heartbeat"; runnerId: string };
 ```
 
 `rpc.stream` supports ordered streaming responses. The orchestrator package does not use streaming today, but the protocol supports it for future methods.

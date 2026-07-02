@@ -48,16 +48,16 @@ sequenceDiagram
 
 ### Components
 
-| Module | Responsibility |
-|---|---|
-| `runOrchestrator` | Main loop: watch tasks, dispatch, drain, cleanup |
-| `PeerRegistry` | Track connected peers, heartbeats, in-flight counts |
-| `DispatchTracker` | Map dispatch IDs and task IDs to in-flight entries |
-| `dispatcher` | Send `dispatch` RPC to a peer |
-| `DispatchAckHandler` | Handle dispatch accept/reject responses |
-| `ResultHandler` | Handle `task.complete` / `task.fail` / `task.pause` |
-| `RpcRouter` | Route runner RPC to task source and scheduler |
-| `config` | Load authorized runner public keys from PEM entries |
+| Module               | Responsibility                                      |
+| -------------------- | --------------------------------------------------- |
+| `runOrchestrator`    | Main loop: watch tasks, dispatch, drain, cleanup    |
+| `PeerRegistry`       | Track connected peers, heartbeats, in-flight counts |
+| `DispatchTracker`    | Map dispatch IDs and task IDs to in-flight entries  |
+| `dispatcher`         | Send `dispatch` RPC to a peer                       |
+| `DispatchAckHandler` | Handle dispatch accept/reject responses             |
+| `ResultHandler`      | Handle `task.complete` / `task.fail` / `task.pause` |
+| `RpcRouter`          | Route runner RPC to task source and scheduler       |
+| `config`             | Load authorized runner public keys from PEM entries |
 
 ### Runner availability
 
@@ -87,8 +87,8 @@ type OrchestratorOptions = {
   scheduler: Scheduler;
   host?: string;
   port?: number;
-  heartbeatTimeoutMs?: number;   // default 30000
-  maxInFlightPerPeer?: number;   // default 1
+  heartbeatTimeoutMs?: number; // default 30000
+  maxInFlightPerPeer?: number; // default 1
 };
 ```
 
@@ -106,11 +106,11 @@ type Scheduler = {
 
 ## Alternatives rejected
 
-| Alternative | Why rejected |
-|---|---|
-| Orchestrator inspects/resolves dependencies | Task source owns resolution |
-| Dynamic runner registration | Static pre-shared keys + restart |
-| Hooks / BeforeDispatch guards | Removed entirely from v2 |
+| Alternative                                 | Why rejected                     |
+| ------------------------------------------- | -------------------------------- |
+| Orchestrator inspects/resolves dependencies | Task source owns resolution      |
+| Dynamic runner registration                 | Static pre-shared keys + restart |
+| Hooks / BeforeDispatch guards               | Removed entirely from v2         |
 
 ## Dependencies
 

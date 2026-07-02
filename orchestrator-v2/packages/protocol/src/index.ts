@@ -8,6 +8,7 @@ export {
   fingerprintPublicKey,
   generateKeyPair,
   loadKeyPair,
+  loadTrustedPublicKey,
 } from "./keys.js";
 export type { LoadKeyPairOptions } from "./keys.js";
 export { createOrchestratorPeer } from "./orchestrator.js";

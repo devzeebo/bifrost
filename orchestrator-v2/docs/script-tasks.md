@@ -33,13 +33,13 @@ type ScriptResult = {
 
 ### Behavior contract
 
-| Scenario | Outcome |
-|---|---|
-| `run()` returns `{ outcome: "completed" }` | Task completes |
-| `run()` returns `{ outcome: "failed" }` | Task fails |
-| `run()` returns `{ outcome: "paused" }` | Task pauses (e.g. waiting for human input) |
-| `run()` throws | Treated as `failed` |
-| `ctx.setState(...)` called during run | State persisted for the task via the task source |
+| Scenario                                   | Outcome                                          |
+| ------------------------------------------ | ------------------------------------------------ |
+| `run()` returns `{ outcome: "completed" }` | Task completes                                   |
+| `run()` returns `{ outcome: "failed" }`    | Task fails                                       |
+| `run()` returns `{ outcome: "paused" }`    | Task pauses (e.g. waiting for human input)       |
+| `run()` throws                             | Treated as `failed`                              |
+| `ctx.setState(...)` called during run      | State persisted for the task via the task source |
 
 `taskState` is the script's working memory across invocations of the same task. `metadata` is read-only context set when the task was created (workflow inputs, rune references, etc.).
 
@@ -56,10 +56,10 @@ The `ScriptContext` surface is defined here. Its RPC-backed implementation (call
 
 ## Alternatives rejected
 
-| Alternative | Why rejected |
-|---|---|
+| Alternative                         | Why rejected                                                |
+| ----------------------------------- | ----------------------------------------------------------- |
 | Discriminated union `script \| llm` | LLM is an agent package atop the interface, not a task type |
-| Keep v1 hooks | Hooks removed entirely from v2 |
+| Keep v1 hooks                       | Hooks removed entirely from v2                              |
 
 ## Dependencies
 

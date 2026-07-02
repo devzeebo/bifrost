@@ -31,12 +31,12 @@ type Task = {
 };
 ```
 
-| Field | Description |
-|---|---|
-| `id` | Unique task identifier within the source |
+| Field        | Description                                                                      |
+| ------------ | -------------------------------------------------------------------------------- |
+| `id`         | Unique task identifier within the source                                         |
 | `scriptName` | Name of the script to execute (runner resolves this to a `ScriptTaskDefinition`) |
-| `taskState` | Mutable state persisted across script invocations |
-| `metadata` | Read-only context (workflow inputs, rune refs, etc.) |
+| `taskState`  | Mutable state persisted across script invocations                                |
+| `metadata`   | Read-only context (workflow inputs, rune refs, etc.)                             |
 
 The orchestrator sends the full `Task` object as the `params` of a `dispatch` RPC frame. The runner uses `scriptName` to look up the script and passes `taskState` / `metadata` into `ScriptContext`.
 
@@ -101,22 +101,22 @@ interfaces-task-source          interfaces-task
   taskState, metadata       →     ScriptContext { taskState, metadata, setState }
 ```
 
-| Package | Role |
-|---|---|
-| `interfaces-task-source` | What work exists and its lifecycle |
-| `interfaces-task` | How a single script executes |
-| `orchestrator` | Streams tasks, dispatches, records outcomes |
-| `protocol` | Wire transport for dispatch and callbacks |
+| Package                  | Role                                        |
+| ------------------------ | ------------------------------------------- |
+| `interfaces-task-source` | What work exists and its lifecycle          |
+| `interfaces-task`        | How a single script executes                |
+| `orchestrator`           | Streams tasks, dispatches, records outcomes |
+| `protocol`               | Wire transport for dispatch and callbacks   |
 
 ## Orchestrator RPC mapping
 
 The orchestrator proxies runner RPC calls to `TaskSource` methods:
 
-| Runner RPC method | TaskSource method |
-|---|---|
-| `task.complete` | `completeTask(taskId)` |
-| `task.fail` | `failTask(taskId, message)` |
-| `task.pause` | `pauseTask(taskId)` |
+| Runner RPC method     | TaskSource method             |
+| --------------------- | ----------------------------- |
+| `task.complete`       | `completeTask(taskId)`        |
+| `task.fail`           | `failTask(taskId, message)`   |
+| `task.pause`          | `pauseTask(taskId)`           |
 | `taskSource.setState` | `setState(taskId, taskState)` |
 
 The orchestrator validates that the task is in-flight on the calling peer before forwarding terminal outcomes.

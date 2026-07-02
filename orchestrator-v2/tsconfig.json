@@ -12,6 +12,9 @@
     },
     {
       "path": "./packages/protocol/tsconfig.json"
+    },
+    {
+      "path": "./packages/runner/tsconfig.json"
     }
   ],
   "include": ["./vite.config.ts"]

@@ -29,10 +29,10 @@ Every WebSocket message is a JSON-encoded signed envelope:
 ```typescript
 type SignedEnvelope = {
   payload: FramePayload;
-  signature: string;       // base64 ed25519 signature
-  keyId: string;           // identifies the signing key
+  signature: string; // base64 ed25519 signature
+  keyId: string; // identifies the signing key
   algorithm: "ed25519";
-  timestamp: number;       // epoch ms
+  timestamp: number; // epoch ms
 };
 ```
 
@@ -40,12 +40,12 @@ Signing material is built from a **deterministically canonicalized** JSON repres
 
 ### Frame types
 
-| Kind | Direction | Purpose |
-|---|---|---|
-| `heartbeat` | Runner → Orchestrator | Announce `runnerId`, keep peer alive |
-| `rpc.request` | Either | Method call with `id`, `method`, `params` |
-| `rpc.response` | Either | Result or error for a request `id` |
-| `rpc.stream` | Either | Ordered streaming events (`data`, `end`, `error`) |
+| Kind           | Direction             | Purpose                                           |
+| -------------- | --------------------- | ------------------------------------------------- |
+| `heartbeat`    | Runner → Orchestrator | Announce `runnerId`, keep peer alive              |
+| `rpc.request`  | Either                | Method call with `id`, `method`, `params`         |
+| `rpc.response` | Either                | Result or error for a request `id`                |
+| `rpc.stream`   | Either                | Ordered streaming events (`data`, `end`, `error`) |
 
 ### Peer API
 
@@ -81,28 +81,28 @@ The protocol package defines the transport. The orchestrator package defines the
 
 **Orchestrator → Runner:**
 
-| Method | Params | Notes |
-|---|---|---|
+| Method     | Params | Notes                                                     |
+| ---------- | ------ | --------------------------------------------------------- |
 | `dispatch` | `Task` | Runner must respond with `{ accepted: boolean, reason? }` |
 
 **Runner → Orchestrator:**
 
-| Method | Params | Notes |
-|---|---|---|
-| `task.complete` | `{ taskId }` | |
-| `task.fail` | `{ taskId, message? }` | |
-| `task.pause` | `{ taskId }` | |
+| Method                | Params                  | Notes                  |
+| --------------------- | ----------------------- | ---------------------- |
+| `task.complete`       | `{ taskId }`            |                        |
+| `task.fail`           | `{ taskId, message? }`  |                        |
+| `task.pause`          | `{ taskId }`            |                        |
 | `taskSource.setState` | `{ taskId, taskState }` | Proxied to task source |
-| `scheduler.call` | `{ method, args }` | Proxied to scheduler |
+| `scheduler.call`      | `{ method, args }`      | Proxied to scheduler   |
 
 ## Alternatives rejected
 
-| Alternative | Why rejected |
-|---|---|
-| Separate `crypto` package | Folded into `protocol` |
-| HTTP + SSE | WebSocket chosen for bidirectional, persistent connection |
-| In-process direct-call transport | One interface only, always over socket |
-| External signing library (`@noble/ed25519`, `tweetnacl`) | Node `crypto` ed25519 is sufficient |
+| Alternative                                              | Why rejected                                              |
+| -------------------------------------------------------- | --------------------------------------------------------- |
+| Separate `crypto` package                                | Folded into `protocol`                                    |
+| HTTP + SSE                                               | WebSocket chosen for bidirectional, persistent connection |
+| In-process direct-call transport                         | One interface only, always over socket                    |
+| External signing library (`@noble/ed25519`, `tweetnacl`) | Node `crypto` ed25519 is sufficient                       |
 
 ## Verification
 

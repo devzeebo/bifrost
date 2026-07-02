@@ -4,12 +4,13 @@ A rebuild of the Bifrost orchestrator as a thin **get-work + dispatch** system. 
 
 ## Packages
 
-| Package | Purpose |
-|---|---|
-| `@bifrost-ai/interfaces-task` | Script task definition and result types |
-| `@bifrost-ai/interfaces-task-source` | Task and `TaskSource` contracts |
-| `@bifrost-ai/protocol` | Signed WebSocket RPC between orchestrator and runners |
-| `@bifrost-ai/orchestrator` | Thin orchestrator: stream tasks, dispatch to runners, record outcomes |
+| Package                              | Purpose                                                               |
+| ------------------------------------ | --------------------------------------------------------------------- |
+| `@bifrost-ai/interfaces-task`        | Script task definition and result types                               |
+| `@bifrost-ai/interfaces-task-source` | Task and `TaskSource` contracts                                       |
+| `@bifrost-ai/protocol`               | Signed WebSocket RPC between orchestrator and runners                 |
+| `@bifrost-ai/orchestrator`           | Thin orchestrator: stream tasks, dispatch to runners, record outcomes |
+| `@bifrost-ai/runner`                 | Remote script runner: config-driven dial, execute, report outcomes    |
 
 For design background and how each piece fits together, see [docs/](docs/).
 
@@ -73,10 +74,18 @@ const taskSource: TaskSource = {
       metadata: { message: "hello" },
     } satisfies Task;
   },
-  async completeTask(taskId) { /* mark done */ },
-  async failTask(taskId, error) { /* mark failed */ },
-  async pauseTask(taskId) { /* mark paused */ },
-  async setState(taskId, taskState) { /* persist state */ },
+  async completeTask(taskId) {
+    /* mark done */
+  },
+  async failTask(taskId, error) {
+    /* mark failed */
+  },
+  async pauseTask(taskId) {
+    /* mark paused */
+  },
+  async setState(taskId, taskState) {
+    /* persist state */
+  },
 };
 ```
 
@@ -110,59 +119,53 @@ const handle = await runOrchestrator({
 // handle.done — resolves when watchTasks() ends and in-flight work drains
 ```
 
-### Connect a runner
+### Run a runner
 
-Runners dial the orchestrator. There is no in-process shortcut — even co-located runners use the WebSocket.
+Runners dial the orchestrator over WebSocket. With `runner.yaml` present, keys and URL load automatically — register scripts and start:
 
 ```typescript
-import { createRunnerPeer } from "@bifrost-ai/protocol";
+import { Runner } from "@bifrost-ai/runner";
 
-const runner = await createRunnerPeer({
-  identity: runnerIdentity,
-  trustedPublicKeys: new Map([
-    [orchestratorIdentity.keyId, orchestratorIdentity.publicKey],
-  ]),
-  url: `ws://${host}:${port}`,
-});
+const runner = new Runner();
 
-// Announce availability
-runner.send({ kind: "heartbeat", runnerId: runnerIdentity.keyId });
+runner.registerScript(echo);
+// plugins enroll via runner.registerScript()
 
-// Handle dispatches
-runner.subscribe(
-  (p) => p.kind === "rpc.request" && p.method === "dispatch",
-  async (payload) => {
-    const task = payload.params as Task;
-
-    // Acknowledge dispatch
-    runner.send({
-      kind: "rpc.response",
-      id: payload.id,
-      result: { accepted: true },
-    });
-
-    // Execute script, then report outcome
-    runner.send({
-      kind: "rpc.request",
-      id: crypto.randomUUID(),
-      method: "task.complete",
-      params: { taskId: task.id },
-    });
-  },
-);
+await runner.start();
 ```
+
+Example `runner.yaml`:
+
+```yaml
+orchestrator:
+  url: ws://127.0.0.1:9100
+  keyId: orchestrator
+  publicKeyPem: |
+    -----BEGIN PUBLIC KEY-----
+    ...
+identity:
+  keyId: runner-1
+  privateKeyPem: |
+    -----BEGIN PRIVATE KEY-----
+    ...
+  publicKeyPem: |
+    -----BEGIN PUBLIC KEY-----
+    ...
+```
+
+See [docs/runner.md](docs/runner.md) for config discovery, trust model, and plugin enrollment.
 
 ### RPC methods exposed by the orchestrator
 
 Runners call back into the orchestrator over the same signed WebSocket:
 
-| Method | Params | Description |
-|---|---|---|
-| `task.complete` | `{ taskId }` | Mark task completed |
-| `task.fail` | `{ taskId, message? }` | Mark task failed |
-| `task.pause` | `{ taskId }` | Mark task paused |
-| `taskSource.setState` | `{ taskId, taskState }` | Persist script state |
-| `scheduler.call` | `{ method, args }` | Invoke scheduler proxy |
+| Method                | Params                  | Description            |
+| --------------------- | ----------------------- | ---------------------- |
+| `task.complete`       | `{ taskId }`            | Mark task completed    |
+| `task.fail`           | `{ taskId, message? }`  | Mark task failed       |
+| `task.pause`          | `{ taskId }`            | Mark task paused       |
+| `taskSource.setState` | `{ taskId, taskState }` | Persist script state   |
+| `scheduler.call`      | `{ method, args }`      | Invoke scheduler proxy |
 
 The orchestrator dispatches work with `dispatch` RPC requests containing a full `Task` object.
 
@@ -179,3 +182,6 @@ This work tracks the Orchestrator v2 rebuild:
 - [#32 Script task execution primitive](https://github.com/devzeebo/bifrost/issues/32)
 - [#33 Runner↔orchestrator protocol](https://github.com/devzeebo/bifrost/issues/33)
 - [#35 Thin orchestrator](https://github.com/devzeebo/bifrost/issues/35)
+- [#36 Runner package](https://github.com/devzeebo/bifrost/issues/36)
+- [#37 Task Agent (`agent-3-task`)](https://github.com/devzeebo/bifrost/issues/37) — [lifecycle docs](docs/agent-3-task.md)
+- [#39 Workflow Agent (`agent-4-workflow`)](https://github.com/devzeebo/bifrost/issues/39) — [lifecycle docs](docs/agent-4-workflow.md)

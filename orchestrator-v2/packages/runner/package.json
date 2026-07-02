@@ -1,7 +1,7 @@
 {
-  "name": "@bifrost-ai/orchestrator",
+  "name": "@bifrost-ai/runner",
   "version": "0.1.0",
-  "description": "Thin get-work + dispatch orchestrator for Bifrost v2",
+  "description": "Remote script runner for Bifrost orchestrator v2",
   "license": "MIT",
   "files": [
     "dist"
@@ -9,7 +9,6 @@
   "type": "module",
   "exports": {
     ".": "./dist/index.mjs",
-    "./test-helpers": "./src/test-helpers.ts",
     "./package.json": "./package.json"
   },
   "publishConfig": {
@@ -23,10 +22,13 @@
     "prepublishOnly": "vp run build"
   },
   "dependencies": {
+    "@bifrost-ai/interfaces-task": "workspace:*",
     "@bifrost-ai/interfaces-task-source": "workspace:*",
-    "@bifrost-ai/protocol": "workspace:*"
+    "@bifrost-ai/protocol": "workspace:*",
+    "yaml": "^2.8.2"
   },
   "devDependencies": {
+    "@bifrost-ai/orchestrator": "workspace:*",
     "@types/node": "catalog:",
     "@typescript/native-preview": "catalog:",
     "bumpp": "catalog:",
