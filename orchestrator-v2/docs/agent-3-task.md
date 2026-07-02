@@ -27,14 +27,12 @@ It produces:
 
 ## Lifecycle
 
-The Task Agent lifecycle is linear. There is no pause-and-resume loop built into the agent itself — it starts, does its work, and finishes.
+The Task Agent lifecycle is linear. There is no pause-and-resume loop built into the agent itself — it starts, does its work, and finishes. **A Task Agent can _never_ pause**; it either completes successfully or when an error is encountered, fails.
 
 ```
   dispatched ──▶ running ──▶ completed
                     │
-                    ├──▶ failed
-                    │
-                    └──▶ paused
+                    └──▶ failed
 ```
 
 ### 1. Dispatched
@@ -59,13 +57,12 @@ During the run, the agent may checkpoint progress (session ID, partial telemetry
 
 The agent returns one of three outcomes:
 
-| Outcome       | What it means                                                                                                                                          |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Completed** | The engine finished its work successfully. Telemetry is attached.                                                                                      |
-| **Failed**    | Something went wrong — an engine error, an exceeded turn limit, or an unrecoverable problem.                                                           |
-| **Paused**    | The agent deliberately yielded without finishing. This is uncommon for a standalone Task Agent but supported for cases like waiting on external input. |
+| Outcome       | What it means                                                                                |
+| ------------- | -------------------------------------------------------------------------------------------- |
+| **Completed** | The engine finished its work successfully. Telemetry is attached.                            |
+| **Failed**    | Something went wrong — an engine error, an exceeded turn limit, or an unrecoverable problem. |
 
-Once the runner reports the outcome, the task is **done**. The Task Agent does not wake up again on its own. If a parent workflow needs it to run again (e.g. a retry), that parent schedules a new invocation.
+Once the runner reports the outcome, the task is **done**. The Task Agent does not wake up again on its own. If a parent workflow needs it to run again (e.g. a retry), that parent schedules a new invocation with the same session id.
 
 ```mermaid
 sequenceDiagram

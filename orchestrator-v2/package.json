@@ -1,12 +1,13 @@
 {
   "name": "orchestrator-v2",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "ready": "vp check && vp run -r test && vp run -r build",
     "build": "vp run -r --parallel build",
-    "dev": "vp run -r --parallel dev"
+    "dev": "vp run -r --parallel dev",
+    "publish": "node publish.js"
   },
   "devDependencies": {
     "vite-plus": "catalog:"
