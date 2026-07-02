@@ -10,4 +10,8 @@ export default defineConfig({
   run: {
     cache: true,
   },
+  pack: {
+    dts: true, // Generate declaration files
+    sourcemap: true,
+  },
 });
