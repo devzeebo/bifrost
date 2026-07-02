@@ -107,7 +107,7 @@ describe("runner", () => {
     },
   });
 
-  test("registerAgent throws on duplicate name within a type", {
+  test("registerAgent throws on duplicate name within an agent registry", {
     given: {
       empty_runner,
     },

@@ -1,13 +1,14 @@
-import type { ScriptTaskDefinition } from "@bifrost-ai/interfaces-task";
+import type { AgentDefinition } from "@bifrost-ai/engine";
+import type { ScriptContext, ScriptTaskDefinition } from "@bifrost-ai/interfaces-task";
 
 import { runTaskAgent } from "./run-task-agent.js";
-import type { TaskAgentConfig } from "./types.js";
+import type { TaskAgentDataSchema } from "./types.js";
 
-export function createTaskAgent(config: TaskAgentConfig): ScriptTaskDefinition {
+export function createTaskAgent(agent: AgentDefinition): ScriptTaskDefinition {
   return {
-    name: config.agent.name,
+    name: agent.name,
     async run(ctx) {
-      return runTaskAgent(ctx, config);
+      return runTaskAgent(ctx as ScriptContext<Pick<TaskAgentDataSchema, "engine">>, agent);
     },
   };
 }

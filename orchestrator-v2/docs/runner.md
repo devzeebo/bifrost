@@ -17,22 +17,35 @@ The `@bifrost-ai/runner` package provides a config-first `Runner` class:
 
 ### Developer workflow
 
-Scripts are enrolled incrementally so plugins can contribute without upfront declaration:
+Scripts and other runnable agents are enrolled incrementally. Create the data registry up front with type guards, then register instances into typed sub-registries.
 
 ```typescript
-import { Runner } from "@bifrost-ai/runner";
+import { Runner, createDataRegistry } from "@bifrost-ai/runner";
 import { echo } from "./scripts/echo.js";
-import { enrollTaskAgent } from "@bifrost-ai/agent-3-task";
+import { enrollTaskAgent, taskAgentDataGuards } from "@bifrost-ai/agent-3-task";
 
-const runner = new Runner();
+const data = createDataRegistry(taskAgentDataGuards);
+const runner = new Runner({ data });
 
-runner.registerScript(echo);
-enrollTaskAgent(runner); // plugin calls runner.registerScript()
+data.get("engine").register("claude", claudeEngine);
+enrollTaskAgent(runner, reviewerAgent);
+runner.registerAgent("script", echo);
 
 await runner.start();
 ```
 
+`createTaskAgent(agent)` couples the agent definition with its handler at registration time. `enrollTaskAgent` also registers the definition in `data.get("agentDefinition")` for lookup by other agents.
+
 When `runner.yaml` (or `.bifrost-runner.yaml`) is present, keys and orchestrator URL are loaded automatically inside `start()` — no manual key handling required.
+
+### Registry model
+
+| Kind      | Setup                                                               | Dispatch                            | Script access                          |
+| --------- | ------------------------------------------------------------------- | ----------------------------------- | -------------------------------------- |
+| **Data**  | `createDataRegistry(guards)` then `.get(type).register(name, item)` | Not searched                        | `ctx.data.get(type).get(name)` — typed |
+| **Agent** | `registerAgent(agentType, def)`                                     | `task.agentType` + `task.agentName` | `ctx.agents.get(agentType, name)`      |
+
+Engines live in the data registry. Scripts, task agents, and workflow agents live in agent registries. Dispatch only searches agents.
 
 ### Config file (`runner.yaml`)
 
@@ -89,11 +102,11 @@ sequenceDiagram
 
   O->>R: dispatch Task signed
   R->>R: verify orchestrator signature
-  alt unknown script
+  alt unknown agent
     R->>O: accepted false
-  else known script
+  else known agent
     R->>O: accepted true
-    R->>S: script.run ctx
+    R->>S: handler.run ctx
     S->>O: taskSource.setState RPC
     S-->>R: ScriptResult
     R->>O: task.complete / fail / pause
@@ -102,22 +115,26 @@ sequenceDiagram
 
 ### RPC-backed ScriptContext
 
-| `ScriptContext` field | Source                                                       |
-| --------------------- | ------------------------------------------------------------ |
-| `taskState`           | Copied from dispatched `Task`; updated locally on `setState` |
-| `metadata`            | Read-only from dispatched `Task`                             |
-| `setState(state)`     | RPC `taskSource.setState` to orchestrator                    |
+| `ScriptContext` field | Source                                                        |
+| --------------------- | ------------------------------------------------------------- |
+| `taskId`              | Dispatched `Task`                                             |
+| `agentType`           | Dispatched `Task` — names the agent registry                  |
+| `agentName`           | Dispatched `Task` — names the handler within that registry    |
+| `taskState`           | Copied from dispatched `Task`; updated locally on `setState`  |
+| `metadata`            | Read-only from dispatched `Task`                              |
+| `data`                | Typed sub-registries — `ctx.data.get("engine").get("claude")` |
+| `setState(state)`     | RPC `taskSource.setState` to orchestrator                     |
 
 Task source and scheduler are reached over RPC. The engine (when used by agent packages) runs locally on the runner — never proxied.
 
 ## Alternatives rejected
 
-| Alternative                      | Why rejected                                                        |
-| -------------------------------- | ------------------------------------------------------------------- |
-| In-process direct-call transport | One interface only — always WebSocket                               |
-| Engine proxied to orchestrator   | Engine executes on runner machine                                   |
-| Scripts declared in constructor  | Plugins need incremental `registerScript()` enrollment              |
-| `Runner.create()` static factory | `new Runner()` + `registerScript()` + `start()` lifecycle preferred |
+| Alternative                      | Why rejected                                                       |
+| -------------------------------- | ------------------------------------------------------------------ |
+| In-process direct-call transport | One interface only — always WebSocket                              |
+| Engine proxied to orchestrator   | Engine executes on runner machine                                  |
+| Scripts declared in constructor  | Plugins need incremental `registerAgent()` enrollment              |
+| `Runner.create()` static factory | `new Runner()` + `registerAgent()` + `start()` lifecycle preferred |
 
 ## Dependencies
 

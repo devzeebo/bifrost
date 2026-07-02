@@ -1,3 +1,4 @@
+import type { MutableDataRegistry } from "@bifrost-ai/interfaces-task";
 import type { PeerIdentity } from "@bifrost-ai/protocol";
 import type { KeyObject } from "node:crypto";
 
@@ -29,8 +30,9 @@ export type RunnerConfig = {
   heartbeatIntervalMs: number;
 };
 
-export type RunnerOptions = {
+export type RunnerOptions<TData extends Record<string, unknown> = Record<string, unknown>> = {
   configPath?: string;
+  data?: MutableDataRegistry<TData>;
   identity?: PeerIdentity;
   url?: string;
   orchestratorPublicKey?: OrchestratorPublicKeyConfig;

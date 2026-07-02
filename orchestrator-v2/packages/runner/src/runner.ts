@@ -1,39 +1,39 @@
-import type { ScriptTaskDefinition } from "@bifrost-ai/interfaces-task";
+import type { MutableDataRegistry, ScriptTaskDefinition } from "@bifrost-ai/interfaces-task";
 import { createRunnerPeer, type RunnerPeer } from "@bifrost-ai/protocol";
 
 import { resolveRunnerOptions } from "./config-loader.js";
+import { asDataRegistry } from "./data-registry.js";
 import { registerDispatchHandler } from "./dispatch-handler.js";
 import { startHeartbeat, type HeartbeatHandle } from "./heartbeat.js";
 import { createRpcClient } from "./rpc-client.js";
+import { createDataRegistry } from "./data-registry.js";
 import { Registry } from "./registry.js";
 import type { RunnerOptions } from "./types.js";
 
-export class Runner {
-  private readonly options: RunnerOptions;
-  private readonly registries = new Map<string, Registry<ScriptTaskDefinition>>();
+export class Runner<TData extends Record<string, unknown> = Record<string, unknown>> {
+  private readonly options: RunnerOptions<TData>;
+  readonly data: MutableDataRegistry<TData>;
+  private readonly agents = new Map<string, Registry<ScriptTaskDefinition>>();
   private peer: RunnerPeer | null = null;
   private heartbeat: HeartbeatHandle | null = null;
   private unsubscribeDispatch: (() => void) | null = null;
   private started = false;
 
-  constructor(options: RunnerOptions = {}) {
+  constructor(options: RunnerOptions<TData> = {}) {
     this.options = options;
+    this.data = options.data ?? (createDataRegistry() as MutableDataRegistry<TData>);
   }
 
   registerAgent(agentType: string, handler: ScriptTaskDefinition): void {
-    this.ensureRegistry(agentType).register(handler.name, handler);
+    this.ensureAgentRegistry(agentType).register(handler.name, handler);
   }
 
   getAgent(agentType: string, name: string): ScriptTaskDefinition | undefined {
-    return this.registries.get(agentType)?.get(name);
-  }
-
-  getRegistry(agentType: string): Registry<ScriptTaskDefinition> | undefined {
-    return this.registries.get(agentType);
+    return this.agents.get(agentType)?.get(name);
   }
 
   hasAgent(agentType: string, name: string): boolean {
-    return this.registries.get(agentType)?.has(name) ?? false;
+    return this.agents.get(agentType)?.has(name) ?? false;
   }
 
   async start(): Promise<void> {
@@ -49,7 +49,12 @@ export class Runner {
     });
 
     const rpc = createRpcClient(peer);
-    this.unsubscribeDispatch = registerDispatchHandler(peer, this.registries, rpc);
+    this.unsubscribeDispatch = registerDispatchHandler(
+      peer,
+      this.agents,
+      asDataRegistry(this.data),
+      rpc,
+    );
     this.heartbeat = startHeartbeat(peer, resolved.identity, resolved.heartbeatIntervalMs);
 
     if (resolved.abortSignal !== undefined) {
@@ -79,11 +84,11 @@ export class Runner {
     return this.peer;
   }
 
-  private ensureRegistry(agentType: string): Registry<ScriptTaskDefinition> {
-    let registry = this.registries.get(agentType);
+  private ensureAgentRegistry(agentType: string): Registry<ScriptTaskDefinition> {
+    let registry = this.agents.get(agentType);
     if (registry === undefined) {
       registry = new Registry<ScriptTaskDefinition>();
-      this.registries.set(agentType, registry);
+      this.agents.set(agentType, registry);
     }
     return registry;
   }

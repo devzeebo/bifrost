@@ -3,7 +3,7 @@ import {
   missingTaskFieldsMessage,
   validateTask,
 } from "@bifrost-ai/interfaces-task-source";
-import type { ScriptTaskDefinition } from "@bifrost-ai/interfaces-task";
+import type { DataRegistry, ScriptTaskDefinition } from "@bifrost-ai/interfaces-task";
 import type { FramePayload, RunnerPeer } from "@bifrost-ai/protocol";
 
 import { executeScript } from "./execute-script.js";
@@ -13,20 +13,22 @@ import type { Registry } from "./registry.js";
 
 export function registerDispatchHandler(
   peer: RunnerPeer,
-  registries: Map<string, Registry<ScriptTaskDefinition>>,
+  agents: Map<string, Registry<ScriptTaskDefinition>>,
+  data: DataRegistry<Record<string, unknown>>,
   rpc: RpcClient,
 ): () => void {
   return peer.subscribe(
     (payload) => payload.kind === "rpc.request" && payload.method === "dispatch",
     (payload) => {
-      void handleDispatch(peer, registries, rpc, payload);
+      void handleDispatch(peer, agents, data, rpc, payload);
     },
   );
 }
 
 async function handleDispatch(
   peer: RunnerPeer,
-  registries: Map<string, Registry<ScriptTaskDefinition>>,
+  agents: Map<string, Registry<ScriptTaskDefinition>>,
+  data: DataRegistry<Record<string, unknown>>,
   rpc: RpcClient,
   payload: FramePayload,
 ): Promise<void> {
@@ -44,7 +46,7 @@ async function handleDispatch(
     return;
   }
 
-  const handler = registries.get(task.agentType)?.get(task.agentName);
+  const handler = agents.get(task.agentType)?.get(task.agentName);
   if (handler === undefined) {
     sendRpcResponse(peer, payload.id, {
       accepted: false,
@@ -55,7 +57,7 @@ async function handleDispatch(
 
   sendRpcResponse(peer, payload.id, { accepted: true });
 
-  const ctx = createRpcScriptContext(task, rpc);
+  const ctx = createRpcScriptContext(task, rpc, data, agents);
   const result = await executeScript(handler, ctx);
 
   switch (result.outcome) {

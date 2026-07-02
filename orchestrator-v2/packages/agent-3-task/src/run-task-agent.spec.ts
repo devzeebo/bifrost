@@ -1,15 +1,14 @@
-import type { ScriptContext } from "@bifrost-ai/interfaces-task";
+import type { DataRegistry, ScriptContext } from "@bifrost-ai/interfaces-task";
 import { describe, expect } from "vite-plus/test";
 import test from "vitest-gwt";
 
 import { runTaskAgent } from "./run-task-agent.js";
-import type { TaskAgentConfig } from "./types.js";
 import type { AgentDefinition, Engine, EngineContext, EngineResult } from "@bifrost-ai/engine";
 import { TestEngine } from "@bifrost-ai/engine";
+import type { TaskAgentDataSchema } from "./types.js";
 
 type Context = {
-  config: TaskAgentConfig;
-  ctx: ScriptContext;
+  ctx: ScriptContext<Pick<TaskAgentDataSchema, "engine">>;
   result: Awaited<ReturnType<typeof runTaskAgent>>;
   engine: TestEngine | TrackingEngine;
 };
@@ -33,13 +32,45 @@ class TrackingEngine implements Engine {
   }
 }
 
-function makeScriptContext(taskState: Record<string, unknown>): ScriptContext {
+const emptyAgents = {
+  get() {
+    return undefined;
+  },
+  has() {
+    return false;
+  },
+};
+
+function makeData(engine: Engine): DataRegistry<Pick<TaskAgentDataSchema, "engine">> {
+  const engines = new Map<string, Engine>([["test", engine]]);
+
+  return {
+    get(_type) {
+      return {
+        get(name) {
+          return engines.get(name);
+        },
+        has(name) {
+          return engines.has(name);
+        },
+      };
+    },
+  };
+}
+
+function makeScriptContext(
+  taskState: Record<string, unknown>,
+  engine: Engine,
+  agentName = sampleAgent.name,
+): ScriptContext<Pick<TaskAgentDataSchema, "engine">> {
   const state = { ...taskState };
 
   return {
     taskId: "task-123",
     agentType: "task",
-    agentName: sampleAgent.name,
+    agentName,
+    data: makeData(engine),
+    agents: emptyAgents,
     get taskState() {
       return state;
     },
@@ -54,6 +85,7 @@ function validTaskState(overrides: Record<string, unknown> = {}): Record<string,
   return {
     workingDir: "/home/user/project",
     instructions: "Review this code for quality",
+    engineName: "test",
     ...overrides,
   };
 }
@@ -84,6 +116,12 @@ describe("runTaskAgent", () => {
     then: { missing_fields_failure },
   });
 
+  test("fails when engine name is unknown", {
+    given: { task_agent_with_test_engine, context_with_unknown_engine },
+    when: { task_agent_run },
+    then: { unknown_engine_failure },
+  });
+
   test("fails when engine returns unsuccessful result", {
     given: { failing_engine, valid_state_context },
     when: { task_agent_run },
@@ -99,40 +137,38 @@ describe("runTaskAgent", () => {
 
 function task_agent_with_test_engine(this: Context) {
   this.engine = new TestEngine();
-  this.config = { engine: this.engine, agent: sampleAgent };
 }
 
 function tracking_engine(this: Context) {
-  const inner = new TestEngine();
-  const tracking = new TrackingEngine(inner);
-  this.engine = tracking;
-  this.config = { engine: tracking, agent: sampleAgent };
+  this.engine = new TrackingEngine(new TestEngine());
 }
 
 function failing_engine(this: Context) {
   this.engine = new TestEngine({ success: false, lastMessage: "Engine failed" });
-  this.config = { engine: this.engine, agent: sampleAgent };
 }
 
 function throwing_engine(this: Context) {
   this.engine = new TestEngine({ simulateError: true });
-  this.config = { engine: this.engine, agent: sampleAgent };
 }
 
 function valid_state_context(this: Context) {
-  this.ctx = makeScriptContext(validTaskState());
+  this.ctx = makeScriptContext(validTaskState(), this.engine);
 }
 
 function context_with_existing_session(this: Context) {
-  this.ctx = makeScriptContext(validTaskState({ sessionId: "existing-session-42" }));
+  this.ctx = makeScriptContext(validTaskState({ sessionId: "existing-session-42" }), this.engine);
 }
 
 function empty_state_context(this: Context) {
-  this.ctx = makeScriptContext({});
+  this.ctx = makeScriptContext({}, this.engine);
+}
+
+function context_with_unknown_engine(this: Context) {
+  this.ctx = makeScriptContext(validTaskState({ engineName: "missing" }), this.engine);
 }
 
 async function task_agent_run(this: Context) {
-  this.result = await runTaskAgent(this.ctx, this.config);
+  this.result = await runTaskAgent(this.ctx, sampleAgent);
 }
 
 function outcome_is_completed(this: Context) {
@@ -168,6 +204,12 @@ function missing_fields_failure(this: Context) {
   expect(this.result.outcome).toBe("failed");
   expect(this.result.message).toContain("workingDir");
   expect(this.result.message).toContain("instructions");
+  expect(this.result.message).toContain("engineName");
+}
+
+function unknown_engine_failure(this: Context) {
+  expect(this.result.outcome).toBe("failed");
+  expect(this.result.message).toBe("Unknown engine: missing");
 }
 
 function engine_failure_returned(this: Context) {

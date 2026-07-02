@@ -1,4 +1,14 @@
 export { createTaskAgent } from "./create-task-agent.js";
+export { enrollTaskAgent } from "./enroll-task-agent.js";
+export type { TaskAgentRunner } from "./enroll-task-agent.js";
 export { runTaskAgent } from "./run-task-agent.js";
-export type { ParsedTaskAgentState, TaskAgentConfig, TaskAgentState } from "./types.js";
-export { missingFieldsMessage, parseTaskAgentState } from "./types.js";
+export type { ParsedTaskAgentState, TaskAgentDataSchema, TaskAgentState } from "./types.js";
+export {
+  AGENT_DEFINITION_DATA_TYPE,
+  ENGINE_DATA_TYPE,
+  isAgentDefinition,
+  isEngine,
+  missingFieldsMessage,
+  parseTaskAgentState,
+  taskAgentDataGuards,
+} from "./types.js";

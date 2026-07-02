@@ -55,6 +55,8 @@ const echo: ScriptTaskDefinition = {
 A script receives:
 
 - `taskId`, `agentType`, `agentName` — from the dispatched task
+- `data` — `get(type)` returns a typed `Registry<T>`, then `.get(name)` for the instance
+- `agents` — `get(agentType, name)` for other registered handlers
 - `taskState` — mutable per-task state (persisted via the task source)
 - `metadata` — read-only context attached when the task was created
 - `setState(state)` — persist state updates back to the source
@@ -128,13 +130,15 @@ const handle = await runOrchestrator({
 Runners dial the orchestrator over WebSocket. With `runner.yaml` present, keys and URL load automatically — register scripts and start:
 
 ```typescript
-import { Runner } from "@bifrost-ai/runner";
-import { createTaskAgent } from "@bifrost-ai/agent-3-task";
+import { Runner, createDataRegistry } from "@bifrost-ai/runner";
+import { enrollTaskAgent, taskAgentDataGuards } from "@bifrost-ai/agent-3-task";
 
-const runner = new Runner();
+const data = createDataRegistry(taskAgentDataGuards);
+const runner = new Runner({ data });
 
+data.get("engine").register("claude", claudeEngine);
+enrollTaskAgent(runner, reviewerAgent);
 runner.registerAgent("script", echo);
-runner.registerAgent("task", createTaskAgent({ engine, agent: reviewerAgent }));
 
 await runner.start();
 ```

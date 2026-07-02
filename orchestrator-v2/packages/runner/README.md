@@ -6,49 +6,51 @@ Design background: [docs/runner.md](../../docs/runner.md) · Issue [#36](https:/
 
 ## Purpose
 
-Runners dial the orchestrator, execute registered scripts locally, and report signed outcomes. This package is the primary entry point for building a runner process.
+Runners dial the orchestrator, execute registered agents locally, and report signed outcomes. This package is the primary entry point for building a runner process.
 
 ## Public API
 
 ### `Runner`
 
 ```typescript
-const runner = new Runner(options?: RunnerOptions);
+const data = createDataRegistry({ engine: isEngine });
+const runner = new Runner({ data });
 
-runner.registerScript(script: ScriptTaskDefinition): void;
-await runner.start(): Promise<void>;
-runner.close(): void;
+data.get("engine").register("claude", claudeEngine);
+runner.registerAgent("script", echo);
+await runner.start();
+runner.close();
 runner.connection: RunnerPeer; // after start()
+runner.data: MutableDataRegistry<TData>;
 ```
 
 ### Config-driven usage
 
-With `runner.yaml` present, only scripts need to be registered:
+With `runner.yaml` present, register data and agents before starting:
 
 ```typescript
-const runner = new Runner();
-runner.registerScript(echo);
+const runner = new Runner({ data });
+runner.registerAgent("script", echo);
 await runner.start();
-```
-
-### Programmatic overrides (tests / embedding)
-
-```typescript
-const runner = new Runner({
-  identity: runnerIdentity,
-  url: "ws://127.0.0.1:9100",
-  orchestratorPublicKey: { keyId, publicKeyPem },
-});
 ```
 
 ### Lower-level exports
 
+- `createDataRegistry(guards)` — create a typed data registry up front
+- `asDataRegistry(data)` — read-only view for script context
 - `loadRunnerConfig(configPath)` — parse and validate YAML config
 - `resolveRunnerOptions(options)` — merge config file + overrides
-- `executeScript(registry, name, ctx)` — run a script in-process
-- `createRpcScriptContext(task, rpc)` — build RPC-backed `ScriptContext`
+- `executeScript(handler, ctx)` — run a handler in-process
+- `createRpcScriptContext(task, rpc, data, agents)` — build RPC-backed `ScriptContext`
 - `createRpcClient(peer)` — RPC helper for orchestrator callbacks
-- `ScriptRegistry` — mutable script map
+- `Registry` — generic name-keyed registry backing store
+
+## Registry model
+
+| Kind  | Setup                           | Dispatch                       | Script access                     |
+| ----- | ------------------------------- | ------------------------------ | --------------------------------- |
+| Data  | `createDataRegistry(guards)`    | Never                          | `ctx.data.get(type).get(name)`    |
+| Agent | `registerAgent(agentType, def)` | `task.agentType` + `agentName` | `ctx.agents.get(agentType, name)` |
 
 ## Config schema
 
@@ -69,19 +71,21 @@ PEM paths resolve relative to the config file directory.
 | Module                | Responsibility                                 |
 | --------------------- | ---------------------------------------------- |
 | `runner.ts`           | `Runner` class lifecycle                       |
+| `data-registry.ts`    | `createDataRegistry`, guarded sub-registries   |
 | `config-loader.ts`    | YAML discovery, PEM loading, option resolution |
-| `script-registry.ts`  | `registerScript` backing store                 |
+| `registry.ts`         | Generic name-keyed registry                    |
 | `dispatch-handler.ts` | Handle `dispatch` RPC → execute → terminal RPC |
 | `script-context.ts`   | RPC-backed `ScriptContext`                     |
 | `rpc-client.ts`       | Signed RPC request/response helper             |
-| `execute-script.ts`   | In-process script execution                    |
+| `execute-script.ts`   | In-process handler execution                   |
 | `heartbeat.ts`        | Periodic signed heartbeats                     |
 
 ## Error cases
 
 - `Runner already started` — second `start()` call
 - `Runner not started` — accessing `connection` before `start()`
-- `Script already registered: {name}` — duplicate `registerScript`
+- `Already registered: {name}` — duplicate registration in a registry
+- `Invalid data registration: {name}` — item failed the type guard for that data type
 - Config validation errors — missing url, keys, or invalid PEM paths (fail before dial)
 
 ## Trust model

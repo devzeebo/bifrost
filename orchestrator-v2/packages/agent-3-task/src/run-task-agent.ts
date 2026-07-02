@@ -1,26 +1,36 @@
+import type { AgentDefinition } from "@bifrost-ai/engine";
 import type { ScriptContext, ScriptResult } from "@bifrost-ai/interfaces-task";
 
-import type { TaskAgentConfig } from "./types.js";
-import { missingFieldsMessage, parseTaskAgentState } from "./types.js";
+import {
+  ENGINE_DATA_TYPE,
+  missingFieldsMessage,
+  parseTaskAgentState,
+  type TaskAgentDataSchema,
+} from "./types.js";
 
 export async function runTaskAgent(
-  ctx: ScriptContext,
-  config: TaskAgentConfig,
+  ctx: ScriptContext<Pick<TaskAgentDataSchema, "engine">>,
+  agent: AgentDefinition,
 ): Promise<ScriptResult> {
   const parsed = parseTaskAgentState(ctx.taskState);
   if (!parsed.ok) {
     return { outcome: "failed", message: missingFieldsMessage(parsed.missing) };
   }
 
-  const { workingDir, instructions, sessionId } = parsed.state;
+  const { workingDir, instructions, engineName, sessionId } = parsed.state;
+
+  const engine = ctx.data.get(ENGINE_DATA_TYPE).get(engineName);
+  if (engine === undefined) {
+    return { outcome: "failed", message: `Unknown engine: ${engineName}` };
+  }
 
   let engineResult;
   try {
-    engineResult = await config.engine.execute(
+    engineResult = await engine.execute(
       {
         taskId: ctx.taskId,
         workingDir,
-        agent: config.agent,
+        agent,
         instructions,
         taskState: ctx.taskState,
         metadata: ctx.metadata,
