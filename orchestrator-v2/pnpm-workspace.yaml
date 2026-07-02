@@ -7,7 +7,10 @@ overrides:
 
 catalog:
   "@types/node": ^25.6.2
+  "@types/ws": ^8.18.1
   "@typescript/native-preview": latest
   bumpp: ^11.1.0
   typescript: ^6.0.3
   vite-plus: ^0.2.0
+  vitest-gwt: ^4.1.0
+  ws: ^8.18.3

@@ -1,97 +1,3 @@
----
-lockfileVersion: '9.0'
-
-importers:
-
-  .:
-    configDependencies: {}
-    packageManagerDependencies:
-      '@pnpm/exe':
-        specifier: 10.33.2
-        version: 10.33.2
-      pnpm:
-        specifier: 10.33.2
-        version: 10.33.2
-
-packages:
-
-  '@pnpm/exe@10.33.2':
-    resolution: {integrity: sha512-jMTAKcTBptqD6xsm0oyF2q4S5zlhvVm70uwfmkfNED3S5V3vr6JRykV/xwt1qKd5ChLMONquKemNuVSrmUvx1w==}
-    hasBin: true
-
-  '@pnpm/linux-arm64@10.33.2':
-    resolution: {integrity: sha512-t7riiqXKzj3r2hy3SVkwiHnJB/9ussTLnSqA/6h9x5zuLlj9LZB3wla96hZDem2+wsLQ4xsMMVyZ1Rn1BGsH7w==}
-    cpu: [arm64]
-    os: [linux]
-    hasBin: true
-
-  '@pnpm/linux-x64@10.33.2':
-    resolution: {integrity: sha512-tWwfiXIvZwnnsNR0GJj2DWSWW5UsJCq+zd62LrGiB9IBT5e/oPDPo1uV88UGpfJGNNHexGQuczi4oYocnTkZNA==}
-    cpu: [x64]
-    os: [linux]
-    hasBin: true
-
-  '@pnpm/macos-arm64@10.33.2':
-    resolution: {integrity: sha512-4Gp5kO+sZBtmUScajoodNu8id58b6K3iNeChyKYrmiTc4EmAAcAFcwbXty0gTs5/GJaWtgT9NOuhDzx1e33eiw==}
-    cpu: [arm64]
-    os: [darwin]
-    hasBin: true
-
-  '@pnpm/macos-x64@10.33.2':
-    resolution: {integrity: sha512-en+5m6ygIik49Nbj1V+CUf7tzLWadnxpjVJiM/POd+P0JovR7sodlu93oHEOze/T2vunHhjTpnGk+qsafM5kuw==}
-    cpu: [x64]
-    os: [darwin]
-    hasBin: true
-
-  '@pnpm/win-arm64@10.33.2':
-    resolution: {integrity: sha512-ZJQaXG20k4efIFcITv53pyGk+0E13vBHbhdqcIZeF4Euw7iUNwb4F2ID4hnTW82NrvaI1woeS5cIPJSCrFpsxQ==}
-    cpu: [arm64]
-    os: [win32]
-    hasBin: true
-
-  '@pnpm/win-x64@10.33.2':
-    resolution: {integrity: sha512-A2zrjz2Ii/wdHBh83fMT6MtJ1WFSbQEDD9RCBVnC60fRcWda4+M2UoIDvwSiq+eTRRGj29ljFIE2FWzEDEQdbA==}
-    cpu: [x64]
-    os: [win32]
-    hasBin: true
-
-  pnpm@10.33.2:
-    resolution: {integrity: sha512-qQ+vb+6rca1sblf5Tg/hoS9dzCLNdU20CulZPraj4LaxLjVAIYuzeuCDQEsfLObbKkEh6XmCm0r/lLmfSdoc+A==}
-    engines: {node: '>=18.12'}
-    hasBin: true
-
-snapshots:
-
-  '@pnpm/exe@10.33.2':
-    optionalDependencies:
-      '@pnpm/linux-arm64': 10.33.2
-      '@pnpm/linux-x64': 10.33.2
-      '@pnpm/macos-arm64': 10.33.2
-      '@pnpm/macos-x64': 10.33.2
-      '@pnpm/win-arm64': 10.33.2
-      '@pnpm/win-x64': 10.33.2
-
-  '@pnpm/linux-arm64@10.33.2':
-    optional: true
-
-  '@pnpm/linux-x64@10.33.2':
-    optional: true
-
-  '@pnpm/macos-arm64@10.33.2':
-    optional: true
-
-  '@pnpm/macos-x64@10.33.2':
-    optional: true
-
-  '@pnpm/win-arm64@10.33.2':
-    optional: true
-
-  '@pnpm/win-x64@10.33.2':
-    optional: true
-
-  pnpm@10.33.2: {}
-
----
 lockfileVersion: '9.0'
 
 settings:
@@ -103,6 +9,9 @@ catalogs:
     '@types/node':
       specifier: ^25.6.2
       version: 25.9.4
+    '@types/ws':
+      specifier: ^8.18.1
+      version: 8.18.1
     '@typescript/native-preview':
       specifier: latest
       version: 7.0.0-dev.20260701.1
@@ -115,6 +24,12 @@ catalogs:
     vite-plus:
       specifier: ^0.2.0
       version: 0.2.1
+    vitest-gwt:
+      specifier: ^4.1.0
+      version: 4.1.0
+    ws:
+      specifier: ^8.18.3
+      version: 8.21.0
 
 overrides:
   vite: npm:@voidzero-dev/vite-plus-core@latest
@@ -167,6 +82,34 @@ importers:
       vite-plus:
         specifier: 'catalog:'
         version: 0.2.1(@types/node@25.9.4)(jiti@2.7.0)(typescript@6.0.3)(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))(yaml@2.9.0)
+
+  packages/protocol:
+    dependencies:
+      ws:
+        specifier: 'catalog:'
+        version: 8.21.0
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.4
+      '@types/ws':
+        specifier: 'catalog:'
+        version: 8.18.1
+      '@typescript/native-preview':
+        specifier: 'catalog:'
+        version: 7.0.0-dev.20260701.1
+      bumpp:
+        specifier: 'catalog:'
+        version: 11.1.0
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.2.1(@types/node@25.9.4)(jiti@2.7.0)(typescript@6.0.3)(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))(yaml@2.9.0)
+      vitest-gwt:
+        specifier: 'catalog:'
+        version: 4.1.0(vitest@4.1.9(@types/node@25.9.4)(@vitest/browser-preview@4.1.9)(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0)))
 
 packages:
 
@@ -626,6 +569,9 @@ packages:
   '@types/node@25.9.4':
     resolution: {integrity: sha512-dszCsrKb5U7ZsVZBWiHFklTloVl0mSEnWH/iZXfZUlI4rzCUnsvGmgqfuVRHL54ugE7/wRuxEIXRa2iMZ+BG6g==}
 
+  '@types/ws@8.18.1':
+    resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
+
   '@typescript/native-preview-darwin-arm64@7.0.0-dev.20260701.1':
     resolution: {integrity: sha512-rm3v+3Mcrj91NPwG0mjaLfbJjydCDX/skF82cQw0K6XWsEK7wHmpLEF1xPOWGnV05RhTYJac9VoKUjgcADkbXA==}
     engines: {node: '>=16.20.0'}
@@ -898,6 +844,9 @@ packages:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
+
+  gwt-runner@3.0.0:
+    resolution: {integrity: sha512-F+gXEzLnnRfjx6SfT56Yydc6t9cs5LDZjSk/7DcCX3tE6Nzcrqjx0TZDkfL+ecfn4vZ4KYgBzjfB7QBMyHkF9A==}
 
   jiti@2.7.0:
     resolution: {integrity: sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ==}
@@ -1186,6 +1135,11 @@ packages:
         optional: true
       yaml:
         optional: true
+
+  vitest-gwt@4.1.0:
+    resolution: {integrity: sha512-xSFyumJFF1GzqEV3UcNUWqn+DJ0BC0yh/RUd4rt056zaxPjblyvQvsO5eI4okIqhJPRwMtfZVopmVqN6iYTO3A==}
+    peerDependencies:
+      vitest: 4.1.9
 
   vitest@4.1.9:
     resolution: {integrity: sha512-nE3/LEyc0z87uHYLZebqCUOaJr2hdtuPp7BQ4BosVFnfltxgAvMG08NyrSGlPpOUWvR27c5flSmYFTNr78L9GQ==}
@@ -1523,6 +1477,10 @@ snapshots:
     dependencies:
       undici-types: 7.24.6
 
+  '@types/ws@8.18.1':
+    dependencies:
+      '@types/node': 25.9.4
+
   '@typescript/native-preview-darwin-arm64@7.0.0-dev.20260701.1':
     optional: true
 
@@ -1713,6 +1671,8 @@ snapshots:
 
   fsevents@2.3.3:
     optional: true
+
+  gwt-runner@3.0.0: {}
 
   jiti@2.7.0: {}
 
@@ -2009,6 +1969,11 @@ snapshots:
       fsevents: 2.3.3
       jiti: 2.7.0
       yaml: 2.9.0
+
+  vitest-gwt@4.1.0(vitest@4.1.9(@types/node@25.9.4)(@vitest/browser-preview@4.1.9)(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))):
+    dependencies:
+      gwt-runner: 3.0.0
+      vitest: 4.1.9(@types/node@25.9.4)(@vitest/browser-preview@4.1.9(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))(vitest@4.1.9))(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))
 
   vitest@4.1.9(@types/node@25.9.4)(@vitest/browser-preview@4.1.9(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))(vitest@4.1.9))(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0)):
     dependencies:
