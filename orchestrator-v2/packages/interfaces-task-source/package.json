@@ -1,7 +1,7 @@
 {
-  "name": "@bifrost-ai/orchestrator",
+  "name": "@bifrost-ai/interfaces-task-source",
   "version": "0.1.0",
-  "description": "Thin get-work + dispatch orchestrator for Bifrost v2",
+  "description": "Task and TaskSource contracts for orchestrator v2",
   "license": "MIT",
   "files": [
     "dist"
@@ -17,20 +17,15 @@
   "scripts": {
     "build": "vp pack",
     "dev": "vp pack --watch",
-    "test": "vp test",
+    "test": "vp test --passWithNoTests",
     "check": "vp check",
     "prepublishOnly": "vp run build"
-  },
-  "dependencies": {
-    "@bifrost-ai/interfaces-task-source": "workspace:*",
-    "@bifrost-ai/protocol": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",
     "@typescript/native-preview": "catalog:",
     "bumpp": "catalog:",
     "typescript": "catalog:",
-    "vite-plus": "catalog:",
-    "vitest-gwt": "catalog:"
+    "vite-plus": "catalog:"
   }
 }
