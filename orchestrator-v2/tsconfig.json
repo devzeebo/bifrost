@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.base.json",
+  "references": [
+    {
+      "path": "./packages/interfaces-task/tsconfig.json"
+    },
+    {
+      "path": "./packages/orchestrator/tsconfig.json"
+    }
+  ],
+  "include": ["./vite.config.ts"]
+}

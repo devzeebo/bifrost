@@ -13,10 +13,22 @@
   "[typescriptreact]": {
     "editor.defaultFormatter": "oxc.oxc-vscode"
   },
-  "oxc.fmt.configPath": "./orchestrator-v2/vite.config.ts",
+  "oxc.fmt.configPath": "./vite.config.ts",
   "editor.formatOnSave": true,
   "editor.formatOnSaveMode": "file",
   "editor.codeActionsOnSave": {
     "source.fixAll.oxc": "explicit"
+  },
+  "files.watcherExclude": {
+    "**/node_modules": true,
+    "**/dist": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true
+  },
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/dist": true
   }
 }
