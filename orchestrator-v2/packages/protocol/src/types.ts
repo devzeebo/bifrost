@@ -24,7 +24,18 @@ export type RpcStreamEvent = {
 export type Heartbeat = {
   kind: "heartbeat";
   runnerId: string;
+  // Optional capability advertisement: the capabilityKey() of every agent the runner
+  // has registered. Absent means "unknown" -- the orchestrator then treats the runner
+  // as able to handle any task (backward compatible with runners that don't advertise).
+  capabilities?: string[];
 };
+
+// Canonical wire form of a runner capability: the (agentType, agentName) pair a task
+// requires and a runner advertises. Both sides MUST derive keys via this helper so
+// advertised and required capabilities compare byte-for-byte.
+export function capabilityKey(agentType: string, agentName: string): string {
+  return JSON.stringify([agentType, agentName]);
+}
 
 export type FramePayload = RpcRequest | RpcResponse | RpcStreamEvent | Heartbeat;
 

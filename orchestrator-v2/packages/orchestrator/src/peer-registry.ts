@@ -5,6 +5,9 @@ type PeerState = {
   runnerId: string | null;
   lastSeen: number;
   inFlight: number;
+  // Advertised capability keys, or null if the runner has not advertised any
+  // (treated as "can handle anything" for backward compatibility).
+  capabilities: Set<string> | null;
 };
 
 export class PeerRegistry {
@@ -24,6 +27,7 @@ export class PeerRegistry {
       runnerId: null,
       lastSeen: Date.now(),
       inFlight: 0,
+      capabilities: null,
     });
   }
 
@@ -47,6 +51,9 @@ export class PeerRegistry {
     }
     state.runnerId = payload.runnerId;
     state.lastSeen = Date.now();
+    if (payload.capabilities !== undefined) {
+      state.capabilities = new Set(payload.capabilities);
+    }
     this.notifyWaiters();
   }
 
@@ -71,10 +78,13 @@ export class PeerRegistry {
     this.markTerminal(peerId);
   }
 
-  getAvailablePeer(): ConnectedPeer | undefined {
+  getAvailablePeer(requiredCapability?: string): ConnectedPeer | undefined {
     const now = Date.now();
     for (const state of this.peers.values()) {
       if (!this.isAvailable(state, now)) {
+        continue;
+      }
+      if (!canHandle(state, requiredCapability)) {
         continue;
       }
       return state.peer;
@@ -82,14 +92,14 @@ export class PeerRegistry {
     return undefined;
   }
 
-  waitForAvailablePeer(): Promise<ConnectedPeer> {
-    const available = this.getAvailablePeer();
+  waitForAvailablePeer(requiredCapability?: string): Promise<ConnectedPeer> {
+    const available = this.getAvailablePeer(requiredCapability);
     if (available !== undefined) {
       return Promise.resolve(available);
     }
     return new Promise((resolve) => {
       const tryResolve = () => {
-        const peer = this.getAvailablePeer();
+        const peer = this.getAvailablePeer(requiredCapability);
         if (peer !== undefined) {
           const index = this.waiters.indexOf(tryResolve);
           if (index >= 0) {
@@ -120,4 +130,13 @@ export class PeerRegistry {
       waiter();
     }
   }
+}
+
+function canHandle(state: PeerState, requiredCapability: string | undefined): boolean {
+  // No requirement, or a runner that hasn't advertised its capabilities, is treated as
+  // able to handle the task (keeps non-advertising runners working as before).
+  if (requiredCapability === undefined || state.capabilities === null) {
+    return true;
+  }
+  return state.capabilities.has(requiredCapability);
 }

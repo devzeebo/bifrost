@@ -30,4 +30,4 @@ export type {
   SignedEnvelope,
   UnsignedEnvelope,
 } from "./types.js";
-export { SIGNING_ALGORITHM } from "./types.js";
+export { capabilityKey, SIGNING_ALGORITHM } from "./types.js";

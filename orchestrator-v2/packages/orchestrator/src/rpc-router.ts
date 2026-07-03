@@ -17,7 +17,11 @@ export class RpcRouter {
       return;
     }
 
-    void this.route(peer, payload.id, payload.method, payload.params);
+    // route() is fire-and-forget; ensure a rejecting handler can never escape as an
+    // unhandled promise rejection (which is process-fatal on default Node settings).
+    void this.route(peer, payload.id, payload.method, payload.params).catch((error: unknown) => {
+      console.error(`Failed to handle RPC "${payload.method}":`, error);
+    });
   }
 
   private async route(
@@ -58,8 +62,12 @@ export class RpcRouter {
       return;
     }
 
-    await this.taskSource.setState(parsed.taskId, parsed.taskState);
-    sendRpcResponse(peer, requestId, { ok: true });
+    try {
+      await this.taskSource.setState(parsed.taskId, parsed.taskState);
+      sendRpcResponse(peer, requestId, { ok: true });
+    } catch (error) {
+      sendRpcError(peer, requestId, "TASK_SOURCE_ERROR", errorMessage(error));
+    }
   }
 
   private async handleSchedulerCall(
@@ -73,8 +81,12 @@ export class RpcRouter {
       return;
     }
 
-    const result = await this.scheduler.call(parsed.method, parsed.args);
-    sendRpcResponse(peer, requestId, result);
+    try {
+      const result = await this.scheduler.call(parsed.method, parsed.args);
+      sendRpcResponse(peer, requestId, result);
+    } catch (error) {
+      sendRpcError(peer, requestId, "SCHEDULER_ERROR", errorMessage(error));
+    }
   }
 }
 
@@ -106,4 +118,8 @@ function readSchedulerParams(params: unknown): { method: string; args: unknown }
     return null;
   }
   return { method: record.method, args: record.args };
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

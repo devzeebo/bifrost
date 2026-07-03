@@ -62,12 +62,13 @@ async function handleDispatch(
 
   switch (result.outcome) {
     case "completed":
-      await rpc.call("task.complete", { taskId: task.taskId });
+      await rpc.call("task.complete", { taskId: task.taskId, telemetry: result.telemetry });
       break;
     case "failed":
       await rpc.call("task.fail", {
         taskId: task.taskId,
         message: result.message ?? "failed",
+        telemetry: result.telemetry,
       });
       break;
     case "paused":

@@ -1,4 +1,4 @@
-import { createOrchestratorPeer, type OrchestratorPeer } from "@bifrost-ai/protocol";
+import { capabilityKey, createOrchestratorPeer, type OrchestratorPeer } from "@bifrost-ai/protocol";
 
 import { DispatchAckHandler } from "./dispatch-ack-handler.js";
 import { DispatchTracker } from "./dispatch-tracker.js";
@@ -82,7 +82,9 @@ export async function runOrchestrator(
         if (abortSignal?.aborted === true) {
           break;
         }
-        const runner = await registry.waitForAvailablePeer();
+        const runner = await registry.waitForAvailablePeer(
+          capabilityKey(task.agentType, task.agentName),
+        );
         dispatchTask(runner, task, tracker, registry);
       }
       await drainInFlight(tracker, abortSignal);
