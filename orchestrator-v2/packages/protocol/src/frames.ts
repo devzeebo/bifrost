@@ -37,7 +37,10 @@ export function isFramePayload(value: unknown): value is FramePayload {
         (record.event === "data" || record.event === "end" || record.event === "error")
       );
     case "heartbeat":
-      return typeof record.runnerId === "string";
+      return (
+        typeof record.runnerId === "string" &&
+        (record.capabilities === undefined || isStringArray(record.capabilities))
+      );
     default:
       return false;
   }
@@ -57,4 +60,8 @@ function isSignedEnvelope(value: unknown): value is SignedEnvelope {
     envelope.payload !== undefined &&
     isFramePayload(envelope.payload)
   );
+}
+
+function isStringArray(value: unknown): boolean {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
 }

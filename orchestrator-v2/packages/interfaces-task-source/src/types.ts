@@ -8,10 +8,20 @@ export type Task = {
   metadata: Record<string, unknown>;
 };
 
+export type ExecutionStats = {
+  durationMs: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  totalCostUsd: number;
+  numTurns: number;
+};
+
 export type TaskSource = {
   watchTasks: () => AsyncGenerator<Task>;
-  completeTask: (taskId: string) => Promise<void>;
-  failTask: (taskId: string, error: string) => Promise<void>;
+  completeTask: (taskId: string, telemetry?: ExecutionStats) => Promise<void>;
+  failTask: (taskId: string, error: string, telemetry?: ExecutionStats) => Promise<void>;
   pauseTask: (taskId: string) => Promise<void>;
   setState: (taskId: string, taskState: Record<string, unknown>) => Promise<void>;
 };
@@ -78,4 +88,22 @@ export function missingTaskFields(value: unknown): string[] {
 
 export function missingTaskFieldsMessage(missing: string[]): string {
   return `Task is missing required fields: ${missing.join(", ")}`;
+}
+
+const EXECUTION_STATS_FIELDS = [
+  "durationMs",
+  "inputTokens",
+  "outputTokens",
+  "cacheReadTokens",
+  "cacheCreationTokens",
+  "totalCostUsd",
+  "numTurns",
+] as const;
+
+export function isExecutionStats(value: unknown): value is ExecutionStats {
+  if (value === null || typeof value !== "object") {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  return EXECUTION_STATS_FIELDS.every((field) => typeof record[field] === "number");
 }

@@ -1,5 +1,5 @@
 import type { MutableDataRegistry, ScriptTaskDefinition } from "@bifrost-ai/interfaces-task";
-import { createRunnerPeer, type RunnerPeer } from "@bifrost-ai/protocol";
+import { capabilityKey, createRunnerPeer, type RunnerPeer } from "@bifrost-ai/protocol";
 
 import { resolveRunnerOptions } from "./config-loader.js";
 import { asDataRegistry } from "./data-registry.js";
@@ -14,6 +14,7 @@ export class Runner<TData extends Record<string, unknown> = Record<string, unkno
   private readonly options: RunnerOptions<TData>;
   readonly data: MutableDataRegistry<TData>;
   private readonly agents = new Map<string, Registry<ScriptTaskDefinition>>();
+  private readonly capabilities: string[] = [];
   private peer: RunnerPeer | null = null;
   private heartbeat: HeartbeatHandle | null = null;
   private unsubscribeDispatch: (() => void) | null = null;
@@ -26,6 +27,7 @@ export class Runner<TData extends Record<string, unknown> = Record<string, unkno
 
   registerAgent(agentType: string, handler: ScriptTaskDefinition): void {
     this.ensureAgentRegistry(agentType).register(handler.name, handler);
+    this.capabilities.push(capabilityKey(agentType, handler.name));
   }
 
   getAgent(agentType: string, name: string): ScriptTaskDefinition | undefined {
@@ -55,7 +57,12 @@ export class Runner<TData extends Record<string, unknown> = Record<string, unkno
       asDataRegistry(this.data),
       rpc,
     );
-    this.heartbeat = startHeartbeat(peer, resolved.identity, resolved.heartbeatIntervalMs);
+    this.heartbeat = startHeartbeat(
+      peer,
+      resolved.identity,
+      resolved.heartbeatIntervalMs,
+      this.capabilities,
+    );
 
     if (resolved.abortSignal !== undefined) {
       resolved.abortSignal.addEventListener("abort", () => {

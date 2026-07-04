@@ -20,6 +20,7 @@ type Context = {
   unauthorizedRunnerIdentity: PeerIdentity;
   taskSource: MemoryTaskSource;
   dispatchedTaskIds: string[];
+  reached: string[];
   abort: () => void;
   done: Promise<void>;
   connectRunner: (
@@ -128,6 +129,20 @@ describe("thin orchestrator", () => {
     },
     then: {
       task_was_not_completed,
+    },
+  });
+
+  test("does not wedge the peer when a task source callback throws (regression: I3)", {
+    given: {
+      task_source_that_throws_on_first_complete,
+      orchestrator_running,
+      authorized_runner_connected,
+    },
+    when: {
+      waiting_for_both_reached,
+    },
+    then: {
+      both_tasks_reached_complete,
     },
   });
 });
@@ -306,4 +321,29 @@ function set_state_was_persisted(this: Context) {
 function task_was_not_completed(this: Context) {
   expect(this.taskSource.completed).toEqual([]);
   expect(this.taskSource.failed).toEqual([]);
+}
+
+function task_source_that_throws_on_first_complete(this: Context) {
+  this.reached = [];
+  const source = createMemoryTaskSource([sampleTask("task-1"), sampleTask("task-2")]);
+  const recordComplete = source.completeTask;
+  source.completeTask = async (taskId: string) => {
+    this.reached.push(taskId);
+    if (taskId === "task-1") {
+      throw new Error("task source recording failed");
+    }
+    await recordComplete(taskId);
+  };
+  this.taskSource = source;
+}
+
+async function waiting_for_both_reached(this: Context) {
+  await waitFor(() => this.reached.length === 2);
+}
+
+function both_tasks_reached_complete(this: Context) {
+  // task-1's completeTask throws; the fix frees the peer slot regardless, so task-2 is
+  // still dispatched and reaches completeTask. Before the fix the peer wedged and
+  // `reached` would stall at ["task-1"].
+  expect(this.reached).toEqual(["task-1", "task-2"]);
 }

@@ -67,6 +67,12 @@ try {
     await setPackageVersion(pkgDir(pkgName), publishVersion);
   }
 
+  // NOTE: every package's `exports` subpaths must resolve to files that ship.
+  // We publish with `files: ["dist"]`, so a subpath pointing at `src/*.ts`
+  // (as orchestrator's `./test-helpers` once did) is a dead export in the
+  // tarball — the source is never included. When a package needs a subpath
+  // export, build it into `dist` and use `publishConfig.exports` to repoint it
+  // there (top-level `exports` can keep the `src` path for local dev/tests).
   console.log(`Building all packages (${publishVersion})...`);
   execFileSync("vp", ["run", "-r", "--parallel", "build"], {
     cwd: __dirname,
