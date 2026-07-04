@@ -7,9 +7,9 @@
     "start": "node run.mjs"
   },
   "dependencies": {
+    "@bifrost-ai/agent-3-task": "workspace:*",
     "@bifrost-ai/orchestrator": "workspace:*",
-    "@bifrost-ai/runner": "workspace:*",
     "@bifrost-ai/protocol": "workspace:*",
-    "@bifrost-ai/agent-3-task": "workspace:*"
+    "@bifrost-ai/runner": "workspace:*"
   }
 }

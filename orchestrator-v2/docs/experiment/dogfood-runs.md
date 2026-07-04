@@ -22,10 +22,10 @@ the session-id round-trip.
 **Result:** both tasks completed; real telemetry reached the task source; real Claude `session_id`s
 round-tripped via `setState`.
 
-| task | out tokens | turns | cost |
-|---|--:|--:|--:|
-| dog-1 (`"reply DOGFOOD"`) | 61 | 1 | $0.0227 |
-| dog-2 (`"describe an orchestrator"`) | 128 | 1 | $0.0153 |
+| task                                 | out tokens | turns |    cost |
+| ------------------------------------ | ---------: | ----: | ------: |
+| dog-1 (`"reply DOGFOOD"`)            |         61 |     1 | $0.0227 |
+| dog-2 (`"describe an orchestrator"`) |        128 |     1 | $0.0153 |
 
 **Total: $0.038.** Lesson: the untested onboarding path worked first try.
 
@@ -43,16 +43,16 @@ aggregate step could read the summaries.
 
 **Result — the system wrote release notes for its own new features:**
 
-> *"Task completion now sends execution telemetry to the backend, providing detailed performance
+> _"Task completion now sends execution telemetry to the backend, providing detailed performance
 > metrics and better observability. Runners can validate required capabilities, ensuring tasks are
-> only assigned to runners equipped to handle them."*
+> only assigned to runners equipped to handle them."_
 
-| task | out tokens | cost |
-|---|--:|--:|
-| sum-1 | 235 | $0.0237 |
-| sum-2 | 316 | $0.0241 |
-| release-notes | 384 | $0.0167 |
-| **total** | **935** | **$0.0645** |
+| task          | out tokens |        cost |
+| ------------- | ---------: | ----------: |
+| sum-1         |        235 |     $0.0237 |
+| sum-2         |        316 |     $0.0241 |
+| release-notes |        384 |     $0.0167 |
+| **total**     |    **935** | **$0.0645** |
 
 **Lesson (new gap E3):** chaining only worked because the **engine persisted each output via
 `setState`**. `task.complete` carries telemetry, not the task's `message` — there is no built-in
@@ -66,7 +66,7 @@ the task source because the Workflow Agent (`agent-4-workflow`) doesn't exist ye
 **Setup:** three `analyze` tasks fanned out to an **analyzer** runner (haiku, concurrent); a
 **synthesizer** runner (a **sonnet** engine) combined them; a **critic** runner (haiku) reviewed the
 result. Capability-routed across **three** specialized runners with **heterogeneous engines**. One
-analyze task (`an-routing`) was flaky — it failed *after* doing its work, and the task source
+analyze task (`an-routing`) was flaky — it failed _after_ doing its work, and the task source
 **retried it with `--resume`**.
 
 **Exercised, in one run:** Route A (the telemetry below), I1 (3-way capability routing), G1 (failed-run
@@ -103,14 +103,14 @@ scratch. The receipts make the value concrete.
 
 ### The pipeline's output (it critiqued its own design)
 
-**Synthesis (sonnet):** *"The orchestrator matches tasks to runners by required agent capability,
+**Synthesis (sonnet):** _"The orchestrator matches tasks to runners by required agent capability,
 avoiding wasted attempts on incapable runners, while tracking per-task execution costs and resource
 usage to support operator budgeting… It isolates task-source callback failures so a hung or erroring
-callback cannot crash or stall the orchestrator itself."*
+callback cannot crash or stall the orchestrator itself."_
 
-**Critique (haiku):** *"The three concerns aren't truly independent — callback isolation is
+**Critique (haiku):** _"The three concerns aren't truly independent — callback isolation is
 foundational reliability that enables cost tracking and matching to work correctly, and cost data
-should feed back into matching decisions…"* — a genuinely sharp observation about the architecture.
+should feed back into matching decisions…"_ — a genuinely sharp observation about the architecture.
 
 ---
 

@@ -51,17 +51,45 @@ const claudeEngine = {
         },
       };
     } catch (error) {
-      return { success: false, skipFulfill: false, lastMessage: String(error?.message ?? error), stats: null };
+      return {
+        success: false,
+        skipFulfill: false,
+        lastMessage: String(error?.message ?? error),
+        stats: null,
+      };
     }
   },
 };
 
 // ── A minimal in-memory TaskSource that records telemetry ───────────────────
-const fmt = (t) => (t ? `{in:${t.inputTokens}, out:${t.outputTokens}, turns:${t.numTurns}, $${t.totalCostUsd.toFixed(4)}}` : "none");
+const fmt = (t) =>
+  t
+    ? `{in:${t.inputTokens}, out:${t.outputTokens}, turns:${t.numTurns}, $${t.totalCostUsd.toFixed(4)}}`
+    : "none";
 const workDir = await mkdtemp(join(tmpdir(), "claude-engine-example-"));
 const tasks = [
-  { taskId: "t1", agentType: "task", agentName: "assistant", metadata: {}, taskState: { workingDir: workDir, engineName: "claude", instructions: "Reply with exactly one word, no punctuation: HELLO" } },
-  { taskId: "t2", agentType: "task", agentName: "assistant", metadata: {}, taskState: { workingDir: workDir, engineName: "claude", instructions: "In one short sentence, describe what a task orchestrator does." } },
+  {
+    taskId: "t1",
+    agentType: "task",
+    agentName: "assistant",
+    metadata: {},
+    taskState: {
+      workingDir: workDir,
+      engineName: "claude",
+      instructions: "Reply with exactly one word, no punctuation: HELLO",
+    },
+  },
+  {
+    taskId: "t2",
+    agentType: "task",
+    agentName: "assistant",
+    metadata: {},
+    taskState: {
+      workingDir: workDir,
+      engineName: "claude",
+      instructions: "In one short sentence, describe what a task orchestrator does.",
+    },
+  },
 ];
 const source = {
   async *watchTasks() {
@@ -87,14 +115,23 @@ const handle = await runOrchestrator({
     { keyId: runnerIdentity.keyId, publicKeyPem: exportPublicKeyPem(runnerIdentity.publicKey) },
   ]),
   taskSource: source,
-  scheduler: { async call() { return { ok: true }; } },
+  scheduler: {
+    async call() {
+      return { ok: true };
+    },
+  },
   port: 0,
 });
 const { host, port } = handle.peer.address;
 log(`orchestrator listening on ws://${host}:${port}`);
 
 // Write a real runner.yaml and load the runner's keys/URL from it.
-const indentPem = (pem) => pem.trimEnd().split("\n").map((l) => `    ${l}`).join("\n");
+const indentPem = (pem) =>
+  pem
+    .trimEnd()
+    .split("\n")
+    .map((l) => `    ${l}`)
+    .join("\n");
 const cfgDir = await mkdtemp(join(tmpdir(), "claude-engine-cfg-"));
 const configPath = join(cfgDir, "runner.yaml");
 await writeFile(
