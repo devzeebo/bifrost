@@ -41,16 +41,16 @@ await runner.start();
 - `loadRunnerConfig(configPath)` — parse and validate YAML config
 - `resolveRunnerOptions(options)` — merge config file + overrides
 - `executeWorkItem(handler, ctx)` — run a handler in-process
-- `createRpcWorkItemExecutionContext(task, rpc, data, agents)` — build RPC-backed `WorkItemExecutionContext`
+- `createRpcWorkItemExecutionContext(workItem, rpc, data, handlers)` — build RPC-backed `WorkItemExecutionContext`
 - `createRpcClient(peer)` — RPC helper for orchestrator callbacks
 - `Registry` — generic name-keyed registry backing store
 
 ## Registry model
 
-| Kind  | Setup                              | Dispatch                          | Script access                       |
-| ----- | ---------------------------------- | --------------------------------- | ----------------------------------- |
-| Data  | `createDataRegistry(guards)`       | Never                             | `ctx.data.get(type).get(name)`      |
-| Agent | `registerWorkItemHandler(handler)` | `workItem.kind` + `workItem.name` | `ctx.handlers.get(agentType, name)` |
+| Kind  | Setup                              | Dispatch                          | Handler access                 |
+| ----- | ---------------------------------- | --------------------------------- | ------------------------------ |
+| Data  | `createDataRegistry(guards)`       | Never                             | `ctx.data.get(type).get(name)` |
+| Agent | `registerWorkItemHandler(handler)` | `workItem.kind` + `workItem.name` | `ctx.handlers.get(kind, name)` |
 
 ## Config schema
 
@@ -68,17 +68,17 @@ PEM paths resolve relative to the config file directory.
 
 ## Module map
 
-| Module                | Responsibility                                 |
-| --------------------- | ---------------------------------------------- |
-| `runner.ts`           | `Runner` class lifecycle                       |
-| `data-registry.ts`    | `createDataRegistry`, guarded sub-registries   |
-| `config-loader.ts`    | YAML discovery, PEM loading, option resolution |
-| `registry.ts`         | Generic name-keyed registry                    |
-| `dispatch-handler.ts` | Handle `dispatch` RPC → execute → terminal RPC |
-| `script-context.ts`   | RPC-backed `WorkItemExecutionContext`          |
-| `rpc-client.ts`       | Signed RPC request/response helper             |
-| `execute-script.ts`   | In-process handler execution                   |
-| `heartbeat.ts`        | Periodic signed heartbeats                     |
+| Module                           | Responsibility                                 |
+| -------------------------------- | ---------------------------------------------- |
+| `runner.ts`                      | `Runner` class lifecycle                       |
+| `data-registry.ts`               | `createDataRegistry`, guarded sub-registries   |
+| `config-loader.ts`               | YAML discovery, PEM loading, option resolution |
+| `registry.ts`                    | Generic name-keyed registry                    |
+| `dispatch-handler.ts`            | Handle `dispatch` RPC → execute → terminal RPC |
+| `work-item-execution-context.ts` | RPC-backed `WorkItemExecutionContext`          |
+| `rpc-client.ts`                  | Signed RPC request/response helper             |
+| `execute-work-item.ts`           | In-process handler execution                   |
+| `heartbeat.ts`                   | Periodic signed heartbeats                     |
 
 ## Error cases
 

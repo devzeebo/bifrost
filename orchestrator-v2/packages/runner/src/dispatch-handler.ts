@@ -20,7 +20,7 @@ export function registerDispatchHandler(
   return peer.subscribe(
     (payload) => payload.kind === "rpc.request" && payload.method === "dispatch",
     (payload) => {
-      void handleDispatch(peer, handlers, data, rpc, payload);
+      void handleDispatch(peer, handlers, data, rpc, payload).catch(() => undefined);
     },
   );
 }

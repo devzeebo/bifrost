@@ -23,18 +23,22 @@ export class DispatchAckHandler {
     }
 
     if (payload.error !== undefined) {
-      void this.reject(peer.peerId, entry.workItemId, payload.error.message);
+      void this.reject(peer.peerId, entry.workItemId, payload.error.message).catch(() => undefined);
       return;
     }
 
     const ack = payload.result as DispatchAck | undefined;
     if (ack === undefined || typeof ack !== "object" || !("accepted" in ack)) {
-      void this.reject(peer.peerId, entry.workItemId, "Invalid dispatch ack");
+      void this.reject(peer.peerId, entry.workItemId, "Invalid dispatch ack").catch(
+        () => undefined,
+      );
       return;
     }
 
     if (!ack.accepted) {
-      void this.reject(peer.peerId, entry.workItemId, ack.reason ?? "Dispatch rejected");
+      void this.reject(peer.peerId, entry.workItemId, ack.reason ?? "Dispatch rejected").catch(
+        () => undefined,
+      );
       return;
     }
   }

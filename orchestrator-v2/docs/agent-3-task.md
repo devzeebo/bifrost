@@ -115,5 +115,5 @@ For the full coordinator lifecycle, see [agent-4-workflow.md](agent-4-workflow.m
 
 ## Related
 
-- [Script tasks](script-tasks.md) — the execution primitive underneath all agents
+- [Work items](work-items.md) — the execution primitive underneath all agents
 - [Workflow Agent](agent-4-workflow.md) — schedules Task Agents as children

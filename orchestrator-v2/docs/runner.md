@@ -135,7 +135,7 @@ Task source and scheduler are reached over RPC. The engine (when used by agent p
 
 ## Dependencies
 
-- `@bifrost-ai/interfaces-work` — work item types ([#32](script-tasks.md))
+- `@bifrost-ai/interfaces-work` — work item types ([#32](work-items.md))
 - `@bifrost-ai/protocol` — signed WebSocket transport ([#33](protocol.md))
 - `@bifrost-ai/orchestrator` — dispatch target ([#35](orchestrator.md))
 

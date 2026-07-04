@@ -1,9 +1,9 @@
 import type {
   DataRegistry,
+  WorkItem,
   WorkItemExecutionContext,
   WorkItemHandler,
 } from "@bifrost-ai/interfaces-work";
-import type { WorkItem } from "@bifrost-ai/interfaces-work";
 
 import type { RpcClient } from "./rpc-client.js";
 import type { Registry } from "./registry.js";
