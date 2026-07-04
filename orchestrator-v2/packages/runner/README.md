@@ -17,7 +17,7 @@ const data = createDataRegistry({ engine: isEngine });
 const runner = new Runner({ data });
 
 data.get("engine").register("claude", claudeEngine);
-runner.registerAgent("script", echo);
+runner.registerWorkItemHandler(echo);
 await runner.start();
 runner.close();
 runner.connection: RunnerPeer; // after start()
@@ -30,7 +30,7 @@ With `runner.yaml` present, register data and agents before starting:
 
 ```typescript
 const runner = new Runner({ data });
-runner.registerAgent("script", echo);
+runner.registerWorkItemHandler(echo);
 await runner.start();
 ```
 
@@ -40,17 +40,17 @@ await runner.start();
 - `asDataRegistry(data)` — read-only view for script context
 - `loadRunnerConfig(configPath)` — parse and validate YAML config
 - `resolveRunnerOptions(options)` — merge config file + overrides
-- `executeScript(handler, ctx)` — run a handler in-process
-- `createRpcScriptContext(task, rpc, data, agents)` — build RPC-backed `ScriptContext`
+- `executeWorkItem(handler, ctx)` — run a handler in-process
+- `createRpcWorkItemExecutionContext(task, rpc, data, agents)` — build RPC-backed `WorkItemExecutionContext`
 - `createRpcClient(peer)` — RPC helper for orchestrator callbacks
 - `Registry` — generic name-keyed registry backing store
 
 ## Registry model
 
-| Kind  | Setup                           | Dispatch                       | Script access                     |
-| ----- | ------------------------------- | ------------------------------ | --------------------------------- |
-| Data  | `createDataRegistry(guards)`    | Never                          | `ctx.data.get(type).get(name)`    |
-| Agent | `registerAgent(agentType, def)` | `task.agentType` + `agentName` | `ctx.agents.get(agentType, name)` |
+| Kind  | Setup                              | Dispatch                          | Script access                       |
+| ----- | ---------------------------------- | --------------------------------- | ----------------------------------- |
+| Data  | `createDataRegistry(guards)`       | Never                             | `ctx.data.get(type).get(name)`      |
+| Agent | `registerWorkItemHandler(handler)` | `workItem.kind` + `workItem.name` | `ctx.handlers.get(agentType, name)` |
 
 ## Config schema
 
@@ -75,7 +75,7 @@ PEM paths resolve relative to the config file directory.
 | `config-loader.ts`    | YAML discovery, PEM loading, option resolution |
 | `registry.ts`         | Generic name-keyed registry                    |
 | `dispatch-handler.ts` | Handle `dispatch` RPC → execute → terminal RPC |
-| `script-context.ts`   | RPC-backed `ScriptContext`                     |
+| `script-context.ts`   | RPC-backed `WorkItemExecutionContext`          |
 | `rpc-client.ts`       | Signed RPC request/response helper             |
 | `execute-script.ts`   | In-process handler execution                   |
 | `heartbeat.ts`        | Periodic signed heartbeats                     |

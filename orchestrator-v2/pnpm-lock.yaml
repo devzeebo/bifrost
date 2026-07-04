@@ -213,7 +213,7 @@ catalogs:
       version: 8.18.1
     '@typescript/native-preview':
       specifier: latest
-      version: 7.0.0-dev.20260702.3
+      version: 7.0.0-dev.20260703.1
     bumpp:
       specifier: ^11.1.0
       version: 11.1.0
@@ -247,16 +247,16 @@ importers:
       '@bifrost-ai/engine':
         specifier: workspace:*
         version: link:../engine
-      '@bifrost-ai/interfaces-task':
+      '@bifrost-ai/interfaces-work':
         specifier: workspace:*
-        version: link:../interfaces-task
+        version: link:../interfaces-work
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.4
       '@typescript/native-preview':
         specifier: 'catalog:'
-        version: 7.0.0-dev.20260702.3
+        version: 7.0.0-dev.20260703.1
       bumpp:
         specifier: 'catalog:'
         version: 11.1.0
@@ -277,7 +277,7 @@ importers:
         version: 25.9.4
       '@typescript/native-preview':
         specifier: 'catalog:'
-        version: 7.0.0-dev.20260702.3
+        version: 7.0.0-dev.20260703.1
       bumpp:
         specifier: 'catalog:'
         version: 11.1.0
@@ -291,36 +291,14 @@ importers:
         specifier: 'catalog:'
         version: 4.1.0(vitest@4.1.9(@types/node@25.9.4)(@vitest/browser-preview@4.1.9)(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0)))
 
-  packages/interfaces-task:
-    dependencies:
-      '@bifrost-ai/interfaces-task-source':
-        specifier: workspace:*
-        version: link:../interfaces-task-source
+  packages/interfaces-work:
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.4
       '@typescript/native-preview':
         specifier: 'catalog:'
-        version: 7.0.0-dev.20260701.1
-      bumpp:
-        specifier: 'catalog:'
-        version: 11.1.0
-      typescript:
-        specifier: 'catalog:'
-        version: 6.0.3
-      vite-plus:
-        specifier: 'catalog:'
-        version: 0.2.1(@types/node@25.9.4)(jiti@2.7.0)(typescript@6.0.3)(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))(yaml@2.9.0)
-
-  packages/interfaces-task-source:
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 25.9.4
-      '@typescript/native-preview':
-        specifier: 'catalog:'
-        version: 7.0.0-dev.20260701.1
+        version: 7.0.0-dev.20260703.1
       bumpp:
         specifier: 'catalog:'
         version: 11.1.0
@@ -333,9 +311,9 @@ importers:
 
   packages/orchestrator:
     dependencies:
-      '@bifrost-ai/interfaces-task-source':
+      '@bifrost-ai/interfaces-work':
         specifier: workspace:*
-        version: link:../interfaces-task-source
+        version: link:../interfaces-work
       '@bifrost-ai/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -345,7 +323,7 @@ importers:
         version: 25.9.4
       '@typescript/native-preview':
         specifier: 'catalog:'
-        version: 7.0.0-dev.20260701.1
+        version: 7.0.0-dev.20260703.1
       bumpp:
         specifier: 'catalog:'
         version: 11.1.0
@@ -373,7 +351,7 @@ importers:
         version: 8.18.1
       '@typescript/native-preview':
         specifier: 'catalog:'
-        version: 7.0.0-dev.20260701.1
+        version: 7.0.0-dev.20260703.1
       bumpp:
         specifier: 'catalog:'
         version: 11.1.0
@@ -389,12 +367,9 @@ importers:
 
   packages/runner:
     dependencies:
-      '@bifrost-ai/interfaces-task':
+      '@bifrost-ai/interfaces-work':
         specifier: workspace:*
-        version: link:../interfaces-task
-      '@bifrost-ai/interfaces-task-source':
-        specifier: workspace:*
-        version: link:../interfaces-task-source
+        version: link:../interfaces-work
       '@bifrost-ai/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -410,7 +385,7 @@ importers:
         version: 25.9.4
       '@typescript/native-preview':
         specifier: 'catalog:'
-        version: 7.0.0-dev.20260702.3
+        version: 7.0.0-dev.20260703.1
       bumpp:
         specifier: 'catalog:'
         version: 11.1.0
@@ -885,97 +860,50 @@ packages:
   '@types/ws@8.18.1':
     resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
 
-  '@typescript/native-preview-darwin-arm64@7.0.0-dev.20260701.1':
-    resolution: {integrity: sha512-rm3v+3Mcrj91NPwG0mjaLfbJjydCDX/skF82cQw0K6XWsEK7wHmpLEF1xPOWGnV05RhTYJac9VoKUjgcADkbXA==}
+  '@typescript/native-preview-darwin-arm64@7.0.0-dev.20260703.1':
+    resolution: {integrity: sha512-EwJEd6hfaHrrbSLat6+xX8fZiAvG+/Ae1gqvJEayTNdDbkrZxmeLS23YdjUmDMIOKI2wa7zXQDid8WtrvDfMTQ==}
     engines: {node: '>=16.20.0'}
     cpu: [arm64]
     os: [darwin]
 
-  '@typescript/native-preview-darwin-arm64@7.0.0-dev.20260702.3':
-    resolution: {integrity: sha512-sswJ7XRSH17/jDv6eqlRyNzjQev4w+TH+16RgeoZkKbQfZnVuLchF4ORCecEuia15X2yE8pbiQGY596LVbGKdA==}
-    engines: {node: '>=16.20.0'}
-    cpu: [arm64]
-    os: [darwin]
-
-  '@typescript/native-preview-darwin-x64@7.0.0-dev.20260701.1':
-    resolution: {integrity: sha512-jtbtV3A+cmkmDuqs56Qj3Hb+NmOAMHFX+FTLhCagJybjsng1lOl1h8vYaYg3F6EMgSiZI66hIpB9TMi3n8jFEw==}
+  '@typescript/native-preview-darwin-x64@7.0.0-dev.20260703.1':
+    resolution: {integrity: sha512-tcS3gpivMq+BAiaupFqM5vuERykogJlfD4CjoxkSCksmmsKgWV96S2U/LjrKgll8R6/OEkg2VL2ycRG9+tIuHw==}
     engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [darwin]
 
-  '@typescript/native-preview-darwin-x64@7.0.0-dev.20260702.3':
-    resolution: {integrity: sha512-j8ZYT/chWtx3QT1Bghp0/+2g6aKLaxRVpXEHt6Fjdj4OXQTpH4pljOE0+LeAqaET88PUo/XM9pi0TJ5TJwHLMg==}
-    engines: {node: '>=16.20.0'}
-    cpu: [x64]
-    os: [darwin]
-
-  '@typescript/native-preview-linux-arm64@7.0.0-dev.20260701.1':
-    resolution: {integrity: sha512-SPEfXZhCRff6kPYrqJIkKkKBy1rxPk0Wmam7U0AOuMQtXTNPmqCtx54J/F6nfGR89ATTDTDr69MujFAG+lFQVg==}
+  '@typescript/native-preview-linux-arm64@7.0.0-dev.20260703.1':
+    resolution: {integrity: sha512-m8IJTOneLXRtq6prLz8uuhp463kEt+AHV5Ceqp7G0o3eAvbKP059OwzK6WXCS5J0B3ZxX+BwBf9wDXSNidWJCw==}
     engines: {node: '>=16.20.0'}
     cpu: [arm64]
     os: [linux]
 
-  '@typescript/native-preview-linux-arm64@7.0.0-dev.20260702.3':
-    resolution: {integrity: sha512-FEBt9UER27yvn3o4quXZ9fQ/Hd39hxFPljJe8dxstCvyYLh0A9TwDuuwghWCisp5U9TDWWtl8m1GLjvqIKc6IA==}
-    engines: {node: '>=16.20.0'}
-    cpu: [arm64]
-    os: [linux]
-
-  '@typescript/native-preview-linux-arm@7.0.0-dev.20260701.1':
-    resolution: {integrity: sha512-c22PWjLMecd2xsAZRlpC1mnr8GZUjnFS32URPd2NhKOEx/6Dp7bPZvI+7NNXDXTew/fkgAaZvhLTWHGG64gqGw==}
+  '@typescript/native-preview-linux-arm@7.0.0-dev.20260703.1':
+    resolution: {integrity: sha512-nluwnKcdGo6laWWYtWF3zFUDfi7nNrcD5S/T5382fVmtKmNqIdzFm9ANgSSGAavuzfdu9YJLaVWpx72Oe40AEQ==}
     engines: {node: '>=16.20.0'}
     cpu: [arm]
     os: [linux]
 
-  '@typescript/native-preview-linux-arm@7.0.0-dev.20260702.3':
-    resolution: {integrity: sha512-SM73Mp3oYUWkyHmym0MVfPnMeLGM6oo1vcPZTxVoL7BOKWkJKK+iM7D1tcqDSZNPwURSkWMxP17Dh+4JPqzikg==}
-    engines: {node: '>=16.20.0'}
-    cpu: [arm]
-    os: [linux]
-
-  '@typescript/native-preview-linux-x64@7.0.0-dev.20260701.1':
-    resolution: {integrity: sha512-Y9NX6qGOCQD4zdCXJCABB8TL3IkFsWVlwMQ3OGtQ8A/OzyIFN01QyHWFgB5AJFZQoasryb+nnhu9r2IY5KpBwA==}
+  '@typescript/native-preview-linux-x64@7.0.0-dev.20260703.1':
+    resolution: {integrity: sha512-5ga94rso68kaxJUzaufDVhka1zPaSbPgNXaemQO8faPW0crvRIkbv0g8bpG4pdWMV0tTylmluDles4ZcAzOprg==}
     engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [linux]
 
-  '@typescript/native-preview-linux-x64@7.0.0-dev.20260702.3':
-    resolution: {integrity: sha512-CY/r7gHjDnf3xWptpQVRQnagMdUDbh+zL01SF+cTJsg1WVY3TtVNrCo48dwAnJL+U97qx1SKaGVsi/8cSPwrZA==}
-    engines: {node: '>=16.20.0'}
-    cpu: [x64]
-    os: [linux]
-
-  '@typescript/native-preview-win32-arm64@7.0.0-dev.20260701.1':
-    resolution: {integrity: sha512-7IRD34O2Kp7mIplQEC/HgLyehmKL1FGlTYhlAqxxZfKhSt694yytd2dCCnxMMA/aPHjcqBke04wNPOOhQ2ezcA==}
+  '@typescript/native-preview-win32-arm64@7.0.0-dev.20260703.1':
+    resolution: {integrity: sha512-YeRqOUuSyhbtryBSUE073OLpReIQXWJVyjP45gPLJ+0KAGvkd1VFz2FY1JEo++LyHoqXsGD2+qvdPpnTfSAIJg==}
     engines: {node: '>=16.20.0'}
     cpu: [arm64]
     os: [win32]
 
-  '@typescript/native-preview-win32-arm64@7.0.0-dev.20260702.3':
-    resolution: {integrity: sha512-9U/ahdJAWZdYxPdNry3VAhB9avaQCiqsEk2PfheeKrKSKCtfs5FoPXy/QXAaIGIBK/Lw4a7OqyVyEbd0i77TkQ==}
-    engines: {node: '>=16.20.0'}
-    cpu: [arm64]
-    os: [win32]
-
-  '@typescript/native-preview-win32-x64@7.0.0-dev.20260701.1':
-    resolution: {integrity: sha512-zVfayHxvFZAQ0hJbegDcfhJamyQpLn6ahMDATAra+EkA3+/nbTW3VjCJ3h1V2PSNTY9rTPzGroFURV5cvErh3A==}
+  '@typescript/native-preview-win32-x64@7.0.0-dev.20260703.1':
+    resolution: {integrity: sha512-WYNcbTaxCPgiDLrL2aPJ3BJA05nJU8DK0fUFGkGAER0oM+KcJcQUBeUkXg/7A4HBTNYcj7zIxqNgkJU1TRa/Kw==}
     engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [win32]
 
-  '@typescript/native-preview-win32-x64@7.0.0-dev.20260702.3':
-    resolution: {integrity: sha512-kPqfivHuzzEK2NFEl2QeCCiWJ4qkGMJYFX9TmJ4ylh784XICgQLX3PJe7OCqZcUicfeMIIDu6m3flcCi+4tW4Q==}
-    engines: {node: '>=16.20.0'}
-    cpu: [x64]
-    os: [win32]
-
-  '@typescript/native-preview@7.0.0-dev.20260701.1':
-    resolution: {integrity: sha512-eXPtWsAj0s06kHWVDlBj7ABwoyNDHuW2gCbQ+bYGlyymDYteiAydelhyhyzUsenzGraPLdd/OPwEUB8/KUdpBw==}
-    engines: {node: '>=16.20.0'}
-    hasBin: true
-
-  '@typescript/native-preview@7.0.0-dev.20260702.3':
-    resolution: {integrity: sha512-j21laxUja23ex6qYGjwiSiQ6YpS/p5E7lCMDYKDBAdBv93Z1NzV96BZV3gdRwl+buH09EPuBAiqxKQqRO1grhw==}
+  '@typescript/native-preview@7.0.0-dev.20260703.1':
+    resolution: {integrity: sha512-qyEHkEeRWCSGLa6a8oArnMPdn3Vcl1AZj8YHLO7lK0VjEEF/YJfz1FvxmpEeuhy0ZDfvJ7GtgXbvbjcU3zpPjQ==}
     engines: {node: '>=16.20.0'}
     hasBin: true
 
@@ -1841,81 +1769,50 @@ snapshots:
     dependencies:
       '@types/node': 25.9.4
 
-  '@typescript/native-preview-darwin-arm64@7.0.0-dev.20260701.1':
+  '@typescript/native-preview-darwin-arm64@7.0.0-dev.20260703.1':
     optional: true
 
-  '@typescript/native-preview-darwin-arm64@7.0.0-dev.20260702.3':
+  '@typescript/native-preview-darwin-x64@7.0.0-dev.20260703.1':
     optional: true
 
-  '@typescript/native-preview-darwin-x64@7.0.0-dev.20260701.1':
+  '@typescript/native-preview-linux-arm64@7.0.0-dev.20260703.1':
     optional: true
 
-  '@typescript/native-preview-darwin-x64@7.0.0-dev.20260702.3':
+  '@typescript/native-preview-linux-arm@7.0.0-dev.20260703.1':
     optional: true
 
-  '@typescript/native-preview-linux-arm64@7.0.0-dev.20260701.1':
+  '@typescript/native-preview-linux-x64@7.0.0-dev.20260703.1':
     optional: true
 
-  '@typescript/native-preview-linux-arm64@7.0.0-dev.20260702.3':
+  '@typescript/native-preview-win32-arm64@7.0.0-dev.20260703.1':
     optional: true
 
-  '@typescript/native-preview-linux-arm@7.0.0-dev.20260701.1':
+  '@typescript/native-preview-win32-x64@7.0.0-dev.20260703.1':
     optional: true
 
-  '@typescript/native-preview-linux-arm@7.0.0-dev.20260702.3':
-    optional: true
-
-  '@typescript/native-preview-linux-x64@7.0.0-dev.20260701.1':
-    optional: true
-
-  '@typescript/native-preview-linux-x64@7.0.0-dev.20260702.3':
-    optional: true
-
-  '@typescript/native-preview-win32-arm64@7.0.0-dev.20260701.1':
-    optional: true
-
-  '@typescript/native-preview-win32-arm64@7.0.0-dev.20260702.3':
-    optional: true
-
-  '@typescript/native-preview-win32-x64@7.0.0-dev.20260701.1':
-    optional: true
-
-  '@typescript/native-preview-win32-x64@7.0.0-dev.20260702.3':
-    optional: true
-
-  '@typescript/native-preview@7.0.0-dev.20260701.1':
+  '@typescript/native-preview@7.0.0-dev.20260703.1':
     optionalDependencies:
-      '@typescript/native-preview-darwin-arm64': 7.0.0-dev.20260701.1
-      '@typescript/native-preview-darwin-x64': 7.0.0-dev.20260701.1
-      '@typescript/native-preview-linux-arm': 7.0.0-dev.20260701.1
-      '@typescript/native-preview-linux-arm64': 7.0.0-dev.20260701.1
-      '@typescript/native-preview-linux-x64': 7.0.0-dev.20260701.1
-      '@typescript/native-preview-win32-arm64': 7.0.0-dev.20260701.1
-      '@typescript/native-preview-win32-x64': 7.0.0-dev.20260701.1
+      '@typescript/native-preview-darwin-arm64': 7.0.0-dev.20260703.1
+      '@typescript/native-preview-darwin-x64': 7.0.0-dev.20260703.1
+      '@typescript/native-preview-linux-arm': 7.0.0-dev.20260703.1
+      '@typescript/native-preview-linux-arm64': 7.0.0-dev.20260703.1
+      '@typescript/native-preview-linux-x64': 7.0.0-dev.20260703.1
+      '@typescript/native-preview-win32-arm64': 7.0.0-dev.20260703.1
+      '@typescript/native-preview-win32-x64': 7.0.0-dev.20260703.1
 
-  '@typescript/native-preview@7.0.0-dev.20260702.3':
-    optionalDependencies:
-      '@typescript/native-preview-darwin-arm64': 7.0.0-dev.20260702.3
-      '@typescript/native-preview-darwin-x64': 7.0.0-dev.20260702.3
-      '@typescript/native-preview-linux-arm': 7.0.0-dev.20260702.3
-      '@typescript/native-preview-linux-arm64': 7.0.0-dev.20260702.3
-      '@typescript/native-preview-linux-x64': 7.0.0-dev.20260702.3
-      '@typescript/native-preview-win32-arm64': 7.0.0-dev.20260702.3
-      '@typescript/native-preview-win32-x64': 7.0.0-dev.20260702.3
-
-  '@vitest/browser-preview@4.1.9(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))(vitest@4.1.9(@types/node@25.9.4)(@vitest/browser-preview@4.1.9)(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0)))':
+  '@vitest/browser-preview@4.1.9(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))(vitest@4.1.9)':
     dependencies:
       '@testing-library/dom': 10.4.1
       '@testing-library/user-event': 14.6.1(@testing-library/dom@10.4.1)
-      '@vitest/browser': 4.1.9(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))(vitest@4.1.9(@types/node@25.9.4)(@vitest/browser-preview@4.1.9)(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0)))
-      vitest: 4.1.9(@types/node@25.9.4)(@vitest/browser-preview@4.1.9(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))(vitest@4.1.9))(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))
+      '@vitest/browser': 4.1.9(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))(vitest@4.1.9)
+      vitest: 4.1.9(@types/node@25.9.4)(@vitest/browser-preview@4.1.9)(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))
     transitivePeerDependencies:
       - bufferutil
       - msw
       - utf-8-validate
       - vite
 
-  '@vitest/browser@4.1.9(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))(vitest@4.1.9(@types/node@25.9.4)(@vitest/browser-preview@4.1.9)(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0)))':
+  '@vitest/browser@4.1.9(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))(vitest@4.1.9)':
     dependencies:
       '@blazediff/core': 1.9.1
       '@vitest/mocker': 4.1.9(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))
@@ -1924,7 +1821,7 @@ snapshots:
       pngjs: 7.0.0
       sirv: 3.0.2
       tinyrainbow: 3.1.0
-      vitest: 4.1.9(@types/node@25.9.4)(@vitest/browser-preview@4.1.9(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))(vitest@4.1.9))(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))
+      vitest: 4.1.9(@types/node@25.9.4)(@vitest/browser-preview@4.1.9)(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))
       ws: 8.21.0
     transitivePeerDependencies:
       - bufferutil
@@ -2292,8 +2189,8 @@ snapshots:
     dependencies:
       '@oxc-project/types': 0.136.0
       '@oxlint/plugins': 1.68.0
-      '@vitest/browser': 4.1.9(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))(vitest@4.1.9(@types/node@25.9.4)(@vitest/browser-preview@4.1.9)(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0)))
-      '@vitest/browser-preview': 4.1.9(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))(vitest@4.1.9(@types/node@25.9.4)(@vitest/browser-preview@4.1.9)(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0)))
+      '@vitest/browser': 4.1.9(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))(vitest@4.1.9)
+      '@vitest/browser-preview': 4.1.9(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))(vitest@4.1.9)
       '@vitest/expect': 4.1.9
       '@vitest/mocker': 4.1.9(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))
       '@vitest/pretty-format': 4.1.9
@@ -2305,7 +2202,7 @@ snapshots:
       oxfmt: 0.55.0(vite-plus@0.2.1(@types/node@25.9.4)(jiti@2.7.0)(typescript@6.0.3)(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))(yaml@2.9.0))
       oxlint: 1.70.0(oxlint-tsgolint@0.23.0)(vite-plus@0.2.1(@types/node@25.9.4)(jiti@2.7.0)(typescript@6.0.3)(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))(yaml@2.9.0))
       oxlint-tsgolint: 0.23.0
-      vitest: 4.1.9(@types/node@25.9.4)(@vitest/browser-preview@4.1.9(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))(vitest@4.1.9))(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))
+      vitest: 4.1.9(@types/node@25.9.4)(@vitest/browser-preview@4.1.9)(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))
     optionalDependencies:
       '@voidzero-dev/vite-plus-darwin-arm64': 0.2.1
       '@voidzero-dev/vite-plus-darwin-x64': 0.2.1
@@ -2364,9 +2261,9 @@ snapshots:
   vitest-gwt@4.1.0(vitest@4.1.9(@types/node@25.9.4)(@vitest/browser-preview@4.1.9)(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))):
     dependencies:
       gwt-runner: 3.0.0
-      vitest: 4.1.9(@types/node@25.9.4)(@vitest/browser-preview@4.1.9(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))(vitest@4.1.9))(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))
+      vitest: 4.1.9(@types/node@25.9.4)(@vitest/browser-preview@4.1.9)(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))
 
-  vitest@4.1.9(@types/node@25.9.4)(@vitest/browser-preview@4.1.9(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))(vitest@4.1.9))(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0)):
+  vitest@4.1.9(@types/node@25.9.4)(@vitest/browser-preview@4.1.9)(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0)):
     dependencies:
       '@vitest/expect': 4.1.9
       '@vitest/mocker': 4.1.9(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))
@@ -2390,7 +2287,7 @@ snapshots:
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 25.9.4
-      '@vitest/browser-preview': 4.1.9(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))(vitest@4.1.9(@types/node@25.9.4)(@vitest/browser-preview@4.1.9)(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0)))
+      '@vitest/browser-preview': 4.1.9(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))(vitest@4.1.9)
     transitivePeerDependencies:
       - msw
 

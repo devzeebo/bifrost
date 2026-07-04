@@ -1,4 +1,4 @@
-import type { TaskSource } from "@bifrost-ai/interfaces-task-source";
+import type { WorkItemSource } from "@bifrost-ai/interfaces-work";
 import type { FramePayload, PeerIdentity } from "@bifrost-ai/protocol";
 import type { KeyObject } from "node:crypto";
 
@@ -9,7 +9,7 @@ export type Scheduler = {
 export type OrchestratorOptions = {
   identity: PeerIdentity;
   authorizedRunners: ReadonlyMap<string, KeyObject>;
-  taskSource: TaskSource;
+  workItemSource: WorkItemSource;
   scheduler: Scheduler;
   host?: string;
   port?: number;
@@ -23,7 +23,7 @@ export type DispatchAck = {
 };
 
 export type InFlightEntry = {
-  taskId: string;
+  workItemId: string;
   peerId: string;
 };
 

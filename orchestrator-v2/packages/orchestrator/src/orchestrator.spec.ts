@@ -6,20 +6,20 @@ import type { PeerIdentity, RunnerPeer } from "@bifrost-ai/protocol";
 import {
   authorizedRunnersFor,
   createIdentities,
-  createMemoryTaskSource,
+  createMemoryWorkItemSource,
   delay,
-  sampleTask,
+  sampleWorkItem,
   startOrchestratorInBackground,
   waitFor,
 } from "./test-helpers.js";
-import type { MemoryTaskSource, StubRunnerBehavior } from "./test-helpers.js";
+import type { MemoryWorkItemSource, StubRunnerBehavior } from "./test-helpers.js";
 
 type Context = {
   orchestratorIdentity: PeerIdentity;
   runnerIdentity: PeerIdentity;
   unauthorizedRunnerIdentity: PeerIdentity;
-  taskSource: MemoryTaskSource;
-  dispatchedTaskIds: string[];
+  workItemSource: MemoryWorkItemSource;
+  dispatchedWorkItemIds: string[];
   abort: () => void;
   done: Promise<void>;
   connectRunner: (
@@ -33,9 +33,9 @@ type Context = {
 describe("thin orchestrator", () => {
   withAspect(setup_identities, teardown_orchestrator);
 
-  test("completes task when runner acks dispatch and sends task.complete", {
+  test("completes work item when runner acks dispatch and sends workItem.complete", {
     given: {
-      task_source_with_one_task,
+      work_item_source_with_one_item,
       orchestrator_running,
       authorized_runner_connected,
     },
@@ -43,13 +43,13 @@ describe("thin orchestrator", () => {
       waiting_for_completion,
     },
     then: {
-      task_is_completed,
+      work_item_is_completed,
     },
   });
 
-  test("fails task when runner sends task.fail", {
+  test("fails work item when runner sends workItem.fail", {
     given: {
-      task_source_with_one_task,
+      work_item_source_with_one_item,
       orchestrator_running,
       runner_connected_with_fail_behavior,
     },
@@ -57,13 +57,13 @@ describe("thin orchestrator", () => {
       waiting_for_failure,
     },
     then: {
-      task_is_failed,
+      work_item_is_failed,
     },
   });
 
-  test("pauses task when runner sends task.pause", {
+  test("pauses work item when runner sends workItem.pause", {
     given: {
-      task_source_with_one_task,
+      work_item_source_with_one_item,
       orchestrator_running,
       runner_connected_with_pause_behavior,
     },
@@ -71,13 +71,13 @@ describe("thin orchestrator", () => {
       waiting_for_pause,
     },
     then: {
-      task_is_paused,
+      work_item_is_paused,
     },
   });
 
-  test("fails task when runner rejects dispatch", {
+  test("fails work item when runner rejects dispatch", {
     given: {
-      task_source_with_one_task,
+      work_item_source_with_one_item,
       orchestrator_running,
       runner_connected_with_reject_behavior,
     },
@@ -85,13 +85,13 @@ describe("thin orchestrator", () => {
       waiting_for_dispatch_rejection,
     },
     then: {
-      task_is_failed_on_reject,
+      work_item_is_failed_on_reject,
     },
   });
 
-  test("dispatches multiple tasks before first completes", {
+  test("dispatches multiple work items before first completes", {
     given: {
-      task_source_with_two_tasks,
+      work_item_source_with_two_items,
       orchestrator_running_with_concurrency,
       slow_runner_connected,
     },
@@ -99,13 +99,13 @@ describe("thin orchestrator", () => {
       waiting_for_both_dispatched_then_complete,
     },
     then: {
-      both_tasks_completed,
+      both_work_items_completed,
     },
   });
 
-  test("proxies taskSource.setState from runner", {
+  test("proxies workItemSource.setState from runner", {
     given: {
-      task_source_with_one_task,
+      work_item_source_with_one_item,
       orchestrator_running,
       runner_connected_with_set_state,
     },
@@ -119,7 +119,7 @@ describe("thin orchestrator", () => {
 
   test("rejects unknown runner keys", {
     given: {
-      task_source_with_one_task,
+      work_item_source_with_one_item,
       orchestrator_without_authorized_runners,
       unauthorized_runner_connected,
     },
@@ -127,7 +127,7 @@ describe("thin orchestrator", () => {
       waiting_briefly,
     },
     then: {
-      task_was_not_completed,
+      work_item_was_not_completed,
     },
   });
 });
@@ -137,7 +137,7 @@ function setup_identities(this: Context) {
   this.orchestratorIdentity = identities.orchestratorIdentity;
   this.runnerIdentity = identities.runnerIdentity;
   this.unauthorizedRunnerIdentity = createIdentities().runnerIdentity;
-  this.dispatchedTaskIds = [];
+  this.dispatchedWorkItemIds = [];
   this.unauthorizedRunner = null;
 }
 
@@ -147,19 +147,22 @@ async function teardown_orchestrator(this: Context) {
   await this.done?.catch(() => undefined);
 }
 
-function task_source_with_one_task(this: Context) {
-  this.taskSource = createMemoryTaskSource([sampleTask("task-1")]);
+function work_item_source_with_one_item(this: Context) {
+  this.workItemSource = createMemoryWorkItemSource([sampleWorkItem("work-item-1")]);
 }
 
-function task_source_with_two_tasks(this: Context) {
-  this.taskSource = createMemoryTaskSource([sampleTask("task-a"), sampleTask("task-b")]);
+function work_item_source_with_two_items(this: Context) {
+  this.workItemSource = createMemoryWorkItemSource([
+    sampleWorkItem("work-item-a"),
+    sampleWorkItem("work-item-b"),
+  ]);
 }
 
 async function orchestrator_running(this: Context) {
   const running = await startOrchestratorInBackground({
     orchestratorIdentity: this.orchestratorIdentity,
     authorizedRunners: authorizedRunnersFor(this.runnerIdentity),
-    taskSource: this.taskSource,
+    workItemSource: this.workItemSource,
   });
   this.abort = running.abort;
   this.done = running.done;
@@ -171,7 +174,7 @@ async function orchestrator_running_with_concurrency(this: Context) {
   const running = await startOrchestratorInBackground({
     orchestratorIdentity: this.orchestratorIdentity,
     authorizedRunners: authorizedRunnersFor(this.runnerIdentity),
-    taskSource: this.taskSource,
+    workItemSource: this.workItemSource,
     maxInFlightPerPeer: 2,
   });
   this.abort = running.abort;
@@ -184,7 +187,7 @@ async function orchestrator_without_authorized_runners(this: Context) {
   const running = await startOrchestratorInBackground({
     orchestratorIdentity: this.orchestratorIdentity,
     authorizedRunners: new Map(),
-    taskSource: this.taskSource,
+    workItemSource: this.workItemSource,
   });
   this.abort = running.abort;
   this.done = running.done;
@@ -218,8 +221,8 @@ async function runner_connected_with_reject_behavior(this: Context) {
 async function slow_runner_connected(this: Context) {
   await this.connectRunner(this.runnerIdentity, {
     dispatchDelayMs: 200,
-    onDispatch: async (task) => {
-      this.dispatchedTaskIds.push(task.taskId);
+    onDispatch: async (workItem) => {
+      this.dispatchedWorkItemIds.push(workItem.workItemId);
       return "complete";
     },
   });
@@ -247,63 +250,63 @@ async function unauthorized_runner_connected(this: Context) {
 }
 
 async function waiting_for_completion(this: Context) {
-  await waitFor(() => this.taskSource.completed.length === 1);
+  await waitFor(() => this.workItemSource.completed.length === 1);
 }
 
 async function waiting_for_failure(this: Context) {
-  await waitFor(() => this.taskSource.failed.length === 1);
+  await waitFor(() => this.workItemSource.failed.length === 1);
 }
 
 async function waiting_for_pause(this: Context) {
-  await waitFor(() => this.taskSource.paused.length === 1);
+  await waitFor(() => this.workItemSource.paused.length === 1);
 }
 
 async function waiting_for_dispatch_rejection(this: Context) {
-  await waitFor(() => this.taskSource.failed.length === 1);
+  await waitFor(() => this.workItemSource.failed.length === 1);
 }
 
 async function waiting_for_both_dispatched_then_complete(this: Context) {
-  await waitFor(() => this.dispatchedTaskIds.length === 2);
-  await waitFor(() => this.taskSource.completed.length === 2);
+  await waitFor(() => this.dispatchedWorkItemIds.length === 2);
+  await waitFor(() => this.workItemSource.completed.length === 2);
 }
 
 async function waiting_for_set_state(this: Context) {
-  await waitFor(() => this.taskSource.states.has("task-1"));
+  await waitFor(() => this.workItemSource.states.has("work-item-1"));
 }
 
 async function waiting_briefly(this: Context) {
   await delay(300);
 }
 
-function task_is_completed(this: Context) {
-  expect(this.taskSource.completed).toEqual(["task-1"]);
+function work_item_is_completed(this: Context) {
+  expect(this.workItemSource.completed).toEqual(["work-item-1"]);
 }
 
-function task_is_failed(this: Context) {
-  expect(this.taskSource.failed).toEqual([{ taskId: "task-1", error: "boom" }]);
+function work_item_is_failed(this: Context) {
+  expect(this.workItemSource.failed).toEqual([{ workItemId: "work-item-1", error: "boom" }]);
 }
 
-function task_is_paused(this: Context) {
-  expect(this.taskSource.paused).toEqual(["task-1"]);
+function work_item_is_paused(this: Context) {
+  expect(this.workItemSource.paused).toEqual(["work-item-1"]);
 }
 
-function task_is_failed_on_reject(this: Context) {
-  expect(this.taskSource.failed).toEqual([{ taskId: "task-1", error: "busy" }]);
+function work_item_is_failed_on_reject(this: Context) {
+  expect(this.workItemSource.failed).toEqual([{ workItemId: "work-item-1", error: "busy" }]);
 }
 
-function both_tasks_completed(this: Context) {
-  expect(this.dispatchedTaskIds).toEqual(["task-a", "task-b"]);
-  expect([...this.taskSource.completed].sort((a, b) => a.localeCompare(b))).toEqual([
-    "task-a",
-    "task-b",
+function both_work_items_completed(this: Context) {
+  expect(this.dispatchedWorkItemIds).toEqual(["work-item-a", "work-item-b"]);
+  expect([...this.workItemSource.completed].sort((a, b) => a.localeCompare(b))).toEqual([
+    "work-item-a",
+    "work-item-b",
   ]);
 }
 
 function set_state_was_persisted(this: Context) {
-  expect(this.taskSource.states.get("task-1")).toEqual({ step: "mid-run" });
+  expect(this.workItemSource.states.get("work-item-1")).toEqual({ step: "mid-run" });
 }
 
-function task_was_not_completed(this: Context) {
-  expect(this.taskSource.completed).toEqual([]);
-  expect(this.taskSource.failed).toEqual([]);
+function work_item_was_not_completed(this: Context) {
+  expect(this.workItemSource.completed).toEqual([]);
+  expect(this.workItemSource.failed).toEqual([]);
 }

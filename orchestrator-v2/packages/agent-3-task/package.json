@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@bifrost-ai/engine": "workspace:*",
-    "@bifrost-ai/interfaces-task": "workspace:*"
+    "@bifrost-ai/interfaces-work": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

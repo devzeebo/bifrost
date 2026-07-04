@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { ScriptTaskDefinition } from "@bifrost-ai/interfaces-task";
+import type { WorkItemHandler } from "@bifrost-ai/interfaces-work";
 import type { PeerIdentity } from "@bifrost-ai/protocol";
 import { describe, expect } from "vite-plus/test";
 import test, { withAspect } from "vitest-gwt";
@@ -10,12 +10,12 @@ import { exportPrivateKeyPem, exportPublicKeyPem, generateKeyPair } from "@bifro
 import {
   authorizedRunnersFor,
   createIdentities,
-  createMemoryTaskSource,
+  createMemoryWorkItemSource,
   delay,
   startOrchestratorInBackground,
   waitFor,
 } from "@bifrost-ai/orchestrator/test-helpers";
-import type { MemoryTaskSource } from "@bifrost-ai/orchestrator/test-helpers";
+import type { MemoryWorkItemSource } from "@bifrost-ai/orchestrator/test-helpers";
 
 import { Runner } from "./runner.js";
 
@@ -23,7 +23,7 @@ type Context = {
   orchestratorIdentity: PeerIdentity;
   runnerIdentity: PeerIdentity;
   unauthorizedRunnerIdentity: PeerIdentity;
-  taskSource: MemoryTaskSource;
+  workItemSource: MemoryWorkItemSource;
   configPath: string;
   runner: Runner;
   abort: () => void;
@@ -32,23 +32,26 @@ type Context = {
   duplicateError: Error | null;
 };
 
-const echoScript: ScriptTaskDefinition = {
+const echoHandler: WorkItemHandler = {
+  kind: "script",
   name: "echo",
-  async run(ctx) {
-    const message = ctx.metadata.message as string;
+  async run(workItem, ctx) {
+    const message = workItem.metadata.message as string;
     await ctx.setState({ echoed: message });
     return { outcome: "completed" };
   },
 };
 
-const failScript: ScriptTaskDefinition = {
+const failHandler: WorkItemHandler = {
+  kind: "script",
   name: "fail",
   async run() {
     throw new Error("boom");
   },
 };
 
-const pauseScript: ScriptTaskDefinition = {
+const pauseHandler: WorkItemHandler = {
+  kind: "script",
   name: "pause",
   async run() {
     return { outcome: "paused" };
@@ -58,9 +61,9 @@ const pauseScript: ScriptTaskDefinition = {
 describe("runner", () => {
   withAspect(setup_identities, teardown_runner);
 
-  test("completes dispatched script via config-driven runner", {
+  test("completes dispatched work item via config-driven runner", {
     given: {
-      task_source_with_echo_task,
+      work_item_source_with_echo,
       orchestrator_running,
       runner_config_written,
       runner_with_echo_registered,
@@ -70,14 +73,14 @@ describe("runner", () => {
       waiting_for_completion,
     },
     then: {
-      task_is_completed,
+      work_item_is_completed,
       state_was_persisted,
     },
   });
 
-  test("fails when script throws", {
+  test("fails when handler throws", {
     given: {
-      task_source_with_fail_task,
+      work_item_source_with_fail,
       orchestrator_running,
       runner_config_written,
       runner_with_fail_registered,
@@ -87,13 +90,13 @@ describe("runner", () => {
       waiting_for_failure,
     },
     then: {
-      task_is_failed,
+      work_item_is_failed,
     },
   });
 
-  test("pauses when script returns paused", {
+  test("pauses when handler returns paused", {
     given: {
-      task_source_with_pause_task,
+      work_item_source_with_pause,
       orchestrator_running,
       runner_config_written,
       runner_with_pause_registered,
@@ -103,25 +106,25 @@ describe("runner", () => {
       waiting_for_pause,
     },
     then: {
-      task_is_paused,
+      work_item_is_paused,
     },
   });
 
-  test("registerAgent throws on duplicate name within an agent registry", {
+  test("registerWorkItemHandler throws on duplicate name within a kind", {
     given: {
       empty_runner,
     },
     when: {
-      registering_duplicate_agent,
+      registering_duplicate_handler,
     },
     then: {
       duplicate_error_thrown,
     },
   });
 
-  test("plugin enrollment via registerAgent", {
+  test("handler enrollment via registerWorkItemHandler", {
     given: {
-      task_source_with_echo_task,
+      work_item_source_with_echo,
       orchestrator_running,
       runner_config_written,
       runner_with_plugin_enrollment,
@@ -131,7 +134,7 @@ describe("runner", () => {
       waiting_for_completion,
     },
     then: {
-      task_is_completed,
+      work_item_is_completed,
     },
   });
 });
@@ -149,37 +152,37 @@ async function teardown_runner(this: Context) {
   await this.done?.catch(() => undefined);
 }
 
-function task_source_with_echo_task(this: Context) {
-  this.taskSource = createMemoryTaskSource([
+function work_item_source_with_echo(this: Context) {
+  this.workItemSource = createMemoryWorkItemSource([
     {
-      taskId: "task-1",
-      agentType: "script",
-      agentName: "echo",
-      taskState: {},
+      workItemId: "work-item-1",
+      kind: "script",
+      name: "echo",
+      state: {},
       metadata: { message: "hello" },
     },
   ]);
 }
 
-function task_source_with_fail_task(this: Context) {
-  this.taskSource = createMemoryTaskSource([
+function work_item_source_with_fail(this: Context) {
+  this.workItemSource = createMemoryWorkItemSource([
     {
-      taskId: "task-fail",
-      agentType: "script",
-      agentName: "fail",
-      taskState: {},
+      workItemId: "work-item-fail",
+      kind: "script",
+      name: "fail",
+      state: {},
       metadata: {},
     },
   ]);
 }
 
-function task_source_with_pause_task(this: Context) {
-  this.taskSource = createMemoryTaskSource([
+function work_item_source_with_pause(this: Context) {
+  this.workItemSource = createMemoryWorkItemSource([
     {
-      taskId: "task-pause",
-      agentType: "script",
-      agentName: "pause",
-      taskState: {},
+      workItemId: "work-item-pause",
+      kind: "script",
+      name: "pause",
+      state: {},
       metadata: {},
     },
   ]);
@@ -189,7 +192,7 @@ async function orchestrator_running(this: Context) {
   const running = await startOrchestratorInBackground({
     orchestratorIdentity: this.orchestratorIdentity,
     authorizedRunners: authorizedRunnersFor(this.runnerIdentity),
-    taskSource: this.taskSource,
+    workItemSource: this.workItemSource,
   });
   this.abort = running.abort;
   this.done = running.done;
@@ -220,17 +223,17 @@ async function runner_config_written(this: Context) {
 
 function runner_with_echo_registered(this: Context) {
   this.runner = new Runner({ configPath: this.configPath });
-  this.runner.registerAgent("script", echoScript);
+  this.runner.registerWorkItemHandler(echoHandler);
 }
 
 function runner_with_fail_registered(this: Context) {
   this.runner = new Runner({ configPath: this.configPath });
-  this.runner.registerAgent("script", failScript);
+  this.runner.registerWorkItemHandler(failHandler);
 }
 
 function runner_with_pause_registered(this: Context) {
   this.runner = new Runner({ configPath: this.configPath });
-  this.runner.registerAgent("script", pauseScript);
+  this.runner.registerWorkItemHandler(pauseHandler);
 }
 
 function empty_runner(this: Context) {
@@ -239,11 +242,11 @@ function empty_runner(this: Context) {
 
 function runner_with_plugin_enrollment(this: Context) {
   this.runner = new Runner({ configPath: this.configPath });
-  enrollEchoPlugin(this.runner);
+  enrollEchoHandler(this.runner);
 }
 
-function enrollEchoPlugin(runner: Runner): void {
-  runner.registerAgent("script", echoScript);
+function enrollEchoHandler(runner: Runner): void {
+  runner.registerWorkItemHandler(echoHandler);
 }
 
 async function runner_started(this: Context) {
@@ -251,10 +254,10 @@ async function runner_started(this: Context) {
   await delay(50);
 }
 
-async function registering_duplicate_agent(this: Context) {
-  this.runner.registerAgent("script", echoScript);
+async function registering_duplicate_handler(this: Context) {
+  this.runner.registerWorkItemHandler(echoHandler);
   try {
-    this.runner.registerAgent("script", echoScript);
+    this.runner.registerWorkItemHandler(echoHandler);
     this.duplicateError = null;
   } catch (error) {
     this.duplicateError = error as Error;
@@ -262,31 +265,31 @@ async function registering_duplicate_agent(this: Context) {
 }
 
 async function waiting_for_completion(this: Context) {
-  await waitFor(() => this.taskSource.completed.length === 1);
+  await waitFor(() => this.workItemSource.completed.length === 1);
 }
 
 async function waiting_for_failure(this: Context) {
-  await waitFor(() => this.taskSource.failed.length === 1);
+  await waitFor(() => this.workItemSource.failed.length === 1);
 }
 
 async function waiting_for_pause(this: Context) {
-  await waitFor(() => this.taskSource.paused.length === 1);
+  await waitFor(() => this.workItemSource.paused.length === 1);
 }
 
-function task_is_completed(this: Context) {
-  expect(this.taskSource.completed.length).toBe(1);
+function work_item_is_completed(this: Context) {
+  expect(this.workItemSource.completed.length).toBe(1);
 }
 
 function state_was_persisted(this: Context) {
-  expect(this.taskSource.states.get("task-1")).toEqual({ echoed: "hello" });
+  expect(this.workItemSource.states.get("work-item-1")).toEqual({ echoed: "hello" });
 }
 
-function task_is_failed(this: Context) {
-  expect(this.taskSource.failed).toEqual([{ taskId: "task-fail", error: "boom" }]);
+function work_item_is_failed(this: Context) {
+  expect(this.workItemSource.failed).toEqual([{ workItemId: "work-item-fail", error: "boom" }]);
 }
 
-function task_is_paused(this: Context) {
-  expect(this.taskSource.paused).toEqual(["task-pause"]);
+function work_item_is_paused(this: Context) {
+  expect(this.workItemSource.paused).toEqual(["work-item-pause"]);
 }
 
 function duplicate_error_thrown(this: Context) {

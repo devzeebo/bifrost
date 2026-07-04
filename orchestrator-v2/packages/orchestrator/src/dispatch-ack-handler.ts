@@ -1,4 +1,4 @@
-import type { TaskSource } from "@bifrost-ai/interfaces-task-source";
+import type { WorkItemSource } from "@bifrost-ai/interfaces-work";
 import type { ConnectedPeer, FramePayload } from "@bifrost-ai/protocol";
 
 import type { DispatchTracker } from "./dispatch-tracker.js";
@@ -7,7 +7,7 @@ import type { DispatchAck } from "./types.js";
 
 export class DispatchAckHandler {
   constructor(
-    private readonly taskSource: TaskSource,
+    private readonly workItemSource: WorkItemSource,
     private readonly tracker: DispatchTracker,
     private readonly registry: PeerRegistry,
   ) {}
@@ -23,25 +23,25 @@ export class DispatchAckHandler {
     }
 
     if (payload.error !== undefined) {
-      void this.reject(peer.peerId, entry.taskId, payload.error.message);
+      void this.reject(peer.peerId, entry.workItemId, payload.error.message);
       return;
     }
 
     const ack = payload.result as DispatchAck | undefined;
     if (ack === undefined || typeof ack !== "object" || !("accepted" in ack)) {
-      void this.reject(peer.peerId, entry.taskId, "Invalid dispatch ack");
+      void this.reject(peer.peerId, entry.workItemId, "Invalid dispatch ack");
       return;
     }
 
     if (!ack.accepted) {
-      void this.reject(peer.peerId, entry.taskId, ack.reason ?? "Dispatch rejected");
+      void this.reject(peer.peerId, entry.workItemId, ack.reason ?? "Dispatch rejected");
       return;
     }
   }
 
-  private async reject(peerId: string, taskId: string, reason: string): Promise<void> {
-    this.tracker.resolve(taskId);
+  private async reject(peerId: string, workItemId: string, reason: string): Promise<void> {
+    this.tracker.resolve(workItemId);
     this.registry.markDispatchRejected(peerId);
-    await this.taskSource.failTask(taskId, reason);
+    await this.workItemSource.failWorkItem(workItemId, reason);
   }
 }

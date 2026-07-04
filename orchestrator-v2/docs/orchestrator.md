@@ -14,7 +14,7 @@ The `@bifrost-ai/orchestrator` package implements a **get-work + dispatch** loop
 
 1. Starts a WebSocket server (via `protocol`).
 2. Accepts runner connections authenticated by pre-shared ed25519 keys.
-3. Streams tasks from `taskSource.watchTasks()`.
+3. Streams tasks from `workItemSource.watchTasks()`.
 4. Dispatches each task to an available, heartbeating runner.
 5. Routes runner RPC callbacks to the task source and scheduler.
 6. Drains in-flight work when the task stream ends.
@@ -31,7 +31,7 @@ The `@bifrost-ai/orchestrator` package implements a **get-work + dispatch** loop
 
 ```mermaid
 sequenceDiagram
-  participant TS as TaskSource
+  participant TS as WorkItemSource
   participant O as Orchestrator
   participant R as Runner
 
@@ -41,23 +41,23 @@ sequenceDiagram
   O->>R: rpc.request dispatch(Task)
   R->>O: rpc.response { accepted: true }
   Note over R: execute script
-  R->>O: rpc.request task.complete { taskId }
-  O->>TS: completeTask(taskId)
+  R->>O: rpc.request workItem.complete { workItemId }
+  O->>TS: completeWorkItem(workItemId)
   O->>R: rpc.response { ok: true }
 ```
 
 ### Components
 
-| Module               | Responsibility                                      |
-| -------------------- | --------------------------------------------------- |
-| `runOrchestrator`    | Main loop: watch tasks, dispatch, drain, cleanup    |
-| `PeerRegistry`       | Track connected peers, heartbeats, in-flight counts |
-| `DispatchTracker`    | Map dispatch IDs and task IDs to in-flight entries  |
-| `dispatcher`         | Send `dispatch` RPC to a peer                       |
-| `DispatchAckHandler` | Handle dispatch accept/reject responses             |
-| `ResultHandler`      | Handle `task.complete` / `task.fail` / `task.pause` |
-| `RpcRouter`          | Route runner RPC to task source and scheduler       |
-| `config`             | Load authorized runner public keys from PEM entries |
+| Module               | Responsibility                                          |
+| -------------------- | ------------------------------------------------------- |
+| `runOrchestrator`    | Main loop: watch tasks, dispatch, drain, cleanup        |
+| `PeerRegistry`       | Track connected peers, heartbeats, in-flight counts     |
+| `DispatchTracker`    | Map dispatch IDs and task IDs to in-flight entries      |
+| `dispatcher`         | Send `dispatch` RPC to a peer                           |
+| `DispatchAckHandler` | Handle dispatch accept/reject responses                 |
+| `ResultHandler`      | Handle `workItem.complete` / `task.fail` / `task.pause` |
+| `RpcRouter`          | Route runner RPC to task source and scheduler           |
+| `config`             | Load authorized runner public keys from PEM entries     |
 
 ### Runner availability
 
@@ -73,8 +73,8 @@ The dispatch loop blocks on `waitForAvailablePeer()` until a runner meets all th
 
 1. Orchestrator generates a `dispatchId` and sends `rpc.request { method: "dispatch", params: Task }`.
 2. Runner responds with `rpc.response { result: { accepted: true } }` or `{ accepted: false, reason }`.
-3. If rejected, orchestrator calls `taskSource.failTask` and frees the peer slot.
-4. If accepted, the task is in-flight until the runner sends a terminal RPC (`task.complete`, `task.fail`, or `task.pause`).
+3. If rejected, orchestrator calls `workItemSource.failTask` and frees the peer slot.
+4. If accepted, the task is in-flight until the runner sends a terminal RPC (`workItem.complete`, `task.fail`, or `task.pause`).
 5. On peer disconnect, all in-flight tasks for that peer are failed with `"Runner disconnected"`.
 
 ### Configuration
@@ -83,7 +83,7 @@ The dispatch loop blocks on `waitForAvailablePeer()` until a runner meets all th
 type OrchestratorOptions = {
   identity: PeerIdentity;
   authorizedRunners: ReadonlyMap<string, KeyObject>;
-  taskSource: TaskSource;
+  workItemSource: WorkItemSource;
   scheduler: Scheduler;
   host?: string;
   port?: number;
@@ -115,7 +115,7 @@ type Scheduler = {
 ## Dependencies
 
 - `@bifrost-ai/protocol` — WebSocket server and signed frames ([#33](protocol.md))
-- `@bifrost-ai/interfaces-task-source` — task streaming and outcome recording
+- `@bifrost-ai/interfaces-work` — task streaming and outcome recording
 - Exercised end-to-end with the runner package ([#36](https://github.com/devzeebo/bifrost/issues/36))
 
 ## Verification

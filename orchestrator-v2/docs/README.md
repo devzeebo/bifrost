@@ -19,7 +19,7 @@ This folder describes **how the libraries work**: architecture, contracts, and d
 flowchart LR
   subgraph source [Task Source]
     TS[watchTasks]
-    CT[completeTask / failTask / pauseTask]
+    CT[completeWorkItem / failTask / pauseTask]
   end
 
   subgraph orch [Orchestrator]
@@ -36,9 +36,9 @@ flowchart LR
   TS --> DISP
   DISP -->|signed dispatch RPC| WS
   WS --> runner
-  runner -->|task.complete / fail / pause| RPC
+  runner -->|workItem.complete / fail / pause| RPC
   RPC --> CT
-  runner -->|taskSource.setState| RPC
+  runner -->|workItemSource.setState| RPC
 ```
 
 ### Design principles
@@ -65,8 +65,8 @@ See [agent-3-task.md](agent-3-task.md) and [agent-4-workflow.md](agent-4-workflo
 ### Package boundaries
 
 ```
-interfaces-task          Pure types for script definitions and results
-interfaces-task-source   Task + TaskSource contracts
+interfaces-work          Pure types for script definitions and results
+interfaces-work   Task + WorkItemSource contracts
 protocol                 Wire format, signing, WebSocket peers
 orchestrator             Dispatch loop, peer registry, RPC routing
 runner                   Script execution, config, heartbeat, dispatch handling
@@ -75,17 +75,17 @@ agent-3-task             Task Agent — single-shot engine execution as a leaf s
 agent-4-workflow         Workflow Agent — DAG scheduling as a script (planned)
 ```
 
-The runner package consumes `protocol` and `interfaces-task` to execute scripts remotely.
+The runner package consumes `protocol` and `interfaces-work` to execute scripts remotely.
 
 ### Current status
 
-| Component                                        | Status                                                         |
-| ------------------------------------------------ | -------------------------------------------------------------- |
-| Script task types (`interfaces-task`)            | Done                                                           |
-| Protocol + signing (`protocol`)                  | Done                                                           |
-| Task source interface (`interfaces-task-source`) | Done                                                           |
-| Thin orchestrator (`orchestrator`)               | Done                                                           |
-| Runner package                                   | Done                                                           |
-| Bifrost task source adapter                      | Planned ([#40](https://github.com/devzeebo/bifrost/issues/40)) |
-| Task Agent (`agent-3-task`)                      | Done ([#37](https://github.com/devzeebo/bifrost/issues/37))    |
-| Workflow Agent (`agent-4-workflow`)              | Planned ([#39](https://github.com/devzeebo/bifrost/issues/39)) |
+| Component                                 | Status                                                         |
+| ----------------------------------------- | -------------------------------------------------------------- |
+| Script task types (`interfaces-work`)     | Done                                                           |
+| Protocol + signing (`protocol`)           | Done                                                           |
+| Task source interface (`interfaces-work`) | Done                                                           |
+| Thin orchestrator (`orchestrator`)        | Done                                                           |
+| Runner package                            | Done                                                           |
+| Bifrost task source adapter               | Planned ([#40](https://github.com/devzeebo/bifrost/issues/40)) |
+| Task Agent (`agent-3-task`)               | Done ([#37](https://github.com/devzeebo/bifrost/issues/37))    |
+| Workflow Agent (`agent-4-workflow`)       | Planned ([#39](https://github.com/devzeebo/bifrost/issues/39)) |

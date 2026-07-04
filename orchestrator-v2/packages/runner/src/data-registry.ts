@@ -1,4 +1,4 @@
-import type { DataRegistry, MutableDataRegistry, Registry } from "@bifrost-ai/interfaces-task";
+import type { DataRegistry, MutableDataRegistry, Registry } from "@bifrost-ai/interfaces-work";
 
 import { Registry as RegistryImpl } from "./registry.js";
 

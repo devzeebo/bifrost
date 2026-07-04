@@ -1,4 +1,4 @@
-import type { TaskSource } from "@bifrost-ai/interfaces-task-source";
+import type { WorkItemSource } from "@bifrost-ai/interfaces-work";
 import type { ConnectedPeer } from "@bifrost-ai/protocol";
 
 import { sendRpcError, sendRpcResponse } from "./dispatcher.js";
@@ -7,30 +7,30 @@ import type { PeerRegistry } from "./peer-registry.js";
 
 export class ResultHandler {
   constructor(
-    private readonly taskSource: TaskSource,
+    private readonly workItemSource: WorkItemSource,
     private readonly tracker: DispatchTracker,
     private readonly registry: PeerRegistry,
   ) {}
 
   async handleComplete(peer: ConnectedPeer, requestId: string, params: unknown): Promise<void> {
-    const taskId = readTaskId(params);
-    if (taskId === null) {
-      sendRpcError(peer, requestId, "INVALID_PARAMS", "taskId is required");
+    const workItemId = readWorkItemId(params);
+    if (workItemId === null) {
+      sendRpcError(peer, requestId, "INVALID_PARAMS", "workItemId is required");
       return;
     }
 
-    const entry = this.tracker.resolve(taskId);
+    const entry = this.tracker.resolve(workItemId);
     if (entry === undefined || entry.peerId !== peer.peerId) {
       sendRpcError(
         peer,
         requestId,
         "NOT_IN_FLIGHT",
-        `Task ${taskId} is not in-flight on this peer`,
+        `Work item ${workItemId} is not in-flight on this peer`,
       );
       return;
     }
 
-    await this.taskSource.completeTask(taskId);
+    await this.workItemSource.completeWorkItem(workItemId);
     this.registry.markTerminal(peer.peerId);
     sendRpcResponse(peer, requestId, { ok: true });
   }
@@ -38,45 +38,45 @@ export class ResultHandler {
   async handleFail(peer: ConnectedPeer, requestId: string, params: unknown): Promise<void> {
     const parsed = readFailParams(params);
     if (parsed === null) {
-      sendRpcError(peer, requestId, "INVALID_PARAMS", "taskId is required");
+      sendRpcError(peer, requestId, "INVALID_PARAMS", "workItemId is required");
       return;
     }
 
-    const entry = this.tracker.resolve(parsed.taskId);
+    const entry = this.tracker.resolve(parsed.workItemId);
     if (entry === undefined || entry.peerId !== peer.peerId) {
       sendRpcError(
         peer,
         requestId,
         "NOT_IN_FLIGHT",
-        `Task ${parsed.taskId} is not in-flight on this peer`,
+        `Work item ${parsed.workItemId} is not in-flight on this peer`,
       );
       return;
     }
 
-    await this.taskSource.failTask(parsed.taskId, parsed.message);
+    await this.workItemSource.failWorkItem(parsed.workItemId, parsed.message);
     this.registry.markTerminal(peer.peerId);
     sendRpcResponse(peer, requestId, { ok: true });
   }
 
   async handlePause(peer: ConnectedPeer, requestId: string, params: unknown): Promise<void> {
-    const taskId = readTaskId(params);
-    if (taskId === null) {
-      sendRpcError(peer, requestId, "INVALID_PARAMS", "taskId is required");
+    const workItemId = readWorkItemId(params);
+    if (workItemId === null) {
+      sendRpcError(peer, requestId, "INVALID_PARAMS", "workItemId is required");
       return;
     }
 
-    const entry = this.tracker.resolve(taskId);
+    const entry = this.tracker.resolve(workItemId);
     if (entry === undefined || entry.peerId !== peer.peerId) {
       sendRpcError(
         peer,
         requestId,
         "NOT_IN_FLIGHT",
-        `Task ${taskId} is not in-flight on this peer`,
+        `Work item ${workItemId} is not in-flight on this peer`,
       );
       return;
     }
 
-    await this.taskSource.pauseTask(taskId);
+    await this.workItemSource.pauseWorkItem(workItemId);
     this.registry.markTerminal(peer.peerId);
     sendRpcResponse(peer, requestId, { ok: true });
   }
@@ -84,23 +84,23 @@ export class ResultHandler {
   handleDisconnect(peer: ConnectedPeer): void {
     const orphaned = this.tracker.failByPeer(peer.peerId);
     for (const entry of orphaned) {
-      void this.taskSource.failTask(entry.taskId, "Runner disconnected");
+      void this.workItemSource.failWorkItem(entry.workItemId, "Runner disconnected");
       this.registry.markTerminal(peer.peerId);
     }
   }
 }
 
-function readTaskId(params: unknown): string | null {
-  if (params === null || typeof params !== "object" || !("taskId" in params)) {
+function readWorkItemId(params: unknown): string | null {
+  if (params === null || typeof params !== "object" || !("workItemId" in params)) {
     return null;
   }
-  const taskId = (params as { taskId: unknown }).taskId;
-  return typeof taskId === "string" ? taskId : null;
+  const workItemId = (params as { workItemId: unknown }).workItemId;
+  return typeof workItemId === "string" ? workItemId : null;
 }
 
-function readFailParams(params: unknown): { taskId: string; message: string } | null {
-  const taskId = readTaskId(params);
-  if (taskId === null) {
+function readFailParams(params: unknown): { workItemId: string; message: string } | null {
+  const workItemId = readWorkItemId(params);
+  if (workItemId === null) {
     return null;
   }
   let message = "failed";
@@ -110,5 +110,5 @@ function readFailParams(params: unknown): { taskId: string; message: string } | 
       message = raw;
     }
   }
-  return { taskId, message };
+  return { workItemId, message };
 }

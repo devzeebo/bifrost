@@ -1,4 +1,4 @@
-import type { DataRegistry, ScriptContext } from "@bifrost-ai/interfaces-task";
+import type { DataRegistry, WorkItem, WorkItemExecutionContext } from "@bifrost-ai/interfaces-work";
 import { describe, expect } from "vite-plus/test";
 import test from "vitest-gwt";
 
@@ -8,7 +8,8 @@ import { TestEngine } from "@bifrost-ai/engine";
 import type { TaskAgentDataSchema } from "./types.js";
 
 type Context = {
-  ctx: ScriptContext<Pick<TaskAgentDataSchema, "engine">>;
+  workItem: WorkItem;
+  ctx: WorkItemExecutionContext<Pick<TaskAgentDataSchema, "engine">>;
   result: Awaited<ReturnType<typeof runTaskAgent>>;
   engine: TestEngine | TrackingEngine;
 };
@@ -32,7 +33,7 @@ class TrackingEngine implements Engine {
   }
 }
 
-const emptyAgents = {
+const emptyHandlers = {
   get() {
     return undefined;
   },
@@ -58,27 +59,30 @@ function makeData(engine: Engine): DataRegistry<Pick<TaskAgentDataSchema, "engin
   };
 }
 
-function makeScriptContext(
-  taskState: Record<string, unknown>,
+function makeExecutionFixture(
+  state: Record<string, unknown>,
   engine: Engine,
-  agentName = sampleAgent.name,
-): ScriptContext<Pick<TaskAgentDataSchema, "engine">> {
-  const state = { ...taskState };
+  name = sampleAgent.name,
+): { workItem: WorkItem; ctx: WorkItemExecutionContext<Pick<TaskAgentDataSchema, "engine">> } {
+  const liveState = { ...state };
 
-  return {
-    taskId: "task-123",
-    agentType: "task",
-    agentName,
-    data: makeData(engine),
-    agents: emptyAgents,
-    get taskState() {
-      return state;
-    },
+  const workItem: WorkItem = {
+    workItemId: "work-item-123",
+    kind: "task",
+    name,
     metadata: { priority: "high" },
+    state: liveState,
+  };
+
+  const ctx: WorkItemExecutionContext<Pick<TaskAgentDataSchema, "engine">> = {
+    data: makeData(engine),
+    handlers: emptyHandlers,
     async setState(nextState) {
-      Object.assign(state, nextState);
+      Object.assign(liveState, nextState);
     },
   };
+
+  return { workItem, ctx };
 }
 
 function validTaskState(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -152,23 +156,34 @@ function throwing_engine(this: Context) {
 }
 
 function valid_state_context(this: Context) {
-  this.ctx = makeScriptContext(validTaskState(), this.engine);
+  const fixture = makeExecutionFixture(validTaskState(), this.engine);
+  this.workItem = fixture.workItem;
+  this.ctx = fixture.ctx;
 }
 
 function context_with_existing_session(this: Context) {
-  this.ctx = makeScriptContext(validTaskState({ sessionId: "existing-session-42" }), this.engine);
+  const fixture = makeExecutionFixture(
+    validTaskState({ sessionId: "existing-session-42" }),
+    this.engine,
+  );
+  this.workItem = fixture.workItem;
+  this.ctx = fixture.ctx;
 }
 
 function empty_state_context(this: Context) {
-  this.ctx = makeScriptContext({}, this.engine);
+  const fixture = makeExecutionFixture({}, this.engine);
+  this.workItem = fixture.workItem;
+  this.ctx = fixture.ctx;
 }
 
 function context_with_unknown_engine(this: Context) {
-  this.ctx = makeScriptContext(validTaskState({ engineName: "missing" }), this.engine);
+  const fixture = makeExecutionFixture(validTaskState({ engineName: "missing" }), this.engine);
+  this.workItem = fixture.workItem;
+  this.ctx = fixture.ctx;
 }
 
 async function task_agent_run(this: Context) {
-  this.result = await runTaskAgent(this.ctx, sampleAgent);
+  this.result = await runTaskAgent(this.workItem, this.ctx, sampleAgent);
 }
 
 function outcome_is_completed(this: Context) {
@@ -186,7 +201,7 @@ function telemetry_is_returned(this: Context) {
 }
 
 function session_id_is_persisted(this: Context) {
-  expect(this.ctx.taskState.sessionId).toMatch(/^test-session-/);
+  expect(this.workItem.state.sessionId).toMatch(/^test-session-/);
 }
 
 function engine_received_session_id(this: Context) {

@@ -1,23 +1,23 @@
 import type { ConnectedPeer, FramePayload } from "@bifrost-ai/protocol";
-import type { Task } from "@bifrost-ai/interfaces-task-source";
+import type { WorkItem } from "@bifrost-ai/interfaces-work";
 
 import { createDispatchId, type DispatchTracker } from "./dispatch-tracker.js";
 import type { PeerRegistry } from "./peer-registry.js";
 
-export function dispatchTask(
+export function dispatchWorkItem(
   peer: ConnectedPeer,
-  task: Task,
+  workItem: WorkItem,
   tracker: DispatchTracker,
   registry: PeerRegistry,
 ): string {
   const dispatchId = createDispatchId();
-  tracker.register(dispatchId, { taskId: task.taskId, peerId: peer.peerId });
+  tracker.register(dispatchId, { workItemId: workItem.workItemId, peerId: peer.peerId });
   registry.markDispatched(peer.peerId);
   peer.send({
     kind: "rpc.request",
     id: dispatchId,
     method: "dispatch",
-    params: task,
+    params: workItem,
   });
   return dispatchId;
 }

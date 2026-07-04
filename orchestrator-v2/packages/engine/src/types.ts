@@ -20,10 +20,10 @@ export type AgentDefinition = {
 };
 
 export type EngineContext = {
-  taskId: string;
+  workItemId: string;
   workingDir: string;
   agent: AgentDefinition;
-  taskState: Record<string, unknown>;
+  state: Record<string, unknown>;
   metadata: Record<string, unknown>;
   setState: (newState: Record<string, unknown>) => Promise<void>;
   instructions: string;
