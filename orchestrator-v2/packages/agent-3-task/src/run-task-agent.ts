@@ -48,18 +48,21 @@ export async function runTaskAgent(
     return { outcome: "failed", message };
   }
 
-  if (!engineResult.success) {
-    return {
-      outcome: "failed",
-      message: engineResult.lastMessage ?? "Engine execution failed",
-    };
-  }
-
+  // Persist the sessionId before branching on the outcome, so a failed run stays
+  // resumable — a retry can --resume instead of rebuilding context from scratch.
   if (engineResult.sessionId !== undefined) {
     await ctx.setState({
       ...workItem.state,
       sessionId: engineResult.sessionId,
     });
+  }
+
+  if (!engineResult.success) {
+    return {
+      outcome: "failed",
+      message: engineResult.lastMessage ?? "Engine execution failed",
+      telemetry: engineResult.stats ?? undefined,
+    };
   }
 
   return {
