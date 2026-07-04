@@ -22,10 +22,10 @@ const sampleAgent: AgentDefinition = {
 
 function makeContext(overrides: Partial<EngineContext> = {}): EngineContext {
   return {
-    taskId: "task-1",
+    workItemId: "work-item-1",
     workingDir: "/test/project",
     agent: sampleAgent,
-    taskState: {},
+    state: {},
     metadata: {},
     instructions: "test instructions",
     setState: async () => {},

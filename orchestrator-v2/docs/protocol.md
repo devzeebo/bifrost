@@ -81,19 +81,19 @@ The protocol package defines the transport. The orchestrator package defines the
 
 **Orchestrator → Runner:**
 
-| Method     | Params | Notes                                                     |
-| ---------- | ------ | --------------------------------------------------------- |
-| `dispatch` | `Task` | Runner must respond with `{ accepted: boolean, reason? }` |
+| Method     | Params     | Notes                                                     |
+| ---------- | ---------- | --------------------------------------------------------- |
+| `dispatch` | `WorkItem` | Runner must respond with `{ accepted: boolean, reason? }` |
 
 **Runner → Orchestrator:**
 
-| Method                | Params                  | Notes                  |
-| --------------------- | ----------------------- | ---------------------- |
-| `task.complete`       | `{ taskId }`            |                        |
-| `task.fail`           | `{ taskId, message? }`  |                        |
-| `task.pause`          | `{ taskId }`            |                        |
-| `taskSource.setState` | `{ taskId, taskState }` | Proxied to task source |
-| `scheduler.call`      | `{ method, args }`      | Proxied to scheduler   |
+| Method                    | Params                     | Notes                       |
+| ------------------------- | -------------------------- | --------------------------- |
+| `workItem.complete`       | `{ workItemId }`           |                             |
+| `workItem.fail`           | `{ workItemId, message? }` |                             |
+| `workItem.pause`          | `{ workItemId }`           |                             |
+| `workItemSource.setState` | `{ workItemId, state }`    | Proxied to work item source |
+| `scheduler.call`          | `{ method, args }`         | Proxied to scheduler        |
 
 ## Alternatives rejected
 

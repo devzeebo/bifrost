@@ -35,10 +35,9 @@ const setPackageVersion = async (pkgPath, version) => {
 
 // Package publish order (dependencies first)
 const publishOrder = [
-  "@bifrost-ai/interfaces-task-source",
+  "@bifrost-ai/interfaces-work",
   "@bifrost-ai/engine",
   "@bifrost-ai/protocol",
-  "@bifrost-ai/interfaces-task",
   "@bifrost-ai/orchestrator",
   "@bifrost-ai/runner",
   "@bifrost-ai/agent-3-task",

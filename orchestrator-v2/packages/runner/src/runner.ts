@@ -1,4 +1,4 @@
-import type { MutableDataRegistry, ScriptTaskDefinition } from "@bifrost-ai/interfaces-task";
+import type { MutableDataRegistry, WorkItemHandler } from "@bifrost-ai/interfaces-work";
 import { createRunnerPeer, type RunnerPeer } from "@bifrost-ai/protocol";
 
 import { resolveRunnerOptions } from "./config-loader.js";
@@ -13,7 +13,7 @@ import type { RunnerOptions } from "./types.js";
 export class Runner<TData extends Record<string, unknown> = Record<string, unknown>> {
   private readonly options: RunnerOptions<TData>;
   readonly data: MutableDataRegistry<TData>;
-  private readonly agents = new Map<string, Registry<ScriptTaskDefinition>>();
+  private readonly handlers = new Map<string, Registry<WorkItemHandler>>();
   private peer: RunnerPeer | null = null;
   private heartbeat: HeartbeatHandle | null = null;
   private unsubscribeDispatch: (() => void) | null = null;
@@ -24,16 +24,16 @@ export class Runner<TData extends Record<string, unknown> = Record<string, unkno
     this.data = options.data ?? (createDataRegistry() as MutableDataRegistry<TData>);
   }
 
-  registerAgent(agentType: string, handler: ScriptTaskDefinition): void {
-    this.ensureAgentRegistry(agentType).register(handler.name, handler);
+  registerWorkItemHandler(handler: WorkItemHandler): void {
+    this.ensureHandlerRegistry(handler.kind).register(handler.name, handler);
   }
 
-  getAgent(agentType: string, name: string): ScriptTaskDefinition | undefined {
-    return this.agents.get(agentType)?.get(name);
+  getWorkItemHandler(kind: string, name: string): WorkItemHandler | undefined {
+    return this.handlers.get(kind)?.get(name);
   }
 
-  hasAgent(agentType: string, name: string): boolean {
-    return this.agents.get(agentType)?.has(name) ?? false;
+  hasWorkItemHandler(kind: string, name: string): boolean {
+    return this.handlers.get(kind)?.has(name) ?? false;
   }
 
   async start(): Promise<void> {
@@ -51,7 +51,7 @@ export class Runner<TData extends Record<string, unknown> = Record<string, unkno
     const rpc = createRpcClient(peer);
     this.unsubscribeDispatch = registerDispatchHandler(
       peer,
-      this.agents,
+      this.handlers,
       asDataRegistry(this.data),
       rpc,
     );
@@ -84,11 +84,11 @@ export class Runner<TData extends Record<string, unknown> = Record<string, unkno
     return this.peer;
   }
 
-  private ensureAgentRegistry(agentType: string): Registry<ScriptTaskDefinition> {
-    let registry = this.agents.get(agentType);
+  private ensureHandlerRegistry(kind: string): Registry<WorkItemHandler> {
+    let registry = this.handlers.get(kind);
     if (registry === undefined) {
-      registry = new Registry<ScriptTaskDefinition>();
-      this.agents.set(agentType, registry);
+      registry = new Registry<WorkItemHandler>();
+      this.handlers.set(kind, registry);
     }
     return registry;
   }

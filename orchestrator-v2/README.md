@@ -1,18 +1,17 @@
 # Orchestrator v2
 
-A rebuild of the Bifrost orchestrator as a thin **get-work + dispatch** system. Execution happens on remote runners over a signed WebSocket RPC protocol. This monorepo contains the shared contracts and libraries that wire orchestrator, runners, and task sources together.
+A rebuild of the Bifrost orchestrator as a thin **get-work + dispatch** system. Execution happens on remote runners over a signed WebSocket RPC protocol. This monorepo contains the shared contracts and libraries that wire orchestrator, runners, and work item sources together.
 
 ## Packages
 
-| Package                              | Purpose                                                               |
-| ------------------------------------ | --------------------------------------------------------------------- |
-| `@bifrost-ai/interfaces-task`        | Script task definition and result types                               |
-| `@bifrost-ai/interfaces-task-source` | Task and `TaskSource` contracts                                       |
-| `@bifrost-ai/protocol`               | Signed WebSocket RPC between orchestrator and runners                 |
-| `@bifrost-ai/orchestrator`           | Thin orchestrator: stream tasks, dispatch to runners, record outcomes |
-| `@bifrost-ai/runner`                 | Remote script runner: config-driven dial, execute, report outcomes    |
-| `@bifrost-ai/engine`                 | Engine interface, types, and `TestEngine` for development/testing     |
-| `@bifrost-ai/agent-3-task`           | Task Agent — single-shot LLM execution as a script                    |
+| Package                       | Purpose                                                              |
+| ----------------------------- | -------------------------------------------------------------------- |
+| `@bifrost-ai/interfaces-work` | Work item, handler, and execution contracts                          |
+| `@bifrost-ai/protocol`        | Signed WebSocket RPC between orchestrator and runners                |
+| `@bifrost-ai/orchestrator`    | Thin orchestrator: stream work items, dispatch, record outcomes      |
+| `@bifrost-ai/runner`          | Remote runner: config-driven dial, execute handlers, report outcomes |
+| `@bifrost-ai/engine`          | Engine interface, types, and `TestEngine` for development/testing    |
+| `@bifrost-ai/agent-3-task`    | Task Agent — single-shot LLM execution (`kind: "task"`)              |
 
 For design background and how each piece fits together, see [docs/](docs/).
 
@@ -35,61 +34,60 @@ vp run -r build # build all packages
 
 ## Usage
 
-### Define a script task
+### Define a work item handler
 
-Scripts are plain async functions. There is no built-in LLM task type — higher-level agents (Task Agent, Workflow Agent) build on this interface.
+Handlers are registered on the runner and executed when a matching work item is dispatched. Higher-level agents (Task Agent, Workflow Agent) build on this interface.
 
 ```typescript
-import type { ScriptTaskDefinition } from "@bifrost-ai/interfaces-task";
+import type { WorkItemHandler } from "@bifrost-ai/interfaces-work";
 
-const echo: ScriptTaskDefinition = {
+const echo: WorkItemHandler = {
+  kind: "script",
   name: "echo",
-  async run(ctx) {
-    const message = ctx.metadata.message as string;
+  async run(workItem, ctx) {
+    const message = workItem.metadata.message as string;
     await ctx.setState({ echoed: message });
     return { outcome: "completed", message };
   },
 };
 ```
 
-A script receives:
+A handler receives:
 
-- `taskId`, `agentType`, `agentName` — from the dispatched task
-- `data` — `get(type)` returns a typed `Registry<T>`, then `.get(name)` for the instance
-- `agents` — `get(agentType, name)` for other registered handlers
-- `taskState` — mutable per-task state (persisted via the task source)
-- `metadata` — read-only context attached when the task was created
-- `setState(state)` — persist state updates back to the source
+- `workItem` — the dispatched instance (`workItemId`, `kind`, `name`, `state`, `metadata`)
+- `ctx.data` — `get(type)` returns a typed `Registry<T>`, then `.get(name)` for the instance
+- `ctx.handlers` — `get(kind, name)` for other registered handlers
+- `ctx.setState(state)` — persist state updates back to the work item source
 
 It returns `{ outcome: "completed" | "failed" | "paused", message?, telemetry? }`. A thrown error is treated as `failed`.
 
-### Implement a task source
+### Implement a work item source
 
-The orchestrator does not resolve dependencies or inspect task graphs. Your `TaskSource` implementation owns that logic and yields **already-resolved** tasks.
+The orchestrator does not resolve dependencies or inspect work graphs. Your `WorkItemSource` implementation owns that logic and yields **already-resolved** work items.
 
 ```typescript
-import type { Task, TaskSource } from "@bifrost-ai/interfaces-task-source";
+import type { WorkItem, WorkItemSource } from "@bifrost-ai/interfaces-work";
 
-const taskSource: TaskSource = {
-  async *watchTasks() {
+const workItemSource: WorkItemSource = {
+  async *watchWorkItems() {
     yield {
-      taskId: "task-1",
-      agentType: "script",
-      agentName: "echo",
-      taskState: {},
+      workItemId: "work-item-1",
+      kind: "script",
+      name: "echo",
+      state: {},
       metadata: { message: "hello" },
-    } satisfies Task;
+    } satisfies WorkItem;
   },
-  async completeTask(taskId) {
+  async completeWorkItem(workItemId) {
     /* mark done */
   },
-  async failTask(taskId, error) {
+  async failWorkItem(workItemId, error) {
     /* mark failed */
   },
-  async pauseTask(taskId) {
+  async pauseWorkItem(workItemId) {
     /* mark paused */
   },
-  async setState(taskId, taskState) {
+  async setState(workItemId, state) {
     /* persist state */
   },
 };
@@ -111,7 +109,7 @@ const handle = await runOrchestrator({
   authorizedRunners: loadAuthorizedRunners([
     { keyId: runnerIdentity.keyId, publicKeyPem: exportPublicKeyPem(runnerIdentity.publicKey) },
   ]),
-  taskSource,
+  workItemSource,
   scheduler: {
     async call(method, params) {
       // workflow scheduling callbacks from runners
@@ -122,12 +120,12 @@ const handle = await runOrchestrator({
 });
 
 // handle.peer.address — WebSocket listen address
-// handle.done — resolves when watchTasks() ends and in-flight work drains
+// handle.done — resolves when watchWorkItems() ends and in-flight work drains
 ```
 
 ### Run a runner
 
-Runners dial the orchestrator over WebSocket. With `runner.yaml` present, keys and URL load automatically — register scripts and start:
+Runners dial the orchestrator over WebSocket. With `runner.yaml` present, keys and URL load automatically — register handlers and start:
 
 ```typescript
 import { Runner, createDataRegistry } from "@bifrost-ai/runner";
@@ -138,7 +136,7 @@ const runner = new Runner({ data });
 
 data.get("engine").register("claude", claudeEngine);
 enrollTaskAgent(runner, reviewerAgent);
-runner.registerAgent("script", echo);
+runner.registerWorkItemHandler(echo);
 
 await runner.start();
 ```
@@ -162,27 +160,26 @@ identity:
     ...
 ```
 
-See [docs/runner.md](docs/runner.md) for config discovery, trust model, and plugin enrollment.
+See [docs/runner.md](docs/runner.md) for config discovery, trust model, and handler enrollment.
 
 ### RPC methods exposed by the orchestrator
 
 Runners call back into the orchestrator over the same signed WebSocket:
 
-| Method                | Params                  | Description            |
-| --------------------- | ----------------------- | ---------------------- |
-| `task.complete`       | `{ taskId }`            | Mark task completed    |
-| `task.fail`           | `{ taskId, message? }`  | Mark task failed       |
-| `task.pause`          | `{ taskId }`            | Mark task paused       |
-| `taskSource.setState` | `{ taskId, taskState }` | Persist script state   |
-| `scheduler.call`      | `{ method, args }`      | Invoke scheduler proxy |
+| Method                    | Params                     | Description              |
+| ------------------------- | -------------------------- | ------------------------ |
+| `workItem.complete`       | `{ workItemId }`           | Mark work item completed |
+| `workItem.fail`           | `{ workItemId, message? }` | Mark work item failed    |
+| `workItem.pause`          | `{ workItemId }`           | Mark work item paused    |
+| `workItemSource.setState` | `{ workItemId, state }`    | Persist handler state    |
+| `scheduler.call`          | `{ method, args }`         | Invoke scheduler proxy   |
 
-The orchestrator dispatches work with `dispatch` RPC requests containing a full `Task` object.
+The orchestrator dispatches work with `dispatch` RPC requests containing a full `WorkItem` object.
 
 ## Documentation
 
 - [docs/](docs/) — how the system works (architecture, design decisions)
 - [packages/protocol/README.md](packages/protocol/README.md) — protocol implementation details
-- [packages/interfaces-task-source/README.md](packages/interfaces-task-source/README.md) — task source contract details
 
 ## Related issues
 

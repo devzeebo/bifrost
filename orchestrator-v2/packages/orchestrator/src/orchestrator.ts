@@ -2,7 +2,7 @@ import { createOrchestratorPeer, type OrchestratorPeer } from "@bifrost-ai/proto
 
 import { DispatchAckHandler } from "./dispatch-ack-handler.js";
 import { DispatchTracker } from "./dispatch-tracker.js";
-import { dispatchTask } from "./dispatcher.js";
+import { dispatchWorkItem } from "./dispatcher.js";
 import { PeerRegistry } from "./peer-registry.js";
 import { ResultHandler } from "./result-handler.js";
 import { RpcRouter } from "./rpc-router.js";
@@ -51,9 +51,9 @@ export async function runOrchestrator(
 
   const registry = new PeerRegistry({ heartbeatTimeoutMs, maxInFlightPerPeer });
   const tracker = new DispatchTracker();
-  const results = new ResultHandler(options.taskSource, tracker, registry);
-  const router = new RpcRouter(options.taskSource, options.scheduler, results);
-  const acks = new DispatchAckHandler(options.taskSource, tracker, registry);
+  const results = new ResultHandler(options.workItemSource, tracker, registry);
+  const router = new RpcRouter(options.workItemSource, options.scheduler, results);
+  const acks = new DispatchAckHandler(options.workItemSource, tracker, registry);
 
   const disconnectCleanup = peer.onPeerDisconnect((connected) => {
     results.handleDisconnect(connected);
@@ -78,12 +78,12 @@ export async function runOrchestrator(
 
   const done = (async () => {
     try {
-      for await (const task of options.taskSource.watchTasks()) {
+      for await (const workItem of options.workItemSource.watchWorkItems()) {
         if (abortSignal?.aborted === true) {
           break;
         }
         const runner = await registry.waitForAvailablePeer();
-        dispatchTask(runner, task, tracker, registry);
+        dispatchWorkItem(runner, workItem, tracker, registry);
       }
       await drainInFlight(tracker, abortSignal);
     } finally {

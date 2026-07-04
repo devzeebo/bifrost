@@ -2,10 +2,7 @@
   "extends": "./tsconfig.base.json",
   "references": [
     {
-      "path": "./packages/interfaces-task/tsconfig.json"
-    },
-    {
-      "path": "./packages/interfaces-task-source/tsconfig.json"
+      "path": "./packages/interfaces-work/tsconfig.json"
     },
     {
       "path": "./packages/orchestrator/tsconfig.json"

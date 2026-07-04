@@ -209,5 +209,5 @@ When a child exhausts all retries and permanently fails, the workflow needs a di
 ## Related
 
 - [Task Agent](agent-3-task.md) — the leaf agent that does LLM work
-- [Script tasks](script-tasks.md) — the execution primitive underneath all agents
-- [Task source](../packages/interfaces-task-source/README.md) — owns dependency resolution and draft/live gating
+- [Work items](work-items.md) — the execution primitive underneath all agents
+- [Work item source](orchestrator.md) — owns dependency resolution and draft/live gating

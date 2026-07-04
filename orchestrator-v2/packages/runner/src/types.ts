@@ -1,4 +1,4 @@
-import type { MutableDataRegistry } from "@bifrost-ai/interfaces-task";
+import type { MutableDataRegistry } from "@bifrost-ai/interfaces-work";
 import type { PeerIdentity } from "@bifrost-ai/protocol";
 import type { KeyObject } from "node:crypto";
 

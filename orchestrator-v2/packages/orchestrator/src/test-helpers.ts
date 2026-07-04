@@ -1,28 +1,28 @@
-import type { Task, TaskSource } from "@bifrost-ai/interfaces-task-source";
+import type { WorkItem, WorkItemSource } from "@bifrost-ai/interfaces-work";
 import type { FramePayload, PeerIdentity, RunnerPeer } from "@bifrost-ai/protocol";
 import { createRunnerPeer, generateKeyPair } from "@bifrost-ai/protocol";
 
 import { runOrchestrator } from "./orchestrator.js";
 import type { Scheduler } from "./types.js";
 
-export type MemoryTaskSource = TaskSource & {
+export type MemoryWorkItemSource = WorkItemSource & {
   completed: string[];
-  failed: Array<{ taskId: string; error: string }>;
+  failed: Array<{ workItemId: string; error: string }>;
   paused: string[];
   states: Map<string, Record<string, unknown>>;
 };
 
 export type StubRunnerBehavior = {
-  onDispatch?: (task: Task) => Promise<"complete" | "fail" | "pause" | "reject">;
+  onDispatch?: (workItem: WorkItem) => Promise<"complete" | "fail" | "pause" | "reject">;
   dispatchDelayMs?: number;
   failMessage?: string;
   rejectReason?: string;
   setStateOnDispatch?: Record<string, unknown>;
 };
 
-export function createMemoryTaskSource(tasks: Task[]): MemoryTaskSource {
+export function createMemoryWorkItemSource(workItems: WorkItem[]): MemoryWorkItemSource {
   const completed: string[] = [];
-  const failed: Array<{ taskId: string; error: string }> = [];
+  const failed: Array<{ workItemId: string; error: string }> = [];
   const paused: string[] = [];
   const states = new Map<string, Record<string, unknown>>();
 
@@ -31,22 +31,22 @@ export function createMemoryTaskSource(tasks: Task[]): MemoryTaskSource {
     failed,
     paused,
     states,
-    async *watchTasks() {
-      for (const task of tasks) {
-        yield task;
+    async *watchWorkItems() {
+      for (const workItem of workItems) {
+        yield workItem;
       }
     },
-    async completeTask(taskId: string) {
-      completed.push(taskId);
+    async completeWorkItem(workItemId: string) {
+      completed.push(workItemId);
     },
-    async failTask(taskId: string, error: string) {
-      failed.push({ taskId, error });
+    async failWorkItem(workItemId: string, error: string) {
+      failed.push({ workItemId, error });
     },
-    async pauseTask(taskId: string) {
-      paused.push(taskId);
+    async pauseWorkItem(workItemId: string) {
+      paused.push(workItemId);
     },
-    async setState(taskId: string, taskState: Record<string, unknown>) {
-      states.set(taskId, taskState);
+    async setState(workItemId: string, state: Record<string, unknown>) {
+      states.set(workItemId, state);
     },
   };
 }
@@ -98,7 +98,7 @@ export async function waitFor(
 export async function startOrchestratorInBackground(options: {
   orchestratorIdentity: PeerIdentity;
   authorizedRunners: Map<string, import("node:crypto").KeyObject>;
-  taskSource: MemoryTaskSource;
+  workItemSource: MemoryWorkItemSource;
   scheduler?: Scheduler;
   maxInFlightPerPeer?: number;
 }): Promise<{
@@ -114,7 +114,7 @@ export async function startOrchestratorInBackground(options: {
   const handle = await runOrchestrator({
     identity: options.orchestratorIdentity,
     authorizedRunners: options.authorizedRunners,
-    taskSource: options.taskSource,
+    workItemSource: options.workItemSource,
     scheduler: options.scheduler ?? createNoopScheduler(),
     maxInFlightPerPeer: options.maxInFlightPerPeer,
     abortSignal: abortController.signal,
@@ -172,9 +172,9 @@ async function handleDispatch(
     return;
   }
 
-  const task = payload.params as Task;
+  const workItem = payload.params as WorkItem;
   const outcome = behavior.onDispatch
-    ? await behavior.onDispatch(task)
+    ? await behavior.onDispatch(workItem)
     : await defaultOutcome(behavior);
 
   if (outcome === "reject") {
@@ -193,12 +193,12 @@ async function handleDispatch(
   });
 
   if (behavior.setStateOnDispatch !== undefined) {
-    const requestId = `set-state-${task.taskId}`;
+    const requestId = `set-state-${workItem.workItemId}`;
     runner.send({
       kind: "rpc.request",
       id: requestId,
-      method: "taskSource.setState",
-      params: { taskId: task.taskId, taskState: behavior.setStateOnDispatch },
+      method: "workItemSource.setState",
+      params: { workItemId: workItem.workItemId, state: behavior.setStateOnDispatch },
     });
     await waitForRpcResponse(runner, requestId);
   }
@@ -207,30 +207,30 @@ async function handleDispatch(
     await delay(behavior.dispatchDelayMs);
   }
 
-  const terminalId = `terminal-${task.taskId}`;
+  const terminalId = `terminal-${workItem.workItemId}`;
   switch (outcome) {
     case "complete":
       runner.send({
         kind: "rpc.request",
         id: terminalId,
-        method: "task.complete",
-        params: { taskId: task.taskId },
+        method: "workItem.complete",
+        params: { workItemId: workItem.workItemId },
       });
       break;
     case "fail":
       runner.send({
         kind: "rpc.request",
         id: terminalId,
-        method: "task.fail",
-        params: { taskId: task.taskId, message: behavior.failMessage ?? "failed" },
+        method: "workItem.fail",
+        params: { workItemId: workItem.workItemId, message: behavior.failMessage ?? "failed" },
       });
       break;
     case "pause":
       runner.send({
         kind: "rpc.request",
         id: terminalId,
-        method: "task.pause",
-        params: { taskId: task.taskId },
+        method: "workItem.pause",
+        params: { workItemId: workItem.workItemId },
       });
       break;
   }
@@ -256,12 +256,12 @@ function waitForRpcResponse(runner: RunnerPeer, id: string): Promise<void> {
   });
 }
 
-export function sampleTask(taskId: string): Task {
+export function sampleWorkItem(workItemId: string): WorkItem {
   return {
-    taskId,
-    agentType: "script",
-    agentName: "echo",
-    taskState: {},
+    workItemId,
+    kind: "script",
+    name: "echo",
+    state: {},
     metadata: {},
   };
 }

@@ -1,5 +1,9 @@
 import type { AgentDefinition } from "@bifrost-ai/engine";
-import type { ScriptContext, ScriptResult } from "@bifrost-ai/interfaces-task";
+import type {
+  WorkItem,
+  WorkItemExecutionContext,
+  WorkItemResult,
+} from "@bifrost-ai/interfaces-work";
 
 import {
   ENGINE_DATA_TYPE,
@@ -9,10 +13,11 @@ import {
 } from "./types.js";
 
 export async function runTaskAgent(
-  ctx: ScriptContext<Pick<TaskAgentDataSchema, "engine">>,
+  workItem: WorkItem,
+  ctx: WorkItemExecutionContext<Pick<TaskAgentDataSchema, "engine">>,
   agent: AgentDefinition,
-): Promise<ScriptResult> {
-  const parsed = parseTaskAgentState(ctx.taskState);
+): Promise<WorkItemResult> {
+  const parsed = parseTaskAgentState(workItem.state);
   if (!parsed.ok) {
     return { outcome: "failed", message: missingFieldsMessage(parsed.missing) };
   }
@@ -28,12 +33,12 @@ export async function runTaskAgent(
   try {
     engineResult = await engine.execute(
       {
-        taskId: ctx.taskId,
+        workItemId: workItem.workItemId,
         workingDir,
         agent,
         instructions,
-        taskState: ctx.taskState,
-        metadata: ctx.metadata,
+        state: workItem.state,
+        metadata: workItem.metadata,
         setState: ctx.setState,
       },
       sessionId,
@@ -52,7 +57,7 @@ export async function runTaskAgent(
 
   if (engineResult.sessionId !== undefined) {
     await ctx.setState({
-      ...ctx.taskState,
+      ...workItem.state,
       sessionId: engineResult.sessionId,
     });
   }

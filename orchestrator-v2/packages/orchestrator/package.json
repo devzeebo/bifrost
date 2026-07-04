@@ -23,7 +23,7 @@
     "prepublishOnly": "vp run build"
   },
   "dependencies": {
-    "@bifrost-ai/interfaces-task-source": "workspace:*",
+    "@bifrost-ai/interfaces-work": "workspace:*",
     "@bifrost-ai/protocol": "workspace:*"
   },
   "devDependencies": {

@@ -1,7 +1,7 @@
 {
-  "name": "@bifrost-ai/interfaces-task",
+  "name": "@bifrost-ai/interfaces-work",
   "version": "0.1.0",
-  "description": "",
+  "description": "Work item contracts for Bifrost orchestrator v2",
   "license": "MIT",
   "files": [
     "dist"
@@ -20,9 +20,6 @@
     "test": "vp test --passWithNoTests",
     "check": "vp check",
     "prepublishOnly": "vp run build"
-  },
-  "dependencies": {
-    "@bifrost-ai/interfaces-task-source": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

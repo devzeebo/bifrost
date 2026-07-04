@@ -1,4 +1,4 @@
-import type { TaskSource } from "@bifrost-ai/interfaces-task-source";
+import type { WorkItemSource } from "@bifrost-ai/interfaces-work";
 import type { ConnectedPeer, FramePayload } from "@bifrost-ai/protocol";
 
 import { sendRpcError, sendRpcResponse } from "./dispatcher.js";
@@ -7,7 +7,7 @@ import type { Scheduler } from "./types.js";
 
 export class RpcRouter {
   constructor(
-    private readonly taskSource: TaskSource,
+    private readonly workItemSource: WorkItemSource,
     private readonly scheduler: Scheduler,
     private readonly results: ResultHandler,
   ) {}
@@ -27,16 +27,16 @@ export class RpcRouter {
     params: unknown,
   ): Promise<void> {
     switch (method) {
-      case "task.complete":
+      case "workItem.complete":
         await this.results.handleComplete(peer, requestId, params);
         return;
-      case "task.fail":
+      case "workItem.fail":
         await this.results.handleFail(peer, requestId, params);
         return;
-      case "task.pause":
+      case "workItem.pause":
         await this.results.handlePause(peer, requestId, params);
         return;
-      case "taskSource.setState":
+      case "workItemSource.setState":
         await this.handleSetState(peer, requestId, params);
         return;
       case "scheduler.call":
@@ -54,11 +54,11 @@ export class RpcRouter {
   ): Promise<void> {
     const parsed = readSetStateParams(params);
     if (parsed === null) {
-      sendRpcError(peer, requestId, "INVALID_PARAMS", "taskId and taskState are required");
+      sendRpcError(peer, requestId, "INVALID_PARAMS", "workItemId and state are required");
       return;
     }
 
-    await this.taskSource.setState(parsed.taskId, parsed.taskState);
+    await this.workItemSource.setState(parsed.workItemId, parsed.state);
     sendRpcResponse(peer, requestId, { ok: true });
   }
 
@@ -80,20 +80,20 @@ export class RpcRouter {
 
 function readSetStateParams(
   params: unknown,
-): { taskId: string; taskState: Record<string, unknown> } | null {
+): { workItemId: string; state: Record<string, unknown> } | null {
   if (params === null || typeof params !== "object") {
     return null;
   }
-  const record = params as { taskId?: unknown; taskState?: unknown };
-  if (typeof record.taskId !== "string") {
+  const record = params as { workItemId?: unknown; state?: unknown };
+  if (typeof record.workItemId !== "string") {
     return null;
   }
-  if (record.taskState === null || typeof record.taskState !== "object") {
+  if (record.state === null || typeof record.state !== "object") {
     return null;
   }
   return {
-    taskId: record.taskId,
-    taskState: record.taskState as Record<string, unknown>,
+    workItemId: record.workItemId,
+    state: record.state as Record<string, unknown>,
   };
 }
 

@@ -12,8 +12,8 @@ The `@bifrost-ai/runner` package provides a config-first `Runner` class:
 
 - Dials the orchestrator on `start()`, sends periodic heartbeats
 - Validates every inbound orchestrator frame against the configured orchestrator public key
-- Executes registered scripts locally with an RPC-backed `ScriptContext`
-- Reports terminal outcomes (`task.complete`, `task.fail`, `task.pause`) over signed RPC
+- Executes registered work item handlers locally with an RPC-backed `WorkItemExecutionContext`
+- Reports terminal outcomes (`workItem.complete`, `workItem.fail`, `workItem.pause`) over signed RPC
 
 ### Developer workflow
 
@@ -29,7 +29,7 @@ const runner = new Runner({ data });
 
 data.get("engine").register("claude", claudeEngine);
 enrollTaskAgent(runner, reviewerAgent);
-runner.registerAgent("script", echo);
+runner.registerWorkItemHandler(echo);
 
 await runner.start();
 ```
@@ -40,12 +40,12 @@ When `runner.yaml` (or `.bifrost-runner.yaml`) is present, keys and orchestrator
 
 ### Registry model
 
-| Kind      | Setup                                                               | Dispatch                            | Script access                          |
-| --------- | ------------------------------------------------------------------- | ----------------------------------- | -------------------------------------- |
-| **Data**  | `createDataRegistry(guards)` then `.get(type).register(name, item)` | Not searched                        | `ctx.data.get(type).get(name)` — typed |
-| **Agent** | `registerAgent(agentType, def)`                                     | `task.agentType` + `task.agentName` | `ctx.agents.get(agentType, name)`      |
+| Kind        | Setup                                                               | Dispatch                          | Handler access                         |
+| ----------- | ------------------------------------------------------------------- | --------------------------------- | -------------------------------------- |
+| **Data**    | `createDataRegistry(guards)` then `.get(type).register(name, item)` | Not searched                      | `ctx.data.get(type).get(name)` — typed |
+| **Handler** | `registerWorkItemHandler(handler)`                                  | `workItem.kind` + `workItem.name` | `ctx.handlers.get(kind, name)`         |
 
-Engines live in the data registry. Scripts, task agents, and workflow agents live in agent registries. Dispatch only searches agents.
+Engines live in the data registry. Task agents (`kind: "task"`), scripts, and workflow agents are work item handlers. Dispatch looks up handlers by `(kind, name)`.
 
 ### Config file (`runner.yaml`)
 
@@ -98,47 +98,44 @@ Outbound runner frames are signed with the runner identity key; the orchestrator
 sequenceDiagram
   participant O as Orchestrator
   participant R as Runner
-  participant S as Script
+  participant H as WorkItemHandler
 
-  O->>R: dispatch Task signed
+  O->>R: dispatch WorkItem signed
   R->>R: verify orchestrator signature
-  alt unknown agent
+  alt unknown handler
     R->>O: accepted false
-  else known agent
+  else known handler
     R->>O: accepted true
-    R->>S: handler.run ctx
-    S->>O: taskSource.setState RPC
-    S-->>R: ScriptResult
-    R->>O: task.complete / fail / pause
+    R->>H: handler.run(workItem, ctx)
+    H->>O: workItemSource.setState RPC
+    H-->>R: WorkItemResult
+    R->>O: workItem.complete / fail / pause
   end
 ```
 
-### RPC-backed ScriptContext
+### RPC-backed execution context
 
-| `ScriptContext` field | Source                                                        |
-| --------------------- | ------------------------------------------------------------- |
-| `taskId`              | Dispatched `Task`                                             |
-| `agentType`           | Dispatched `Task` — names the agent registry                  |
-| `agentName`           | Dispatched `Task` — names the handler within that registry    |
-| `taskState`           | Copied from dispatched `Task`; updated locally on `setState`  |
-| `metadata`            | Read-only from dispatched `Task`                              |
-| `data`                | Typed sub-registries — `ctx.data.get("engine").get("claude")` |
-| `setState(state)`     | RPC `taskSource.setState` to orchestrator                     |
+| Field                 | Source                                                                             |
+| --------------------- | ---------------------------------------------------------------------------------- |
+| `workItem`            | Dispatched `WorkItem` instance (`workItemId`, `kind`, `name`, `state`, `metadata`) |
+| `ctx.data`            | Typed sub-registries — `ctx.data.get("engine").get("claude")`                      |
+| `ctx.handlers`        | Other registered handlers — `ctx.handlers.get(kind, name)`                         |
+| `ctx.setState(state)` | RPC `workItemSource.setState` to orchestrator                                      |
 
 Task source and scheduler are reached over RPC. The engine (when used by agent packages) runs locally on the runner — never proxied.
 
 ## Alternatives rejected
 
-| Alternative                      | Why rejected                                                       |
-| -------------------------------- | ------------------------------------------------------------------ |
-| In-process direct-call transport | One interface only — always WebSocket                              |
-| Engine proxied to orchestrator   | Engine executes on runner machine                                  |
-| Scripts declared in constructor  | Plugins need incremental `registerAgent()` enrollment              |
-| `Runner.create()` static factory | `new Runner()` + `registerAgent()` + `start()` lifecycle preferred |
+| Alternative                      | Why rejected                                                                 |
+| -------------------------------- | ---------------------------------------------------------------------------- |
+| In-process direct-call transport | One interface only — always WebSocket                                        |
+| Engine proxied to orchestrator   | Engine executes on runner machine                                            |
+| Scripts declared in constructor  | Plugins need incremental `registerWorkItemHandler()` enrollment              |
+| `Runner.create()` static factory | `new Runner()` + `registerWorkItemHandler()` + `start()` lifecycle preferred |
 
 ## Dependencies
 
-- `@bifrost-ai/interfaces-task` — script types ([#32](script-tasks.md))
+- `@bifrost-ai/interfaces-work` — work item types ([#32](work-items.md))
 - `@bifrost-ai/protocol` — signed WebSocket transport ([#33](protocol.md))
 - `@bifrost-ai/orchestrator` — dispatch target ([#35](orchestrator.md))
 
@@ -147,7 +144,7 @@ Task source and scheduler are reached over RPC. The engine (when used by agent p
 Acceptance criteria from the issue:
 
 - Runner dials in, authenticates, stays alive via heartbeat
-- Dispatched task executes locally; `setState` round-trips; signed terminal result returned
+- Dispatched work item executes locally; `setState` round-trips; signed terminal result returned
 - Engine runs locally (no engine RPC path)
 - Config file drives keys/URL; orchestrator payloads validated against configured pubkey
 

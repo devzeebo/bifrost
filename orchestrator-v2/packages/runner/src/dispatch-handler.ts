@@ -1,33 +1,33 @@
 import {
-  missingTaskFields,
-  missingTaskFieldsMessage,
-  validateTask,
-} from "@bifrost-ai/interfaces-task-source";
-import type { DataRegistry, ScriptTaskDefinition } from "@bifrost-ai/interfaces-task";
+  missingWorkItemFields,
+  missingWorkItemFieldsMessage,
+  validateWorkItem,
+} from "@bifrost-ai/interfaces-work";
+import type { DataRegistry, WorkItemHandler } from "@bifrost-ai/interfaces-work";
 import type { FramePayload, RunnerPeer } from "@bifrost-ai/protocol";
 
-import { executeScript } from "./execute-script.js";
+import { executeWorkItem } from "./execute-work-item.js";
 import { sendRpcResponse, type RpcClient } from "./rpc-client.js";
-import { createRpcScriptContext } from "./script-context.js";
+import { createRpcWorkItemExecutionContext } from "./work-item-execution-context.js";
 import type { Registry } from "./registry.js";
 
 export function registerDispatchHandler(
   peer: RunnerPeer,
-  agents: Map<string, Registry<ScriptTaskDefinition>>,
+  handlers: Map<string, Registry<WorkItemHandler>>,
   data: DataRegistry<Record<string, unknown>>,
   rpc: RpcClient,
 ): () => void {
   return peer.subscribe(
     (payload) => payload.kind === "rpc.request" && payload.method === "dispatch",
     (payload) => {
-      void handleDispatch(peer, agents, data, rpc, payload);
+      void handleDispatch(peer, handlers, data, rpc, payload).catch(() => undefined);
     },
   );
 }
 
 async function handleDispatch(
   peer: RunnerPeer,
-  agents: Map<string, Registry<ScriptTaskDefinition>>,
+  handlers: Map<string, Registry<WorkItemHandler>>,
   data: DataRegistry<Record<string, unknown>>,
   rpc: RpcClient,
   payload: FramePayload,
@@ -36,42 +36,47 @@ async function handleDispatch(
     return;
   }
 
-  const task = payload.params;
-  if (!validateTask(task)) {
-    const missing = missingTaskFields(task);
+  const workItem = payload.params;
+  if (!validateWorkItem(workItem)) {
+    const missing = missingWorkItemFields(workItem);
     sendRpcResponse(peer, payload.id, {
       accepted: false,
-      reason: missingTaskFieldsMessage(missing),
+      reason: missingWorkItemFieldsMessage(missing),
     });
     return;
   }
 
-  const handler = agents.get(task.agentType)?.get(task.agentName);
+  const handler = handlers.get(workItem.kind)?.get(workItem.name);
   if (handler === undefined) {
     sendRpcResponse(peer, payload.id, {
       accepted: false,
-      reason: `Unknown agent: ${task.agentName}`,
+      reason: `Unknown work item handler: ${workItem.kind}/${workItem.name}`,
     });
     return;
   }
 
   sendRpcResponse(peer, payload.id, { accepted: true });
 
-  const ctx = createRpcScriptContext(task, rpc, data, agents);
-  const result = await executeScript(handler, ctx);
+  const { workItem: liveWorkItem, ctx } = createRpcWorkItemExecutionContext(
+    workItem,
+    rpc,
+    data,
+    handlers,
+  );
+  const result = await executeWorkItem(handler, liveWorkItem, ctx);
 
   switch (result.outcome) {
     case "completed":
-      await rpc.call("task.complete", { taskId: task.taskId });
+      await rpc.call("workItem.complete", { workItemId: workItem.workItemId });
       break;
     case "failed":
-      await rpc.call("task.fail", {
-        taskId: task.taskId,
+      await rpc.call("workItem.fail", {
+        workItemId: workItem.workItemId,
         message: result.message ?? "failed",
       });
       break;
     case "paused":
-      await rpc.call("task.pause", { taskId: task.taskId });
+      await rpc.call("workItem.pause", { workItemId: workItem.workItemId });
       break;
   }
 }
