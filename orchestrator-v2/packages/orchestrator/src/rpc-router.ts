@@ -17,7 +17,13 @@ export class RpcRouter {
       return;
     }
 
-    void this.route(peer, payload.id, payload.method, payload.params);
+    void this.route(peer, payload.id, payload.method, payload.params).catch((error) => {
+      // Backstop for the whole RPC surface: any handler that throws before it
+      // answers still gets a response back to the runner, so a bug in one path
+      // can't hang the runner. Per-handler catches below just refine the code.
+      console.error(`Failed to route RPC ${payload.method}:`, error);
+      sendRpcError(peer, payload.id, "INTERNAL_ERROR", error);
+    });
   }
 
   private async route(
@@ -58,8 +64,12 @@ export class RpcRouter {
       return;
     }
 
-    await this.workItemSource.setState(parsed.workItemId, parsed.state);
-    sendRpcResponse(peer, requestId, { ok: true });
+    try {
+      await this.workItemSource.setState(parsed.workItemId, parsed.state);
+      sendRpcResponse(peer, requestId, { ok: true });
+    } catch (error) {
+      sendRpcError(peer, requestId, "SOURCE_ERROR", error);
+    }
   }
 
   private async handleSchedulerCall(
@@ -73,8 +83,12 @@ export class RpcRouter {
       return;
     }
 
-    const result = await this.scheduler.call(parsed.method, parsed.args);
-    sendRpcResponse(peer, requestId, result);
+    try {
+      const result = await this.scheduler.call(parsed.method, parsed.args);
+      sendRpcResponse(peer, requestId, result);
+    } catch (error) {
+      sendRpcError(peer, requestId, "SCHEDULER_ERROR", error);
+    }
   }
 }
 
