@@ -5,8 +5,8 @@ type PeerState = {
   runnerId: string | null;
   lastSeen: number;
   inFlight: number;
-  // Advertised capability keys, or null if the runner has not advertised any
-  // (treated as "can handle anything" for backward compatibility).
+  // Advertised capability keys, or null if the runner has not advertised yet
+  // (treated as having no capabilities — all runners are expected to advertise).
   capabilities: Set<string> | null;
 };
 
@@ -133,10 +133,13 @@ export class PeerRegistry {
 }
 
 function canHandle(state: PeerState, requiredCapability: string | undefined): boolean {
-  // No requirement, or a runner that hasn't advertised its capabilities, is treated as
-  // able to handle the task (keeps non-advertising runners working as before).
-  if (requiredCapability === undefined || state.capabilities === null) {
+  if (requiredCapability === undefined) {
     return true;
+  }
+  // A runner that has not advertised its capabilities is treated as having none — all
+  // runners are expected to advertise.
+  if (state.capabilities === null) {
+    return false;
   }
   return state.capabilities.has(requiredCapability);
 }

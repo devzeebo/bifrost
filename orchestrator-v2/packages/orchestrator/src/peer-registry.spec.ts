@@ -5,6 +5,20 @@ import type { ConnectedPeer, FramePayload } from "@bifrost-ai/protocol";
 
 import { PeerRegistry } from "./peer-registry.js";
 
+describe("PeerRegistry capability routing (regression: I1)", () => {
+  test("routes to the peer that advertises the required capability", {
+    given: { two_runners_with_different_capabilities },
+    when: { selecting_a_peer_for_the_special_agent },
+    then: { the_specialist_is_selected },
+  });
+
+  test("does not select a runner that has not advertised the capability", {
+    given: { a_runner_that_advertises_no_capabilities },
+    when: { selecting_a_peer_for_the_special_agent },
+    then: { no_peer_is_selected },
+  });
+});
+
 type Context = {
   registry: PeerRegistry;
   generic: ConnectedPeer;
@@ -24,20 +38,6 @@ const heartbeat = (runnerId: string, capabilities?: string[]): FramePayload => (
   kind: "heartbeat",
   runnerId,
   ...(capabilities !== undefined ? { capabilities } : {}),
-});
-
-describe("PeerRegistry capability routing (regression: I1)", () => {
-  test("routes to the peer that advertises the required capability", {
-    given: { two_runners_with_different_capabilities },
-    when: { selecting_a_peer_for_the_special_agent },
-    then: { the_specialist_is_selected },
-  });
-
-  test("treats a runner that advertised nothing as capable of anything", {
-    given: { a_runner_that_advertises_no_capabilities },
-    when: { selecting_a_peer_for_the_special_agent },
-    then: { the_bare_runner_is_selected },
-  });
 });
 
 function two_runners_with_different_capabilities(this: Context) {
@@ -69,12 +69,13 @@ function selecting_a_peer_for_the_special_agent(this: Context) {
 }
 
 function the_specialist_is_selected(this: Context) {
-  // The generic runner is first in insertion order but lacks "special", so it is
-  // skipped in favour of the capable specialist (before the fix, the generic runner
-  // was chosen and the task would have failed).
+  // generic is first in insertion order but lacks "special", so it is skipped in
+  // favour of the capable specialist.
   expect(this.selected).toBe(this.specialist);
 }
 
-function the_bare_runner_is_selected(this: Context) {
-  expect(this.selected).toBe(this.bare);
+function no_peer_is_selected(this: Context) {
+  // A runner that has not advertised is treated as having no capabilities (fail-closed),
+  // so it is not selected for a required capability.
+  expect(this.selected).toBeUndefined();
 }

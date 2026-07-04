@@ -66,7 +66,7 @@ export class RpcRouter {
       await this.taskSource.setState(parsed.taskId, parsed.taskState);
       sendRpcResponse(peer, requestId, { ok: true });
     } catch (error) {
-      sendRpcError(peer, requestId, "TASK_SOURCE_ERROR", errorMessage(error));
+      sendRpcError(peer, requestId, "TASK_SOURCE_ERROR", error);
     }
   }
 
@@ -85,7 +85,7 @@ export class RpcRouter {
       const result = await this.scheduler.call(parsed.method, parsed.args);
       sendRpcResponse(peer, requestId, result);
     } catch (error) {
-      sendRpcError(peer, requestId, "SCHEDULER_ERROR", errorMessage(error));
+      sendRpcError(peer, requestId, "SCHEDULER_ERROR", error);
     }
   }
 }
@@ -118,8 +118,4 @@ function readSchedulerParams(params: unknown): { method: string; args: unknown }
     return null;
   }
   return { method: record.method, args: record.args };
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

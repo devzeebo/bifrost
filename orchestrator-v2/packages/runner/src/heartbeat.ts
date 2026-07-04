@@ -11,10 +11,10 @@ export function startHeartbeat(
   peer: RunnerPeer,
   identity: PeerIdentity,
   intervalMs = DEFAULT_HEARTBEAT_INTERVAL_MS,
-  capabilities: readonly string[] = [],
+  capabilities: string[] = [],
 ): HeartbeatHandle {
   const send = () => {
-    peer.send({ kind: "heartbeat", runnerId: identity.keyId, capabilities: [...capabilities] });
+    peer.send({ kind: "heartbeat", runnerId: identity.keyId, capabilities });
   };
 
   send();
