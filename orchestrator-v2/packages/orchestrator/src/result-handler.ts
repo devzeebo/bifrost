@@ -1,6 +1,8 @@
-import type { TaskSource } from "@bifrost-ai/interfaces-task-source";
+import { isExecutionStats } from "@bifrost-ai/interfaces-task-source";
+import type { ExecutionStats, TaskSource } from "@bifrost-ai/interfaces-task-source";
 import type { ConnectedPeer } from "@bifrost-ai/protocol";
 
+import { recordBestEffort } from "./best-effort.js";
 import { sendRpcError, sendRpcResponse } from "./dispatcher.js";
 import type { DispatchTracker } from "./dispatch-tracker.js";
 import type { PeerRegistry } from "./peer-registry.js";
@@ -18,21 +20,9 @@ export class ResultHandler {
       sendRpcError(peer, requestId, "INVALID_PARAMS", "taskId is required");
       return;
     }
-
-    const entry = this.tracker.resolve(taskId);
-    if (entry === undefined || entry.peerId !== peer.peerId) {
-      sendRpcError(
-        peer,
-        requestId,
-        "NOT_IN_FLIGHT",
-        `Task ${taskId} is not in-flight on this peer`,
-      );
-      return;
-    }
-
-    await this.taskSource.completeTask(taskId);
-    this.registry.markTerminal(peer.peerId);
-    sendRpcResponse(peer, requestId, { ok: true });
+    await this.settle(peer, requestId, taskId, () =>
+      this.taskSource.completeTask(taskId, readTelemetry(params)),
+    );
   }
 
   async handleFail(peer: ConnectedPeer, requestId: string, params: unknown): Promise<void> {
@@ -41,21 +31,9 @@ export class ResultHandler {
       sendRpcError(peer, requestId, "INVALID_PARAMS", "taskId is required");
       return;
     }
-
-    const entry = this.tracker.resolve(parsed.taskId);
-    if (entry === undefined || entry.peerId !== peer.peerId) {
-      sendRpcError(
-        peer,
-        requestId,
-        "NOT_IN_FLIGHT",
-        `Task ${parsed.taskId} is not in-flight on this peer`,
-      );
-      return;
-    }
-
-    await this.taskSource.failTask(parsed.taskId, parsed.message);
-    this.registry.markTerminal(peer.peerId);
-    sendRpcResponse(peer, requestId, { ok: true });
+    await this.settle(peer, requestId, parsed.taskId, () =>
+      this.taskSource.failTask(parsed.taskId, parsed.message, readTelemetry(params)),
+    );
   }
 
   async handlePause(peer: ConnectedPeer, requestId: string, params: unknown): Promise<void> {
@@ -64,7 +42,18 @@ export class ResultHandler {
       sendRpcError(peer, requestId, "INVALID_PARAMS", "taskId is required");
       return;
     }
+    await this.settle(peer, requestId, taskId, () => this.taskSource.pauseTask(taskId));
+  }
 
+  // Record a terminal outcome, then ALWAYS free the peer slot and answer the runner —
+  // even if the task source throws. A source-recording failure must never leak the
+  // in-flight slot (which would wedge the peer) nor hang the runner's terminal RPC.
+  private async settle(
+    peer: ConnectedPeer,
+    requestId: string,
+    taskId: string,
+    record: () => Promise<void>,
+  ): Promise<void> {
     const entry = this.tracker.resolve(taskId);
     if (entry === undefined || entry.peerId !== peer.peerId) {
       sendRpcError(
@@ -75,8 +64,7 @@ export class ResultHandler {
       );
       return;
     }
-
-    await this.taskSource.pauseTask(taskId);
+    await recordBestEffort(record, `record outcome for task ${taskId}`);
     this.registry.markTerminal(peer.peerId);
     sendRpcResponse(peer, requestId, { ok: true });
   }
@@ -84,7 +72,10 @@ export class ResultHandler {
   handleDisconnect(peer: ConnectedPeer): void {
     const orphaned = this.tracker.failByPeer(peer.peerId);
     for (const entry of orphaned) {
-      void this.taskSource.failTask(entry.taskId, "Runner disconnected");
+      void recordBestEffort(
+        () => this.taskSource.failTask(entry.taskId, "Runner disconnected"),
+        `fail orphaned task ${entry.taskId}`,
+      );
       this.registry.markTerminal(peer.peerId);
     }
   }
@@ -111,4 +102,12 @@ function readFailParams(params: unknown): { taskId: string; message: string } | 
     }
   }
   return { taskId, message };
+}
+
+function readTelemetry(params: unknown): ExecutionStats | undefined {
+  if (params === null || typeof params !== "object" || !("telemetry" in params)) {
+    return undefined;
+  }
+  const telemetry = (params as { telemetry: unknown }).telemetry;
+  return isExecutionStats(telemetry) ? telemetry : undefined;
 }

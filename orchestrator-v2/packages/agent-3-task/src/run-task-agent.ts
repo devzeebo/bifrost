@@ -43,13 +43,9 @@ export async function runTaskAgent(
     return { outcome: "failed", message };
   }
 
-  if (!engineResult.success) {
-    return {
-      outcome: "failed",
-      message: engineResult.lastMessage ?? "Engine execution failed",
-    };
-  }
-
+  // Persist the session before branching on outcome: a failed run that produced
+  // a session must still be resumable by a retry (the engine may have made
+  // progress before failing), and telemetry is reported on both outcomes.
   if (engineResult.sessionId !== undefined) {
     await ctx.setState({
       ...ctx.taskState,
@@ -57,9 +53,19 @@ export async function runTaskAgent(
     });
   }
 
+  const telemetry = engineResult.stats ?? undefined;
+
+  if (!engineResult.success) {
+    return {
+      outcome: "failed",
+      message: engineResult.lastMessage ?? "Engine execution failed",
+      telemetry,
+    };
+  }
+
   return {
     outcome: "completed",
     message: engineResult.lastMessage ?? undefined,
-    telemetry: engineResult.stats ?? undefined,
+    telemetry,
   };
 }

@@ -1,6 +1,7 @@
 import type { TaskSource } from "@bifrost-ai/interfaces-task-source";
 import type { ConnectedPeer, FramePayload } from "@bifrost-ai/protocol";
 
+import { recordBestEffort } from "./best-effort.js";
 import type { DispatchTracker } from "./dispatch-tracker.js";
 import type { PeerRegistry } from "./peer-registry.js";
 import type { DispatchAck } from "./types.js";
@@ -42,6 +43,9 @@ export class DispatchAckHandler {
   private async reject(peerId: string, taskId: string, reason: string): Promise<void> {
     this.tracker.resolve(taskId);
     this.registry.markDispatchRejected(peerId);
-    await this.taskSource.failTask(taskId, reason);
+    await recordBestEffort(
+      () => this.taskSource.failTask(taskId, reason),
+      `fail rejected task ${taskId}`,
+    );
   }
 }

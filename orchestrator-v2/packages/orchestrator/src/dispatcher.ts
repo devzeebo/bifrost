@@ -31,7 +31,8 @@ export function sendRpcResponse(peer: ConnectedPeer, id: string, result: unknown
   peer.send(payload);
 }
 
-export function sendRpcError(peer: ConnectedPeer, id: string, code: string, message: string): void {
+export function sendRpcError(peer: ConnectedPeer, id: string, code: string, error: unknown): void {
+  const message = error instanceof Error ? error.message : String(error);
   const payload: FramePayload = {
     kind: "rpc.response",
     id,

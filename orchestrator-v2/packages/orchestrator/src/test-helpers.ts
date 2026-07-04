@@ -1,6 +1,6 @@
 import type { Task, TaskSource } from "@bifrost-ai/interfaces-task-source";
 import type { FramePayload, PeerIdentity, RunnerPeer } from "@bifrost-ai/protocol";
-import { createRunnerPeer, generateKeyPair } from "@bifrost-ai/protocol";
+import { capabilityKey, createRunnerPeer, generateKeyPair } from "@bifrost-ai/protocol";
 
 import { runOrchestrator } from "./orchestrator.js";
 import type { Scheduler } from "./types.js";
@@ -159,7 +159,12 @@ export async function connectStubRunner(options: {
     },
   );
 
-  runner.send({ kind: "heartbeat", runnerId: options.runnerIdentity.keyId });
+  // Advertise the sampleTask capability so the (fail-closed) router will dispatch to this stub.
+  runner.send({
+    kind: "heartbeat",
+    runnerId: options.runnerIdentity.keyId,
+    capabilities: [capabilityKey("script", "echo")],
+  });
   return runner;
 }
 

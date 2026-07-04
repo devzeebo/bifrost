@@ -1,7 +1,6 @@
 export type {
   AgentRegistry,
   DataRegistry,
-  ExecutionStats,
   MutableDataRegistry,
   ReadonlyRegistry,
   Registry,
@@ -10,3 +9,4 @@ export type {
   ScriptTaskDefinition,
 } from "./types.js";
 export { isScriptTaskDefinition } from "./types.js";
+export type { ExecutionStats } from "@bifrost-ai/interfaces-task-source";
