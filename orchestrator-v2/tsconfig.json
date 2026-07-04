@@ -17,6 +17,12 @@
       "path": "./packages/engine/tsconfig.json"
     },
     {
+      "path": "./packages/engine-claude-code/tsconfig.json"
+    },
+    {
+      "path": "./packages/engine-cursor/tsconfig.json"
+    },
+    {
       "path": "./packages/agent-3-task/tsconfig.json"
     }
   ],

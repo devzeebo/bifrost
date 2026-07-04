@@ -4,14 +4,16 @@ A rebuild of the Bifrost orchestrator as a thin **get-work + dispatch** system. 
 
 ## Packages
 
-| Package                       | Purpose                                                              |
-| ----------------------------- | -------------------------------------------------------------------- |
-| `@bifrost-ai/interfaces-work` | Work item, handler, and execution contracts                          |
-| `@bifrost-ai/protocol`        | Signed WebSocket RPC between orchestrator and runners                |
-| `@bifrost-ai/orchestrator`    | Thin orchestrator: stream work items, dispatch, record outcomes      |
-| `@bifrost-ai/runner`          | Remote runner: config-driven dial, execute handlers, report outcomes |
-| `@bifrost-ai/engine`          | Engine interface, types, and `TestEngine` for development/testing    |
-| `@bifrost-ai/agent-3-task`    | Task Agent — single-shot LLM execution (`kind: "task"`)              |
+| Package                          | Purpose                                                              |
+| -------------------------------- | -------------------------------------------------------------------- |
+| `@bifrost-ai/interfaces-work`    | Work item, handler, and execution contracts                          |
+| `@bifrost-ai/protocol`           | Signed WebSocket RPC between orchestrator and runners                |
+| `@bifrost-ai/orchestrator`       | Thin orchestrator: stream work items, dispatch, record outcomes      |
+| `@bifrost-ai/runner`             | Remote runner: config-driven dial, execute handlers, report outcomes |
+| `@bifrost-ai/engine`             | Engine interface, types, and `TestEngine` for development/testing    |
+| `@bifrost-ai/engine-claude-code` | Claude Code Agent SDK engine (`ClaudeCodeEngine`)                    |
+| `@bifrost-ai/engine-cursor`      | Cursor SDK engine (`CursorEngine`)                                   |
+| `@bifrost-ai/agent-3-task`       | Task Agent — single-shot LLM execution (`kind: "task"`)              |
 
 For design background and how each piece fits together, see [docs/](docs/).
 
@@ -130,11 +132,16 @@ Runners dial the orchestrator over WebSocket. With `runner.yaml` present, keys a
 ```typescript
 import { Runner, createDataRegistry } from "@bifrost-ai/runner";
 import { enrollTaskAgent, taskAgentDataGuards } from "@bifrost-ai/agent-3-task";
+import { ClaudeCodeEngine } from "@bifrost-ai/engine-claude-code";
+import { CursorEngine } from "@bifrost-ai/engine-cursor";
 
+const claudeEngine = new ClaudeCodeEngine();
+const cursorEngine = new CursorEngine();
 const data = createDataRegistry(taskAgentDataGuards);
 const runner = new Runner({ data });
 
 data.get("engine").register("claude", claudeEngine);
+data.get("engine").register("cursor", cursorEngine);
 enrollTaskAgent(runner, reviewerAgent);
 runner.registerWorkItemHandler(echo);
 

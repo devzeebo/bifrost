@@ -1,0 +1,351 @@
+{
+  "source": "https://cursor.com/docs/models-and-pricing",
+  "unit": "usd_per_million_tokens",
+  "auto": {
+    "inputAndCacheWrite": 1.25,
+    "output": 6.0,
+    "cacheRead": 0.25
+  },
+  "models": [
+    {
+      "name": "Claude 4 Sonnet",
+      "ids": ["claude-4-sonnet", "claude-4-sonnet-thinking"],
+      "provider": "Anthropic",
+      "input": 3,
+      "cacheWrite": 3.75,
+      "cacheRead": 0.3,
+      "output": 15
+    },
+    {
+      "name": "Claude 4 Sonnet 1M",
+      "ids": ["claude-4-sonnet-1m"],
+      "provider": "Anthropic",
+      "input": 6,
+      "cacheWrite": 7.5,
+      "cacheRead": 0.6,
+      "output": 22.5
+    },
+    {
+      "name": "Claude 4.5 Haiku",
+      "ids": ["claude-4-5-haiku", "claude-4.5-haiku"],
+      "provider": "Anthropic",
+      "input": 1,
+      "cacheWrite": 1.25,
+      "cacheRead": 0.1,
+      "output": 5
+    },
+    {
+      "name": "Claude 4.5 Opus",
+      "ids": ["claude-4-5-opus", "claude-4.5-opus"],
+      "provider": "Anthropic",
+      "input": 5,
+      "cacheWrite": 6.25,
+      "cacheRead": 0.5,
+      "output": 25
+    },
+    {
+      "name": "Claude 4.5 Sonnet",
+      "ids": ["claude-4-5-sonnet", "claude-4.5-sonnet"],
+      "provider": "Anthropic",
+      "input": 3,
+      "cacheWrite": 3.75,
+      "cacheRead": 0.3,
+      "output": 15
+    },
+    {
+      "name": "Claude 4.6 Opus",
+      "ids": ["claude-4-6-opus", "claude-4.6-opus"],
+      "provider": "Anthropic",
+      "input": 5,
+      "cacheWrite": 6.25,
+      "cacheRead": 0.5,
+      "output": 25
+    },
+    {
+      "name": "Claude 4.6 Sonnet",
+      "ids": ["claude-4-6-sonnet", "claude-4.6-sonnet"],
+      "provider": "Anthropic",
+      "input": 3,
+      "cacheWrite": 3.75,
+      "cacheRead": 0.3,
+      "output": 15
+    },
+    {
+      "name": "Claude 4.7 Opus",
+      "ids": ["claude-4-7-opus", "claude-4.7-opus"],
+      "provider": "Anthropic",
+      "input": 5,
+      "cacheWrite": 6.25,
+      "cacheRead": 0.5,
+      "output": 25
+    },
+    {
+      "name": "Claude Fable 5",
+      "ids": ["claude-fable-5"],
+      "provider": "Anthropic",
+      "input": 10,
+      "cacheWrite": 12.5,
+      "cacheRead": 1,
+      "output": 50
+    },
+    {
+      "name": "Claude Opus 4.7 (fast mode)",
+      "ids": ["claude-opus-4-7-fast", "claude-opus-4.7-fast"],
+      "provider": "Anthropic",
+      "input": 30,
+      "cacheWrite": 37.5,
+      "cacheRead": 3,
+      "output": 150
+    },
+    {
+      "name": "Claude Opus 4.8",
+      "ids": ["claude-opus-4-8", "claude-opus-4.8", "claude-opus-4-8-fast"],
+      "provider": "Anthropic",
+      "input": 5,
+      "cacheWrite": 6.25,
+      "cacheRead": 0.5,
+      "output": 25
+    },
+    {
+      "name": "Claude Sonnet 5",
+      "ids": ["claude-sonnet-5"],
+      "provider": "Anthropic",
+      "input": 3,
+      "cacheWrite": 3.75,
+      "cacheRead": 0.3,
+      "output": 15
+    },
+    {
+      "name": "Composer 1",
+      "ids": ["composer-1"],
+      "provider": "Cursor",
+      "input": 1.25,
+      "cacheRead": 0.125,
+      "output": 10
+    },
+    {
+      "name": "Composer 1.5",
+      "ids": ["composer-1.5"],
+      "provider": "Cursor",
+      "input": 3.5,
+      "cacheRead": 0.35,
+      "output": 17.5
+    },
+    {
+      "name": "Composer 2",
+      "ids": ["composer-2", "composer-2-fast"],
+      "provider": "Cursor",
+      "input": 0.5,
+      "cacheRead": 0.2,
+      "output": 2.5
+    },
+    {
+      "name": "Composer 2.5",
+      "ids": ["composer-2.5"],
+      "provider": "Cursor",
+      "input": 0.5,
+      "cacheRead": 0.2,
+      "output": 2.5
+    },
+    {
+      "name": "Composer 2.5 (Fast)",
+      "ids": ["composer-2.5-fast"],
+      "provider": "Cursor",
+      "input": 3,
+      "cacheRead": 0.5,
+      "output": 15
+    },
+    {
+      "name": "Gemini 2.5 Flash",
+      "ids": ["gemini-2.5-flash"],
+      "provider": "Google",
+      "input": 0.3,
+      "cacheRead": 0.03,
+      "output": 2.5
+    },
+    {
+      "name": "Gemini 3 Flash",
+      "ids": ["gemini-3-flash"],
+      "provider": "Google",
+      "input": 0.5,
+      "cacheRead": 0.05,
+      "output": 3
+    },
+    {
+      "name": "Gemini 3 Pro",
+      "ids": ["gemini-3-pro", "gemini-3-pro-image-preview"],
+      "provider": "Google",
+      "input": 2,
+      "cacheRead": 0.2,
+      "output": 12
+    },
+    {
+      "name": "Gemini 3.1 Pro",
+      "ids": ["gemini-3.1-pro"],
+      "provider": "Google",
+      "input": 2,
+      "cacheRead": 0.2,
+      "output": 12
+    },
+    {
+      "name": "Gemini 3.5 Flash",
+      "ids": ["gemini-3.5-flash"],
+      "provider": "Google",
+      "input": 1.5,
+      "cacheRead": 0.15,
+      "output": 9
+    },
+    {
+      "name": "GLM 5.2",
+      "ids": ["glm-5.2"],
+      "provider": "Z.ai",
+      "input": 1.4,
+      "cacheRead": 0.26,
+      "output": 4.4
+    },
+    {
+      "name": "GPT-5",
+      "ids": ["gpt-5", "gpt-5-high"],
+      "provider": "OpenAI",
+      "input": 1.25,
+      "cacheRead": 0.125,
+      "output": 10
+    },
+    {
+      "name": "GPT-5 Fast",
+      "ids": ["gpt-5-fast", "gpt-5-high-fast", "gpt-5-low-fast"],
+      "provider": "OpenAI",
+      "input": 2.5,
+      "cacheRead": 0.25,
+      "output": 20
+    },
+    {
+      "name": "GPT-5 Mini",
+      "ids": ["gpt-5-mini"],
+      "provider": "OpenAI",
+      "input": 0.25,
+      "cacheRead": 0.025,
+      "output": 2
+    },
+    {
+      "name": "GPT-5-Codex",
+      "ids": ["gpt-5-codex"],
+      "provider": "OpenAI",
+      "input": 1.25,
+      "cacheRead": 0.125,
+      "output": 10
+    },
+    {
+      "name": "GPT-5.1 Codex",
+      "ids": ["gpt-5.1-codex"],
+      "provider": "OpenAI",
+      "input": 1.25,
+      "cacheRead": 0.125,
+      "output": 10
+    },
+    {
+      "name": "GPT-5.1 Codex Max",
+      "ids": ["gpt-5.1-codex-max"],
+      "provider": "OpenAI",
+      "input": 1.25,
+      "cacheRead": 0.125,
+      "output": 10
+    },
+    {
+      "name": "GPT-5.1 Codex Mini",
+      "ids": ["gpt-5.1-codex-mini"],
+      "provider": "OpenAI",
+      "input": 0.25,
+      "cacheRead": 0.025,
+      "output": 2
+    },
+    {
+      "name": "GPT-5.2",
+      "ids": ["gpt-5.2", "gpt-5.2-high"],
+      "provider": "OpenAI",
+      "input": 1.75,
+      "cacheRead": 0.175,
+      "output": 14
+    },
+    {
+      "name": "GPT-5.2 Codex",
+      "ids": ["gpt-5.2-codex"],
+      "provider": "OpenAI",
+      "input": 1.75,
+      "cacheRead": 0.175,
+      "output": 14
+    },
+    {
+      "name": "GPT-5.3 Codex",
+      "ids": ["gpt-5.3-codex", "gpt-5.3-codex-high"],
+      "provider": "OpenAI",
+      "input": 1.75,
+      "cacheRead": 0.175,
+      "output": 14
+    },
+    {
+      "name": "GPT-5.4",
+      "ids": ["gpt-5.4", "gpt-5.4-fast"],
+      "provider": "OpenAI",
+      "input": 2.5,
+      "cacheRead": 0.25,
+      "output": 15
+    },
+    {
+      "name": "GPT-5.4 Mini",
+      "ids": ["gpt-5.4-mini"],
+      "provider": "OpenAI",
+      "input": 0.75,
+      "cacheRead": 0.075,
+      "output": 4.5
+    },
+    {
+      "name": "GPT-5.4 Nano",
+      "ids": ["gpt-5.4-nano"],
+      "provider": "OpenAI",
+      "input": 0.2,
+      "cacheRead": 0.02,
+      "output": 1.25
+    },
+    {
+      "name": "GPT-5.5",
+      "ids": ["gpt-5.5", "gpt-5.5-fast"],
+      "provider": "OpenAI",
+      "input": 5,
+      "cacheRead": 0.5,
+      "output": 30
+    },
+    {
+      "name": "Grok 4.20",
+      "ids": ["grok-4.20"],
+      "provider": "xAI",
+      "input": 2,
+      "cacheRead": 0.2,
+      "output": 6
+    },
+    {
+      "name": "Grok 4.3",
+      "ids": ["grok-4.3"],
+      "provider": "xAI",
+      "input": 1.25,
+      "cacheRead": 0.2,
+      "output": 2.5
+    },
+    {
+      "name": "Grok Build 0.1",
+      "ids": ["grok-build-0.1"],
+      "provider": "xAI",
+      "input": 1,
+      "cacheRead": 0.2,
+      "output": 2
+    },
+    {
+      "name": "Kimi K2.7 Code",
+      "ids": ["kimi-k2.7-code", "kimi-k2-7-code"],
+      "provider": "Moonshot",
+      "input": 0.95,
+      "cacheRead": 0.19,
+      "output": 4
+    }
+  ]
+}

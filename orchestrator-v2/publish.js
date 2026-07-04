@@ -37,6 +37,8 @@ const setPackageVersion = async (pkgPath, version) => {
 const publishOrder = [
   "@bifrost-ai/interfaces-work",
   "@bifrost-ai/engine",
+  "@bifrost-ai/engine-claude-code",
+  "@bifrost-ai/engine-cursor",
   "@bifrost-ai/protocol",
   "@bifrost-ai/orchestrator",
   "@bifrost-ai/runner",
