@@ -12,14 +12,8 @@
   "devDependencies": {
     "vite-plus": "catalog:"
   },
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "10.33.2",
-      "onFail": "download"
-    }
-  },
   "engines": {
-    "node": ">=22.18.0"
+    "node": ">=22.18.0",
+    "pnpm": ">=10.33.2"
   }
 }

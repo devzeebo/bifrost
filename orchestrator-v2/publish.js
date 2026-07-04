@@ -8,8 +8,15 @@ import { readFile, writeFile } from "node:fs/promises";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootPkgPath = join(__dirname, "package.json");
 
-const setPackageVersion = async (pkgDir, version) => {
-  const pkgPath = join(pkgDir, "package.json");
+const bumpPatch = (version) => {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
+  if (!match) {
+    throw new Error(`Invalid semver: ${version}`);
+  }
+  return `${match[1]}.${match[2]}.${Number(match[3]) + 1}`;
+};
+
+const setPackageVersion = async (pkgPath, version) => {
   const pkg = JSON.parse(await readFile(pkgPath, "utf-8"));
   pkg.version = version;
 
@@ -39,15 +46,9 @@ const publishOrder = [
 
 const pkgDir = (pkgName) => join(__dirname, "packages", pkgName.replace(/.*?\//g, ""));
 
-const rootPkg = JSON.parse(await readFile(rootPkgPath, "utf-8"));
-const currentVersion = rootPkg.version;
-
-execFileSync("vp", ["exec", "npm", "version", "patch", "--no-git-tag-version"], {
-  cwd: __dirname,
-  stdio: "inherit",
-});
-
-const targetSemver = JSON.parse(await readFile(rootPkgPath, "utf-8")).version;
+const originalRootContents = await readFile(rootPkgPath, "utf-8");
+const currentVersion = JSON.parse(originalRootContents).version;
+const targetSemver = bumpPatch(currentVersion);
 
 const timestamp = Date.now();
 const buildNumber = `build.${timestamp}`;
@@ -62,9 +63,11 @@ for (const pkgName of publishOrder) {
 }
 
 try {
+  await setPackageVersion(rootPkgPath, targetSemver);
+
   for (const pkgName of publishOrder) {
     // oxlint-disable-next-line no-await-in-loop
-    await setPackageVersion(pkgDir(pkgName), publishVersion);
+    await setPackageVersion(join(pkgDir(pkgName), "package.json"), publishVersion);
   }
 
   console.log(`Building all packages (${publishVersion})...`);
@@ -98,10 +101,7 @@ try {
     );
   }
 } finally {
-  execFileSync("vp", ["exec", "npm", "version", currentVersion, "--no-git-tag-version"], {
-    cwd: __dirname,
-    stdio: "inherit",
-  });
+  await writeFile(rootPkgPath, originalRootContents);
 
   for (const pkgName of publishOrder) {
     try {
