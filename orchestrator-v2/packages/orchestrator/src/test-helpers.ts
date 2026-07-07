@@ -1,4 +1,9 @@
-import type { WorkItem, WorkItemSource } from "@bifrost-ai/interfaces-work";
+import type {
+  CreateDraftWorkItemInput,
+  WorkItem,
+  WorkItemDependency,
+  WorkItemSource,
+} from "@bifrost-ai/interfaces-work";
 import type { FramePayload, PeerIdentity, RunnerPeer } from "@bifrost-ai/protocol";
 import { createRunnerPeer, generateKeyPair } from "@bifrost-ai/protocol";
 
@@ -10,6 +15,9 @@ export type MemoryWorkItemSource = WorkItemSource & {
   failed: Array<{ workItemId: string; error: string }>;
   paused: string[];
   states: Map<string, Record<string, unknown>>;
+  drafts: Map<string, CreateDraftWorkItemInput>;
+  started: Set<string>;
+  dependencies: Map<string, WorkItemDependency[]>;
 };
 
 export type StubRunnerBehavior = {
@@ -25,12 +33,19 @@ export function createMemoryWorkItemSource(workItems: WorkItem[]): MemoryWorkIte
   const failed: Array<{ workItemId: string; error: string }> = [];
   const paused: string[] = [];
   const states = new Map<string, Record<string, unknown>>();
+  const drafts = new Map<string, CreateDraftWorkItemInput>();
+  const started = new Set<string>(workItems.map((workItem) => workItem.workItemId));
+  const dependencies = new Map<string, WorkItemDependency[]>();
+  let nextDraftId = 1;
 
   return {
     completed,
     failed,
     paused,
     states,
+    drafts,
+    started,
+    dependencies,
     async *watchWorkItems() {
       for (const workItem of workItems) {
         yield workItem;
@@ -47,6 +62,23 @@ export function createMemoryWorkItemSource(workItems: WorkItem[]): MemoryWorkIte
     },
     async setState(workItemId: string, state: Record<string, unknown>) {
       states.set(workItemId, state);
+    },
+    async createDraftWorkItem(input: CreateDraftWorkItemInput) {
+      const workItemId = `draft-${nextDraftId}`;
+      nextDraftId += 1;
+      drafts.set(workItemId, input);
+      return workItemId;
+    },
+    async startWorkItem(workItemId: string) {
+      started.add(workItemId);
+    },
+    async setDependency(workItemId: string, dependsOnWorkItemId: string, type = "blocks") {
+      const edges = dependencies.get(workItemId) ?? [];
+      edges.push({ workItemId: dependsOnWorkItemId, type });
+      dependencies.set(workItemId, edges);
+    },
+    async getDependencies(workItemId: string) {
+      return dependencies.get(workItemId) ?? [];
     },
   };
 }

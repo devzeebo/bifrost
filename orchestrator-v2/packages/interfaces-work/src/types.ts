@@ -6,12 +6,28 @@ export type WorkItem = {
   readonly metadata: Record<string, unknown>;
 };
 
+export type WorkItemDependency = {
+  workItemId: string;
+  type: string;
+};
+
+export type CreateDraftWorkItemInput = {
+  kind: string;
+  name: string;
+  state?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+};
+
 export type WorkItemSource = {
   watchWorkItems: () => AsyncGenerator<WorkItem>;
   completeWorkItem: (workItemId: string) => Promise<void>;
   failWorkItem: (workItemId: string, error: string) => Promise<void>;
   pauseWorkItem: (workItemId: string) => Promise<void>;
   setState: (workItemId: string, state: Record<string, unknown>) => Promise<void>;
+  createDraftWorkItem(input: CreateDraftWorkItemInput): Promise<string>;
+  startWorkItem(workItemId: string): Promise<void>;
+  setDependency(workItemId: string, dependsOnWorkItemId: string, type?: string): Promise<void>;
+  getDependencies(workItemId: string): Promise<WorkItemDependency[]>;
 };
 
 const REQUIRED_WORK_ITEM_FIELDS = ["workItemId", "kind", "name"] as const;

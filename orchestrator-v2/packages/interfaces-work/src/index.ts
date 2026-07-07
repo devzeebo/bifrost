@@ -1,10 +1,12 @@
 export type {
+  CreateDraftWorkItemInput,
   DataRegistry,
   ExecutionStats,
   MutableDataRegistry,
   ReadonlyRegistry,
   Registry,
   WorkItem,
+  WorkItemDependency,
   WorkItemExecutionContext,
   WorkItemHandler,
   WorkItemHandlerRegistry,

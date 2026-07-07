@@ -1,0 +1,38 @@
+{
+  "name": "@bifrost-ai/work-item-source-bifrost",
+  "version": "0.1.0",
+  "description": "Bifrost work item source adapter for Orchestrator v2",
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vp pack",
+    "dev": "vp pack --watch",
+    "test": "vp test",
+    "check": "vp check",
+    "prepublishOnly": "vp run build"
+  },
+  "dependencies": {
+    "@bifrost-ai/interfaces-work": "workspace:*",
+    "debug": "^4.4.0",
+    "yaml": "^2.8.2"
+  },
+  "devDependencies": {
+    "@types/debug": "^4.1.12",
+    "@types/node": "catalog:",
+    "@typescript/native-preview": "catalog:",
+    "bumpp": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest-gwt": "catalog:"
+  }
+}
