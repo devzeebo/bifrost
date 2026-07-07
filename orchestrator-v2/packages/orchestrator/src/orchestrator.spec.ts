@@ -28,6 +28,7 @@ type Context = {
   ) => Promise<RunnerPeer>;
   orchestratorAddress: { host: string; port: number };
   unauthorizedRunner: RunnerPeer | null;
+  completeAttempts: string[];
 };
 
 describe("thin orchestrator", () => {
@@ -100,6 +101,20 @@ describe("thin orchestrator", () => {
     },
     then: {
       both_work_items_completed,
+    },
+  });
+
+  test("a throwing complete callback still frees the peer for the next work item (I3)", {
+    given: {
+      work_item_source_that_throws_on_complete,
+      orchestrator_running,
+      authorized_runner_connected,
+    },
+    when: {
+      waiting_for_both_completes_attempted,
+    },
+    then: {
+      both_completes_were_attempted,
     },
   });
 
@@ -309,4 +324,33 @@ function set_state_was_persisted(this: Context) {
 function work_item_was_not_completed(this: Context) {
   expect(this.workItemSource.completed).toEqual([]);
   expect(this.workItemSource.failed).toEqual([]);
+}
+
+function work_item_source_that_throws_on_complete(this: Context) {
+  const attempts: string[] = [];
+  this.completeAttempts = attempts;
+  const source = createMemoryWorkItemSource([
+    sampleWorkItem("work-item-a"),
+    sampleWorkItem("work-item-b"),
+  ]);
+  this.workItemSource = {
+    ...source,
+    async completeWorkItem(workItemId: string) {
+      attempts.push(workItemId);
+      throw new Error("source boom");
+    },
+  };
+}
+
+async function waiting_for_both_completes_attempted(this: Context) {
+  await waitFor(() => this.completeAttempts.length === 2);
+}
+
+function both_completes_were_attempted(this: Context) {
+  // work-item-a's complete threw; had that leaked the peer's slot, work-item-b
+  // would never dispatch — so seeing both proves settle() freed the slot anyway.
+  expect([...this.completeAttempts].sort((a, b) => a.localeCompare(b))).toEqual([
+    "work-item-a",
+    "work-item-b",
+  ]);
 }
