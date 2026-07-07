@@ -374,7 +374,6 @@ describe("BifrostWorkItemSource", () => {
         { workItemId: "rune-2", type: "blocks" },
         { workItemId: "rune-3", type: "relates_to" },
       ]);
-      expect(workItem!.state.instructions).toBe("Test description");
       expect(workItem!.state.step).toBe(1);
     });
   });

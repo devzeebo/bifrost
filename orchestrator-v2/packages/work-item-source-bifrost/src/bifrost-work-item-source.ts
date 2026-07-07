@@ -177,12 +177,7 @@ export class BifrostWorkItemSource implements WorkItemSource {
       typeof metadata.title === "string" && metadata.title.length > 0
         ? metadata.title
         : `${input.kind}:${input.name}`;
-    const description =
-      typeof metadata.description === "string"
-        ? metadata.description
-        : typeof input.state?.instructions === "string"
-          ? input.state.instructions
-          : undefined;
+    const description = typeof metadata.description === "string" ? metadata.description : undefined;
     const priority = typeof metadata.priority === "number" ? metadata.priority : 1;
     const parentId = typeof metadata.parentId === "string" ? metadata.parentId : undefined;
     const branch = typeof metadata.branch === "string" ? metadata.branch : undefined;
