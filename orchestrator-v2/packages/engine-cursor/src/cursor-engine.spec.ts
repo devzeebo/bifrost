@@ -41,6 +41,7 @@ type MockRun = {
       totalTokens: number;
     };
   }>;
+  cancel: () => Promise<void>;
 };
 
 type MockAgent = {
@@ -95,6 +96,7 @@ const makeRun = (
       }
     },
     wait: vi.fn().mockResolvedValue(waitResult),
+    cancel: vi.fn().mockResolvedValue(undefined),
   };
 };
 
@@ -199,7 +201,7 @@ describe("CursorEngine", () => {
       expect(mockResume).toHaveBeenCalledWith(
         "agent-continue",
         expect.objectContaining({
-          local: expect.objectContaining({ cwd: "/test/project" }),
+          local: expect.objectContaining({ cwd: "/test/project", settingSources: [] }),
         }),
       );
 
@@ -209,6 +211,62 @@ describe("CursorEngine", () => {
       const send = await sendCall;
       expect(send).toHaveBeenCalledWith("Test instructions");
       expect(send).not.toHaveBeenCalledWith(expect.stringContaining("<AgentDefinition>"));
+    });
+
+    it("should pass settingSources to Agent.resume", async () => {
+      const firstRun = makeRun();
+      const followUpRun = makeRun();
+      mockCreate.mockResolvedValueOnce(makeAgent("agent-settings", firstRun) as never);
+      mockResume.mockResolvedValueOnce(makeAgent("agent-settings", followUpRun) as never);
+
+      const engine = new CursorEngine({
+        apiKey: "test-key",
+        settingSources: ["user", "project"],
+      });
+      const first = await engine.execute(makeContext());
+      await engine.execute(makeContext(), first.sessionId);
+
+      expect(mockResume).toHaveBeenCalledWith(
+        "agent-settings",
+        expect.objectContaining({
+          local: expect.objectContaining({
+            settingSources: ["user", "project"],
+          }),
+        }),
+      );
+    });
+
+    it("should cancel and fail when execution times out", async () => {
+      const run = makeRun({
+        streamMessages: [],
+        waitResult: {
+          id: "run-timeout",
+          status: "finished",
+          result: "never",
+        },
+      });
+      run.stream = () =>
+        (async function* stalledStream() {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          yield {
+            type: "usage",
+            usage: {
+              inputTokens: 1,
+              outputTokens: 1,
+              cacheReadTokens: 0,
+              cacheWriteTokens: 0,
+              totalTokens: 2,
+            },
+          } as SDKMessage;
+        })();
+      mockCreate.mockResolvedValue(makeAgent("agent-timeout", run) as never);
+
+      const engine = new CursorEngine({ apiKey: "test-key", executionTimeoutMs: 10 });
+      const result = await engine.execute(makeContext());
+
+      expect(result.success).toBe(false);
+      expect(result.lastMessage).toContain("timed out");
+      expect(run.cancel).toHaveBeenCalled();
     });
 
     it("should build prompt with AgentDefinition and FeatureDefinition on first call", async () => {

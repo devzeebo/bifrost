@@ -16,6 +16,7 @@ import { getMessagePreview } from "./stream-preview.js";
 const debug = createDebug("bifrost:engine:cursor");
 
 const DEFAULT_MODEL = "composer-2.5";
+const DEFAULT_EXECUTION_TIMEOUT_MS = 30 * 60 * 1000;
 const mcpServerNamePattern = /^mcp__([^_]+(?:_[^_]+)*)__/;
 
 export type CursorEngineConfig = {
@@ -23,9 +24,17 @@ export type CursorEngineConfig = {
   model?: string;
   settingSources?: SettingSource[];
   mode?: "agent" | "plan";
+  executionTimeoutMs?: number;
 };
 
 export type McpToolkitConstructor = (context: EngineContext) => McpServerConfig;
+
+class ExecutionTimeoutError extends Error {
+  public constructor(public readonly timeoutMs: number) {
+    super(`Execution timed out after ${timeoutMs}ms`);
+    this.name = "ExecutionTimeoutError";
+  }
+}
 
 export class CursorEngine implements Engine {
   private readonly config: CursorEngineConfig;
@@ -100,14 +109,41 @@ export class CursorEngine implements Engine {
       }
 
       if (message.type === "assistant") {
-        const previewText = getMessagePreview(message);
-        if (previewText) {
-          lastMessage = previewText;
+        if (preview) {
+          lastMessage = preview;
         }
       }
     }
 
     return { lastMessage, numTurns: numTurns > 0 ? numTurns : 1 };
+  }
+
+  private async withExecutionTimeout<T>(
+    run: { cancel: () => Promise<void> },
+    timeoutMs: number,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    try {
+      return await Promise.race([
+        operation(),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => {
+            reject(new ExecutionTimeoutError(timeoutMs));
+          }, timeoutMs);
+        }),
+      ]);
+    } catch (error) {
+      if (error instanceof ExecutionTimeoutError) {
+        await run.cancel().catch(() => undefined);
+      }
+      throw error;
+    } finally {
+      if (timer !== undefined) {
+        clearTimeout(timer);
+      }
+    }
   }
 
   private mapFinishedResult(
@@ -136,7 +172,7 @@ export class CursorEngine implements Engine {
   }
 
   public async execute(context: EngineContext, sessionId?: string): Promise<EngineResult> {
-    const { agent, state, metadata, instructions, workingDir } = context;
+    const { agent, instructions, workingDir } = context;
     const apiKey = this.resolveApiKey();
 
     if (!apiKey) {
@@ -148,35 +184,54 @@ export class CursorEngine implements Engine {
       };
     }
 
-    const prompt = sessionId ? instructions : buildPrompt({ agent, state, metadata, instructions });
+    const prompt = sessionId ? instructions : buildPrompt({ agent, instructions });
     const model = this.resolveModel(agent.model);
     const mcpServers = this.resolveMcpServers(agent.tools, context);
     const settingSources = this.config.settingSources ?? [];
+    const executionTimeoutMs = this.config.executionTimeoutMs ?? DEFAULT_EXECUTION_TIMEOUT_MS;
 
     debug("execute workingDir=%s sessionId=%s", workingDir, sessionId ?? "none");
     debug("prompt: %s", prompt);
 
     try {
       const agentHandle = sessionId
-        ? await Agent.resume(sessionId, {
-            apiKey,
-            model,
-            local: { cwd: workingDir },
-            ...(mcpServers && { mcpServers }),
-          })
-        : await Agent.create({
-            apiKey,
-            model,
-            local: { cwd: workingDir, settingSources },
-            ...(mcpServers && { mcpServers }),
-            ...(this.config.mode && { mode: this.config.mode }),
-          });
+        ? await this.withExecutionTimeout(
+            { cancel: async () => undefined },
+            executionTimeoutMs,
+            () =>
+              Agent.resume(sessionId, {
+                apiKey,
+                model,
+                local: { cwd: workingDir, settingSources },
+                ...(mcpServers && { mcpServers }),
+              }),
+          )
+        : await this.withExecutionTimeout(
+            { cancel: async () => undefined },
+            executionTimeoutMs,
+            () =>
+              Agent.create({
+                apiKey,
+                model,
+                local: { cwd: workingDir, settingSources },
+                ...(mcpServers && { mcpServers }),
+                ...(this.config.mode && { mode: this.config.mode }),
+              }),
+          );
 
-      const run = await agentHandle.send(prompt);
+      const run = await this.withExecutionTimeout(
+        { cancel: async () => undefined },
+        executionTimeoutMs,
+        () => agentHandle.send(prompt),
+      );
       debug("run started id=%s requestId=%s", run.id, run.requestId ?? "-");
 
-      const { lastMessage, numTurns } = await this.streamRun(run);
-      const result = await run.wait();
+      const { lastMessage, numTurns } = await this.withExecutionTimeout(
+        run,
+        executionTimeoutMs,
+        () => this.streamRun(run),
+      );
+      const result = await this.withExecutionTimeout(run, executionTimeoutMs, () => run.wait());
 
       if (result.status === "error" || result.status === "cancelled") {
         return {
@@ -198,6 +253,15 @@ export class CursorEngine implements Engine {
       return this.mapFinishedResult(result, agentHandle.agentId, lastMessage, numTurns, model.id);
     } catch (error) {
       debug("error: %o", error);
+
+      if (error instanceof ExecutionTimeoutError) {
+        return {
+          success: false,
+          skipFulfill: false,
+          lastMessage: error.message,
+          stats: null,
+        };
+      }
 
       if (error instanceof CursorAgentError) {
         return {

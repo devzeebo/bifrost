@@ -11,6 +11,8 @@ import {
   type SDKMessage,
   type SDKAssistantMessage,
   type SDKSystemMessage,
+  type SDKResultError,
+  type SDKResultMessage,
   type SDKResultSuccess,
   type McpSdkServerConfigWithInstance,
 } from "@anthropic-ai/claude-agent-sdk";
@@ -21,8 +23,17 @@ const debug = createDebug("bifrost:engine:claude-code");
 const isSystemInit = (message: SDKMessage): message is SDKSystemMessage =>
   message.type === "system" && message.subtype === "init";
 
+const isResultMessage = (message: SDKMessage): message is SDKResultMessage =>
+  message.type === "result";
+
 const isResultSuccess = (message: SDKMessage): message is SDKResultSuccess =>
-  message.type === "result" && message.subtype === "success";
+  isResultMessage(message) && message.subtype === "success";
+
+const isResultError = (message: SDKMessage): message is SDKResultError =>
+  isResultMessage(message) && message.subtype !== "success";
+
+const formatResultError = (message: SDKResultError): string =>
+  message.errors.length > 0 ? message.errors.join("; ") : message.subtype;
 
 type ContentBlock = {
   type?: string;
@@ -110,15 +121,13 @@ const getMessagePreview = (message: SDKMessage): string => {
 
 type BuildPromptOptions = {
   agent: AgentDefinition;
-  state: Record<string, unknown>;
-  metadata: Record<string, unknown>;
   instructions: string;
 };
 
 const promptSection = (name: string, body: string) => `<${name}>${body}</${name}>`;
 
 const buildPrompt = (options: BuildPromptOptions): string => {
-  const { agent, metadata: _metadata, instructions } = options;
+  const { agent, instructions } = options;
   const parts: string[] = [
     promptSection("AgentDefinition", agent.promptBody),
     promptSection("FeatureDefinition", instructions),
@@ -127,7 +136,9 @@ const buildPrompt = (options: BuildPromptOptions): string => {
   return parts.join("\n");
 };
 
-const buildStats = (resultData: SDKResultSuccess): ExecutionStats => {
+const buildStats = (
+  resultData: Pick<SDKResultSuccess, "usage" | "duration_ms" | "total_cost_usd" | "num_turns">,
+): ExecutionStats => {
   const { usage, duration_ms, total_cost_usd, num_turns } = resultData;
 
   return {
@@ -160,7 +171,7 @@ export class ClaudeCodeEngine implements Engine {
     context: EngineContext,
   ): {
     bareToolNames: string[];
-    toolOptions: { tools: string[]; allowedTools: string[]; denyTools?: string[] };
+    toolOptions: { tools: string[]; allowedTools: string[]; disallowedTools?: string[] };
     mcpServersOption: { mcpServers: Record<string, McpSdkServerConfigWithInstance> } | undefined;
   } {
     const bareToolNames = [
@@ -172,7 +183,10 @@ export class ClaudeCodeEngine implements Engine {
       if (typeof tool === "string") {
         return [tool];
       }
-      return (tool.allow ?? []).map((pattern: string) => `${tool.name}(${pattern})`);
+      if (tool.allow && tool.allow.length > 0) {
+        return tool.allow.map((pattern: string) => `${tool.name}(${pattern})`);
+      }
+      return [tool.name];
     });
     const denyPatterns = tools.flatMap((tool) => {
       if (typeof tool === "string") {
@@ -183,7 +197,7 @@ export class ClaudeCodeEngine implements Engine {
     const toolOptions = {
       tools: bareToolNames,
       allowedTools,
-      ...(denyPatterns.length > 0 && { denyTools: denyPatterns }),
+      ...(denyPatterns.length > 0 && { disallowedTools: denyPatterns }),
     };
 
     const activeServerNames = new Set(
@@ -212,32 +226,24 @@ export class ClaudeCodeEngine implements Engine {
   }
 
   public async execute(context: EngineContext, sessionId?: string): Promise<EngineResult> {
-    const { agent, state, metadata, instructions, workingDir } = context;
+    const { agent, instructions, workingDir } = context;
     const { model, tools } = agent;
 
-    const prompt = sessionId ? instructions : buildPrompt({ agent, state, metadata, instructions });
+    const prompt = sessionId ? instructions : buildPrompt({ agent, instructions });
 
     debug("execute workingDir=%s sessionId=%s", workingDir, sessionId ?? "none");
     debug("prompt: %s", prompt);
 
     const { toolOptions, mcpServersOption } = this.resolveToolOptions(tools, context);
 
-    const options = sessionId
-      ? {
-          cwd: workingDir,
-          permissionMode: "dontAsk" as const,
-          resume: sessionId,
-          ...(model && { model }),
-          ...toolOptions,
-          ...mcpServersOption,
-        }
-      : {
-          cwd: workingDir,
-          permissionMode: "dontAsk" as const,
-          ...(model && { model }),
-          ...toolOptions,
-          ...mcpServersOption,
-        };
+    const options = {
+      cwd: workingDir,
+      permissionMode: "dontAsk" as const,
+      ...(sessionId && { resume: sessionId }),
+      ...(model && { model }),
+      ...toolOptions,
+      ...mcpServersOption,
+    };
 
     if (!sessionId) {
       debug("options: %o", options);
@@ -245,6 +251,7 @@ export class ClaudeCodeEngine implements Engine {
 
     let lastMessage: string | null = null;
     let resultData: SDKResultSuccess | undefined = undefined;
+    let errorResultData: SDKResultError | undefined = undefined;
     let returnedSessionId: string | undefined = sessionId;
 
     try {
@@ -268,6 +275,10 @@ export class ClaudeCodeEngine implements Engine {
           resultData = message;
           lastMessage = resultData.result;
           debug("result: %s", lastMessage);
+        } else if (isResultError(message)) {
+          errorResultData = message;
+          lastMessage = formatResultError(message);
+          debug("result error subtype=%s message=%s", message.subtype, lastMessage);
         }
 
         if (message.type === "assistant") {
@@ -284,6 +295,16 @@ export class ClaudeCodeEngine implements Engine {
         skipFulfill: false,
         lastMessage: error instanceof Error ? error.message : String(error),
         stats: null,
+      };
+    }
+
+    if (errorResultData) {
+      return {
+        success: false,
+        skipFulfill: false,
+        lastMessage: lastMessage ?? "Claude execution failed",
+        stats: buildStats(errorResultData),
+        sessionId: returnedSessionId,
       };
     }
 

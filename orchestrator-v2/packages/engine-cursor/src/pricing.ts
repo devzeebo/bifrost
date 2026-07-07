@@ -73,13 +73,19 @@ export const resolveModelRates = (modelId: string | undefined): ModelRates | und
     return exact;
   }
 
+  let bestMatchId: string | undefined;
+  let bestRates: ModelRates | undefined;
+
   for (const [id, rates] of ratesById) {
-    if (normalized.startsWith(id) || id.startsWith(normalized)) {
-      return rates;
+    if (normalized.startsWith(id)) {
+      if (!bestMatchId || id.length > bestMatchId.length) {
+        bestMatchId = id;
+        bestRates = rates;
+      }
     }
   }
 
-  return undefined;
+  return bestRates;
 };
 
 export const calculateUsageCostUsd = (modelId: string | undefined, usage: TokenUsage): number => {

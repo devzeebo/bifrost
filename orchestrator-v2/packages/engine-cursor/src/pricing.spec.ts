@@ -25,6 +25,14 @@ describe("pricing", () => {
     expect(resolveModelRates("unknown-model-xyz")).toBeUndefined();
   });
 
+  it("prefers the longest matching catalog prefix", () => {
+    expect(resolveModelRates("gpt-5-fast-preview")).toEqual({
+      input: 2.5,
+      cacheRead: 0.25,
+      output: 20,
+    });
+  });
+
   it("calculates composer-2.5 cost from token usage", () => {
     const cost = calculateUsageCostUsd("composer-2.5", {
       inputTokens: 1_000_000,

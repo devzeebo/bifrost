@@ -266,6 +266,38 @@ describe("ClaudeCodeEngine", () => {
       expect(result.stats).toBeNull();
     });
 
+    it("should return failure result on SDK error result message", async () => {
+      mockQuery.mockReturnValue(
+        mockStream(systemInit("sess-err"), {
+          type: "result" as const,
+          subtype: "error_max_turns" as const,
+          session_id: "sess-err",
+          uuid: "uuid-err",
+          duration_ms: 200,
+          duration_api_ms: 100,
+          is_error: true,
+          num_turns: 10,
+          stop_reason: null,
+          total_cost_usd: 0.05,
+          usage: { input_tokens: 500, output_tokens: 200 },
+          modelUsage: {},
+          permission_denials: [],
+          errors: ["Maximum turns exceeded"],
+        }),
+      );
+
+      const engine = new ClaudeCodeEngine();
+      const result = await engine.execute(makeContext());
+
+      expect(result.success).toBe(false);
+      expect(result.lastMessage).toBe("Maximum turns exceeded");
+      expect(result.stats).toMatchObject({
+        durationMs: 200,
+        numTurns: 10,
+        totalCostUsd: 0.05,
+      });
+    });
+
     it("should return default message when no response from Claude", async () => {
       mockQuery.mockReturnValue(mockEmptyStream());
 
@@ -357,7 +389,7 @@ describe("ClaudeCodeEngine", () => {
       );
     });
 
-    it("should expand object tool deny patterns into denyTools", async () => {
+    it("should expand object tool deny patterns into disallowedTools", async () => {
       mockQuery.mockReturnValue(mockStream(resultSuccess()));
 
       const engine = new ClaudeCodeEngine();
@@ -383,7 +415,8 @@ describe("ClaudeCodeEngine", () => {
         expect.objectContaining({
           options: expect.objectContaining({
             tools: ["Write"],
-            denyTools: ["Write(/src/package.json)"],
+            allowedTools: ["Write"],
+            disallowedTools: ["Write(/src/package.json)"],
           }),
         }),
       );
@@ -418,13 +451,13 @@ describe("ClaudeCodeEngine", () => {
           options: expect.objectContaining({
             tools: ["Read", "Write"],
             allowedTools: ["Read", "Write(/src/**)"],
-            denyTools: ["Write(/src/package.json)"],
+            disallowedTools: ["Write(/src/package.json)"],
           }),
         }),
       );
     });
 
-    it("should omit denyTools when no deny patterns", async () => {
+    it("should omit disallowedTools when no deny patterns", async () => {
       mockQuery.mockReturnValue(mockStream(resultSuccess()));
 
       const engine = new ClaudeCodeEngine();
@@ -449,7 +482,7 @@ describe("ClaudeCodeEngine", () => {
       const call = mockQuery.mock.calls[0][0] as {
         options: Record<string, unknown>;
       };
-      expect(call.options.denyTools).toBeUndefined();
+      expect(call.options.disallowedTools).toBeUndefined();
     });
 
     it("should omit allowedTools when no allow patterns and only shorthand tools", async () => {
