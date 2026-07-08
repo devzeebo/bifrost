@@ -1,7 +1,7 @@
 import { describe, expect } from "vite-plus/test";
 import test from "vitest-gwt";
 
-import { asDataRegistry, createDataRegistry } from "./data-registry.js";
+import { createDataRegistry } from "./data-registry.js";
 
 type MockEngine = {
   execute: () => Promise<unknown>;
@@ -44,7 +44,6 @@ function valid_engine_registered(this: Context) {
 
 function engine_is_retrieved(this: Context) {
   expect(this.data.get("engine").get("test")).toBe(this.engine);
-  expect(asDataRegistry(this.data).get("engine").get("test")).toBe(this.engine);
 }
 
 function registering_invalid_engine(this: Context) {

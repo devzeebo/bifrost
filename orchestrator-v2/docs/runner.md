@@ -21,20 +21,21 @@ Scripts and other runnable agents are enrolled incrementally. Create the data re
 
 ```typescript
 import { Runner, createDataRegistry } from "@bifrost-ai/runner";
+import "@bifrost-ai/agent-3-task/augment";
 import { echo } from "./scripts/echo.js";
-import { enrollTaskAgent, taskAgentDataGuards } from "@bifrost-ai/agent-3-task";
+import { loadAgent, taskAgentDataGuards } from "@bifrost-ai/agent-3-task";
 
 const data = createDataRegistry(taskAgentDataGuards);
 const runner = new Runner({ data });
 
-data.get("engine").register("claude", claudeEngine);
-enrollTaskAgent(runner, reviewerAgent);
-runner.registerWorkItemHandler(echo);
+runner.registerEngine("claude", claudeEngine);
+runner.registerTaskAgent("reviewer", await loadAgent("./agents/reviewer/AGENT.md"));
+runner.registerScriptAgent("echo", echo);
 
 await runner.start();
 ```
 
-`createTaskAgent(agent)` couples the agent definition with its handler at registration time. `enrollTaskAgent` also registers the definition in `data.get("agentDefinition")` for lookup by other agents.
+`registerTaskAgent(name, agent)` registers the handler under the dispatch name and stores the definition in `data.get("agentDefinition")` for lookup by other agents.
 
 When `runner.yaml` (or `.bifrost-runner.yaml`) is present, keys and orchestrator URL are loaded automatically inside `start()` — no manual key handling required.
 

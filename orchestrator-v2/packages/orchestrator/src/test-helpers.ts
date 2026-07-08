@@ -7,7 +7,7 @@ import type {
 import type { FramePayload, PeerIdentity, RunnerPeer } from "@bifrost-ai/protocol";
 import { createRunnerPeer, generateKeyPair } from "@bifrost-ai/protocol";
 
-import { runOrchestrator } from "./orchestrator.js";
+import { Orchestrator } from "./orchestrator.js";
 import type { Scheduler } from "./types.js";
 
 export type MemoryWorkItemSource = WorkItemSource & {
@@ -142,11 +142,12 @@ export async function startOrchestratorInBackground(options: {
     behavior?: StubRunnerBehavior,
   ) => Promise<RunnerPeer>;
 }> {
+  const orchestrator = new Orchestrator();
+  orchestrator.registerWorkItemSource(options.workItemSource);
   const abortController = new AbortController();
-  const handle = await runOrchestrator({
+  const handle = await orchestrator.start({
     identity: options.orchestratorIdentity,
     authorizedRunners: options.authorizedRunners,
-    workItemSource: options.workItemSource,
     scheduler: options.scheduler ?? createNoopScheduler(),
     maxInFlightPerPeer: options.maxInFlightPerPeer,
     abortSignal: abortController.signal,

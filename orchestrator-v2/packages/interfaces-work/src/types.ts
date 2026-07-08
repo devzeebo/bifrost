@@ -104,25 +104,14 @@ export type ExecutionStats = {
   numTurns: number;
 };
 
-export type ReadonlyRegistry<T> = {
+export type Registry<T> = {
   get(name: string): T | undefined;
   has(name: string): boolean;
-};
-
-export type Registry<T> = ReadonlyRegistry<T> & {
   register(name: string, item: T): void;
 };
 
 export type DataRegistry<T extends Record<string, unknown>> = {
-  get<K extends keyof T & string>(type: K): ReadonlyRegistry<T[K]>;
-};
-
-export type MutableDataRegistry<T extends Record<string, unknown>> = {
   get<K extends keyof T & string>(type: K): Registry<T[K]>;
-  ensure<K extends keyof T & string>(
-    type: K,
-    guard: (value: unknown) => value is T[K],
-  ): Registry<T[K]>;
 };
 
 export type WorkItemHandlerRegistry = {

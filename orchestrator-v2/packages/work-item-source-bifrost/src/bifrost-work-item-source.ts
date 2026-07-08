@@ -201,42 +201,12 @@ export class BifrostWorkItemSource implements WorkItemSource {
   }
 
   public static mapToWorkItem(rune: RuneDetail, agentName: string): WorkItem {
-    const state = { ...rune.state };
-
     return {
       workItemId: rune.id,
       kind: "task",
       name: agentName,
-      state,
-      metadata: {
-        title: rune.title,
-        description: rune.description,
-        priority: rune.priority,
-        status: rune.status,
-        branch: rune.branch,
-        parentId: rune.parent_id,
-        type: rune.type,
-        assignee: rune.assignee_id,
-        tags: rune.tags,
-        realmId: rune.realm_id,
-        createdAt: rune.created_at,
-        updatedAt: rune.updated_at,
-        dependencies: rune.dependencies.map((dep) => ({
-          workItemId: dep.target_id,
-          type: dep.relationship,
-        })),
-        notes: rune.notes.map((note) => ({ content: note.text, createdAt: note.created_at })),
-        acceptanceCriteria: rune.acceptance_criteria.map((ac) => ({
-          id: ac.id,
-          scenario: ac.scenario,
-          criteria: ac.description,
-          satisfied: false,
-        })),
-        retro: rune.retro_items.map((item) => ({
-          content: item.text,
-          createdAt: item.created_at,
-        })),
-      },
+      state: { ...rune.state },
+      metadata: rune as unknown as Record<string, unknown>,
     };
   }
 

@@ -21,7 +21,7 @@ runner.registerWorkItemHandler(echo);
 await runner.start();
 runner.close();
 runner.connection: RunnerPeer; // after start()
-runner.data: MutableDataRegistry<TData>;
+runner.data: DataRegistry<TData>;
 ```
 
 ### Config-driven usage
@@ -37,7 +37,6 @@ await runner.start();
 ### Lower-level exports
 
 - `createDataRegistry(guards)` — create a typed data registry up front
-- `asDataRegistry(data)` — read-only view for script context
 - `loadRunnerConfig(configPath)` — parse and validate YAML config
 - `resolveRunnerOptions(options)` — merge config file + overrides
 - `executeWorkItem(handler, ctx)` — run a handler in-process

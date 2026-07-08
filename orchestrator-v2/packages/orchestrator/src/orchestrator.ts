@@ -1,3 +1,4 @@
+import type { WorkItem, WorkItemSource } from "@bifrost-ai/interfaces-work";
 import { createOrchestratorPeer, type OrchestratorPeer } from "@bifrost-ai/protocol";
 
 import { DispatchAckHandler } from "./dispatch-ack-handler.js";
@@ -27,7 +28,11 @@ async function drainInFlight(tracker: DispatchTracker, abortSignal?: AbortSignal
   }
 }
 
-export type RunOrchestratorOptions = OrchestratorOptions & {
+export type WorkItemMapper<M extends Record<string, unknown> = Record<string, unknown>> = (
+  workItem: WorkItem & { metadata: M },
+) => WorkItem | Promise<WorkItem>;
+
+export type OrchestratorStartOptions = Omit<OrchestratorOptions, "workItemSource"> & {
   abortSignal?: AbortSignal;
 };
 
@@ -36,78 +41,101 @@ export type OrchestratorHandle = {
   done: Promise<void>;
 };
 
-export async function runOrchestrator(
-  options: RunOrchestratorOptions,
-): Promise<OrchestratorHandle> {
-  const heartbeatTimeoutMs = options.heartbeatTimeoutMs ?? DEFAULT_HEARTBEAT_TIMEOUT_MS;
-  const maxInFlightPerPeer = options.maxInFlightPerPeer ?? DEFAULT_MAX_IN_FLIGHT_PER_PEER;
+export class Orchestrator {
+  private workItemSource: WorkItemSource | null = null;
+  private readonly mappers = new Map<string, WorkItemMapper>();
 
-  const peer = await createOrchestratorPeer({
-    identity: options.identity,
-    trustedPublicKeys: options.authorizedRunners,
-    host: options.host,
-    port: options.port,
-  });
-
-  const registry = new PeerRegistry({ heartbeatTimeoutMs, maxInFlightPerPeer });
-  const tracker = new DispatchTracker();
-  const results = new ResultHandler(options.workItemSource, tracker, registry);
-  const router = new RpcRouter(options.workItemSource, options.scheduler, results);
-  const acks = new DispatchAckHandler(options.workItemSource, tracker, registry);
-
-  const disconnectCleanup = peer.onPeerDisconnect((connected) => {
-    results.handleDisconnect(connected);
-    registry.remove(connected.peerId);
-  });
-
-  const connectCleanup = peer.onPeerConnect((connected) => {
-    registry.add(connected);
-    connected.subscribe(isHeartbeat, (payload) => {
-      registry.recordHeartbeat(connected.peerId, payload);
-    });
-    connected.subscribe(isRpcRequest, (payload) => {
-      router.handle(connected, payload);
-    });
-    connected.subscribe(isDispatchAck, (payload) => {
-      acks.handle(connected, payload);
-    });
-  });
-
-  const abortSignal = options.abortSignal;
-  let closed = false;
-
-  const done = (async () => {
-    try {
-      for await (const workItem of options.workItemSource.watchWorkItems()) {
-        if (abortSignal?.aborted === true) {
-          break;
-        }
-        const runner = await registry.waitForAvailablePeer();
-        dispatchWorkItem(runner, workItem, tracker, registry);
-      }
-      await drainInFlight(tracker, abortSignal);
-    } finally {
-      cleanup();
-    }
-  })();
-
-  if (abortSignal !== undefined) {
-    if (abortSignal.aborted) {
-      cleanup();
-      return { peer, done };
-    }
-    abortSignal.addEventListener("abort", cleanup, { once: true });
+  registerWorkItemSource(source: WorkItemSource): void {
+    this.workItemSource = source;
   }
 
-  return { peer, done };
+  addWorkItemMapper<M extends Record<string, unknown>>(
+    kind: string,
+    mapper: WorkItemMapper<M>,
+  ): void {
+    this.mappers.set(kind, mapper as WorkItemMapper);
+  }
 
-  function cleanup(): void {
-    if (closed) {
-      return;
+  async start(options: OrchestratorStartOptions): Promise<OrchestratorHandle> {
+    if (this.workItemSource === null) {
+      throw new Error("Work item source not registered");
     }
-    closed = true;
-    connectCleanup();
-    disconnectCleanup();
-    peer.close();
+
+    const workItemSource = this.workItemSource;
+    const heartbeatTimeoutMs = options.heartbeatTimeoutMs ?? DEFAULT_HEARTBEAT_TIMEOUT_MS;
+    const maxInFlightPerPeer = options.maxInFlightPerPeer ?? DEFAULT_MAX_IN_FLIGHT_PER_PEER;
+
+    const peer = await createOrchestratorPeer({
+      identity: options.identity,
+      trustedPublicKeys: options.authorizedRunners,
+      host: options.host,
+      port: options.port,
+    });
+
+    const registry = new PeerRegistry({ heartbeatTimeoutMs, maxInFlightPerPeer });
+    const tracker = new DispatchTracker();
+    const results = new ResultHandler(workItemSource, tracker, registry);
+    const router = new RpcRouter(workItemSource, options.scheduler, results);
+    const acks = new DispatchAckHandler(workItemSource, tracker, registry);
+
+    const disconnectCleanup = peer.onPeerDisconnect((connected) => {
+      results.handleDisconnect(connected);
+      registry.remove(connected.peerId);
+    });
+
+    const connectCleanup = peer.onPeerConnect((connected) => {
+      registry.add(connected);
+      connected.subscribe(isHeartbeat, (payload) => {
+        registry.recordHeartbeat(connected.peerId, payload);
+      });
+      connected.subscribe(isRpcRequest, (payload) => {
+        router.handle(connected, payload);
+      });
+      connected.subscribe(isDispatchAck, (payload) => {
+        acks.handle(connected, payload);
+      });
+    });
+
+    const abortSignal = options.abortSignal;
+    let closed = false;
+
+    const done = (async () => {
+      try {
+        for await (const rawWorkItem of workItemSource.watchWorkItems()) {
+          if (abortSignal?.aborted === true) {
+            break;
+          }
+          const mapper = this.mappers.get(rawWorkItem.kind);
+          const workItem = mapper
+            ? await mapper(rawWorkItem as WorkItem & { metadata: Record<string, unknown> })
+            : rawWorkItem;
+          const runner = await registry.waitForAvailablePeer();
+          dispatchWorkItem(runner, workItem, tracker, registry);
+        }
+        await drainInFlight(tracker, abortSignal);
+      } finally {
+        cleanup();
+      }
+    })();
+
+    if (abortSignal !== undefined) {
+      if (abortSignal.aborted) {
+        cleanup();
+        return { peer, done };
+      }
+      abortSignal.addEventListener("abort", cleanup, { once: true });
+    }
+
+    return { peer, done };
+
+    function cleanup(): void {
+      if (closed) {
+        return;
+      }
+      closed = true;
+      connectCleanup();
+      disconnectCleanup();
+      peer.close();
+    }
   }
 }

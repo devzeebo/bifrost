@@ -50,7 +50,7 @@ sequenceDiagram
 
 | Module               | Responsibility                                                  |
 | -------------------- | --------------------------------------------------------------- |
-| `runOrchestrator`    | Main loop: watch tasks, dispatch, drain, cleanup                |
+| `Orchestrator`       | Main loop: watch tasks, apply mappers, dispatch, drain, cleanup |
 | `PeerRegistry`       | Track connected peers, heartbeats, in-flight counts             |
 | `DispatchTracker`    | Map dispatch IDs and task IDs to in-flight entries              |
 | `dispatcher`         | Send `dispatch` RPC to a peer                                   |

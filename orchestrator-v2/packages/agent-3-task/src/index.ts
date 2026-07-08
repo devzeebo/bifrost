@@ -1,6 +1,6 @@
 export { createTaskAgent } from "./create-task-agent.js";
-export { enrollTaskAgent } from "./enroll-task-agent.js";
-export type { TaskAgentRunner } from "./enroll-task-agent.js";
+export { loadAgent } from "./load-agent.js";
+export { parseAgentDefinition } from "./agent-parser.js";
 export { runTaskAgent } from "./run-task-agent.js";
 export type { ParsedTaskAgentState, TaskAgentDataSchema, TaskAgentState } from "./types.js";
 export {

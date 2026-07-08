@@ -25,7 +25,8 @@
   "dependencies": {
     "@bifrost-ai/engine": "workspace:*",
     "@bifrost-ai/interfaces-work": "workspace:*",
-    "@bifrost-ai/runner": "workspace:*"
+    "@bifrost-ai/runner": "workspace:*",
+    "gray-matter": "^4.0.3"
   },
   "devDependencies": {
     "@types/node": "catalog:",

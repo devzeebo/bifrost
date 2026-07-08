@@ -1,4 +1,9 @@
-import type { DataRegistry, WorkItem, WorkItemExecutionContext } from "@bifrost-ai/interfaces-work";
+import type {
+  DataRegistry,
+  Registry,
+  WorkItem,
+  WorkItemExecutionContext,
+} from "@bifrost-ai/interfaces-work";
 import { describe, expect } from "vite-plus/test";
 import test from "vitest-gwt";
 
@@ -45,16 +50,21 @@ const emptyHandlers = {
 function makeData(engine: Engine): DataRegistry<Pick<TaskAgentDataSchema, "engine">> {
   const engines = new Map<string, Engine>([["test", engine]]);
 
+  const engineRegistry: Registry<Engine> = {
+    register(name, item) {
+      engines.set(name, item);
+    },
+    get(name) {
+      return engines.get(name);
+    },
+    has(name) {
+      return engines.has(name);
+    },
+  };
+
   return {
-    get(_type) {
-      return {
-        get(name) {
-          return engines.get(name);
-        },
-        has(name) {
-          return engines.has(name);
-        },
-      };
+    get() {
+      return engineRegistry;
     },
   };
 }

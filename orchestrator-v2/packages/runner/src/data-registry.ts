@@ -1,4 +1,4 @@
-import type { DataRegistry, MutableDataRegistry, Registry } from "@bifrost-ai/interfaces-work";
+import type { DataRegistry, Registry } from "@bifrost-ai/interfaces-work";
 
 import { Registry as RegistryImpl } from "./registry.js";
 
@@ -6,29 +6,17 @@ type Guards<T extends Record<string, unknown>> = {
   [K in keyof T]: (value: unknown) => value is T[K];
 };
 
-export function createDataRegistry(): MutableDataRegistry<Record<string, never>>;
+export function createDataRegistry(): DataRegistry<Record<string, never>>;
 export function createDataRegistry<T extends Record<string, unknown>>(
   guards: Guards<T>,
-): MutableDataRegistry<T>;
+): DataRegistry<T>;
 export function createDataRegistry<T extends Record<string, unknown>>(
   guards: Guards<T> = {} as Guards<T>,
-): MutableDataRegistry<T> {
+): DataRegistry<T> {
   const registries = new Map<keyof T & string, Registry<unknown>>();
 
-  const ensureRegistry = <K extends keyof T & string>(
-    type: K,
-    guard: (value: unknown) => value is T[K],
-  ): Registry<T[K]> => {
-    let registry = registries.get(type);
-    if (registry === undefined) {
-      registry = createGuardedRegistry(guard);
-      registries.set(type, registry);
-    }
-    return registry as Registry<T[K]>;
-  };
-
   for (const type of Object.keys(guards) as (keyof T & string)[]) {
-    ensureRegistry(type, guards[type]);
+    registries.set(type, createGuardedRegistry(guards[type]));
   }
 
   return {
@@ -38,21 +26,6 @@ export function createDataRegistry<T extends Record<string, unknown>>(
         throw new Error(`Unknown data type: ${type}`);
       }
       return registry as Registry<T[K]>;
-    },
-    ensure: ensureRegistry,
-  };
-}
-
-export function asDataRegistry<T extends Record<string, unknown>>(
-  data: MutableDataRegistry<T>,
-): DataRegistry<T> {
-  return {
-    get(type) {
-      const registry = data.get(type);
-      return {
-        get: (name) => registry.get(name),
-        has: (name) => registry.has(name),
-      };
     },
   };
 }
