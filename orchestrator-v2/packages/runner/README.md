@@ -37,6 +37,8 @@ await runner.start();
 ### Lower-level exports
 
 - `createDataRegistry(guards)` — create a typed data registry up front
+- `createScriptAgent(fn, name)` — wrap a function as a `kind: "script"` handler
+- `ScriptFn` — function signature accepted by `registerScriptAgent`
 - `loadRunnerConfig(configPath)` — parse and validate YAML config
 - `resolveRunnerOptions(options)` — merge config file + overrides
 - `executeWorkItem(handler, ctx)` — run a handler in-process

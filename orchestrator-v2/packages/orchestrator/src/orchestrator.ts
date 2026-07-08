@@ -109,8 +109,20 @@ export class Orchestrator {
           const workItem = mapper
             ? await mapper(rawWorkItem as WorkItem & { metadata: Record<string, unknown> })
             : rawWorkItem;
-          const runner = await registry.waitForAvailablePeer();
-          dispatchWorkItem(runner, workItem, tracker, registry);
+          try {
+            const runner = await registry.waitForAvailablePeer(abortSignal);
+            dispatchWorkItem(runner, workItem, tracker, registry);
+          } catch (error) {
+            if (
+              closed ||
+              (error instanceof Error &&
+                (error.message === "Orchestrator aborted" ||
+                  error.message === "Orchestrator closed"))
+            ) {
+              break;
+            }
+            throw error;
+          }
         }
         await drainInFlight(tracker, abortSignal);
       } finally {
@@ -133,6 +145,7 @@ export class Orchestrator {
         return;
       }
       closed = true;
+      registry.cancelWaiters();
       connectCleanup();
       disconnectCleanup();
       peer.close();

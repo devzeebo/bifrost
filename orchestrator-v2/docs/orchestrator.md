@@ -79,17 +79,32 @@ The dispatch loop blocks on `waitForAvailablePeer()` until a runner meets all th
 
 ### Configuration
 
+Registration happens on the `Orchestrator` instance before `start()`. Runtime options are passed to `start()` and do not include `workItemSource`.
+
 ```typescript
-type OrchestratorOptions = {
+import { Orchestrator, loadAuthorizedRunners } from "@bifrost-ai/orchestrator";
+
+const orchestrator = new Orchestrator();
+orchestrator.registerWorkItemSource(workItemSource);
+orchestrator.addWorkItemMapper("task", (workItem) => workItem);
+
+type OrchestratorStartOptions = {
   identity: PeerIdentity;
   authorizedRunners: ReadonlyMap<string, KeyObject>;
-  workItemSource: WorkItemSource;
   scheduler: Scheduler;
   host?: string;
   port?: number;
   heartbeatTimeoutMs?: number; // default 30000
   maxInFlightPerPeer?: number; // default 1
+  abortSignal?: AbortSignal;
 };
+
+const handle = await orchestrator.start({
+  identity: orchestratorIdentity,
+  authorizedRunners: loadAuthorizedRunners([{ keyId, publicKeyPem }]),
+  scheduler,
+  port: 9100,
+});
 ```
 
 Authorized runners are loaded via `loadAuthorizedRunners([{ keyId, publicKeyPem }])`. Adding a runner requires updating this list and restarting.
