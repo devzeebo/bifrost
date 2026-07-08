@@ -7,11 +7,16 @@ type PeerState = {
   inFlight: number;
 };
 
+type PeerWaiter = {
+  tryResolve: () => void;
+  reject: (error: Error) => void;
+};
+
 export class PeerRegistry {
   private readonly peers = new Map<string, PeerState>();
   private readonly heartbeatTimeoutMs: number;
   private readonly maxInFlightPerPeer: number;
-  private readonly waiters: Array<() => void> = [];
+  private readonly waiters: PeerWaiter[] = [];
 
   constructor(options: { heartbeatTimeoutMs: number; maxInFlightPerPeer: number }) {
     this.heartbeatTimeoutMs = options.heartbeatTimeoutMs;
@@ -82,24 +87,50 @@ export class PeerRegistry {
     return undefined;
   }
 
-  waitForAvailablePeer(): Promise<ConnectedPeer> {
+  waitForAvailablePeer(abortSignal?: AbortSignal): Promise<ConnectedPeer> {
     const available = this.getAvailablePeer();
     if (available !== undefined) {
       return Promise.resolve(available);
     }
-    return new Promise((resolve) => {
+    if (abortSignal?.aborted === true) {
+      return Promise.reject(new Error("Orchestrator aborted"));
+    }
+
+    return new Promise((resolve, reject) => {
       const tryResolve = () => {
         const peer = this.getAvailablePeer();
         if (peer !== undefined) {
-          const index = this.waiters.indexOf(tryResolve);
-          if (index >= 0) {
-            this.waiters.splice(index, 1);
-          }
+          removeWaiter();
           resolve(peer);
         }
       };
-      this.waiters.push(tryResolve);
+
+      const onAbort = () => {
+        removeWaiter();
+        reject(new Error("Orchestrator aborted"));
+      };
+
+      const removeWaiter = () => {
+        const index = this.waiters.findIndex((waiter) => waiter.tryResolve === tryResolve);
+        if (index >= 0) {
+          this.waiters.splice(index, 1);
+        }
+        abortSignal?.removeEventListener("abort", onAbort);
+      };
+
+      if (abortSignal !== undefined) {
+        abortSignal.addEventListener("abort", onAbort, { once: true });
+      }
+
+      this.waiters.push({ tryResolve, reject });
+      tryResolve();
     });
+  }
+
+  cancelWaiters(): void {
+    for (const waiter of this.waiters.splice(0)) {
+      waiter.reject(new Error("Orchestrator closed"));
+    }
   }
 
   private isAvailable(state: PeerState, now: number): boolean {
@@ -117,7 +148,7 @@ export class PeerRegistry {
 
   private notifyWaiters(): void {
     for (const waiter of this.waiters) {
-      waiter();
+      waiter.tryResolve();
     }
   }
 }

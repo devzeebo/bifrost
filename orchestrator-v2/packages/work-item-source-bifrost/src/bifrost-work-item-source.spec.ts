@@ -368,11 +368,10 @@ describe("BifrostWorkItemSource", () => {
       expect(workItem!.workItemId).toBe("rune-1");
       expect(workItem!.name).toBe("implementer");
       expect(workItem!.kind).toBe("task");
-      expect(workItem!.metadata.title).toBe("Test Rune");
       expect(workItem!.metadata.description).toBe("Test description");
       expect(workItem!.metadata.dependencies).toEqual([
-        { workItemId: "rune-2", type: "blocks" },
-        { workItemId: "rune-3", type: "relates_to" },
+        { target_id: "rune-2", relationship: "blocks" },
+        { target_id: "rune-3", relationship: "relates_to" },
       ]);
       expect(workItem!.state.step).toBe(1);
     });

@@ -100,18 +100,20 @@ const workItemSource: WorkItemSource = {
 Runners and the orchestrator authenticate with pre-shared ed25519 keys. Adding a runner requires updating config and restarting the orchestrator.
 
 ```typescript
-import { runOrchestrator, loadAuthorizedRunners } from "@bifrost-ai/orchestrator";
+import { Orchestrator, loadAuthorizedRunners } from "@bifrost-ai/orchestrator";
 import { exportPublicKeyPem, generateKeyPair } from "@bifrost-ai/protocol";
 
 const orchestratorIdentity = generateKeyPair("orchestrator");
 const runnerIdentity = generateKeyPair("runner-1");
 
-const handle = await runOrchestrator({
+const orchestrator = new Orchestrator();
+orchestrator.registerWorkItemSource(workItemSource);
+
+const handle = await orchestrator.start({
   identity: orchestratorIdentity,
   authorizedRunners: loadAuthorizedRunners([
     { keyId: runnerIdentity.keyId, publicKeyPem: exportPublicKeyPem(runnerIdentity.publicKey) },
   ]),
-  workItemSource,
   scheduler: {
     async call(method, params) {
       // workflow scheduling callbacks from runners
@@ -131,19 +133,18 @@ Runners dial the orchestrator over WebSocket. With `runner.yaml` present, keys a
 
 ```typescript
 import { Runner, createDataRegistry } from "@bifrost-ai/runner";
-import { enrollTaskAgent, taskAgentDataGuards } from "@bifrost-ai/agent-3-task";
+import "@bifrost-ai/agent-3-task/augment";
+import { loadAgent, taskAgentDataGuards } from "@bifrost-ai/agent-3-task";
 import { ClaudeCodeEngine } from "@bifrost-ai/engine-claude-code";
 import { CursorEngine } from "@bifrost-ai/engine-cursor";
 
-const claudeEngine = new ClaudeCodeEngine();
-const cursorEngine = new CursorEngine();
 const data = createDataRegistry(taskAgentDataGuards);
 const runner = new Runner({ data });
 
-data.get("engine").register("claude", claudeEngine);
-data.get("engine").register("cursor", cursorEngine);
-enrollTaskAgent(runner, reviewerAgent);
-runner.registerWorkItemHandler(echo);
+runner.registerEngine("claude", new ClaudeCodeEngine());
+runner.registerEngine("cursor", new CursorEngine());
+runner.registerTaskAgent("reviewer", await loadAgent("./agents/reviewer/AGENT.md"));
+runner.registerScriptAgent("echo", echo);
 
 await runner.start();
 ```

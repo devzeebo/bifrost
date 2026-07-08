@@ -1,4 +1,4 @@
-import type { MutableDataRegistry } from "@bifrost-ai/interfaces-work";
+import type { DataRegistry } from "@bifrost-ai/interfaces-work";
 import type { PeerIdentity } from "@bifrost-ai/protocol";
 import type { KeyObject } from "node:crypto";
 
@@ -32,7 +32,7 @@ export type RunnerConfig = {
 
 export type RunnerOptions<TData extends Record<string, unknown> = Record<string, unknown>> = {
   configPath?: string;
-  data?: MutableDataRegistry<TData>;
+  data?: DataRegistry<TData>;
   identity?: PeerIdentity;
   url?: string;
   orchestratorPublicKey?: OrchestratorPublicKeyConfig;

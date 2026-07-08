@@ -1,18 +1,18 @@
-import type { MutableDataRegistry, WorkItemHandler } from "@bifrost-ai/interfaces-work";
+import type { DataRegistry, WorkItemHandler } from "@bifrost-ai/interfaces-work";
 import { createRunnerPeer, type RunnerPeer } from "@bifrost-ai/protocol";
 
 import { resolveRunnerOptions } from "./config-loader.js";
-import { asDataRegistry } from "./data-registry.js";
 import { registerDispatchHandler } from "./dispatch-handler.js";
 import { startHeartbeat, type HeartbeatHandle } from "./heartbeat.js";
 import { createRpcClient } from "./rpc-client.js";
 import { createDataRegistry } from "./data-registry.js";
 import { Registry } from "./registry.js";
+import { createScriptAgent, type ScriptFn } from "./script-agent.js";
 import type { RunnerOptions } from "./types.js";
 
 export class Runner<TData extends Record<string, unknown> = Record<string, unknown>> {
   private readonly options: RunnerOptions<TData>;
-  readonly data: MutableDataRegistry<TData>;
+  readonly data: DataRegistry<TData>;
   private readonly handlers = new Map<string, Registry<WorkItemHandler>>();
   private peer: RunnerPeer | null = null;
   private heartbeat: HeartbeatHandle | null = null;
@@ -21,11 +21,15 @@ export class Runner<TData extends Record<string, unknown> = Record<string, unkno
 
   constructor(options: RunnerOptions<TData> = {}) {
     this.options = options;
-    this.data = options.data ?? (createDataRegistry() as MutableDataRegistry<TData>);
+    this.data = options.data ?? (createDataRegistry() as DataRegistry<TData>);
   }
 
   registerWorkItemHandler(handler: WorkItemHandler): void {
     this.ensureHandlerRegistry(handler.kind).register(handler.name, handler);
+  }
+
+  registerScriptAgent(name: string, fn: ScriptFn): void {
+    this.registerWorkItemHandler(createScriptAgent(fn, name));
   }
 
   getWorkItemHandler(kind: string, name: string): WorkItemHandler | undefined {
@@ -49,12 +53,7 @@ export class Runner<TData extends Record<string, unknown> = Record<string, unkno
     });
 
     const rpc = createRpcClient(peer);
-    this.unsubscribeDispatch = registerDispatchHandler(
-      peer,
-      this.handlers,
-      asDataRegistry(this.data),
-      rpc,
-    );
+    this.unsubscribeDispatch = registerDispatchHandler(peer, this.handlers, this.data, rpc);
     this.heartbeat = startHeartbeat(peer, resolved.identity, resolved.heartbeatIntervalMs);
 
     if (resolved.abortSignal !== undefined) {

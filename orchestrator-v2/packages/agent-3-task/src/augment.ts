@@ -2,27 +2,23 @@ import type { AgentDefinition, Engine } from "@bifrost-ai/engine";
 import { Runner } from "@bifrost-ai/runner";
 
 import { createTaskAgent } from "./create-task-agent.js";
-import {
-  AGENT_DEFINITION_DATA_TYPE,
-  ENGINE_DATA_TYPE,
-  isAgentDefinition,
-  isEngine,
-} from "./types.js";
+import { AGENT_DEFINITION_DATA_TYPE, ENGINE_DATA_TYPE } from "./types.js";
 
 declare module "@bifrost-ai/runner" {
   // oxlint-disable-next-line typescript/consistent-type-definitions -- module augmentation
   interface Runner {
-    registerTaskAgent(agent: AgentDefinition): void;
+    registerTaskAgent(name: string, agent: AgentDefinition): void;
     registerEngine(name: string, engine: Engine): void;
   }
 }
 
 Runner.prototype.registerTaskAgent = function registerTaskAgent(
   this: Runner,
+  name: string,
   agent: AgentDefinition,
 ): void {
-  this.data.ensure(AGENT_DEFINITION_DATA_TYPE, isAgentDefinition).register(agent.name, agent);
-  this.registerWorkItemHandler(createTaskAgent(agent));
+  this.data.get(AGENT_DEFINITION_DATA_TYPE).register(name, agent);
+  this.registerWorkItemHandler(createTaskAgent(agent, name));
 };
 
 Runner.prototype.registerEngine = function registerEngine(
@@ -30,5 +26,5 @@ Runner.prototype.registerEngine = function registerEngine(
   name: string,
   engine: Engine,
 ): void {
-  this.data.ensure(ENGINE_DATA_TYPE, isEngine).register(name, engine);
+  this.data.get(ENGINE_DATA_TYPE).register(name, engine);
 };

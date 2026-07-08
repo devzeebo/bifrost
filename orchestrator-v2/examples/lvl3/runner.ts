@@ -1,14 +1,18 @@
-// import { Runner } from "@bifrost-ai/runner";
-// import "@bifrost-ai/agent-3-task/augment";
-// import "@bifrost-ai/agent-4-workflow/augment";
-// import { doSomething } from "./doSomething";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-// const runner = new Runner();
+import { Runner, createDataRegistry } from "@bifrost-ai/runner";
+import "@bifrost-ai/agent-3-task/augment";
+import { loadAgent, taskAgentDataGuards } from "@bifrost-ai/agent-3-task";
+import { CursorEngine } from "@bifrost-ai/engine-cursor";
 
-// runner.registerEngine(new CursorEngine());
-// runner.registerTaskAgent("HelloWorld", createTaskAgent("./hello-world.md"));
-// runner.registerScriptAgent("doSomething", doSomething);
+import { doSomething } from "./doSomething.js";
 
-// runner.registerWorkflowAgent(createWorkflow("trial").step("HelloWorld").step("doSomething"));
+const moduleDir = dirname(fileURLToPath(import.meta.url));
+const cowsayAgentPath = join(moduleDir, "agents/cowsay/AGENT.md");
 
-// await runner.run();
+export const runner = new Runner({ data: createDataRegistry(taskAgentDataGuards) });
+
+runner.registerEngine("cursor", new CursorEngine());
+runner.registerTaskAgent("cowsay", await loadAgent(cowsayAgentPath));
+runner.registerScriptAgent("doSomething", doSomething);
