@@ -119,6 +119,10 @@ export type DataRegistry<T extends Record<string, unknown>> = {
 
 export type MutableDataRegistry<T extends Record<string, unknown>> = {
   get<K extends keyof T & string>(type: K): Registry<T[K]>;
+  ensure<K extends keyof T & string>(
+    type: K,
+    guard: (value: unknown) => value is T[K],
+  ): Registry<T[K]>;
 };
 
 export type WorkItemHandlerRegistry = {

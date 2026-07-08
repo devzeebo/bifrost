@@ -9,6 +9,7 @@
   "type": "module",
   "exports": {
     ".": "./dist/index.mjs",
+    "./augment": "./dist/augment.mjs",
     "./package.json": "./package.json"
   },
   "publishConfig": {
@@ -23,7 +24,8 @@
   },
   "dependencies": {
     "@bifrost-ai/engine": "workspace:*",
-    "@bifrost-ai/interfaces-work": "workspace:*"
+    "@bifrost-ai/interfaces-work": "workspace:*",
+    "@bifrost-ai/runner": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

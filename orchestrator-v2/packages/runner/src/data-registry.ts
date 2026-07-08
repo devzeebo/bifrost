@@ -15,8 +15,20 @@ export function createDataRegistry<T extends Record<string, unknown>>(
 ): MutableDataRegistry<T> {
   const registries = new Map<keyof T & string, Registry<unknown>>();
 
+  const ensureRegistry = <K extends keyof T & string>(
+    type: K,
+    guard: (value: unknown) => value is T[K],
+  ): Registry<T[K]> => {
+    let registry = registries.get(type);
+    if (registry === undefined) {
+      registry = createGuardedRegistry(guard);
+      registries.set(type, registry);
+    }
+    return registry as Registry<T[K]>;
+  };
+
   for (const type of Object.keys(guards) as (keyof T & string)[]) {
-    registries.set(type, createGuardedRegistry(guards[type]));
+    ensureRegistry(type, guards[type]);
   }
 
   return {
@@ -27,6 +39,7 @@ export function createDataRegistry<T extends Record<string, unknown>>(
       }
       return registry as Registry<T[K]>;
     },
+    ensure: ensureRegistry,
   };
 }
 

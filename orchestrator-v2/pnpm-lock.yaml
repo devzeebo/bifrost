@@ -250,6 +250,9 @@ importers:
       '@bifrost-ai/interfaces-work':
         specifier: workspace:*
         version: link:../interfaces-work
+      '@bifrost-ai/runner':
+        specifier: workspace:*
+        version: link:../runner
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
