@@ -15,6 +15,7 @@ import {
   waitFor,
 } from "@bifrost-ai/orchestrator/test-helpers";
 
+import { continueStep } from "./step-result.js";
 import { script } from "./step-refs.js";
 import { Workflow } from "./workflow.js";
 
@@ -86,9 +87,9 @@ async function linear_integration_setup(this: Context) {
 
   this.runner = new Runner({ configPath: this.configPath });
   const workflow = new Workflow({ name: "linear-flow" })
-    .step(script(() => ({ outcome: "completed" }), "a"))
-    .step(script(() => ({ outcome: "completed" }), "b"))
-    .step(script(() => ({ outcome: "completed" }), "c"));
+    .step(script(() => continueStep(), "a"))
+    .step(script(() => continueStep(), "b"))
+    .step(script(() => continueStep(), "c"));
   this.runner.registerWorkflowAgent(workflow);
   await this.runner.start();
 }

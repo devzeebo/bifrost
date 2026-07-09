@@ -2,6 +2,7 @@ import { describe, expect } from "vite-plus/test";
 import test from "vitest-gwt";
 
 import { flattenWorkflowBuilder } from "./flatten-workflow.js";
+import { continueStep } from "./step-result.js";
 import { script, task } from "./step-refs.js";
 import { Workflow } from "./workflow.js";
 
@@ -61,12 +62,12 @@ function d_depends_on_b_and_c(this: Context) {
 
 function nested_workflow(this: Context) {
   const inner = new Workflow({ name: "inner" })
-    .step(script(() => ({ outcome: "completed" }), "someFn"))
+    .step(script(() => continueStep(), "someFn"))
     .step(task("next"));
   const workflow = new Workflow({ name: "outer" })
     .step(task("a"))
     .step(task("b"), inner)
-    .step(script(() => ({ outcome: "completed" }), "last"));
+    .step(script(() => continueStep(), "last"));
   this.definition = flattenWorkflowBuilder(workflow);
 }
 

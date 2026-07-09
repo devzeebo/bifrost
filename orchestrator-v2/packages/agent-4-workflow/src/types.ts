@@ -2,7 +2,7 @@ import type { ExecutionStats } from "@bifrost-ai/interfaces-work";
 
 export type WorkflowPhase = "schedule" | "verify";
 
-export type StepTransition = "success" | "fail" | "rewind";
+export type StepTransition = "continue" | "fail" | "rewind";
 
 export type FlattenedStep = {
   id: string;
@@ -32,7 +32,6 @@ export type StepWrapperState = {
   workingDir: string;
   instructions?: string;
   engineName?: string;
-  rewindTo?: string;
 };
 
 export type ParsedWorkflowState =

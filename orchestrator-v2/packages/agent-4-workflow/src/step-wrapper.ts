@@ -5,7 +5,9 @@ import type {
   WorkItemResult,
 } from "@bifrost-ai/interfaces-work";
 
-import type { FlattenedStep, StepWrapperState, StepTransition } from "./types.js";
+import { parseStepOutput } from "./step-result.js";
+import type { StepResult } from "./step-result.js";
+import type { FlattenedStep, StepWrapperState } from "./types.js";
 
 const STEP_WRAPPER_KIND = "script";
 
@@ -14,39 +16,14 @@ export function createStepWrapperHandler(step: FlattenedStep): WorkItemHandler {
     kind: STEP_WRAPPER_KIND,
     name: step.id,
     async run(workItem, ctx) {
-      const parsed = parseStepWrapperState(workItem.state);
-      if (!parsed.ok) {
-        return {
-          outcome: "failed",
-          message: `Invalid step wrapper state: ${parsed.missing.join(", ")}`,
-        };
-      }
-
-      const cwd =
-        typeof parsed.state.workingDir === "string" && parsed.state.workingDir.length > 0
-          ? parsed.state.workingDir
-          : process.cwd();
-
-      return runStepWrapper(
-        workItem,
-        cwd,
-        ctx.setState,
-        step,
-        ctx.handlers,
-        ctx.source,
-        parsed.state,
-      );
+      return runStepWrapper(workItem, ctx);
     },
   };
 }
 
 export async function runStepWrapper(
   workItem: WorkItem,
-  cwd: string,
-  setState: WorkItemExecutionContext["setState"],
-  step: FlattenedStep,
-  handlers?: WorkItemExecutionContext["handlers"],
-  source?: WorkItemExecutionContext["source"],
+  ctx: WorkItemExecutionContext,
   wrapperState?: StepWrapperState,
 ): Promise<WorkItemResult> {
   const parsed =
@@ -61,26 +38,7 @@ export async function runStepWrapper(
   }
 
   const state = parsed.state;
-  const transition = readTransition(workItem.state);
-
-  if (transition === "rewind" && state.rewindTo !== undefined && source !== undefined) {
-    try {
-      await source.setState(state.workflowWorkItemId, {
-        rewindTarget: state.rewindTo,
-        phase: "schedule",
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return { outcome: "failed", message: `Failed to rewind workflow: ${message}` };
-    }
-    return { outcome: "failed", message: `Rewinding to ${state.rewindTo}` };
-  }
-
-  if (handlers === undefined) {
-    return { outcome: "failed", message: "Step wrapper requires handler registry" };
-  }
-
-  const innerHandler = handlers.get(state.innerKind, state.innerName);
+  const innerHandler = ctx.handlers.get(state.innerKind, state.innerName);
   if (innerHandler === undefined) {
     return {
       outcome: "failed",
@@ -88,61 +46,63 @@ export async function runStepWrapper(
     };
   }
 
+  const cwd =
+    typeof state.workingDir === "string" && state.workingDir.length > 0
+      ? state.workingDir
+      : process.cwd();
+
   const innerWorkItem: WorkItem = {
     workItemId: workItem.workItemId,
     kind: state.innerKind,
     name: state.innerName,
     state: {
-      workingDir: state.workingDir || cwd,
+      workingDir: cwd,
       instructions: state.instructions ?? "",
       engineName: state.engineName ?? "",
     },
     metadata: workItem.metadata,
   };
 
-  const innerCtx: WorkItemExecutionContext = {
-    data: { get: () => ({ get: () => undefined, has: () => false, register: () => {} }) },
-    handlers,
-    source: source ?? noopSource(),
-    setState,
-  };
-
-  let result: WorkItemResult;
+  let rawResult: unknown;
   try {
-    result = await innerHandler.run(innerWorkItem, innerCtx);
+    rawResult = await innerHandler.run(innerWorkItem, ctx);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return mapTransition("fail", message);
+    return applyStepResult({ transition: "fail", message }, state, ctx.source);
   }
 
-  if (result.outcome === "failed") {
-    return mapTransition(transition === "rewind" ? "rewind" : "fail", result.message);
+  const stepOutput = parseStepOutput(rawResult);
+  if (stepOutput.kind === "paused") {
+    return stepOutput.result;
   }
 
-  if (result.outcome === "paused") {
-    return result;
-  }
-
-  return mapTransition("success", result.message, result.telemetry);
+  return applyStepResult(stepOutput.result, state, ctx.source);
 }
 
-function mapTransition(
-  transition: StepTransition,
-  message?: string,
-  telemetry?: WorkItemResult["telemetry"],
-): WorkItemResult {
-  if (transition === "success") {
-    return { outcome: "completed", message, telemetry };
+async function applyStepResult(
+  result: StepResult,
+  state: StepWrapperState,
+  source: WorkItemExecutionContext["source"],
+): Promise<WorkItemResult> {
+  if (result.transition === "continue") {
+    return { outcome: "completed", message: result.message, telemetry: result.telemetry };
   }
-  return { outcome: "failed", message: message ?? transition };
-}
 
-function readTransition(state: Record<string, unknown>): StepTransition {
-  const value = state.transition;
-  if (value === "fail" || value === "rewind") {
-    return value;
+  if (result.transition === "rewind") {
+    try {
+      await source.setState(state.workflowWorkItemId, {
+        rewindTarget: result.rewindTo,
+        phase: "schedule",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { outcome: "failed", message: `Failed to rewind workflow: ${message}` };
+    }
+
+    return { outcome: "failed", message: result.message ?? `Rewinding to ${result.rewindTo}` };
   }
-  return "success";
+
+  return { outcome: "failed", message: result.message ?? "fail" };
 }
 
 function parseStepWrapperState(
@@ -167,15 +127,6 @@ function parseStepWrapperState(
     return { ok: false, missing };
   }
 
-  const rewindTo = state.rewindTo;
-  if (rewindTo !== undefined && typeof rewindTo !== "string") {
-    missing.push("rewindTo");
-  }
-
-  if (missing.length > 0) {
-    return { ok: false, missing };
-  }
-
   return {
     ok: true,
     state: {
@@ -186,30 +137,6 @@ function parseStepWrapperState(
       workingDir: state.workingDir as string,
       ...(typeof state.instructions === "string" ? { instructions: state.instructions } : {}),
       ...(typeof state.engineName === "string" ? { engineName: state.engineName } : {}),
-      ...(typeof rewindTo === "string" ? { rewindTo } : {}),
-    },
-  };
-}
-
-function noopSource(): WorkItemExecutionContext["source"] {
-  return {
-    async createDraftWorkItem() {
-      throw new Error("not implemented");
-    },
-    async startWorkItem() {
-      throw new Error("not implemented");
-    },
-    async setDependency() {
-      throw new Error("not implemented");
-    },
-    async getDependencies() {
-      return [];
-    },
-    async getWorkItemStatus() {
-      return "live";
-    },
-    async setState() {
-      throw new Error("not implemented");
     },
   };
 }
