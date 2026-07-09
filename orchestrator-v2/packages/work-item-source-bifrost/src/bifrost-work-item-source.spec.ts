@@ -420,4 +420,44 @@ describe("BifrostWorkItemSource", () => {
       expect(pollInterval).toBe(1000);
     });
   });
+
+  describe("mapRuneStatus", () => {
+    it.each([
+      ["draft", "draft"],
+      ["open", "live"],
+      ["claimed", "live"],
+      ["fulfilled", "completed"],
+      ["sealed", "failed"],
+      ["shattered", "failed"],
+      ["unknown-status", "live"],
+    ] as const)("maps %s to %s", async (status, expected) => {
+      const { BifrostWorkItemSource } = await import("./bifrost-work-item-source.js");
+      expect(BifrostWorkItemSource.mapRuneStatus(status)).toBe(expected);
+    });
+  });
+
+  describe("getWorkItemStatus", () => {
+    it.each([
+      ["draft", "draft"],
+      ["open", "live"],
+      ["claimed", "live"],
+      ["fulfilled", "completed"],
+      ["sealed", "failed"],
+      ["shattered", "failed"],
+      ["unknown-status", "live"],
+    ] as const)("returns %s for rune status %s", async (runeStatus, expected) => {
+      const { source, cleanup } = await createTestSource();
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => runeDetailFixture({ status: runeStatus }),
+      });
+
+      const status = await source.getWorkItemStatus("rune-1");
+
+      await cleanup();
+
+      expect(status).toBe(expected);
+    });
+  });
 });

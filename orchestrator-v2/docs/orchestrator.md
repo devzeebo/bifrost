@@ -115,7 +115,7 @@ Runners access work item source methods through the orchestrator via typed RPC r
 | --- | --- |
 | `workItemSource.createDraftWorkItem` | `createDraftWorkItem(input)` |
 | `workItemSource.startWorkItem` | `startWorkItem(workItemId)` |
-| `workItemSource.setDependency` | `setDependency(...)` |
+| `workItemSource.setDependency` | `setDependency(workItemId, dependsOnWorkItemId, type?)` |
 | `workItemSource.getDependencies` | `getDependencies(workItemId)` |
 | `workItemSource.getWorkItemStatus` | `getWorkItemStatus(workItemId)` |
 

@@ -39,33 +39,21 @@ export type ParsedWorkflowState =
   | { ok: true; state: WorkflowState }
   | { ok: false; missing: string[] };
 
-const REQUIRED_FIELDS = ["workingDir", "definitionName"] as const;
-
 export function parseWorkflowState(taskState: Record<string, unknown>): ParsedWorkflowState {
   const missing: string[] = [];
 
-  for (const field of REQUIRED_FIELDS) {
-    if (!(field in taskState) || taskState[field] === undefined) {
-      missing.push(field);
-    }
-  }
-
-  if (missing.length > 0) {
-    return { ok: false, missing };
-  }
-
   const workingDir = taskState.workingDir;
-  const definitionName = taskState.definitionName;
-
   if (typeof workingDir !== "string" || workingDir.length === 0) {
     missing.push("workingDir");
   }
+
+  const definitionName = taskState.definitionName;
   if (typeof definitionName !== "string" || definitionName.length === 0) {
     missing.push("definitionName");
   }
 
   if (missing.length > 0) {
-    return { ok: false, missing: [...new Set(missing)] };
+    return { ok: false, missing };
   }
 
   const phase = taskState.phase;
@@ -75,7 +63,10 @@ export function parseWorkflowState(taskState: Record<string, unknown>): ParsedWo
   if (phase !== undefined && phase !== "schedule" && phase !== "verify") {
     missing.push("phase");
   }
-  if (childIds !== undefined && (childIds === null || typeof childIds !== "object")) {
+  if (
+    childIds !== undefined &&
+    (childIds === null || typeof childIds !== "object" || Array.isArray(childIds))
+  ) {
     missing.push("childIds");
   }
   if (rewindTarget !== undefined && typeof rewindTarget !== "string") {
@@ -83,7 +74,7 @@ export function parseWorkflowState(taskState: Record<string, unknown>): ParsedWo
   }
 
   if (missing.length > 0) {
-    return { ok: false, missing: [...new Set(missing)] };
+    return { ok: false, missing };
   }
 
   return {

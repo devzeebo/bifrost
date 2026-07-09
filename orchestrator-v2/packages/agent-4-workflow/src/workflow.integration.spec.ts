@@ -114,5 +114,6 @@ async function waiting_for_workflow_completion(this: Context) {
 
 function workflow_and_children_completed(this: Context) {
   expect(this.source.completed).toContain("workflow-1");
-  expect(this.source.startedOrder.length).toBeGreaterThanOrEqual(3);
+  const childCompleted = this.source.completed.filter((id) => id !== "workflow-1");
+  expect(childCompleted).toEqual(["draft-1", "draft-2", "draft-3"]);
 }

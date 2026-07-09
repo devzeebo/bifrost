@@ -27,7 +27,15 @@ export function createStepWrapperHandler(step: FlattenedStep): WorkItemHandler {
           ? parsed.state.workingDir
           : process.cwd();
 
-      return runStepWrapper(workItem, cwd, ctx.setState, step, ctx.handlers, ctx.source);
+      return runStepWrapper(
+        workItem,
+        cwd,
+        ctx.setState,
+        step,
+        ctx.handlers,
+        ctx.source,
+        parsed.state,
+      );
     },
   };
 }
@@ -39,8 +47,12 @@ export async function runStepWrapper(
   step: FlattenedStep,
   handlers?: WorkItemExecutionContext["handlers"],
   source?: WorkItemExecutionContext["source"],
+  wrapperState?: StepWrapperState,
 ): Promise<WorkItemResult> {
-  const parsed = parseStepWrapperState(workItem.state);
+  const parsed =
+    wrapperState !== undefined
+      ? { ok: true as const, state: wrapperState }
+      : parseStepWrapperState(workItem.state);
   if (!parsed.ok) {
     return {
       outcome: "failed",
@@ -48,37 +60,42 @@ export async function runStepWrapper(
     };
   }
 
-  const wrapperState = parsed.state;
+  const state = parsed.state;
   const transition = readTransition(workItem.state);
 
-  if (transition === "rewind" && wrapperState.rewindTo !== undefined && source !== undefined) {
-    await source.setState(wrapperState.workflowWorkItemId, {
-      rewindTarget: wrapperState.rewindTo,
-      phase: "schedule",
-    });
-    return { outcome: "failed", message: `Rewinding to ${wrapperState.rewindTo}` };
+  if (transition === "rewind" && state.rewindTo !== undefined && source !== undefined) {
+    try {
+      await source.setState(state.workflowWorkItemId, {
+        rewindTarget: state.rewindTo,
+        phase: "schedule",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { outcome: "failed", message: `Failed to rewind workflow: ${message}` };
+    }
+    return { outcome: "failed", message: `Rewinding to ${state.rewindTo}` };
   }
 
   if (handlers === undefined) {
     return { outcome: "failed", message: "Step wrapper requires handler registry" };
   }
 
-  const innerHandler = handlers.get(wrapperState.innerKind, wrapperState.innerName);
+  const innerHandler = handlers.get(state.innerKind, state.innerName);
   if (innerHandler === undefined) {
     return {
       outcome: "failed",
-      message: `Unknown inner handler: ${wrapperState.innerKind}:${wrapperState.innerName}`,
+      message: `Unknown inner handler: ${state.innerKind}:${state.innerName}`,
     };
   }
 
   const innerWorkItem: WorkItem = {
     workItemId: workItem.workItemId,
-    kind: wrapperState.innerKind,
-    name: wrapperState.innerName,
+    kind: state.innerKind,
+    name: state.innerName,
     state: {
-      workingDir: wrapperState.workingDir || cwd,
-      instructions: wrapperState.instructions ?? "",
-      engineName: wrapperState.engineName ?? "",
+      workingDir: state.workingDir || cwd,
+      instructions: state.instructions ?? "",
+      engineName: state.engineName ?? "",
     },
     metadata: workItem.metadata,
   };

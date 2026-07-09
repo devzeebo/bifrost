@@ -223,6 +223,18 @@ function readCreateDraftParams(params: unknown): { input: CreateDraftWorkItemInp
   if (typeof input.kind !== "string" || typeof input.name !== "string") {
     return null;
   }
+  if (
+    input.state !== undefined &&
+    (input.state === null || typeof input.state !== "object" || Array.isArray(input.state))
+  ) {
+    return null;
+  }
+  if (
+    input.metadata !== undefined &&
+    (input.metadata === null || typeof input.metadata !== "object" || Array.isArray(input.metadata))
+  ) {
+    return null;
+  }
   return { input: record.input as CreateDraftWorkItemInput };
 }
 

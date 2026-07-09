@@ -157,6 +157,10 @@ export function createGraphMemoryWorkItemSource(
       paused.push(workItemId);
       statuses.set(workItemId, "paused");
       queued.delete(workItemId);
+      const queuedIndex = readyQueue.findIndex((item) => item.workItemId === workItemId);
+      if (queuedIndex >= 0) {
+        readyQueue.splice(queuedIndex, 1);
+      }
     },
     async setState(workItemId: string, state: Record<string, unknown>) {
       states.set(workItemId, state);

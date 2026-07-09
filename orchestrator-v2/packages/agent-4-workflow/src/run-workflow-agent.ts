@@ -5,7 +5,7 @@ import type {
 } from "@bifrost-ai/interfaces-work";
 
 import type { WorkflowDefinition, WorkflowState } from "./types.js";
-import { aggregateTelemetry, missingFieldsMessage, parseWorkflowState } from "./types.js";
+import { missingFieldsMessage, parseWorkflowState } from "./types.js";
 import { STEP_WRAPPER_KIND } from "./step-wrapper.js";
 
 export async function runWorkflowAgent(
@@ -108,8 +108,6 @@ async function verifyPass(
     return { outcome: "failed", message: "Workflow verify pass missing childIds" };
   }
 
-  const telemetryList: Array<WorkItemResult["telemetry"]> = [];
-
   for (const step of definition.steps) {
     const childId = childIds[step.id];
     if (childId === undefined) {
@@ -121,12 +119,12 @@ async function verifyPass(
       return { outcome: "failed", message: `Step ${step.id} failed` };
     }
     if (status !== "completed") {
-      return { outcome: "failed", message: `Step ${step.id} not completed (status: ${status})` };
+      return {
+        outcome: "paused",
+        message: `Step ${step.id} not completed (status: ${status})`,
+      };
     }
   }
 
-  return {
-    outcome: "completed",
-    telemetry: aggregateTelemetry(telemetryList),
-  };
+  return { outcome: "completed" };
 }

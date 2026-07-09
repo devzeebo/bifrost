@@ -24,6 +24,11 @@ describe("flattenWorkflowBuilder", () => {
     given: { nested_workflow },
     then: { nested_steps_are_namespaced },
   });
+
+  test("parallel steps with same name get unique ids", {
+    given: { parallel_same_name_workflow },
+    then: { parallel_step_ids_are_unique },
+  });
 });
 
 function linear_workflow(this: Context) {
@@ -66,8 +71,19 @@ function nested_workflow(this: Context) {
 }
 
 function nested_steps_are_namespaced(this: Context) {
-  const innerStep = this.definition.steps.find((step) => step.id.includes("inner:step1[someFn]"));
+  const innerStep = this.definition.steps.find((step) => step.id.includes("inner:step1-1[someFn]"));
   const lastStep = this.definition.steps.find((step) => step.id.includes("[last]"));
   expect(innerStep).toBeDefined();
   expect(lastStep?.dependsOn.length).toBeGreaterThan(0);
+}
+
+function parallel_same_name_workflow(this: Context) {
+  const workflow = new Workflow({ name: "parallel" }).step(task("same"), task("same"));
+  this.definition = flattenWorkflowBuilder(workflow);
+}
+
+function parallel_step_ids_are_unique(this: Context) {
+  const ids = this.definition.steps.map((step) => step.id);
+  expect(new Set(ids).size).toBe(ids.length);
+  expect(ids[0]).not.toBe(ids[1]);
 }

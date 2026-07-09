@@ -84,6 +84,12 @@ describe("runWorkflowAgent", () => {
     when: { running_workflow },
     then: { outcome_is_completed },
   });
+
+  test("verify pass pauses when a child is still live", {
+    given: { verify_fixture_with_live_child },
+    when: { running_workflow },
+    then: { outcome_is_paused },
+  });
 });
 
 function schedule_fixture(this: Context) {
@@ -134,6 +140,31 @@ function verify_fixture_all_completed(this: Context) {
   for (const id of ["child-1", "child-2", "child-3"]) {
     this.source.statuses.set(id, "completed");
   }
+  this.workItem = {
+    workItemId: "workflow-1",
+    kind: "workflow",
+    name: "linear",
+    state: {
+      workingDir: "/tmp",
+      definitionName: "linear",
+      phase: "verify",
+      childIds: {
+        "step-a": "child-1",
+        "step-b": "child-2",
+        "step-c": "child-3",
+      },
+    },
+    metadata: {},
+  };
+  this.ctx = makeCtx(this.source);
+}
+
+function verify_fixture_with_live_child(this: Context) {
+  this.source = new MockSource();
+  this.definition = linearDefinition;
+  this.source.statuses.set("child-1", "completed");
+  this.source.statuses.set("child-2", "live");
+  this.source.statuses.set("child-3", "completed");
   this.workItem = {
     workItemId: "workflow-1",
     kind: "workflow",
