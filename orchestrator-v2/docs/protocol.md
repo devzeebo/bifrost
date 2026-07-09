@@ -92,8 +92,12 @@ The protocol package defines the transport. The orchestrator package defines the
 | `workItem.complete`       | `{ workItemId }`           |                             |
 | `workItem.fail`           | `{ workItemId, message? }` |                             |
 | `workItem.pause`          | `{ workItemId }`           |                             |
-| `workItemSource.setState` | `{ workItemId, state }`    | Proxied to work item source |
-| `scheduler.call`          | `{ method, args }`         | Proxied to scheduler        |
+| `workItemSource.setState`         | `{ workItemId, state }`    | Proxied to work item source |
+| `workItemSource.createDraftWorkItem`| `{ input }`              | Proxied to work item source |
+| `workItemSource.startWorkItem`    | `{ workItemId }`           | Proxied to work item source |
+| `workItemSource.setDependency`    | `{ workItemId, dependsOnWorkItemId, type? }` | Proxied to work item source |
+| `workItemSource.getDependencies`  | `{ workItemId }`           | Proxied to work item source |
+| `workItemSource.getWorkItemStatus`| `{ workItemId }`           | Proxied to work item source |
 
 ## Alternatives rejected
 

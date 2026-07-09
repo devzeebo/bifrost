@@ -3,12 +3,12 @@ import type {
   WorkItem,
   WorkItemDependency,
   WorkItemSource,
+  WorkItemStatus,
 } from "@bifrost-ai/interfaces-work";
 import type { FramePayload, PeerIdentity, RunnerPeer } from "@bifrost-ai/protocol";
 import { createRunnerPeer, generateKeyPair } from "@bifrost-ai/protocol";
 
 import { Orchestrator } from "./orchestrator.js";
-import type { Scheduler } from "./types.js";
 
 export type MemoryWorkItemSource = WorkItemSource & {
   completed: string[];
@@ -36,6 +36,9 @@ export function createMemoryWorkItemSource(workItems: WorkItem[]): MemoryWorkIte
   const drafts = new Map<string, CreateDraftWorkItemInput>();
   const started = new Set<string>(workItems.map((workItem) => workItem.workItemId));
   const dependencies = new Map<string, WorkItemDependency[]>();
+  const statuses = new Map<string, WorkItemStatus>(
+    workItems.map((workItem) => [workItem.workItemId, "live"]),
+  );
   let nextDraftId = 1;
 
   return {
@@ -53,12 +56,15 @@ export function createMemoryWorkItemSource(workItems: WorkItem[]): MemoryWorkIte
     },
     async completeWorkItem(workItemId: string) {
       completed.push(workItemId);
+      statuses.set(workItemId, "completed");
     },
     async failWorkItem(workItemId: string, error: string) {
       failed.push({ workItemId, error });
+      statuses.set(workItemId, "failed");
     },
     async pauseWorkItem(workItemId: string) {
       paused.push(workItemId);
+      statuses.set(workItemId, "paused");
     },
     async setState(workItemId: string, state: Record<string, unknown>) {
       states.set(workItemId, state);
@@ -67,10 +73,12 @@ export function createMemoryWorkItemSource(workItems: WorkItem[]): MemoryWorkIte
       const workItemId = `draft-${nextDraftId}`;
       nextDraftId += 1;
       drafts.set(workItemId, input);
+      statuses.set(workItemId, "draft");
       return workItemId;
     },
     async startWorkItem(workItemId: string) {
       started.add(workItemId);
+      statuses.set(workItemId, "live");
     },
     async setDependency(workItemId: string, dependsOnWorkItemId: string, type = "blocks") {
       const edges = dependencies.get(workItemId) ?? [];
@@ -80,13 +88,8 @@ export function createMemoryWorkItemSource(workItems: WorkItem[]): MemoryWorkIte
     async getDependencies(workItemId: string) {
       return dependencies.get(workItemId) ?? [];
     },
-  };
-}
-
-export function createNoopScheduler(): Scheduler {
-  return {
-    async call() {
-      return { ok: true };
+    async getWorkItemStatus(workItemId: string) {
+      return statuses.get(workItemId) ?? "draft";
     },
   };
 }
@@ -130,8 +133,7 @@ export async function waitFor(
 export async function startOrchestratorInBackground(options: {
   orchestratorIdentity: PeerIdentity;
   authorizedRunners: Map<string, import("node:crypto").KeyObject>;
-  workItemSource: MemoryWorkItemSource;
-  scheduler?: Scheduler;
+  workItemSource: WorkItemSource;
   maxInFlightPerPeer?: number;
 }): Promise<{
   abort: () => void;
@@ -148,7 +150,6 @@ export async function startOrchestratorInBackground(options: {
   const handle = await orchestrator.start({
     identity: options.orchestratorIdentity,
     authorizedRunners: options.authorizedRunners,
-    scheduler: options.scheduler ?? createNoopScheduler(),
     maxInFlightPerPeer: options.maxInFlightPerPeer,
     abortSignal: abortController.signal,
   });
@@ -298,3 +299,6 @@ export function sampleWorkItem(workItemId: string): WorkItem {
     metadata: {},
   };
 }
+
+export { createGraphMemoryWorkItemSource } from "./graph-memory-work-item-source.js";
+export type { GraphMemoryWorkItemSource } from "./graph-memory-work-item-source.js";

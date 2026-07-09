@@ -3,6 +3,7 @@ import type {
   WorkItem,
   WorkItemDependency,
   WorkItemSource,
+  WorkItemStatus,
 } from "@bifrost-ai/interfaces-work";
 import { BifrostHttpClient } from "./client/bifrost-http-client.js";
 import { loadConfig } from "./config/config-loader.js";
@@ -161,6 +162,29 @@ export class BifrostWorkItemSource implements WorkItemSource {
       workItemId: dep.target_id,
       type: dep.relationship,
     }));
+  }
+
+  public async getWorkItemStatus(workItemId: string): Promise<WorkItemStatus> {
+    const client = await this.#getClient();
+    const detail = await client.getRune(workItemId);
+    return BifrostWorkItemSource.mapRuneStatus(detail.status);
+  }
+
+  public static mapRuneStatus(status: string): WorkItemStatus {
+    switch (status) {
+      case "draft":
+        return "draft";
+      case "open":
+      case "claimed":
+        return "live";
+      case "fulfilled":
+        return "completed";
+      case "sealed":
+      case "shattered":
+        return "failed";
+      default:
+        return "live";
+    }
   }
 
   public static extractAgentName(tags: string[]): string | null {

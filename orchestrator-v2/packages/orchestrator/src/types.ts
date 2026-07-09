@@ -2,15 +2,10 @@ import type { WorkItemSource } from "@bifrost-ai/interfaces-work";
 import type { FramePayload, PeerIdentity } from "@bifrost-ai/protocol";
 import type { KeyObject } from "node:crypto";
 
-export type Scheduler = {
-  call(method: string, params: unknown): Promise<unknown>;
-};
-
 export type OrchestratorOptions = {
   identity: PeerIdentity;
   authorizedRunners: ReadonlyMap<string, KeyObject>;
   workItemSource: WorkItemSource;
-  scheduler: Scheduler;
   host?: string;
   port?: number;
   heartbeatTimeoutMs?: number;

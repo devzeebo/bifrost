@@ -87,6 +87,26 @@ function makeExecutionFixture(
   const ctx: WorkItemExecutionContext<Pick<TaskAgentDataSchema, "engine">> = {
     data: makeData(engine),
     handlers: emptyHandlers,
+    source: {
+      async createDraftWorkItem() {
+        throw new Error("not implemented");
+      },
+      async startWorkItem() {
+        throw new Error("not implemented");
+      },
+      async setDependency() {
+        throw new Error("not implemented");
+      },
+      async getDependencies() {
+        return [];
+      },
+      async getWorkItemStatus() {
+        return "live";
+      },
+      async setState() {
+        throw new Error("not implemented");
+      },
+    },
     async setState(nextState) {
       Object.assign(liveState, nextState);
     },

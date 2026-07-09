@@ -10,6 +10,8 @@ export type {
   WorkItemHandlerRegistry,
   WorkItemResult,
   WorkItemSource,
+  WorkItemSourceClient,
+  WorkItemStatus,
 } from "./types.js";
 export {
   isWorkItemHandler,

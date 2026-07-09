@@ -1,0 +1,51 @@
+import type {
+  CreateDraftWorkItemInput,
+  WorkItemDependency,
+  WorkItemSourceClient,
+  WorkItemStatus,
+} from "@bifrost-ai/interfaces-work";
+
+import type { RpcClient } from "./rpc-client.js";
+
+export function createRpcWorkItemSourceClient(rpc: RpcClient): WorkItemSourceClient {
+  return {
+    async createDraftWorkItem(input: CreateDraftWorkItemInput) {
+      const result = await rpc.call("workItemSource.createDraftWorkItem", { input });
+      if (
+        typeof result !== "object" ||
+        result === null ||
+        typeof (result as { workItemId?: unknown }).workItemId !== "string"
+      ) {
+        throw new Error("workItemSource.createDraftWorkItem returned invalid workItemId");
+      }
+      return (result as { workItemId: string }).workItemId;
+    },
+    async startWorkItem(workItemId: string) {
+      await rpc.call("workItemSource.startWorkItem", { workItemId });
+    },
+    async setDependency(workItemId: string, dependsOnWorkItemId: string, type?: string) {
+      await rpc.call("workItemSource.setDependency", { workItemId, dependsOnWorkItemId, type });
+    },
+    async getDependencies(workItemId: string) {
+      const result = await rpc.call("workItemSource.getDependencies", { workItemId });
+      if (!Array.isArray(result)) {
+        throw new Error("workItemSource.getDependencies returned invalid dependencies");
+      }
+      return result as WorkItemDependency[];
+    },
+    async getWorkItemStatus(workItemId: string) {
+      const result = await rpc.call("workItemSource.getWorkItemStatus", { workItemId });
+      if (
+        typeof result !== "object" ||
+        result === null ||
+        typeof (result as { status?: unknown }).status !== "string"
+      ) {
+        throw new Error("workItemSource.getWorkItemStatus returned invalid status");
+      }
+      return (result as { status: WorkItemStatus }).status;
+    },
+    async setState(workItemId: string, state: Record<string, unknown>) {
+      await rpc.call("workItemSource.setState", { workItemId, state });
+    },
+  };
+}

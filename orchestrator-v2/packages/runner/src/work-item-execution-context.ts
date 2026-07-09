@@ -7,6 +7,7 @@ import type {
 
 import type { RpcClient } from "./rpc-client.js";
 import type { Registry } from "./registry.js";
+import { createRpcWorkItemSourceClient } from "./work-item-source-client.js";
 
 export function createRpcWorkItemExecutionContext<TData extends Record<string, unknown>>(
   workItem: WorkItem,
@@ -34,6 +35,7 @@ export function createRpcWorkItemExecutionContext<TData extends Record<string, u
         return handlers.get(kind)?.has(name) ?? false;
       },
     },
+    source: createRpcWorkItemSourceClient(rpc),
     async setState(nextState) {
       Object.assign(state, nextState);
       await rpc.call("workItemSource.setState", {

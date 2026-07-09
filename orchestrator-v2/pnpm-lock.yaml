@@ -259,6 +259,10 @@ importers:
       '@bifrost-ai/work-item-source-bifrost':
         specifier: workspace:*
         version: link:../../packages/work-item-source-bifrost
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
 
   packages/agent-3-task:
     dependencies:
@@ -275,6 +279,40 @@ importers:
         specifier: ^4.0.3
         version: 4.0.3
     devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.4
+      '@typescript/native-preview':
+        specifier: 'catalog:'
+        version: 7.0.0-dev.20260707.2
+      bumpp:
+        specifier: 'catalog:'
+        version: 11.1.0
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.2.1(@types/node@25.9.4)(jiti@2.7.0)(typescript@6.0.3)(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0))(yaml@2.9.0)
+      vitest-gwt:
+        specifier: 'catalog:'
+        version: 4.1.0(vitest@4.1.9(@types/node@25.9.4)(@vitest/browser-preview@4.1.9)(vite@8.1.2(@types/node@25.9.4)(jiti@2.7.0)(yaml@2.9.0)))
+
+  packages/agent-4-workflow:
+    dependencies:
+      '@bifrost-ai/interfaces-work':
+        specifier: workspace:*
+        version: link:../interfaces-work
+      '@bifrost-ai/runner':
+        specifier: workspace:*
+        version: link:../runner
+    devDependencies:
+      '@bifrost-ai/orchestrator':
+        specifier: workspace:*
+        version: link:../orchestrator
+      '@bifrost-ai/protocol':
+        specifier: workspace:*
+        version: link:../protocol
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.4

@@ -1,14 +1,12 @@
-import type { WorkItemSource } from "@bifrost-ai/interfaces-work";
+import type { CreateDraftWorkItemInput, WorkItemSource } from "@bifrost-ai/interfaces-work";
 import type { ConnectedPeer, FramePayload } from "@bifrost-ai/protocol";
 
 import { sendRpcError, sendRpcResponse } from "./dispatcher.js";
 import type { ResultHandler } from "./result-handler.js";
-import type { Scheduler } from "./types.js";
 
 export class RpcRouter {
   constructor(
     private readonly workItemSource: WorkItemSource,
-    private readonly scheduler: Scheduler,
     private readonly results: ResultHandler,
   ) {}
 
@@ -18,9 +16,6 @@ export class RpcRouter {
     }
 
     void this.route(peer, payload.id, payload.method, payload.params).catch((error) => {
-      // Backstop for the whole RPC surface: any handler that throws before it
-      // answers still gets a response back to the runner, so a bug in one path
-      // can't hang the runner. Per-handler catches below just refine the code.
       console.error(`Failed to route RPC ${payload.method}:`, error);
       sendRpcError(peer, payload.id, "INTERNAL_ERROR", error);
     });
@@ -45,8 +40,20 @@ export class RpcRouter {
       case "workItemSource.setState":
         await this.handleSetState(peer, requestId, params);
         return;
-      case "scheduler.call":
-        await this.handleSchedulerCall(peer, requestId, params);
+      case "workItemSource.createDraftWorkItem":
+        await this.handleCreateDraftWorkItem(peer, requestId, params);
+        return;
+      case "workItemSource.startWorkItem":
+        await this.handleStartWorkItem(peer, requestId, params);
+        return;
+      case "workItemSource.setDependency":
+        await this.handleSetDependency(peer, requestId, params);
+        return;
+      case "workItemSource.getDependencies":
+        await this.handleGetDependencies(peer, requestId, params);
+        return;
+      case "workItemSource.getWorkItemStatus":
+        await this.handleGetWorkItemStatus(peer, requestId, params);
         return;
       default:
         sendRpcError(peer, requestId, "METHOD_NOT_FOUND", `Unknown method: ${method}`);
@@ -72,22 +79,107 @@ export class RpcRouter {
     }
   }
 
-  private async handleSchedulerCall(
+  private async handleCreateDraftWorkItem(
     peer: ConnectedPeer,
     requestId: string,
     params: unknown,
   ): Promise<void> {
-    const parsed = readSchedulerParams(params);
+    const parsed = readCreateDraftParams(params);
     if (parsed === null) {
-      sendRpcError(peer, requestId, "INVALID_PARAMS", "method and args are required");
+      sendRpcError(peer, requestId, "INVALID_PARAMS", "input is required");
       return;
     }
 
     try {
-      const result = await this.scheduler.call(parsed.method, parsed.args);
-      sendRpcResponse(peer, requestId, result);
+      const workItemId = await this.workItemSource.createDraftWorkItem(parsed.input);
+      sendRpcResponse(peer, requestId, { workItemId });
     } catch (error) {
-      sendRpcError(peer, requestId, "SCHEDULER_ERROR", error);
+      sendRpcError(peer, requestId, "SOURCE_ERROR", error);
+    }
+  }
+
+  private async handleStartWorkItem(
+    peer: ConnectedPeer,
+    requestId: string,
+    params: unknown,
+  ): Promise<void> {
+    const workItemId = readWorkItemId(params);
+    if (workItemId === null) {
+      sendRpcError(peer, requestId, "INVALID_PARAMS", "workItemId is required");
+      return;
+    }
+
+    try {
+      await this.workItemSource.startWorkItem(workItemId);
+      sendRpcResponse(peer, requestId, { ok: true });
+    } catch (error) {
+      sendRpcError(peer, requestId, "SOURCE_ERROR", error);
+    }
+  }
+
+  private async handleSetDependency(
+    peer: ConnectedPeer,
+    requestId: string,
+    params: unknown,
+  ): Promise<void> {
+    const parsed = readSetDependencyParams(params);
+    if (parsed === null) {
+      sendRpcError(
+        peer,
+        requestId,
+        "INVALID_PARAMS",
+        "workItemId and dependsOnWorkItemId are required",
+      );
+      return;
+    }
+
+    try {
+      await this.workItemSource.setDependency(
+        parsed.workItemId,
+        parsed.dependsOnWorkItemId,
+        parsed.type,
+      );
+      sendRpcResponse(peer, requestId, { ok: true });
+    } catch (error) {
+      sendRpcError(peer, requestId, "SOURCE_ERROR", error);
+    }
+  }
+
+  private async handleGetDependencies(
+    peer: ConnectedPeer,
+    requestId: string,
+    params: unknown,
+  ): Promise<void> {
+    const workItemId = readWorkItemId(params);
+    if (workItemId === null) {
+      sendRpcError(peer, requestId, "INVALID_PARAMS", "workItemId is required");
+      return;
+    }
+
+    try {
+      const dependencies = await this.workItemSource.getDependencies(workItemId);
+      sendRpcResponse(peer, requestId, dependencies);
+    } catch (error) {
+      sendRpcError(peer, requestId, "SOURCE_ERROR", error);
+    }
+  }
+
+  private async handleGetWorkItemStatus(
+    peer: ConnectedPeer,
+    requestId: string,
+    params: unknown,
+  ): Promise<void> {
+    const workItemId = readWorkItemId(params);
+    if (workItemId === null) {
+      sendRpcError(peer, requestId, "INVALID_PARAMS", "workItemId is required");
+      return;
+    }
+
+    try {
+      const status = await this.workItemSource.getWorkItemStatus(workItemId);
+      sendRpcResponse(peer, requestId, { status });
+    } catch (error) {
+      sendRpcError(peer, requestId, "SOURCE_ERROR", error);
     }
   }
 }
@@ -111,13 +203,46 @@ function readSetStateParams(
   };
 }
 
-function readSchedulerParams(params: unknown): { method: string; args: unknown } | null {
+function readWorkItemId(params: unknown): string | null {
   if (params === null || typeof params !== "object") {
     return null;
   }
-  const record = params as { method?: unknown; args?: unknown };
-  if (typeof record.method !== "string") {
+  const record = params as { workItemId?: unknown };
+  return typeof record.workItemId === "string" ? record.workItemId : null;
+}
+
+function readCreateDraftParams(params: unknown): { input: CreateDraftWorkItemInput } | null {
+  if (params === null || typeof params !== "object") {
     return null;
   }
-  return { method: record.method, args: record.args };
+  const record = params as { input?: unknown };
+  if (record.input === null || typeof record.input !== "object") {
+    return null;
+  }
+  const input = record.input as Partial<CreateDraftWorkItemInput>;
+  if (typeof input.kind !== "string" || typeof input.name !== "string") {
+    return null;
+  }
+  return { input: record.input as CreateDraftWorkItemInput };
+}
+
+function readSetDependencyParams(
+  params: unknown,
+): { workItemId: string; dependsOnWorkItemId: string; type?: string } | null {
+  if (params === null || typeof params !== "object") {
+    return null;
+  }
+  const record = params as {
+    workItemId?: unknown;
+    dependsOnWorkItemId?: unknown;
+    type?: unknown;
+  };
+  if (typeof record.workItemId !== "string" || typeof record.dependsOnWorkItemId !== "string") {
+    return null;
+  }
+  return {
+    workItemId: record.workItemId,
+    dependsOnWorkItemId: record.dependsOnWorkItemId,
+    ...(typeof record.type === "string" ? { type: record.type } : {}),
+  };
 }

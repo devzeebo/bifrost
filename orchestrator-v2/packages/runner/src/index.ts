@@ -5,6 +5,7 @@ export { createScriptAgent, type ScriptFn } from "./script-agent.js";
 export { discoverConfigPath, loadRunnerConfig, resolveRunnerOptions } from "./config-loader.js";
 export { executeWorkItem } from "./execute-work-item.js";
 export { createRpcWorkItemExecutionContext } from "./work-item-execution-context.js";
+export { createRpcWorkItemSourceClient } from "./work-item-source-client.js";
 export { createRpcClient } from "./rpc-client.js";
 export type { RpcClient } from "./rpc-client.js";
 export type {

@@ -16,7 +16,7 @@ The `@bifrost-ai/orchestrator` package implements a **get-work + dispatch** loop
 2. Accepts runner connections authenticated by pre-shared ed25519 keys.
 3. Streams work items from `workItemSource.watchWorkItems()`.
 4. Dispatches each work item to an available, heartbeating runner.
-5. Routes runner RPC callbacks to the task source and scheduler.
+5. Routes runner RPC callbacks to the work item source.
 6. Drains in-flight work when the task stream ends.
 
 ### What the orchestrator does not do
@@ -56,7 +56,7 @@ sequenceDiagram
 | `dispatcher`         | Send `dispatch` RPC to a peer                                   |
 | `DispatchAckHandler` | Handle dispatch accept/reject responses                         |
 | `ResultHandler`      | Handle `workItem.complete` / `workItem.fail` / `workItem.pause` |
-| `RpcRouter`          | Route runner RPC to task source and scheduler                   |
+| `RpcRouter`          | Route runner RPC to work item source                            |
 | `config`             | Load authorized runner public keys from PEM entries             |
 
 ### Runner availability
@@ -91,7 +91,6 @@ orchestrator.addWorkItemMapper("task", (workItem) => workItem);
 type OrchestratorStartOptions = {
   identity: PeerIdentity;
   authorizedRunners: ReadonlyMap<string, KeyObject>;
-  scheduler: Scheduler;
   host?: string;
   port?: number;
   heartbeatTimeoutMs?: number; // default 30000
@@ -102,22 +101,25 @@ type OrchestratorStartOptions = {
 const handle = await orchestrator.start({
   identity: orchestratorIdentity,
   authorizedRunners: loadAuthorizedRunners([{ keyId, publicKeyPem }]),
-  scheduler,
   port: 9100,
 });
 ```
 
 Authorized runners are loaded via `loadAuthorizedRunners([{ keyId, publicKeyPem }])`. Adding a runner requires updating this list and restarting.
 
-### Scheduler proxy
+### Work item source RPC
 
-Runners can call `scheduler.call(method, args)` through the orchestrator. This is a generic RPC proxy for workflow scheduling (retries, DAG advancement, etc.) without the orchestrator implementing scheduling logic itself. The `Scheduler` interface is:
+Runners access work item source methods through the orchestrator via typed RPC routes (same transport as `workItemSource.setState`):
 
-```typescript
-type Scheduler = {
-  call(method: string, params: unknown): Promise<unknown>;
-};
-```
+| RPC method | Work item source call |
+| --- | --- |
+| `workItemSource.createDraftWorkItem` | `createDraftWorkItem(input)` |
+| `workItemSource.startWorkItem` | `startWorkItem(workItemId)` |
+| `workItemSource.setDependency` | `setDependency(...)` |
+| `workItemSource.getDependencies` | `getDependencies(workItemId)` |
+| `workItemSource.getWorkItemStatus` | `getWorkItemStatus(workItemId)` |
+
+Handlers receive these via `ctx.source` on `WorkItemExecutionContext`.
 
 ## Alternatives rejected
 

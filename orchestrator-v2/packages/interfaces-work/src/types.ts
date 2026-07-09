@@ -18,6 +18,8 @@ export type CreateDraftWorkItemInput = {
   metadata?: Record<string, unknown>;
 };
 
+export type WorkItemStatus = "draft" | "live" | "paused" | "completed" | "failed";
+
 export type WorkItemSource = {
   watchWorkItems: () => AsyncGenerator<WorkItem>;
   completeWorkItem: (workItemId: string) => Promise<void>;
@@ -28,7 +30,18 @@ export type WorkItemSource = {
   startWorkItem(workItemId: string): Promise<void>;
   setDependency(workItemId: string, dependsOnWorkItemId: string, type?: string): Promise<void>;
   getDependencies(workItemId: string): Promise<WorkItemDependency[]>;
+  getWorkItemStatus(workItemId: string): Promise<WorkItemStatus>;
 };
+
+export type WorkItemSourceClient = Pick<
+  WorkItemSource,
+  | "createDraftWorkItem"
+  | "startWorkItem"
+  | "setDependency"
+  | "getDependencies"
+  | "getWorkItemStatus"
+  | "setState"
+>;
 
 const REQUIRED_WORK_ITEM_FIELDS = ["workItemId", "kind", "name"] as const;
 
@@ -124,6 +137,7 @@ export type WorkItemExecutionContext<
 > = {
   readonly data: DataRegistry<TData>;
   readonly handlers: WorkItemHandlerRegistry;
+  readonly source: WorkItemSourceClient;
   setState: (state: Record<string, unknown>) => Promise<void>;
 };
 

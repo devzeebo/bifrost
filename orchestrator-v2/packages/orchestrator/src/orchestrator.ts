@@ -75,7 +75,7 @@ export class Orchestrator {
     const registry = new PeerRegistry({ heartbeatTimeoutMs, maxInFlightPerPeer });
     const tracker = new DispatchTracker();
     const results = new ResultHandler(workItemSource, tracker, registry);
-    const router = new RpcRouter(workItemSource, options.scheduler, results);
+    const router = new RpcRouter(workItemSource, results);
     const acks = new DispatchAckHandler(workItemSource, tracker, registry);
 
     const disconnectCleanup = peer.onPeerDisconnect((connected) => {

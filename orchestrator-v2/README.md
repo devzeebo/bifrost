@@ -14,6 +14,7 @@ A rebuild of the Bifrost orchestrator as a thin **get-work + dispatch** system. 
 | `@bifrost-ai/engine-claude-code` | Claude Code Agent SDK engine (`ClaudeCodeEngine`)                    |
 | `@bifrost-ai/engine-cursor`      | Cursor SDK engine (`CursorEngine`)                                   |
 | `@bifrost-ai/agent-3-task`       | Task Agent — single-shot LLM execution (`kind: "task"`)              |
+| `@bifrost-ai/agent-4-workflow`   | Workflow Agent — DAG scheduling with dependencies (`kind: "workflow"`) |
 
 For design background and how each piece fits together, see [docs/](docs/).
 
@@ -114,12 +115,6 @@ const handle = await orchestrator.start({
   authorizedRunners: loadAuthorizedRunners([
     { keyId: runnerIdentity.keyId, publicKeyPem: exportPublicKeyPem(runnerIdentity.publicKey) },
   ]),
-  scheduler: {
-    async call(method, params) {
-      // workflow scheduling callbacks from runners
-      return { ok: true };
-    },
-  },
   port: 9100,
 });
 
@@ -179,8 +174,12 @@ Runners call back into the orchestrator over the same signed WebSocket:
 | `workItem.complete`       | `{ workItemId }`           | Mark work item completed |
 | `workItem.fail`           | `{ workItemId, message? }` | Mark work item failed    |
 | `workItem.pause`          | `{ workItemId }`           | Mark work item paused    |
-| `workItemSource.setState` | `{ workItemId, state }`    | Persist handler state    |
-| `scheduler.call`          | `{ method, args }`         | Invoke scheduler proxy   |
+| `workItemSource.setState`         | `{ workItemId, state }`    | Persist handler state       |
+| `workItemSource.createDraftWorkItem` | `{ input }`             | Create a draft work item    |
+| `workItemSource.startWorkItem`    | `{ workItemId }`           | Promote draft to live       |
+| `workItemSource.setDependency`    | `{ workItemId, dependsOnWorkItemId, type? }` | Add dependency edge |
+| `workItemSource.getDependencies`  | `{ workItemId }`           | List dependency edges       |
+| `workItemSource.getWorkItemStatus`| `{ workItemId }`           | Query work item status      |
 
 The orchestrator dispatches work with `dispatch` RPC requests containing a full `WorkItem` object.
 
