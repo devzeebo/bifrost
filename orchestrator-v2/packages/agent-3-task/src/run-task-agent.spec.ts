@@ -142,6 +142,15 @@ describe("runTaskAgent", () => {
     then: { engine_failure_returned },
   });
 
+  test("persists sessionId and returns telemetry when the engine fails (resumable retry)", {
+    given: { failing_engine, valid_state_context },
+    when: { task_agent_run },
+    then: {
+      session_id_is_persisted,
+      telemetry_is_returned,
+    },
+  });
+
   test("fails when engine throws", {
     given: { throwing_engine, valid_state_context },
     when: { task_agent_run },
