@@ -1,8 +1,12 @@
 export type {
   CreateDraftWorkItemInput,
   DataRegistry,
+  DecoratorFn,
   ExecutionStats,
   Registry,
+  ScriptContext,
+  ScriptFn,
+  ScriptStack,
   WorkItem,
   WorkItemDependency,
   WorkItemExecutionContext,
@@ -13,6 +17,7 @@ export type {
 } from "./types.js";
 export {
   isWorkItemHandler,
+  isWorkItemResult,
   missingWorkItemFields,
   missingWorkItemFieldsMessage,
   isWorkItem as validateWorkItem,

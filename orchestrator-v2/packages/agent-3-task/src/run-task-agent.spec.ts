@@ -78,8 +78,8 @@ function makeExecutionFixture(
 
   const workItem: WorkItem = {
     workItemId: "work-item-123",
-    kind: "task",
-    name,
+    kind: name,
+    flow: [],
     metadata: { priority: "high" },
     state: liveState,
   };

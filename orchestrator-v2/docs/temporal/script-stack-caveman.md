@@ -33,20 +33,20 @@ New way:
 
 Runner get **two list**. Not one list. **Two list.**
 
-| List | Caveman name | What it hold |
-|------|--------------|--------------|
-| `scripts` | **job list** | name → do-thing function |
+| List       | Caveman name  | What it hold                |
+| ---------- | ------------- | --------------------------- |
+| `scripts`  | **job list**  | name → do-thing function    |
 | `wrappers` | **coat list** | name → boss-around function |
 
 Work note (`WorkItem`) say:
 
-| Field | Caveman name | Meaning |
-|-------|--------------|---------|
-| `kind` | **main job** | which script run at center |
-| `flow` | **coat order** | which wrappers outside-in. can be empty `[]` |
-| `state` | **shared bag** | everyone put stuff here for next guy |
-| `metadata` | **sticky note** | info about note. less touchy |
-| `workItemId` | **note id** | so runner not mix up notes |
+| Field        | Caveman name    | Meaning                                      |
+| ------------ | --------------- | -------------------------------------------- |
+| `kind`       | **main job**    | which script run at center                   |
+| `flow`       | **coat order**  | which wrappers outside-in. can be empty `[]` |
+| `state`      | **shared bag**  | everyone put stuff here for next guy         |
+| `metadata`   | **sticky note** | info about note. less touchy                 |
+| `workItemId` | **note id**     | so runner not mix up notes                   |
 
 ```
      flow[0] coat (outside)
@@ -88,14 +88,14 @@ Real nesting (big brain whisper):
 
 ```typescript
 // flow: ["wrapper1", "wrapper2"], kind: "myScript"
-wrapper1(item, () => wrapper2(item, () => myScriptFn(item)))
+wrapper1(item, () => wrapper2(item, () => myScriptFn(item)));
 ```
 
 Caveman translation:
 
 ```
-coat1(item, "hey coat2 you go") 
-  → coat2(item, "hey job you go") 
+coat1(item, "hey coat2 you go")
+  → coat2(item, "hey job you go")
     → job(item, "me do thing")
 ```
 
@@ -107,13 +107,13 @@ coat1(item, "hey coat2 you go")
 
 Wrapper is **boss** of inside.
 
-| Boss move | Caveman | What happen |
-|-----------|---------|-------------|
-| Never push `next` | "nah" | inside never run. job skip. |
-| Push once | "go" | normal. setup → job → check. |
-| Push many | "go again" | retry. stubborn job. |
-| Push after change bag | "go but first me fix bag" | prepare then go |
-| Look after push | "go... ok me inspect" | check after job |
+| Boss move             | Caveman                   | What happen                  |
+| --------------------- | ------------------------- | ---------------------------- |
+| Never push `next`     | "nah"                     | inside never run. job skip.  |
+| Push once             | "go"                      | normal. setup → job → check. |
+| Push many             | "go again"                | retry. stubborn job.         |
+| Push after change bag | "go but first me fix bag" | prepare then go              |
+| Look after push       | "go... ok me inspect"     | check after job              |
 
 One button. Many power. Like fire. Respect fire.
 
@@ -282,8 +282,8 @@ New way:
 ```typescript
 const typescriptTests = async (workItem, next) => {
   await prepareTsContext(workItem); // bag get vitest words
-  await next();                       // write-tests run
-  await validateTsTests(workItem);    // vitest run. should fail. good fail.
+  await next(); // write-tests run
+  await validateTsTests(workItem); // vitest run. should fail. good fail.
 };
 
 const item = {
@@ -428,4 +428,4 @@ state    = SHARED BAG
 next     = GO BUTTON
 ```
 
-*thunk rock. document done.*
+_thunk rock. document done._

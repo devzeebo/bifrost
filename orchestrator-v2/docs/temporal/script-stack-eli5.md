@@ -4,7 +4,7 @@ A plain-language version of [script-stack.md](./script-stack.md).
 
 ## The problem
 
-Right now, figuring out *which code runs* for a piece of work is messy. Every
+Right now, figuring out _which code runs_ for a piece of work is messy. Every
 layer of the system has its own special rules. Adding a new behavior means
 wiring up more one-off plumbing.
 
@@ -12,8 +12,8 @@ wiring up more one-off plumbing.
 
 Give the runner two phone books:
 
-1. **Scripts** — “when someone asks for *write-tests*, run this function.”
-2. **Wrappers** — “when someone asks for *typescript-tests*, use this
+1. **Scripts** — “when someone asks for _write-tests_, run this function.”
+2. **Wrappers** — “when someone asks for _typescript-tests_, use this
    decorator.”
 
 A **work item** is just a note that says what to do:
@@ -30,10 +30,10 @@ A **script** does the job:
 
 A **wrapper** sits around the job like a coat:
 
-> “Let me get you ready… okay, *you* go now… okay, let me check your work.”
+> “Let me get you ready… okay, _you_ go now… okay, let me check your work.”
 
 The wrapper doesn’t replace the job. It gets a button called **`next`**. Press
-`next` and the stuff *inside* runs — more wrappers, then finally the main
+`next` and the stuff _inside_ runs — more wrappers, then finally the main
 script.
 
 ```

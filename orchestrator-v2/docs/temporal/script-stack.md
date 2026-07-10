@@ -15,28 +15,36 @@ We have two dictionaries:
 1. **Scripts** — `scriptKind → ScriptFn`. The runner does a simple lookup to
    find the function to execute. The scriptKind is a first-class field on the
    work item.
-2. **Wrappers** — `wrapperName → WrapperFn`. A wrapper is a decorator: it
-   receives the work item and a `next` callback that continues the inner flow.
-   The wrapper controls when (or whether) to invoke `next`, giving it full
-   flexibility to prepare, check, retry, or short-circuit the child flow.
+2. **Decorators** — `decoratorName → DecoratorFn`. A decorator wraps inner
+   execution via a `next` callback. Both scripts and decorators receive a
+   shared `ScriptContext` (`cwd`, `data`, `setState`).
 
-The work item has an optional `flow` array that names wrappers (not script
-kinds) to apply around the work item's `kind`. This allows scheduling a
-sequence of decorators so that we can alter behavior without publishing
-hundreds of slight variations.
+The work item has a `flow` array naming decorators (outermost first) to apply
+around the work item's `kind`.
+
+**Conventions** are runner-level decorators applied to every work item before
+`flow`. The default convention is `failOnError`, which catches thrown errors
+and maps them to `{ outcome: "failed" }`.
 
 ```typescript
-type ScriptFn = (workItem: WorkItem) => Promise<unknown>;
+type ScriptContext = {
+  cwd: string;
+  data: DataRegistry<Record<string, unknown>>;
+  setState: (state: Record<string, unknown>) => Promise<void>;
+};
 
-type WrapperFn = (
+type ScriptFn = (workItem: WorkItem, ctx: ScriptContext) => Promise<unknown>;
+
+type DecoratorFn = (
   workItem: WorkItem,
+  ctx: ScriptContext,
   next: () => Promise<unknown>,
 ) => Promise<unknown>;
 
 type WorkItem = {
   workItemId: string;
   kind: string; // scriptKind used to lookup the core script
-  flow: string[]; // wrapper names, outermost first
+  flow: string[]; // decorator names, outermost first
   state: Record<string, unknown>;
   metadata: Record<string, unknown>;
 };
@@ -44,42 +52,40 @@ type WorkItem = {
 // Runner configuration
 type ScriptStack = {
   scripts: Record<string, ScriptFn>;
-  wrappers: Record<string, WrapperFn>;
+  decorators: Record<string, DecoratorFn>;
+  conventions: string[]; // runner-level decorator names, outermost first
 };
 ```
 
-When a runner receives the work item, it resolves the core script from `kind`
-and the wrappers from `flow`, then nests them: the outermost wrapper in
-`flow` receives a `next` that runs the rest of the stack, ending with the core
-script at the center.
+When a runner receives the work item, it resolves the core script from `kind`,
+conventions from the runner config, and decorators from `flow`, then nests them:
+
+```
+conventions → flow → script
+```
 
 ```typescript
 // given
 const item = {
   kind: "myScript",
-  flow: ["wrapper1", "wrapper2"],
+  flow: ["decorator1", "decorator2"],
 };
 
-const stack = {
-  scripts: {
-    myScript: myScriptFn,
-  },
-  wrappers: {
-    wrapper1,
-    wrapper2,
-  },
-};
+// runner.conventions = ["failOnError"]
 
 // equivalent to:
-// wrapper1(item, () => wrapper2(item, () => myScriptFn(item)))
+// failOnError(item, ctx, () =>
+//   decorator1(item, ctx, () =>
+//     decorator2(item, ctx, () =>
+//       myScriptFn(item, ctx))))
 ```
 
-A wrapper must call `next()` to continue the child flow. It may call `next()`
+A decorator must call `next()` to continue the child flow. It may call `next()`
 zero times (short-circuit), once (typical), or many times (retry). It may run
 logic before `next()` (prepare), after `next()` (check), or around both.
 
 ```typescript
-const retry: WrapperFn = async (workItem, next) => {
+const retry: DecoratorFn = async (workItem, ctx, next) => {
   let i = 0;
   while (true) {
     try {
@@ -89,11 +95,20 @@ const retry: WrapperFn = async (workItem, next) => {
     }
   }
 };
+
+const failOnError: DecoratorFn = async (workItem, ctx, next) => {
+  try {
+    return await next();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { outcome: "failed", message };
+  }
+};
 ```
 
-Core scripts must satisfy `ScriptFn`; wrappers must satisfy `WrapperFn`. If a
-script needs to pass data to the next script, it should modify the work item's
-`state`.
+Core scripts must satisfy `ScriptFn`; decorators must satisfy `DecoratorFn`. If a
+script needs to pass data to the next layer, it should modify the work item's
+`state` or call `ctx.setState`.
 
 ## Example
 
@@ -106,10 +121,10 @@ context before execution and validates the output afterward — without needing 
 standalone follow-up script.
 
 ```typescript
-const typescriptTests: WrapperFn = async (workItem, next) => {
-  await prepareTsContext(workItem); // modify instructions for vitest-gwt
+const typescriptTests: DecoratorFn = async (workItem, ctx, next) => {
+  await prepareTsContext(workItem, ctx); // modify instructions for vitest-gwt
   await next(); // write-tests runs here
-  await validateTsTests(workItem); // run vitest, expect tests to fail
+  await validateTsTests(workItem, ctx); // run vitest, expect tests to fail
 };
 
 const item = {
@@ -121,8 +136,9 @@ const stack = {
   scripts: {
     "write-tests": writeTestsFn,
   },
-  wrappers: {
+  decorators: {
     "typescript-tests": typescriptTests,
   },
+  conventions: ["failOnError"],
 };
 ```

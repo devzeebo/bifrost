@@ -4,16 +4,16 @@ A rebuild of the Bifrost orchestrator as a thin **get-work + dispatch** system. 
 
 ## Packages
 
-| Package                          | Purpose                                                              |
-| -------------------------------- | -------------------------------------------------------------------- |
-| `@bifrost-ai/interfaces-work`    | Work item, handler, and execution contracts                          |
-| `@bifrost-ai/protocol`           | Signed WebSocket RPC between orchestrator and runners                |
-| `@bifrost-ai/orchestrator`       | Thin orchestrator: stream work items, dispatch, record outcomes      |
-| `@bifrost-ai/runner`             | Remote runner: config-driven dial, execute handlers, report outcomes |
-| `@bifrost-ai/engine`             | Engine interface, types, and `TestEngine` for development/testing    |
-| `@bifrost-ai/engine-claude-code` | Claude Code Agent SDK engine (`ClaudeCodeEngine`)                    |
-| `@bifrost-ai/engine-cursor`      | Cursor SDK engine (`CursorEngine`)                                   |
-| `@bifrost-ai/agent-3-task`       | Task Agent — single-shot LLM execution (`kind: "task"`)              |
+| Package                          | Purpose                                                           |
+| -------------------------------- | ----------------------------------------------------------------- |
+| `@bifrost-ai/interfaces-work`    | Work item, handler, and execution contracts                       |
+| `@bifrost-ai/protocol`           | Signed WebSocket RPC between orchestrator and runners             |
+| `@bifrost-ai/orchestrator`       | Thin orchestrator: stream work items, dispatch, record outcomes   |
+| `@bifrost-ai/runner`             | Remote runner: script stack execution, conventions, decorators    |
+| `@bifrost-ai/engine`             | Engine interface, types, and `TestEngine` for development/testing |
+| `@bifrost-ai/engine-claude-code` | Claude Code Agent SDK engine (`ClaudeCodeEngine`)                 |
+| `@bifrost-ai/engine-cursor`      | Cursor SDK engine (`CursorEngine`)                                |
+| `@bifrost-ai/agent-3-task`       | Task Agent — single-shot LLM execution (registered as scripts)    |
 
 For design background and how each piece fits together, see [docs/](docs/).
 
@@ -36,32 +36,32 @@ vp run -r build # build all packages
 
 ## Usage
 
-### Define a work item handler
+### Register a script on the runner
 
-Handlers are registered on the runner and executed when a matching work item is dispatched. Higher-level agents (Task Agent, Workflow Agent) build on this interface.
+Scripts and decorators are registered on the runner. Dispatch resolves `workItem.kind` to a script and `workItem.flow` to an ordered list of decorators. Runner-level **conventions** wrap every execution (including the built-in `failOnError` decorator).
 
 ```typescript
-import type { WorkItemHandler } from "@bifrost-ai/interfaces-work";
+import type { ScriptFn } from "@bifrost-ai/interfaces-work";
+import { Runner } from "@bifrost-ai/runner";
 
-const echo: WorkItemHandler = {
-  kind: "script",
-  name: "echo",
-  async run(workItem, ctx) {
-    const message = workItem.metadata.message as string;
-    await ctx.setState({ echoed: message });
-    return { outcome: "completed", message };
-  },
+const echo: ScriptFn = async (workItem, ctx) => {
+  const message = workItem.metadata.message as string;
+  await ctx.setState({ echoed: message });
+  return { outcome: "completed", message };
 };
+
+const runner = new Runner();
+runner.registerScript("echo", echo);
 ```
 
-A handler receives:
+A script receives:
 
-- `workItem` — the dispatched instance (`workItemId`, `kind`, `name`, `state`, `metadata`)
-- `ctx.data` — `get(type)` returns a typed `Registry<T>`, then `.get(name)` for the instance
-- `ctx.handlers` — `get(kind, name)` for other registered handlers
+- `workItem` — the dispatched instance (`workItemId`, `kind`, `flow`, `state`, `metadata`)
+- `ctx.cwd` — working directory for local execution
+- `ctx.data` — typed sub-registries (`ctx.data.get("engine").get("claude")`)
 - `ctx.setState(state)` — persist state updates back to the work item source
 
-It returns `{ outcome: "completed" | "failed" | "paused", message?, telemetry? }`. A thrown error is treated as `failed`.
+It returns `{ outcome: "completed" | "failed" | "paused", message?, telemetry? }` or any other value (treated as completed). Thrown errors are caught by the `failOnError` convention.
 
 ### Implement a work item source
 
@@ -74,8 +74,8 @@ const workItemSource: WorkItemSource = {
   async *watchWorkItems() {
     yield {
       workItemId: "work-item-1",
-      kind: "script",
-      name: "echo",
+      kind: "echo",
+      flow: [],
       state: {},
       metadata: { message: "hello" },
     } satisfies WorkItem;
