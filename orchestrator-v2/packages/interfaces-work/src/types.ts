@@ -66,7 +66,7 @@ export function isWorkItem(value: unknown): value is WorkItem {
     typeof record.kind !== "string" ||
     record.kind.length === 0 ||
     !Array.isArray(record.flow) ||
-    !record.flow.every((entry) => typeof entry === "string") ||
+    !record.flow.every((entry) => typeof entry === "string" && entry.length > 0) ||
     record.state === null ||
     typeof record.state !== "object" ||
     record.metadata === null ||

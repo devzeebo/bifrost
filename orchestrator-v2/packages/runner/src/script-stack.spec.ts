@@ -4,7 +4,6 @@ import test from "vitest-gwt";
 
 import { Registry } from "./registry.js";
 import {
-  composeStack,
   executeScriptStack,
   normalizeScriptResult,
   resolveStack,
@@ -113,6 +112,7 @@ function script_ran(this: Context) {
 
 function nested_decorators(this: Context) {
   const order: string[] = [];
+  this.result = order;
   this.workItem = { ...baseWorkItem(), flow: ["outer", "inner"] };
   this.scripts = new Registry<ScriptFn>();
   this.decorators = new Registry<DecoratorFn>();
@@ -132,41 +132,12 @@ function nested_decorators(this: Context) {
     order.push("inner-before");
     await next();
     order.push("inner-after");
-  });
-
-  this.result = order;
-  const stack = resolveStack(this.workItem, this.scripts, this.decorators, []);
-  void composeStack(this.workItem, scriptContext, stack.script, stack.decorators)().then(() => {
-    this.result = order;
   });
 }
 
 async function executing_nested_stack(this: Context) {
-  const order: string[] = [];
-  this.workItem = { ...baseWorkItem(), flow: ["outer", "inner"] };
-  this.scripts = new Registry<ScriptFn>();
-  this.decorators = new Registry<DecoratorFn>();
-
-  this.scripts.register("hunt", async () => {
-    order.push("script");
-    return "done";
-  });
-
-  this.decorators.register("outer", async (_wi, _ctx, next) => {
-    order.push("outer-before");
-    await next();
-    order.push("outer-after");
-  });
-
-  this.decorators.register("inner", async (_wi, _ctx, next) => {
-    order.push("inner-before");
-    await next();
-    order.push("inner-after");
-  });
-
   const stack = resolveStack(this.workItem, this.scripts, this.decorators, []);
   await executeScriptStack(this.workItem, scriptContext, stack);
-  this.result = order;
 }
 
 function order_is_outer_to_inner(this: Context) {
@@ -180,56 +151,38 @@ function order_is_outer_to_inner(this: Context) {
 }
 
 function skip_decorator(this: Context) {
-  let scriptRan = false;
+  const state = { scriptRan: false };
+  this.result = state;
   this.workItem = { ...baseWorkItem(), flow: ["skip"] };
   this.scripts = new Registry<ScriptFn>();
   this.decorators = new Registry<DecoratorFn>();
 
   this.scripts.register("hunt", async () => {
-    scriptRan = true;
-  });
-
-  this.decorators.register("skip", async () => {
-    return "skipped";
-  });
-
-  this.result = scriptRan;
-  const stack = resolveStack(this.workItem, this.scripts, this.decorators, []);
-  void executeScriptStack(this.workItem, scriptContext, stack).then(() => {
-    this.result = scriptRan;
-  });
-}
-
-async function executing_short_circuit(this: Context) {
-  let scriptRan = false;
-  this.workItem = { ...baseWorkItem(), flow: ["skip"] };
-  this.scripts = new Registry<ScriptFn>();
-  this.decorators = new Registry<DecoratorFn>();
-
-  this.scripts.register("hunt", async () => {
-    scriptRan = true;
+    state.scriptRan = true;
   });
 
   this.decorators.register("skip", async () => "skipped");
+}
 
+async function executing_short_circuit(this: Context) {
   const stack = resolveStack(this.workItem, this.scripts, this.decorators, []);
   await executeScriptStack(this.workItem, scriptContext, stack);
-  this.result = scriptRan;
 }
 
 function script_never_ran(this: Context) {
-  expect(this.result).toBe(false);
+  expect((this.result as { scriptRan: boolean }).scriptRan).toBe(false);
 }
 
 function flaky_script_and_retry_decorator(this: Context) {
+  const state = { attempts: 0 };
+  this.result = state;
   this.workItem = { ...baseWorkItem(), flow: ["retry"] };
   this.scripts = new Registry<ScriptFn>();
   this.decorators = new Registry<DecoratorFn>();
-  let attempts = 0;
 
   this.scripts.register("hunt", async () => {
-    attempts += 1;
-    if (attempts < 3) {
+    state.attempts += 1;
+    if (state.attempts < 3) {
       throw new Error("not yet");
     }
     return "ok";
@@ -246,49 +199,16 @@ function flaky_script_and_retry_decorator(this: Context) {
         }
       }
     }
-  });
-
-  this.result = attempts;
-  const stack = resolveStack(this.workItem, this.scripts, this.decorators, []);
-  void executeScriptStack(this.workItem, scriptContext, stack).then(() => {
-    this.result = attempts;
   });
 }
 
 async function executing_with_retry(this: Context) {
-  let attempts = 0;
-  this.workItem = { ...baseWorkItem(), flow: ["retry"] };
-  this.scripts = new Registry<ScriptFn>();
-  this.decorators = new Registry<DecoratorFn>();
-
-  this.scripts.register("hunt", async () => {
-    attempts += 1;
-    if (attempts < 3) {
-      throw new Error("not yet");
-    }
-    return "ok";
-  });
-
-  this.decorators.register("retry", async (_wi, _ctx, next) => {
-    let tries = 0;
-    while (true) {
-      try {
-        return await next();
-      } catch (error) {
-        if (++tries >= 3) {
-          throw error;
-        }
-      }
-    }
-  });
-
   const stack = resolveStack(this.workItem, this.scripts, this.decorators, []);
   await executeScriptStack(this.workItem, scriptContext, stack);
-  this.result = attempts;
 }
 
 function script_succeeds_on_third_try(this: Context) {
-  expect(this.result).toBe(3);
+  expect((this.result as { attempts: number }).attempts).toBe(3);
 }
 
 function empty_registries(this: Context) {
