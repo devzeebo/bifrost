@@ -46,7 +46,6 @@ await runner.start();
 
 ### Lower-level exports
 
-- `registerScriptAgent(runner, name, fn)` — adapt legacy `{ workItem, cwd, setState }` scripts
 - `composeStack`, `executeScriptStack`, `resolveStack` — in-process stack execution
 - `createScriptContext` — build RPC-backed `ScriptContext` for a dispatch
 - `failOnError`, `FAIL_ON_ERROR_DECORATOR` — built-in error-handling convention

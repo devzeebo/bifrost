@@ -9,6 +9,15 @@ import type { RpcClient } from "./rpc-client.js";
 
 export function createRpcWorkItemSourceClient(rpc: RpcClient): WorkItemSourceClient {
   return {
+    async completeWorkItem(workItemId: string) {
+      await rpc.call("workItem.complete", { workItemId });
+    },
+    async failWorkItem(workItemId: string, message: string) {
+      await rpc.call("workItem.fail", { workItemId, message });
+    },
+    async pauseWorkItem(workItemId: string) {
+      await rpc.call("workItem.pause", { workItemId });
+    },
     async createDraftWorkItem(input: CreateDraftWorkItemInput) {
       const result = await rpc.call("workItemSource.createDraftWorkItem", { input });
       if (

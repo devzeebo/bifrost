@@ -1,7 +1,6 @@
 import type {
   CreateDraftWorkItemInput,
   ScriptContext,
-  WorkItemResult,
   WorkItemSourceClient,
   WorkItemStatus,
   WorkItemDependency,
@@ -14,13 +13,25 @@ import { runStepDecorator } from "./step-wrapper.js";
 import type { StepWrapperState } from "./types.js";
 
 type Context = {
-  result: WorkItemResult;
-  source: MockSource;
+  error: Error | null;
+  workItemSource: MockSource;
   innerResult: unknown;
 };
 
 class MockSource implements WorkItemSourceClient {
   public workflowStateUpdates: Array<{ workItemId: string; state: Record<string, unknown> }> = [];
+
+  async completeWorkItem(): Promise<void> {
+    throw new Error("not implemented");
+  }
+
+  async failWorkItem(): Promise<void> {
+    throw new Error("not implemented");
+  }
+
+  async pauseWorkItem(): Promise<void> {
+    throw new Error("not implemented");
+  }
 
   async createDraftWorkItem(_input: CreateDraftWorkItemInput): Promise<string> {
     throw new Error("not implemented");
@@ -56,13 +67,13 @@ describe("runStepDecorator", () => {
   test("continue step result completes wrapper", {
     given: { continue_step_fixture },
     when: { running_decorator },
-    then: { outcome_is_completed },
+    then: { run_succeeds },
   });
 
-  test("fail step result fails wrapper", {
+  test("fail step result throws", {
     given: { fail_step_fixture },
     when: { running_decorator },
-    then: { outcome_is_failed },
+    then: { fail_is_thrown },
   });
 
   test("rewind step result rewinds workflow", {
@@ -73,42 +84,45 @@ describe("runStepDecorator", () => {
 });
 
 function continue_step_fixture(this: Context) {
-  this.source = new MockSource();
+  this.workItemSource = new MockSource();
   this.innerResult = continueStep("done");
 }
 
 function fail_step_fixture(this: Context) {
-  this.source = new MockSource();
+  this.workItemSource = new MockSource();
   this.innerResult = failStep("boom");
 }
 
 function rewind_step_fixture(this: Context) {
-  this.source = new MockSource();
+  this.workItemSource = new MockSource();
   this.innerResult = rewindStep("flow:step1-1[a]", "try again");
 }
 
 async function running_decorator(this: Context) {
-  this.result = await runStepDecorator(
-    wrapperState,
-    makeCtx(this.source),
-    async () => this.innerResult,
-  );
+  this.error = null;
+  try {
+    await runStepDecorator(
+      "step-child-1",
+      wrapperState,
+      makeCtx(this.workItemSource),
+      async () => this.innerResult,
+    );
+  } catch (error) {
+    this.error = error as Error;
+  }
 }
 
-function outcome_is_completed(this: Context) {
-  expect(this.result.outcome).toBe("completed");
-  expect(this.result.message).toBe("done");
+function run_succeeds(this: Context) {
+  expect(this.error).toBeNull();
 }
 
-function outcome_is_failed(this: Context) {
-  expect(this.result.outcome).toBe("failed");
-  expect(this.result.message).toBe("boom");
+function fail_is_thrown(this: Context) {
+  expect(this.error?.message).toBe("boom");
 }
 
 function workflow_is_rewound(this: Context) {
-  expect(this.result.outcome).toBe("failed");
-  expect(this.result.message).toBe("try again");
-  expect(this.source.workflowStateUpdates).toEqual([
+  expect(this.error?.message).toBe("try again");
+  expect(this.workItemSource.workflowStateUpdates).toEqual([
     {
       workItemId: "workflow-1",
       state: { rewindTarget: "flow:step1-1[a]", phase: "schedule" },
@@ -116,7 +130,7 @@ function workflow_is_rewound(this: Context) {
   ]);
 }
 
-function makeCtx(source: MockSource): ScriptContext {
+function makeCtx(workItemSource: MockSource): ScriptContext {
   return {
     cwd: "/tmp",
     data: {
@@ -132,7 +146,7 @@ function makeCtx(source: MockSource): ScriptContext {
         };
       },
     },
-    source,
+    workItemSource,
     async setState() {},
   };
 }

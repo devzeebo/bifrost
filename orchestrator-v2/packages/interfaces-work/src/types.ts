@@ -37,6 +37,9 @@ export type WorkItemSource = {
 
 export type WorkItemSourceClient = Pick<
   WorkItemSource,
+  | "completeWorkItem"
+  | "failWorkItem"
+  | "pauseWorkItem"
   | "createDraftWorkItem"
   | "startWorkItem"
   | "setDependency"
@@ -48,7 +51,7 @@ export type WorkItemSourceClient = Pick<
 export type ScriptContext<TData extends Record<string, unknown> = Record<string, unknown>> = {
   cwd: string;
   data: DataRegistry<TData>;
-  source: WorkItemSourceClient;
+  workItemSource: WorkItemSourceClient;
   setState: (state: Record<string, unknown>) => Promise<void>;
 };
 
@@ -173,20 +176,14 @@ export type WorkItemExecutionContext<
 > = {
   readonly data: DataRegistry<TData>;
   readonly handlers: WorkItemHandlerRegistry;
-  readonly source: WorkItemSourceClient;
+  readonly workItemSource: WorkItemSourceClient;
   setState: (state: Record<string, unknown>) => Promise<void>;
-};
-
-export type WorkItemResult = {
-  outcome: "completed" | "failed" | "paused";
-  message?: string;
-  telemetry?: ExecutionStats;
 };
 
 export type WorkItemHandler<TData extends Record<string, unknown> = Record<string, unknown>> = {
   kind: string;
   name: string;
-  run: (workItem: WorkItem, ctx: WorkItemExecutionContext<TData>) => Promise<WorkItemResult>;
+  run: (workItem: WorkItem, ctx: WorkItemExecutionContext<TData>) => Promise<void>;
 };
 
 export function isWorkItemHandler(value: unknown): value is WorkItemHandler {
@@ -199,16 +196,5 @@ export function isWorkItemHandler(value: unknown): value is WorkItemHandler {
     typeof record.kind === "string" &&
     typeof record.name === "string" &&
     typeof record.run === "function"
-  );
-}
-
-export function isWorkItemResult(value: unknown): value is WorkItemResult {
-  if (value === null || typeof value !== "object") {
-    return false;
-  }
-
-  const record = value as Partial<WorkItemResult>;
-  return (
-    record.outcome === "completed" || record.outcome === "failed" || record.outcome === "paused"
   );
 }

@@ -30,7 +30,7 @@ const runner = new Runner({ data });
 
 runner.registerEngine("claude", claudeEngine);
 runner.registerTaskAgent("reviewer", await loadAgent("./agents/reviewer/AGENT.md"));
-runner.registerScriptAgent("doSomething", doSomething);
+runner.registerScript("doSomething", doSomething);
 
 await runner.start();
 ```

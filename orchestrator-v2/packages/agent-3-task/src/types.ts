@@ -15,21 +15,15 @@ export type TaskAgentState = {
   sessionId?: string;
 };
 
-export type TaskAgentStateParseResult = { ok: true } | { ok: false; missing: string[] };
-
 const REQUIRED_FIELDS = ["workingDir", "instructions", "engineName"] as const;
 
-export function parseTaskAgentState(taskState: Record<string, unknown>): TaskAgentStateParseResult {
+export function getTaskAgentStateMissingFields(taskState: Record<string, unknown>): string[] {
   const missing: string[] = [];
 
   for (const field of REQUIRED_FIELDS) {
     if (!(field in taskState) || taskState[field] === undefined) {
       missing.push(field);
     }
-  }
-
-  if (missing.length > 0) {
-    return { ok: false, missing };
   }
 
   const workingDir = taskState.workingDir;
@@ -50,11 +44,16 @@ export function parseTaskAgentState(taskState: Record<string, unknown>): TaskAge
     missing.push("sessionId");
   }
 
-  if (missing.length > 0) {
-    return { ok: false, missing: [...new Set(missing)] };
-  }
+  return [...new Set(missing)];
+}
 
-  return { ok: true };
+export function verifyIsTaskAgentState(
+  taskState: Record<string, unknown>,
+): asserts taskState is TaskAgentState {
+  const missing = getTaskAgentStateMissingFields(taskState);
+  if (missing.length > 0) {
+    throw new Error(missingFieldsMessage(missing));
+  }
 }
 
 export function missingFieldsMessage(missing: string[]): string {

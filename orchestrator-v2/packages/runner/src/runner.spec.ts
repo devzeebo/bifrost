@@ -35,14 +35,15 @@ type Context = {
 const echoScript: ScriptFn = async (workItem, ctx) => {
   const message = workItem.metadata.message as string;
   await ctx.setState({ echoed: message });
-  return { outcome: "completed" };
 };
 
 const failScript: ScriptFn = async () => {
   throw new Error("boom");
 };
 
-const pauseScript: ScriptFn = async () => ({ outcome: "paused" });
+const pauseScript: ScriptFn = async (workItem, ctx) => {
+  await ctx.workItemSource.pauseWorkItem(workItem.workItemId);
+};
 
 describe("runner", () => {
   withAspect(setup_identities, teardown_runner);

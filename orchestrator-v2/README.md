@@ -139,7 +139,7 @@ const runner = new Runner({ data });
 runner.registerEngine("claude", new ClaudeCodeEngine());
 runner.registerEngine("cursor", new CursorEngine());
 runner.registerTaskAgent("reviewer", await loadAgent("./agents/reviewer/AGENT.md"));
-runner.registerScriptAgent("echo", echo);
+runner.registerScript("echo", echo);
 
 await runner.start();
 ```

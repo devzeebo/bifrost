@@ -66,40 +66,6 @@ async function handleDispatch<TData extends Record<string, unknown>>(
 
   sendRpcResponse(peer, payload.id, { accepted: true });
 
-  try {
-    const { workItem: liveWorkItem, ctx } = createScriptContext(workItem, stack.rpc, stack.data);
-    const result = await executeScriptStack(liveWorkItem, ctx, resolved);
-
-    switch (result.outcome) {
-      case "completed":
-        await stack.rpc.call("workItem.complete", { workItemId: workItem.workItemId });
-        break;
-      case "failed":
-        await stack.rpc.call("workItem.fail", {
-          workItemId: workItem.workItemId,
-          message: result.message ?? "failed",
-        });
-        break;
-      case "paused":
-        await stack.rpc.call("workItem.pause", { workItemId: workItem.workItemId });
-        break;
-      default:
-        await stack.rpc.call("workItem.fail", {
-          workItemId: workItem.workItemId,
-          message: `Unknown outcome: ${String(result.outcome)}`,
-        });
-        break;
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error("Dispatch execution failed:", error);
-    try {
-      await stack.rpc.call("workItem.fail", {
-        workItemId: workItem.workItemId,
-        message,
-      });
-    } catch (failError) {
-      console.error("Failed to report work item failure:", failError);
-    }
-  }
+  const { workItem: liveWorkItem, ctx } = createScriptContext(workItem, stack.rpc, stack.data);
+  await executeScriptStack(liveWorkItem, ctx, resolved);
 }

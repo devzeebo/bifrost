@@ -30,7 +30,7 @@ export function createScriptContext<TData extends Record<string, unknown>>(
   const ctx: ScriptContext<TData> = {
     cwd: resolveScriptCwd(liveWorkItem),
     data,
-    source: createRpcWorkItemSourceClient(rpc),
+    workItemSource: createRpcWorkItemSourceClient(rpc),
     async setState(nextState) {
       Object.assign(liveWorkItem.state, nextState);
       await rpc.call("workItemSource.setState", {

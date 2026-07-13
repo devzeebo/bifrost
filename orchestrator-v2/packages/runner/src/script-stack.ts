@@ -1,11 +1,4 @@
-import type {
-  DecoratorFn,
-  ScriptContext,
-  ScriptFn,
-  WorkItem,
-  WorkItemResult,
-} from "@bifrost-ai/interfaces-work";
-import { isWorkItemResult } from "@bifrost-ai/interfaces-work";
+import type { DecoratorFn, ScriptContext, ScriptFn, WorkItem } from "@bifrost-ai/interfaces-work";
 
 import type { Registry } from "./registry.js";
 
@@ -44,7 +37,7 @@ export function composeStack<TData extends Record<string, unknown>>(
   ctx: ScriptContext<TData>,
   script: ScriptFn<TData>,
   decoratorFns: DecoratorFn<TData>[],
-): () => Promise<unknown> {
+): () => Promise<void> {
   let inner: () => Promise<unknown> = () => script(workItem, ctx);
 
   for (const decorator of decoratorFns.toReversed()) {
@@ -52,23 +45,16 @@ export function composeStack<TData extends Record<string, unknown>>(
     inner = () => decorator(workItem, ctx, next);
   }
 
-  return inner;
-}
-
-export function normalizeScriptResult(value: unknown): WorkItemResult {
-  if (isWorkItemResult(value)) {
-    return value;
-  }
-
-  return { outcome: "completed" };
+  return async () => {
+    await inner();
+  };
 }
 
 export async function executeScriptStack<TData extends Record<string, unknown>>(
   workItem: WorkItem,
   ctx: ScriptContext<TData>,
   stack: ResolvedStack<TData>,
-): Promise<WorkItemResult> {
+): Promise<void> {
   const run = composeStack(workItem, ctx, stack.script, stack.decorators);
-  const result = await run();
-  return normalizeScriptResult(result);
+  await run();
 }

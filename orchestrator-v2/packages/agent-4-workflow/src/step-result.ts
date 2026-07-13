@@ -1,8 +1,9 @@
-import type { ExecutionStats, WorkItemResult } from "@bifrost-ai/interfaces-work";
+import type { ExecutionStats } from "@bifrost-ai/interfaces-work";
 
 export type StepResult =
   | { transition: "continue"; message?: string; telemetry?: ExecutionStats }
   | { transition: "fail"; message?: string }
+  | { transition: "pause" }
   | { transition: "rewind"; rewindTo: string; message?: string };
 
 export function continueStep(message?: string, telemetry?: ExecutionStats): StepResult {
@@ -11,6 +12,10 @@ export function continueStep(message?: string, telemetry?: ExecutionStats): Step
 
 export function failStep(message?: string): StepResult {
   return { transition: "fail", message };
+}
+
+export function pauseStep(): StepResult {
+  return { transition: "pause" };
 }
 
 export function rewindStep(rewindTo: string, message?: string): StepResult {
@@ -23,7 +28,7 @@ export function isStepResult(value: unknown): value is StepResult {
   }
 
   const transition = (value as StepResult).transition;
-  if (transition === "continue" || transition === "fail") {
+  if (transition === "continue" || transition === "fail" || transition === "pause") {
     return true;
   }
 
@@ -34,44 +39,10 @@ export function isStepResult(value: unknown): value is StepResult {
   return false;
 }
 
-function isWorkItemResult(value: unknown): value is WorkItemResult {
-  if (value === null || typeof value !== "object") {
-    return false;
-  }
-
-  const outcome = (value as WorkItemResult).outcome;
-  return outcome === "completed" || outcome === "failed" || outcome === "paused";
-}
-
-export type ParsedStepOutput =
-  | { kind: "paused"; result: WorkItemResult }
-  | { kind: "transition"; result: StepResult };
-
-export function parseStepOutput(result: unknown): ParsedStepOutput {
-  if (isWorkItemResult(result) && result.outcome === "paused") {
-    return { kind: "paused", result };
-  }
-
+export function parseStepOutput(result: unknown): StepResult {
   if (isStepResult(result)) {
-    return { kind: "transition", result };
+    return result;
   }
 
-  if (isWorkItemResult(result)) {
-    if (result.outcome === "completed") {
-      return {
-        kind: "transition",
-        result: { transition: "continue", message: result.message, telemetry: result.telemetry },
-      };
-    }
-
-    return {
-      kind: "transition",
-      result: { transition: "fail", message: result.message },
-    };
-  }
-
-  return {
-    kind: "transition",
-    result: { transition: "fail", message: "Invalid step result" },
-  };
+  return { transition: "fail", message: "Invalid step result" };
 }

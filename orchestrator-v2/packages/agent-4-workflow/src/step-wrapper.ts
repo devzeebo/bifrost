@@ -1,73 +1,59 @@
-import type { DecoratorFn, ScriptContext, WorkItemResult } from "@bifrost-ai/interfaces-work";
+import type { DecoratorFn, ScriptContext } from "@bifrost-ai/interfaces-work";
 
 import { parseStepOutput } from "./step-result.js";
 import type { StepResult } from "./step-result.js";
 import type { FlattenedStep, StepWrapperState } from "./types.js";
 
+export async function pauseWorkItem(ctx: ScriptContext, workItemId: string): Promise<void> {
+  await ctx.workItemSource.pauseWorkItem(workItemId);
+}
+
 export function createStepDecorator(_step: FlattenedStep): DecoratorFn {
-  return async (workItem, ctx, next) => runStepDecorator(workItem.state, ctx, next);
+  return async (workItem, ctx, next) =>
+    runStepDecorator(workItem.workItemId, workItem.state, ctx, next);
 }
 
 export async function runStepDecorator(
+  workItemId: string,
   state: Record<string, unknown>,
   ctx: ScriptContext,
   next: () => Promise<unknown>,
-): Promise<WorkItemResult> {
-  const parsed = parseStepWrapperState(state);
-  if (!parsed.ok) {
-    return {
-      outcome: "failed",
-      message: `Invalid step wrapper state: ${parsed.missing.join(", ")}`,
-    };
-  }
+): Promise<void> {
+  verifyStepWrapperState(state);
 
   const wrapperState = state as StepWrapperState;
 
-  let rawResult: unknown;
-  try {
-    rawResult = await next();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return applyStepResult({ transition: "fail", message }, wrapperState, ctx.source);
-  }
-
-  const stepOutput = parseStepOutput(rawResult);
-  if (stepOutput.kind === "paused") {
-    return stepOutput.result;
-  }
-
-  return applyStepResult(stepOutput.result, wrapperState, ctx.source);
+  const rawResult = await next();
+  await applyStepResult(parseStepOutput(rawResult), workItemId, wrapperState, ctx);
 }
 
 async function applyStepResult(
   result: StepResult,
+  workItemId: string,
   state: StepWrapperState,
-  source: ScriptContext["source"],
-): Promise<WorkItemResult> {
+  ctx: ScriptContext,
+): Promise<void> {
   if (result.transition === "continue") {
-    return { outcome: "completed", message: result.message, telemetry: result.telemetry };
+    return;
+  }
+
+  if (result.transition === "pause") {
+    await pauseWorkItem(ctx, workItemId);
+    return;
   }
 
   if (result.transition === "rewind") {
-    try {
-      await source.setState(state.workflowWorkItemId, {
-        rewindTarget: result.rewindTo,
-        phase: "schedule",
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return { outcome: "failed", message: `Failed to rewind workflow: ${message}` };
-    }
-
-    return { outcome: "failed", message: result.message ?? `Rewinding to ${result.rewindTo}` };
+    await ctx.workItemSource.setState(state.workflowWorkItemId, {
+      rewindTarget: result.rewindTo,
+      phase: "schedule",
+    });
+    throw new Error(result.message ?? `Rewinding to ${result.rewindTo}`);
   }
 
-  return { outcome: "failed", message: result.message ?? "fail" };
+  throw new Error(result.message ?? "fail");
 }
 
-function parseStepWrapperState(
-  state: Record<string, unknown>,
-): { ok: true } | { ok: false; missing: string[] } {
+function verifyStepWrapperState(state: Record<string, unknown>): asserts state is StepWrapperState {
   const required = ["workflowWorkItemId", "workingDir"] as const;
   const missing: string[] = [];
 
@@ -78,8 +64,6 @@ function parseStepWrapperState(
   }
 
   if (missing.length > 0) {
-    return { ok: false, missing };
+    throw new Error(`Invalid step wrapper state: ${missing.join(", ")}`);
   }
-
-  return { ok: true };
 }

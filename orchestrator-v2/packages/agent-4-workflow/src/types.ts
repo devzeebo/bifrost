@@ -31,7 +31,7 @@ export type StepWrapperState = {
 
 export type WorkflowStateParseResult = { ok: true } | { ok: false; missing: string[] };
 
-export function parseWorkflowState(taskState: Record<string, unknown>): WorkflowStateParseResult {
+export function getWorkflowStateMissingFields(taskState: Record<string, unknown>): string[] {
   const missing: string[] = [];
 
   const workingDir = taskState.workingDir;
@@ -42,10 +42,6 @@ export function parseWorkflowState(taskState: Record<string, unknown>): Workflow
   const definitionName = taskState.definitionName;
   if (typeof definitionName !== "string" || definitionName.length === 0) {
     missing.push("definitionName");
-  }
-
-  if (missing.length > 0) {
-    return { ok: false, missing };
   }
 
   const phase = taskState.phase;
@@ -65,6 +61,20 @@ export function parseWorkflowState(taskState: Record<string, unknown>): Workflow
     missing.push("rewindTarget");
   }
 
+  return [...new Set(missing)];
+}
+
+export function verifyIsWorkflowState(
+  taskState: Record<string, unknown>,
+): asserts taskState is WorkflowState {
+  const missing = getWorkflowStateMissingFields(taskState);
+  if (missing.length > 0) {
+    throw new Error(missingFieldsMessage(missing));
+  }
+}
+
+export function parseWorkflowState(taskState: Record<string, unknown>): WorkflowStateParseResult {
+  const missing = getWorkflowStateMissingFields(taskState);
   if (missing.length > 0) {
     return { ok: false, missing };
   }

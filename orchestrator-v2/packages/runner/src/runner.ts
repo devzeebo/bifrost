@@ -1,22 +1,20 @@
-import type {
-  DataRegistry,
-  DecoratorFn,
-  ScriptFn,
-  WorkItemResult,
-} from "@bifrost-ai/interfaces-work";
+import type { DataRegistry, DecoratorFn, ScriptFn } from "@bifrost-ai/interfaces-work";
 import { createRunnerPeer, type RunnerPeer } from "@bifrost-ai/protocol";
 
 import { resolveRunnerOptions } from "./config-loader.js";
+import {
+  COMPLETE_ON_SUCCESS_DECORATOR,
+  completeOnSuccess,
+} from "./conventions/complete-on-success.js";
 import { FAIL_ON_ERROR_DECORATOR, failOnError } from "./conventions/fail-on-error.js";
 import { registerDispatchHandler } from "./dispatch-handler.js";
 import { startHeartbeat, type HeartbeatHandle } from "./heartbeat.js";
 import { createRpcClient } from "./rpc-client.js";
 import { createDataRegistry } from "./data-registry.js";
 import { Registry } from "./registry.js";
-import { registerScriptAgent as adaptLegacyScript, type LegacyScriptFn } from "./script-agent.js";
 import type { RunnerOptions } from "./types.js";
 
-const DEFAULT_CONVENTIONS = [FAIL_ON_ERROR_DECORATOR] as const;
+const DEFAULT_CONVENTIONS = [FAIL_ON_ERROR_DECORATOR, COMPLETE_ON_SUCCESS_DECORATOR] as const;
 
 export class Runner<TData extends Record<string, unknown> = Record<string, unknown>> {
   private readonly options: RunnerOptions<TData>;
@@ -33,6 +31,7 @@ export class Runner<TData extends Record<string, unknown> = Record<string, unkno
     this.options = options;
     this.data = options.data ?? (createDataRegistry() as DataRegistry<TData>);
     this.registerDecorator(FAIL_ON_ERROR_DECORATOR, failOnError as DecoratorFn<TData>);
+    this.registerDecorator(COMPLETE_ON_SUCCESS_DECORATOR, completeOnSuccess as DecoratorFn<TData>);
   }
 
   registerScript(kind: string, fn: ScriptFn<TData>): void {
@@ -50,10 +49,6 @@ export class Runner<TData extends Record<string, unknown> = Record<string, unkno
     if (!this.conventions.includes(name)) {
       this.conventions.push(name);
     }
-  }
-
-  registerScriptAgent(name: string, fn: LegacyScriptFn): void {
-    adaptLegacyScript(this, name, fn);
   }
 
   hasScript(kind: string): boolean {
@@ -113,5 +108,3 @@ export class Runner<TData extends Record<string, unknown> = Record<string, unkno
     return this.peer;
   }
 }
-
-export type { WorkItemResult };

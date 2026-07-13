@@ -15,8 +15,8 @@ type Context = {
   workItem: WorkItem;
   ctx: ScriptContext;
   definition: WorkflowDefinition;
-  result: Awaited<ReturnType<typeof runWorkflowAgent>>;
-  source: MockSource;
+  error: Error | null;
+  workItemSource: MockSource;
 };
 
 class MockSource implements WorkItemSourceClient {
@@ -27,7 +27,25 @@ class MockSource implements WorkItemSourceClient {
   public started: string[] = [];
   public dependencies: Array<{ workItemId: string; dependsOnWorkItemId: string }> = [];
   public statuses = new Map<string, WorkItemStatus>();
+  public paused: string[] = [];
+  public completed: string[] = [];
+  public failed: Array<{ workItemId: string; error: string }> = [];
   private nextId = 1;
+
+  async completeWorkItem(workItemId: string) {
+    this.completed.push(workItemId);
+    this.statuses.set(workItemId, "completed");
+  }
+
+  async failWorkItem(workItemId: string, error: string) {
+    this.failed.push({ workItemId, error });
+    this.statuses.set(workItemId, "failed");
+  }
+
+  async pauseWorkItem(workItemId: string) {
+    this.paused.push(workItemId);
+    this.statuses.set(workItemId, "paused");
+  }
 
   async createDraftWorkItem(input: CreateDraftWorkItemInput) {
     const id = `child-${this.nextId}`;
@@ -70,30 +88,30 @@ describe("runWorkflowAgent", () => {
   test("schedule pass creates children and pauses", {
     given: { schedule_fixture },
     when: { running_workflow },
-    then: { outcome_is_paused, children_created_and_started },
+    then: { workflow_is_paused, children_created_and_started },
   });
 
-  test("verify pass fails when a child failed", {
+  test("verify pass throws when a child failed", {
     given: { verify_fixture_with_failed_child },
     when: { running_workflow },
-    then: { outcome_is_failed },
+    then: { workflow_throws },
   });
 
   test("verify pass completes when all children completed", {
     given: { verify_fixture_all_completed },
     when: { running_workflow },
-    then: { outcome_is_completed },
+    then: { run_succeeds },
   });
 
   test("verify pass pauses when a child is still live", {
     given: { verify_fixture_with_live_child },
     when: { running_workflow },
-    then: { outcome_is_paused },
+    then: { workflow_is_paused },
   });
 });
 
 function schedule_fixture(this: Context) {
-  this.source = new MockSource();
+  this.workItemSource = new MockSource();
   this.definition = linearDefinition;
   this.workItem = {
     workItemId: "workflow-1",
@@ -107,15 +125,15 @@ function schedule_fixture(this: Context) {
     },
     metadata: {},
   };
-  this.ctx = makeCtx(this.source);
+  this.ctx = makeCtx(this.workItemSource);
 }
 
 function verify_fixture_with_failed_child(this: Context) {
-  this.source = new MockSource();
+  this.workItemSource = new MockSource();
   this.definition = linearDefinition;
-  this.source.statuses.set("child-1", "completed");
-  this.source.statuses.set("child-2", "failed");
-  this.source.statuses.set("child-3", "completed");
+  this.workItemSource.statuses.set("child-1", "completed");
+  this.workItemSource.statuses.set("child-2", "failed");
+  this.workItemSource.statuses.set("child-3", "completed");
   this.workItem = {
     workItemId: "workflow-1",
     kind: "workflow",
@@ -133,14 +151,14 @@ function verify_fixture_with_failed_child(this: Context) {
     },
     metadata: {},
   };
-  this.ctx = makeCtx(this.source);
+  this.ctx = makeCtx(this.workItemSource);
 }
 
 function verify_fixture_all_completed(this: Context) {
-  this.source = new MockSource();
+  this.workItemSource = new MockSource();
   this.definition = linearDefinition;
   for (const id of ["child-1", "child-2", "child-3"]) {
-    this.source.statuses.set(id, "completed");
+    this.workItemSource.statuses.set(id, "completed");
   }
   this.workItem = {
     workItemId: "workflow-1",
@@ -159,15 +177,15 @@ function verify_fixture_all_completed(this: Context) {
     },
     metadata: {},
   };
-  this.ctx = makeCtx(this.source);
+  this.ctx = makeCtx(this.workItemSource);
 }
 
 function verify_fixture_with_live_child(this: Context) {
-  this.source = new MockSource();
+  this.workItemSource = new MockSource();
   this.definition = linearDefinition;
-  this.source.statuses.set("child-1", "completed");
-  this.source.statuses.set("child-2", "live");
-  this.source.statuses.set("child-3", "completed");
+  this.workItemSource.statuses.set("child-1", "completed");
+  this.workItemSource.statuses.set("child-2", "live");
+  this.workItemSource.statuses.set("child-3", "completed");
   this.workItem = {
     workItemId: "workflow-1",
     kind: "workflow",
@@ -185,38 +203,46 @@ function verify_fixture_with_live_child(this: Context) {
     },
     metadata: {},
   };
-  this.ctx = makeCtx(this.source);
+  this.ctx = makeCtx(this.workItemSource);
 }
 
 async function running_workflow(this: Context) {
-  this.result = await runWorkflowAgent(this.workItem, this.ctx, this.definition);
+  this.error = null;
+  try {
+    await runWorkflowAgent(this.workItem, this.ctx, this.definition);
+  } catch (error) {
+    this.error = error as Error;
+  }
 }
 
-function outcome_is_paused(this: Context) {
-  expect(this.result.outcome).toBe("paused");
+function workflow_is_paused(this: Context) {
+  expect(this.error).toBeNull();
+  expect(this.workItemSource.paused).toContain("workflow-1");
 }
 
 function children_created_and_started(this: Context) {
-  expect(this.source.drafts).toHaveLength(3);
-  expect(this.source.drafts[0]?.input).toMatchObject({
+  expect(this.workItemSource.drafts).toHaveLength(3);
+  expect(this.workItemSource.drafts[0]?.input).toMatchObject({
     kind: "task",
     name: "a",
     flow: ["step-a"],
     state: { workflowWorkItemId: "workflow-1", workingDir: "/tmp" },
   });
-  expect(this.source.started).toEqual(["child-1", "child-2", "child-3"]);
-  expect(this.source.dependencies.some((dep) => dep.workItemId === "workflow-1")).toBe(true);
+  expect(this.workItemSource.started).toEqual(["child-1", "child-2", "child-3"]);
+  expect(this.workItemSource.dependencies.some((dep) => dep.workItemId === "workflow-1")).toBe(
+    true,
+  );
 }
 
-function outcome_is_failed(this: Context) {
-  expect(this.result.outcome).toBe("failed");
+function workflow_throws(this: Context) {
+  expect(this.error?.message).toContain("failed");
 }
 
-function outcome_is_completed(this: Context) {
-  expect(this.result.outcome).toBe("completed");
+function run_succeeds(this: Context) {
+  expect(this.error).toBeNull();
 }
 
-function makeCtx(source: MockSource): ScriptContext {
+function makeCtx(workItemSource: MockSource): ScriptContext {
   const state: Record<string, unknown> = {};
   return {
     cwd: "/tmp",
@@ -233,7 +259,7 @@ function makeCtx(source: MockSource): ScriptContext {
         };
       },
     },
-    source,
+    workItemSource,
     async setState(nextState) {
       Object.assign(state, nextState);
     },
