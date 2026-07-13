@@ -3,10 +3,11 @@
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootPkgPath = join(__dirname, "package.json");
+const packagesDir = join(__dirname, "packages");
 
 const bumpPatch = (version) => {
   const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
@@ -33,19 +34,93 @@ const setPackageVersion = async (pkgPath, version) => {
   await writeFile(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
 };
 
-// Package publish order (dependencies first)
-const publishOrder = [
-  "@bifrost-ai/interfaces-work",
-  "@bifrost-ai/engine",
-  "@bifrost-ai/engine-claude-code",
-  "@bifrost-ai/engine-cursor",
-  "@bifrost-ai/protocol",
-  "@bifrost-ai/orchestrator",
-  "@bifrost-ai/runner",
-  "@bifrost-ai/agent-3-task",
-];
+const bifrostDeps = (pkg) => {
+  const deps = {};
+  for (const depType of ["dependencies", "peerDependencies"]) {
+    if (pkg[depType]) {
+      Object.assign(deps, pkg[depType]);
+    }
+  }
+  return Object.keys(deps).filter((name) => name.startsWith("@bifrost-ai/"));
+};
 
-const pkgDir = (pkgName) => join(__dirname, "packages", pkgName.replace(/.*?\//g, ""));
+const discoverPublishablePackages = async () => {
+  const entries = await readdir(packagesDir, { withFileTypes: true });
+  const packages = [];
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+
+    const dir = join(packagesDir, entry.name);
+    const pkgPath = join(dir, "package.json");
+
+    let contents;
+    try {
+      // oxlint-disable-next-line no-await-in-loop
+      contents = await readFile(pkgPath, "utf-8");
+    } catch {
+      continue;
+    }
+
+    let pkg;
+    try {
+      pkg = JSON.parse(contents);
+    } catch {
+      continue;
+    }
+
+    if (typeof pkg.name !== "string" || pkg.name.length === 0) {
+      continue;
+    }
+
+    if (pkg.private || pkg.name.includes("example")) {
+      continue;
+    }
+
+    packages.push({ name: pkg.name, dir, pkgPath, pkg });
+  }
+
+  return packages;
+};
+
+const sortByDependencyOrder = (packages) => {
+  const names = new Set(packages.map((pkg) => pkg.name));
+  const deps = new Map(
+    packages.map((pkg) => [pkg.name, bifrostDeps(pkg.pkg).filter((name) => names.has(name))]),
+  );
+  const inDegree = new Map(packages.map((pkg) => [pkg.name, deps.get(pkg.name).length]));
+  const queue = packages.filter((pkg) => inDegree.get(pkg.name) === 0).map((pkg) => pkg.name);
+  const sorted = [];
+
+  while (queue.length > 0) {
+    const name = queue.shift();
+    sorted.push(name);
+
+    for (const [pkgName, pkgDeps] of deps) {
+      if (!pkgDeps.includes(name)) {
+        continue;
+      }
+
+      const nextDegree = inDegree.get(pkgName) - 1;
+      inDegree.set(pkgName, nextDegree);
+      if (nextDegree === 0) {
+        queue.push(pkgName);
+      }
+    }
+  }
+
+  if (sorted.length !== packages.length) {
+    throw new Error("Circular dependency detected among publishable packages");
+  }
+
+  return sorted;
+};
+
+const publishablePackages = await discoverPublishablePackages();
+const publishOrder = sortByDependencyOrder(publishablePackages);
+const packageByName = new Map(publishablePackages.map((pkg) => [pkg.name, pkg]));
 
 const originalRootContents = await readFile(rootPkgPath, "utf-8");
 const currentVersion = JSON.parse(originalRootContents).version;
@@ -58,7 +133,7 @@ const publishVersion = `${targetSemver}-${buildNumber}`;
 // Snapshot original package.json contents before any mutations
 const originalContents = new Map();
 for (const pkgName of publishOrder) {
-  const pkgPath = join(pkgDir(pkgName), "package.json");
+  const { pkgPath } = packageByName.get(pkgName);
   // oxlint-disable-next-line no-await-in-loop
   originalContents.set(pkgName, await readFile(pkgPath, "utf-8"));
 }
@@ -67,8 +142,9 @@ try {
   await setPackageVersion(rootPkgPath, targetSemver);
 
   for (const pkgName of publishOrder) {
+    const { pkgPath } = packageByName.get(pkgName);
     // oxlint-disable-next-line no-await-in-loop
-    await setPackageVersion(join(pkgDir(pkgName), "package.json"), publishVersion);
+    await setPackageVersion(pkgPath, publishVersion);
   }
 
   console.log(`Building all packages (${publishVersion})...`);
@@ -78,9 +154,9 @@ try {
   });
 
   for (const pkgName of publishOrder) {
-    const currentPath = pkgDir(pkgName);
+    const { dir } = packageByName.get(pkgName);
     const opts = {
-      cwd: currentPath,
+      cwd: dir,
       stdio: "inherit",
     };
 
@@ -106,7 +182,7 @@ try {
 
   for (const pkgName of publishOrder) {
     try {
-      const pkgPath = join(pkgDir(pkgName), "package.json");
+      const { pkgPath } = packageByName.get(pkgName);
       // oxlint-disable-next-line no-await-in-loop
       await writeFile(pkgPath, originalContents.get(pkgName));
     } catch {

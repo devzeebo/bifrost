@@ -1,19 +1,17 @@
 import type { AgentDefinition } from "@bifrost-ai/engine";
-import type { WorkItemExecutionContext, WorkItemHandler } from "@bifrost-ai/interfaces-work";
+import type { DataRegistry, ScriptFn } from "@bifrost-ai/interfaces-work";
 
 import { runTaskAgent } from "./run-task-agent.js";
 import type { TaskAgentDataSchema } from "./types.js";
 
-export function createTaskAgent(agent: AgentDefinition, name: string): WorkItemHandler {
-  return {
-    kind: "task",
-    name,
-    async run(workItem, ctx) {
-      return runTaskAgent(
-        workItem,
-        ctx as WorkItemExecutionContext<Pick<TaskAgentDataSchema, "engine">>,
-        agent,
-      );
-    },
-  };
+export function createTaskAgent(agent: AgentDefinition, _name: string): ScriptFn {
+  return async (workItem, ctx) =>
+    runTaskAgent(
+      workItem,
+      {
+        data: ctx.data as DataRegistry<Pick<TaskAgentDataSchema, "engine">>,
+        setState: ctx.setState,
+      },
+      agent,
+    );
 }

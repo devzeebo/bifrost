@@ -12,17 +12,17 @@ The `@bifrost-ai/runner` package provides a config-first `Runner` class:
 
 - Dials the orchestrator on `start()`, sends periodic heartbeats
 - Validates every inbound orchestrator frame against the configured orchestrator public key
-- Executes registered work item handlers locally with an RPC-backed `WorkItemExecutionContext`
+- Executes registered scripts locally through a composable decorator stack with RPC-backed `ScriptContext`
 - Reports terminal outcomes (`workItem.complete`, `workItem.fail`, `workItem.pause`) over signed RPC
 
 ### Developer workflow
 
-Scripts and other runnable agents are enrolled incrementally. Create the data registry up front with type guards, then register instances into typed sub-registries.
+Scripts, decorators, and task agents are enrolled incrementally. Create the data registry up front with type guards, then register scripts and optional decorators.
 
 ```typescript
 import { Runner, createDataRegistry } from "@bifrost-ai/runner";
 import "@bifrost-ai/agent-3-task/augment";
-import { echo } from "./scripts/echo.js";
+import { doSomething } from "./scripts/doSomething.js";
 import { loadAgent, taskAgentDataGuards } from "@bifrost-ai/agent-3-task";
 
 const data = createDataRegistry(taskAgentDataGuards);
@@ -30,23 +30,25 @@ const runner = new Runner({ data });
 
 runner.registerEngine("claude", claudeEngine);
 runner.registerTaskAgent("reviewer", await loadAgent("./agents/reviewer/AGENT.md"));
-runner.registerScriptAgent("echo", echo);
+runner.registerScriptAgent("doSomething", doSomething);
 
 await runner.start();
 ```
 
-`registerTaskAgent(name, agent)` registers the handler under the dispatch name and stores the definition in `data.get("agentDefinition")` for lookup by other agents.
+`registerTaskAgent(name, agent)` registers a script under `kind: name` and stores the definition in `data.get("agentDefinition")`.
 
 When `runner.yaml` (or `.bifrost-runner.yaml`) is present, keys and orchestrator URL are loaded automatically inside `start()` — no manual key handling required.
 
-### Registry model
+### Script stack model
 
-| Kind        | Setup                                                               | Dispatch                          | Handler access                         |
-| ----------- | ------------------------------------------------------------------- | --------------------------------- | -------------------------------------- |
-| **Data**    | `createDataRegistry(guards)` then `.get(type).register(name, item)` | Not searched                      | `ctx.data.get(type).get(name)` — typed |
-| **Handler** | `registerWorkItemHandler(handler)`                                  | `workItem.kind` + `workItem.name` | `ctx.handlers.get(kind, name)`         |
+| Layer          | Setup                                                               | Dispatch                                                     |
+| -------------- | ------------------------------------------------------------------- | ------------------------------------------------------------ |
+| **Data**       | `createDataRegistry(guards)` then `.get(type).register(name, item)` | Available via `ctx.data` in scripts and decorators           |
+| **Script**     | `registerScript(kind, fn)`                                          | `workItem.kind`                                              |
+| **Decorator**  | `registerDecorator(name, fn)`                                       | Names in `workItem.flow` (outermost first)                   |
+| **Convention** | `addConvention(name)`                                               | Runner-level; wraps every work item (default: `failOnError`) |
 
-Engines live in the data registry. Task agents (`kind: "task"`), scripts, and workflow agents are work item handlers. Dispatch looks up handlers by `(kind, name)`.
+Engines live in the data registry. Task agents register as scripts. Dispatch composes `conventions → flow → script`. See [script-stack.md](temporal/script-stack.md).
 
 ### Config file (`runner.yaml`)
 

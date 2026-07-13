@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { WorkItemHandler } from "@bifrost-ai/interfaces-work";
+import type { ScriptFn } from "@bifrost-ai/interfaces-work";
 import type { PeerIdentity } from "@bifrost-ai/protocol";
 import { describe, expect } from "vite-plus/test";
 import test, { withAspect } from "vitest-gwt";
@@ -32,31 +32,17 @@ type Context = {
   duplicateError: Error | null;
 };
 
-const echoHandler: WorkItemHandler = {
-  kind: "script",
-  name: "echo",
-  async run(workItem, ctx) {
-    const message = workItem.metadata.message as string;
-    await ctx.setState({ echoed: message });
-    return { outcome: "completed" };
-  },
+const echoScript: ScriptFn = async (workItem, ctx) => {
+  const message = workItem.metadata.message as string;
+  await ctx.setState({ echoed: message });
+  return { outcome: "completed" };
 };
 
-const failHandler: WorkItemHandler = {
-  kind: "script",
-  name: "fail",
-  async run() {
-    throw new Error("boom");
-  },
+const failScript: ScriptFn = async () => {
+  throw new Error("boom");
 };
 
-const pauseHandler: WorkItemHandler = {
-  kind: "script",
-  name: "pause",
-  async run() {
-    return { outcome: "paused" };
-  },
-};
+const pauseScript: ScriptFn = async () => ({ outcome: "paused" });
 
 describe("runner", () => {
   withAspect(setup_identities, teardown_runner);
@@ -78,7 +64,7 @@ describe("runner", () => {
     },
   });
 
-  test("fails when handler throws", {
+  test("fails when script throws", {
     given: {
       work_item_source_with_fail,
       orchestrator_running,
@@ -94,7 +80,7 @@ describe("runner", () => {
     },
   });
 
-  test("pauses when handler returns paused", {
+  test("pauses when script returns paused", {
     given: {
       work_item_source_with_pause,
       orchestrator_running,
@@ -110,19 +96,19 @@ describe("runner", () => {
     },
   });
 
-  test("registerWorkItemHandler throws on duplicate name within a kind", {
+  test("registerScript throws on duplicate kind", {
     given: {
       empty_runner,
     },
     when: {
-      registering_duplicate_handler,
+      registering_duplicate_script,
     },
     then: {
       duplicate_error_thrown,
     },
   });
 
-  test("handler enrollment via registerWorkItemHandler", {
+  test("script enrollment via registerScript", {
     given: {
       work_item_source_with_echo,
       orchestrator_running,
@@ -156,8 +142,8 @@ function work_item_source_with_echo(this: Context) {
   this.workItemSource = createMemoryWorkItemSource([
     {
       workItemId: "work-item-1",
-      kind: "script",
-      name: "echo",
+      kind: "echo",
+      flow: [],
       state: {},
       metadata: { message: "hello" },
     },
@@ -168,8 +154,8 @@ function work_item_source_with_fail(this: Context) {
   this.workItemSource = createMemoryWorkItemSource([
     {
       workItemId: "work-item-fail",
-      kind: "script",
-      name: "fail",
+      kind: "fail",
+      flow: [],
       state: {},
       metadata: {},
     },
@@ -180,8 +166,8 @@ function work_item_source_with_pause(this: Context) {
   this.workItemSource = createMemoryWorkItemSource([
     {
       workItemId: "work-item-pause",
-      kind: "script",
-      name: "pause",
+      kind: "pause",
+      flow: [],
       state: {},
       metadata: {},
     },
@@ -223,17 +209,17 @@ async function runner_config_written(this: Context) {
 
 function runner_with_echo_registered(this: Context) {
   this.runner = new Runner({ configPath: this.configPath });
-  this.runner.registerWorkItemHandler(echoHandler);
+  this.runner.registerScript("echo", echoScript);
 }
 
 function runner_with_fail_registered(this: Context) {
   this.runner = new Runner({ configPath: this.configPath });
-  this.runner.registerWorkItemHandler(failHandler);
+  this.runner.registerScript("fail", failScript);
 }
 
 function runner_with_pause_registered(this: Context) {
   this.runner = new Runner({ configPath: this.configPath });
-  this.runner.registerWorkItemHandler(pauseHandler);
+  this.runner.registerScript("pause", pauseScript);
 }
 
 function empty_runner(this: Context) {
@@ -242,11 +228,11 @@ function empty_runner(this: Context) {
 
 function runner_with_plugin_enrollment(this: Context) {
   this.runner = new Runner({ configPath: this.configPath });
-  enrollEchoHandler(this.runner);
+  enrollEchoScript(this.runner);
 }
 
-function enrollEchoHandler(runner: Runner): void {
-  runner.registerWorkItemHandler(echoHandler);
+function enrollEchoScript(runner: Runner): void {
+  runner.registerScript("echo", echoScript);
 }
 
 async function runner_started(this: Context) {
@@ -254,10 +240,10 @@ async function runner_started(this: Context) {
   await delay(50);
 }
 
-async function registering_duplicate_handler(this: Context) {
-  this.runner.registerWorkItemHandler(echoHandler);
+async function registering_duplicate_script(this: Context) {
+  this.runner.registerScript("echo", echoScript);
   try {
-    this.runner.registerWorkItemHandler(echoHandler);
+    this.runner.registerScript("echo", echoScript);
     this.duplicateError = null;
   } catch (error) {
     this.duplicateError = error as Error;

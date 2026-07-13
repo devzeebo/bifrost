@@ -1,26 +1,22 @@
-import type {
-  WorkItem,
-  WorkItemExecutionContext,
-  WorkItemHandler,
-  WorkItemResult,
-} from "@bifrost-ai/interfaces-work";
+import type { ScriptFn, WorkItem, WorkItemResult } from "@bifrost-ai/interfaces-work";
 
-export type ScriptFn = (ctx: {
+import type { Runner } from "./runner.js";
+
+export type LegacyScriptFn = (ctx: {
   workItem: WorkItem;
   cwd: string;
-  setState: WorkItemExecutionContext["setState"];
+  setState: (state: Record<string, unknown>) => Promise<void>;
 }) => Promise<WorkItemResult> | WorkItemResult;
 
-export function createScriptAgent(fn: ScriptFn, name: string): WorkItemHandler {
-  return {
-    kind: "script",
-    name,
-    async run(workItem, ctx) {
-      const cwd =
-        typeof workItem.state.workingDir === "string" && workItem.state.workingDir.length > 0
-          ? workItem.state.workingDir
-          : process.cwd();
-      return fn({ workItem, cwd, setState: ctx.setState });
-    },
-  };
+export type { ScriptFn };
+
+export function registerScriptAgent<TData extends Record<string, unknown>>(
+  runner: Runner<TData>,
+  name: string,
+  fn: LegacyScriptFn,
+): void {
+  const script: ScriptFn = async (workItem, ctx) =>
+    fn({ workItem, cwd: ctx.cwd, setState: ctx.setState });
+
+  runner.registerScript(name, script);
 }

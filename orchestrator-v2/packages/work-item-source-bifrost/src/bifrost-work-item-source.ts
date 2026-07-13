@@ -171,12 +171,16 @@ export class BifrostWorkItemSource implements WorkItemSource {
     return agentTag.slice(6);
   }
 
+  public static extractDecoratorNames(tags: string[]): string[] {
+    return tags
+      .filter((tag) => tag.startsWith("decorator:"))
+      .map((tag) => tag.slice("decorator:".length));
+  }
+
   public static buildCreateRuneRequest(input: CreateDraftWorkItemInput): CreateRuneRequest {
     const metadata = input.metadata ?? {};
     const title =
-      typeof metadata.title === "string" && metadata.title.length > 0
-        ? metadata.title
-        : `${input.kind}:${input.name}`;
+      typeof metadata.title === "string" && metadata.title.length > 0 ? metadata.title : input.kind;
     const description = typeof metadata.description === "string" ? metadata.description : undefined;
     const priority = typeof metadata.priority === "number" ? metadata.priority : 1;
     const parentId = typeof metadata.parentId === "string" ? metadata.parentId : undefined;
@@ -185,8 +189,10 @@ export class BifrostWorkItemSource implements WorkItemSource {
 
     const tags = Array.isArray(metadata.tags) ? [...(metadata.tags as string[])] : ([] as string[]);
 
-    if (input.kind === "task") {
-      tags.push(`agent:${input.name}`);
+    tags.push(`agent:${input.kind}`);
+
+    for (const decorator of input.flow ?? []) {
+      tags.push(`decorator:${decorator}`);
     }
 
     return {
@@ -203,8 +209,8 @@ export class BifrostWorkItemSource implements WorkItemSource {
   public static mapToWorkItem(rune: RuneDetail, agentName: string): WorkItem {
     return {
       workItemId: rune.id,
-      kind: "task",
-      name: agentName,
+      kind: agentName,
+      flow: BifrostWorkItemSource.extractDecoratorNames(rune.tags ?? []),
       state: { ...rune.state },
       metadata: rune as unknown as Record<string, unknown>,
     };

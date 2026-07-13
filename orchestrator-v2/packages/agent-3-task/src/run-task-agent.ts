@@ -1,9 +1,5 @@
 import type { AgentDefinition } from "@bifrost-ai/engine";
-import type {
-  WorkItem,
-  WorkItemExecutionContext,
-  WorkItemResult,
-} from "@bifrost-ai/interfaces-work";
+import type { DataRegistry, WorkItem, WorkItemResult } from "@bifrost-ai/interfaces-work";
 
 import {
   ENGINE_DATA_TYPE,
@@ -12,9 +8,14 @@ import {
   type TaskAgentDataSchema,
 } from "./types.js";
 
+type TaskAgentContext = {
+  data: DataRegistry<Pick<TaskAgentDataSchema, "engine">>;
+  setState: (state: Record<string, unknown>) => Promise<void>;
+};
+
 export async function runTaskAgent(
   workItem: WorkItem,
-  ctx: WorkItemExecutionContext<Pick<TaskAgentDataSchema, "engine">>,
+  ctx: TaskAgentContext,
   agent: AgentDefinition,
 ): Promise<WorkItemResult> {
   const parsed = parseTaskAgentState(workItem.state);

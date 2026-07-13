@@ -15,4 +15,4 @@ export const runner = new Runner({ data: createDataRegistry(taskAgentDataGuards)
 
 runner.registerEngine("cursor", new CursorEngine());
 runner.registerTaskAgent("cowsay", await loadAgent(cowsayAgentPath));
-runner.registerScriptAgent("doSomething", doSomething);
+runner.registerScript("doSomething", doSomething);

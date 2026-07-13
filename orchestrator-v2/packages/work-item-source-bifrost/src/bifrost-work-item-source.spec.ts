@@ -112,8 +112,8 @@ describe("BifrostWorkItemSource", () => {
       await cleanup();
 
       expect(workItems).toHaveLength(1);
-      expect(workItems[0].name).toBe("implementer");
-      expect(workItems[0].kind).toBe("task");
+      expect(workItems[0].kind).toBe("implementer");
+      expect(workItems[0].flow).toEqual([]);
     });
 
     it("should skip rune without agent tag", async () => {
@@ -241,8 +241,7 @@ describe("BifrostWorkItemSource", () => {
       });
 
       const workItemId = await source.createDraftWorkItem({
-        kind: "task",
-        name: "implementer",
+        kind: "implementer",
         metadata: { title: "New work item", description: "Do the thing" },
       });
 
@@ -366,8 +365,8 @@ describe("BifrostWorkItemSource", () => {
 
       expect(workItem).toBeDefined();
       expect(workItem!.workItemId).toBe("rune-1");
-      expect(workItem!.name).toBe("implementer");
-      expect(workItem!.kind).toBe("task");
+      expect(workItem!.kind).toBe("implementer");
+      expect(workItem!.flow).toEqual([]);
       expect(workItem!.metadata.description).toBe("Test description");
       expect(workItem!.metadata.dependencies).toEqual([
         { target_id: "rune-2", relationship: "blocks" },
