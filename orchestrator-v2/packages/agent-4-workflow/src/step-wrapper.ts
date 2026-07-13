@@ -21,12 +21,14 @@ export async function runStepDecorator(
     };
   }
 
+  const wrapperState = state as StepWrapperState;
+
   let rawResult: unknown;
   try {
     rawResult = await next();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return applyStepResult({ transition: "fail", message }, parsed.state, ctx.source);
+    return applyStepResult({ transition: "fail", message }, wrapperState, ctx.source);
   }
 
   const stepOutput = parseStepOutput(rawResult);
@@ -34,7 +36,7 @@ export async function runStepDecorator(
     return stepOutput.result;
   }
 
-  return applyStepResult(stepOutput.result, parsed.state, ctx.source);
+  return applyStepResult(stepOutput.result, wrapperState, ctx.source);
 }
 
 async function applyStepResult(
@@ -65,7 +67,7 @@ async function applyStepResult(
 
 function parseStepWrapperState(
   state: Record<string, unknown>,
-): { ok: true; state: StepWrapperState } | { ok: false; missing: string[] } {
+): { ok: true } | { ok: false; missing: string[] } {
   const required = ["workflowWorkItemId", "workingDir"] as const;
   const missing: string[] = [];
 
@@ -79,13 +81,5 @@ function parseStepWrapperState(
     return { ok: false, missing };
   }
 
-  return {
-    ok: true,
-    state: {
-      workflowWorkItemId: state.workflowWorkItemId as string,
-      workingDir: state.workingDir as string,
-      ...(typeof state.instructions === "string" ? { instructions: state.instructions } : {}),
-      ...(typeof state.engineName === "string" ? { engineName: state.engineName } : {}),
-    },
-  };
+  return { ok: true };
 }

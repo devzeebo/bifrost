@@ -142,7 +142,8 @@ function work_item_source_with_echo(this: Context) {
   this.workItemSource = createMemoryWorkItemSource([
     {
       workItemId: "work-item-1",
-      kind: "echo",
+      kind: "script",
+      name: "echo",
       flow: [],
       state: {},
       metadata: { message: "hello" },
@@ -154,7 +155,8 @@ function work_item_source_with_fail(this: Context) {
   this.workItemSource = createMemoryWorkItemSource([
     {
       workItemId: "work-item-fail",
-      kind: "fail",
+      kind: "script",
+      name: "fail",
       flow: [],
       state: {},
       metadata: {},
@@ -166,7 +168,8 @@ function work_item_source_with_pause(this: Context) {
   this.workItemSource = createMemoryWorkItemSource([
     {
       workItemId: "work-item-pause",
-      kind: "pause",
+      kind: "script",
+      name: "pause",
       flow: [],
       state: {},
       metadata: {},

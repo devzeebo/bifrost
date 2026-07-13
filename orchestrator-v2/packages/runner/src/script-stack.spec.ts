@@ -15,7 +15,8 @@ type Context = {
 
 const baseWorkItem = (): WorkItem => ({
   workItemId: "wi-1",
-  kind: "hunt",
+  kind: "script",
+  name: "hunt",
   flow: [],
   state: {},
   metadata: {},

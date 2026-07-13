@@ -16,11 +16,11 @@ export { Workflow } from "./workflow.js";
 export type { WorkflowGroupItem } from "./workflow.js";
 export type {
   FlattenedStep,
-  ParsedWorkflowState,
   StepTransition,
   StepWrapperState,
   WorkflowDefinition,
   WorkflowPhase,
   WorkflowState,
+  WorkflowStateParseResult,
 } from "./types.js";
 export { aggregateTelemetry, missingFieldsMessage, parseWorkflowState } from "./types.js";

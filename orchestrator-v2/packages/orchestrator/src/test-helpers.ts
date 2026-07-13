@@ -293,7 +293,8 @@ function waitForRpcResponse(runner: RunnerPeer, id: string): Promise<void> {
 export function sampleWorkItem(workItemId: string): WorkItem {
   return {
     workItemId,
-    kind: "echo",
+    kind: "script",
+    name: "echo",
     flow: [],
     state: {},
     metadata: {},

@@ -49,6 +49,7 @@ export function createGraphMemoryWorkItemSource(
     items.set(workItem.workItemId, {
       workItemId: workItem.workItemId,
       kind: workItem.kind,
+      name: workItem.name,
       flow: [...workItem.flow],
       state: { ...workItem.state },
       metadata: { ...workItem.metadata },
@@ -177,6 +178,7 @@ export function createGraphMemoryWorkItemSource(
         {
           workItemId,
           kind: input.kind,
+          name: input.name,
           flow: [...(input.flow ?? [])],
           state: input.state ?? {},
           metadata: input.metadata ?? {},

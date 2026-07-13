@@ -10,10 +10,8 @@ export class Workflow {
     this.name = options.name;
   }
 
-  public step(...items: WorkflowGroupItem[]): this {
-    if (items.length > 0) {
-      this.groups.push(items);
-    }
+  public step(first: WorkflowGroupItem, ...items: WorkflowGroupItem[]): this {
+    this.groups.push([first, ...(items ?? [])]);
     return this;
   }
 }

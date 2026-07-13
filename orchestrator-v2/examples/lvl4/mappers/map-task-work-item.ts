@@ -1,13 +1,9 @@
-import { Orchestrator } from "@bifrost-ai/orchestrator";
 import { type TaskAgentState } from "@bifrost-ai/agent-3-task";
-import { BifrostWorkItemSource, type RuneDetail } from "@bifrost-ai/work-item-source-bifrost";
+import type { WorkItemMapper } from "@bifrost-ai/orchestrator";
+import { type RuneDetail } from "@bifrost-ai/work-item-source-bifrost";
 
-export const orchestrator = new Orchestrator();
-
-orchestrator.registerWorkItemSource(new BifrostWorkItemSource());
-
-orchestrator.addWorkItemMapper("task", (workItem) => {
-  const rune = workItem.metadata as RuneDetail;
+export const mapTaskWorkItem: WorkItemMapper<RuneDetail> = (workItem) => {
+  const rune = workItem.metadata;
   return {
     ...workItem,
     state: {
@@ -18,4 +14,4 @@ orchestrator.addWorkItemMapper("task", (workItem) => {
       sessionId: workItem.state.sessionId as string | undefined,
     } satisfies TaskAgentState,
   };
-});
+};

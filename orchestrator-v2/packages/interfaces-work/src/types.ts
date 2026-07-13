@@ -1,6 +1,7 @@
 export type WorkItem = {
   workItemId: string;
   kind: string;
+  name: string;
   flow: string[];
   state: Record<string, unknown>;
   readonly metadata: Record<string, unknown>;
@@ -13,6 +14,7 @@ export type WorkItemDependency = {
 
 export type CreateDraftWorkItemInput = {
   kind: string;
+  name: string;
   flow?: string[];
   state?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
@@ -66,7 +68,7 @@ export type ScriptStack<TData extends Record<string, unknown> = Record<string, u
   decorators: Record<string, DecoratorFn<TData>>;
 };
 
-const REQUIRED_WORK_ITEM_FIELDS = ["workItemId", "kind", "flow"] as const;
+const REQUIRED_WORK_ITEM_FIELDS = ["workItemId", "kind", "name", "flow"] as const;
 
 export function isWorkItem(value: unknown): value is WorkItem {
   if (value === null || typeof value !== "object") {
@@ -79,6 +81,8 @@ export function isWorkItem(value: unknown): value is WorkItem {
     record.workItemId.length === 0 ||
     typeof record.kind !== "string" ||
     record.kind.length === 0 ||
+    typeof record.name !== "string" ||
+    record.name.length === 0 ||
     !Array.isArray(record.flow) ||
     !record.flow.every((entry) => typeof entry === "string" && entry.length > 0) ||
     record.state === null ||
@@ -118,6 +122,9 @@ export function missingWorkItemFields(value: unknown): string[] {
   }
   if (typeof record.kind === "string" && record.kind.length === 0) {
     missing.push("kind");
+  }
+  if (typeof record.name === "string" && record.name.length === 0) {
+    missing.push("name");
   }
   if (record.flow !== undefined && !Array.isArray(record.flow)) {
     missing.push("flow");

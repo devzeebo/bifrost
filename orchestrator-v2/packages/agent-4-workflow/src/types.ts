@@ -17,9 +17,9 @@ export type WorkflowDefinition = {
 };
 
 export type WorkflowState = {
-  phase?: WorkflowPhase;
   workingDir: string;
   definitionName: string;
+  phase?: WorkflowPhase;
   childIds?: Record<string, string>;
   rewindTarget?: string;
 };
@@ -27,15 +27,11 @@ export type WorkflowState = {
 export type StepWrapperState = {
   workflowWorkItemId: string;
   workingDir: string;
-  instructions?: string;
-  engineName?: string;
 };
 
-export type ParsedWorkflowState =
-  | { ok: true; state: WorkflowState }
-  | { ok: false; missing: string[] };
+export type WorkflowStateParseResult = { ok: true } | { ok: false; missing: string[] };
 
-export function parseWorkflowState(taskState: Record<string, unknown>): ParsedWorkflowState {
+export function parseWorkflowState(taskState: Record<string, unknown>): WorkflowStateParseResult {
   const missing: string[] = [];
 
   const workingDir = taskState.workingDir;
@@ -73,16 +69,7 @@ export function parseWorkflowState(taskState: Record<string, unknown>): ParsedWo
     return { ok: false, missing };
   }
 
-  return {
-    ok: true,
-    state: {
-      workingDir: workingDir as string,
-      definitionName: definitionName as string,
-      ...(phase !== undefined ? { phase: phase as WorkflowPhase } : {}),
-      ...(childIds !== undefined ? { childIds: childIds as Record<string, string> } : {}),
-      ...(rewindTarget !== undefined ? { rewindTarget: rewindTarget as string } : {}),
-    },
-  };
+  return { ok: true };
 }
 
 export function missingFieldsMessage(missing: string[]): string {

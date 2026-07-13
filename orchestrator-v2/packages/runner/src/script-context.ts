@@ -13,6 +13,7 @@ export function createLiveWorkItem(workItem: WorkItem): WorkItem {
   return {
     workItemId: workItem.workItemId,
     kind: workItem.kind,
+    name: workItem.name,
     flow: [...workItem.flow],
     metadata: workItem.metadata,
     state: { ...workItem.state },

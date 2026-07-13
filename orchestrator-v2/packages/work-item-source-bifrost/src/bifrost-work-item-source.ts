@@ -195,6 +195,14 @@ export class BifrostWorkItemSource implements WorkItemSource {
     return agentTag.slice(6);
   }
 
+  public static extractAgentKind(tags: string[]): string {
+    const kindTag = tags.find((tag) => tag.startsWith("kind:"));
+    if (!kindTag) {
+      return "task";
+    }
+    return kindTag.slice(5);
+  }
+
   public static extractDecoratorNames(tags: string[]): string[] {
     return tags
       .filter((tag) => tag.startsWith("decorator:"))
@@ -204,7 +212,7 @@ export class BifrostWorkItemSource implements WorkItemSource {
   public static buildCreateRuneRequest(input: CreateDraftWorkItemInput): CreateRuneRequest {
     const metadata = input.metadata ?? {};
     const title =
-      typeof metadata.title === "string" && metadata.title.length > 0 ? metadata.title : input.kind;
+      typeof metadata.title === "string" && metadata.title.length > 0 ? metadata.title : input.name;
     const description = typeof metadata.description === "string" ? metadata.description : undefined;
     const priority = typeof metadata.priority === "number" ? metadata.priority : 1;
     const parentId = typeof metadata.parentId === "string" ? metadata.parentId : undefined;
@@ -213,7 +221,8 @@ export class BifrostWorkItemSource implements WorkItemSource {
 
     const tags = Array.isArray(metadata.tags) ? [...(metadata.tags as string[])] : ([] as string[]);
 
-    tags.push(`agent:${input.kind}`);
+    tags.push(`agent:${input.name}`);
+    tags.push(`kind:${input.kind}`);
 
     for (const decorator of input.flow ?? []) {
       tags.push(`decorator:${decorator}`);
@@ -233,7 +242,8 @@ export class BifrostWorkItemSource implements WorkItemSource {
   public static mapToWorkItem(rune: RuneDetail, agentName: string): WorkItem {
     return {
       workItemId: rune.id,
-      kind: agentName,
+      kind: BifrostWorkItemSource.extractAgentKind(rune.tags ?? []),
+      name: agentName,
       flow: BifrostWorkItemSource.extractDecoratorNames(rune.tags ?? []),
       state: { ...rune.state },
       metadata: rune as unknown as Record<string, unknown>,

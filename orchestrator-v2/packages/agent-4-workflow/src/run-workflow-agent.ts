@@ -13,19 +13,21 @@ export async function runWorkflowAgent(
     return { outcome: "failed", message: missingFieldsMessage(parsed.missing) };
   }
 
-  if (parsed.state.definitionName !== definition.name) {
+  const state = workItem.state as WorkflowState;
+
+  if (state.definitionName !== definition.name) {
     return {
       outcome: "failed",
-      message: `Workflow definition mismatch: expected ${definition.name}, got ${parsed.state.definitionName}`,
+      message: `Workflow definition mismatch: expected ${definition.name}, got ${state.definitionName}`,
     };
   }
 
-  const phase = parsed.state.phase ?? "schedule";
+  const phase = state.phase ?? "schedule";
   if (phase === "schedule") {
-    return schedulePass(workItem, ctx, definition, parsed.state);
+    return schedulePass(workItem, ctx, definition, state);
   }
 
-  return verifyPass(ctx, definition, parsed.state);
+  return verifyPass(ctx, definition, state);
 }
 
 async function schedulePass(
@@ -43,17 +45,12 @@ async function schedulePass(
       }
 
       const childId = await ctx.source.createDraftWorkItem({
-        kind: step.innerName,
+        kind: step.innerKind,
+        name: step.innerName,
         flow: [step.id],
         state: {
           workflowWorkItemId: workItem.workItemId,
           workingDir: state.workingDir,
-          ...(typeof workItem.state.instructions === "string"
-            ? { instructions: workItem.state.instructions }
-            : {}),
-          ...(typeof workItem.state.engineName === "string"
-            ? { engineName: workItem.state.engineName }
-            : {}),
         },
         metadata: {
           workflowName: definition.name,

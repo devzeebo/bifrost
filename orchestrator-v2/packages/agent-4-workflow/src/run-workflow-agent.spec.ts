@@ -97,7 +97,8 @@ function schedule_fixture(this: Context) {
   this.definition = linearDefinition;
   this.workItem = {
     workItemId: "workflow-1",
-    kind: "linear",
+    kind: "workflow",
+    name: "linear",
     flow: [],
     state: {
       workingDir: "/tmp",
@@ -117,7 +118,8 @@ function verify_fixture_with_failed_child(this: Context) {
   this.source.statuses.set("child-3", "completed");
   this.workItem = {
     workItemId: "workflow-1",
-    kind: "linear",
+    kind: "workflow",
+    name: "linear",
     flow: [],
     state: {
       workingDir: "/tmp",
@@ -142,7 +144,8 @@ function verify_fixture_all_completed(this: Context) {
   }
   this.workItem = {
     workItemId: "workflow-1",
-    kind: "linear",
+    kind: "workflow",
+    name: "linear",
     flow: [],
     state: {
       workingDir: "/tmp",
@@ -167,7 +170,8 @@ function verify_fixture_with_live_child(this: Context) {
   this.source.statuses.set("child-3", "completed");
   this.workItem = {
     workItemId: "workflow-1",
-    kind: "linear",
+    kind: "workflow",
+    name: "linear",
     flow: [],
     state: {
       workingDir: "/tmp",
@@ -195,7 +199,8 @@ function outcome_is_paused(this: Context) {
 function children_created_and_started(this: Context) {
   expect(this.source.drafts).toHaveLength(3);
   expect(this.source.drafts[0]?.input).toMatchObject({
-    kind: "a",
+    kind: "task",
+    name: "a",
     flow: ["step-a"],
     state: { workflowWorkItemId: "workflow-1", workingDir: "/tmp" },
   });

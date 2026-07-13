@@ -223,6 +223,9 @@ function readCreateDraftParams(params: unknown): { input: CreateDraftWorkItemInp
   if (typeof input.kind !== "string") {
     return null;
   }
+  if (typeof input.name !== "string") {
+    return null;
+  }
   if (
     input.flow !== undefined &&
     (!Array.isArray(input.flow) ||

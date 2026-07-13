@@ -112,7 +112,8 @@ describe("BifrostWorkItemSource", () => {
       await cleanup();
 
       expect(workItems).toHaveLength(1);
-      expect(workItems[0].kind).toBe("implementer");
+      expect(workItems[0].kind).toBe("task");
+      expect(workItems[0].name).toBe("implementer");
       expect(workItems[0].flow).toEqual([]);
     });
 
@@ -241,7 +242,8 @@ describe("BifrostWorkItemSource", () => {
       });
 
       const workItemId = await source.createDraftWorkItem({
-        kind: "implementer",
+        kind: "task",
+        name: "implementer",
         metadata: { title: "New work item", description: "Do the thing" },
       });
 
@@ -253,6 +255,13 @@ describe("BifrostWorkItemSource", () => {
         expect.objectContaining({
           method: "POST",
           body: expect.stringContaining("agent:implementer"),
+        }),
+      );
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/api/create-rune"),
+        expect.objectContaining({
+          method: "POST",
+          body: expect.stringContaining("kind:task"),
         }),
       );
     });
@@ -365,7 +374,8 @@ describe("BifrostWorkItemSource", () => {
 
       expect(workItem).toBeDefined();
       expect(workItem!.workItemId).toBe("rune-1");
-      expect(workItem!.kind).toBe("implementer");
+      expect(workItem!.kind).toBe("task");
+      expect(workItem!.name).toBe("implementer");
       expect(workItem!.flow).toEqual([]);
       expect(workItem!.metadata.description).toBe("Test description");
       expect(workItem!.metadata.dependencies).toEqual([

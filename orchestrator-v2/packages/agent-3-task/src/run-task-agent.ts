@@ -6,6 +6,7 @@ import {
   missingFieldsMessage,
   parseTaskAgentState,
   type TaskAgentDataSchema,
+  type TaskAgentState,
 } from "./types.js";
 
 type TaskAgentContext = {
@@ -23,7 +24,7 @@ export async function runTaskAgent(
     return { outcome: "failed", message: missingFieldsMessage(parsed.missing) };
   }
 
-  const { workingDir, instructions, engineName, sessionId } = parsed.state;
+  const { workingDir, instructions, engineName, sessionId } = workItem.state as TaskAgentState;
 
   const engine = ctx.data.get(ENGINE_DATA_TYPE).get(engineName);
   if (engine === undefined) {

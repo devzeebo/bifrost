@@ -20,9 +20,9 @@ export function resolveStack<TData extends Record<string, unknown> = Record<stri
   decorators: Registry<DecoratorFn<TData>>,
   conventions: readonly string[],
 ): ResolvedStack<TData> {
-  const script = scripts.get(workItem.kind);
+  const script = scripts.get(workItem.name);
   if (script === undefined) {
-    throw new Error(`Unknown script: ${workItem.kind}`);
+    throw new Error(`Unknown script: ${workItem.name}`);
   }
 
   const decoratorNames = [...conventions, ...workItem.flow];

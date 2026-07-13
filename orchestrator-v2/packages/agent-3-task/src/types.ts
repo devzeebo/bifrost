@@ -15,13 +15,11 @@ export type TaskAgentState = {
   sessionId?: string;
 };
 
-export type ParsedTaskAgentState =
-  | { ok: true; state: TaskAgentState }
-  | { ok: false; missing: string[] };
+export type TaskAgentStateParseResult = { ok: true } | { ok: false; missing: string[] };
 
 const REQUIRED_FIELDS = ["workingDir", "instructions", "engineName"] as const;
 
-export function parseTaskAgentState(taskState: Record<string, unknown>): ParsedTaskAgentState {
+export function parseTaskAgentState(taskState: Record<string, unknown>): TaskAgentStateParseResult {
   const missing: string[] = [];
 
   for (const field of REQUIRED_FIELDS) {
@@ -56,15 +54,7 @@ export function parseTaskAgentState(taskState: Record<string, unknown>): ParsedT
     return { ok: false, missing: [...new Set(missing)] };
   }
 
-  return {
-    ok: true,
-    state: {
-      workingDir: workingDir as string,
-      instructions: instructions as string,
-      engineName: engineName as string,
-      ...(sessionId !== undefined ? { sessionId: sessionId as string } : {}),
-    },
-  };
+  return { ok: true };
 }
 
 export function missingFieldsMessage(missing: string[]): string {
