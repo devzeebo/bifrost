@@ -1,19 +1,29 @@
-import type { DataRegistry, WorkItemHandler } from "@bifrost-ai/interfaces-work";
+import type {
+  DataRegistry,
+  DecoratorFn,
+  ScriptFn,
+  WorkItemResult,
+} from "@bifrost-ai/interfaces-work";
 import { createRunnerPeer, type RunnerPeer } from "@bifrost-ai/protocol";
 
 import { resolveRunnerOptions } from "./config-loader.js";
+import { FAIL_ON_ERROR_DECORATOR, failOnError } from "./conventions/fail-on-error.js";
 import { registerDispatchHandler } from "./dispatch-handler.js";
 import { startHeartbeat, type HeartbeatHandle } from "./heartbeat.js";
 import { createRpcClient } from "./rpc-client.js";
 import { createDataRegistry } from "./data-registry.js";
 import { Registry } from "./registry.js";
-import { createScriptAgent, type ScriptFn } from "./script-agent.js";
+import { registerScriptAgent as adaptLegacyScript, type LegacyScriptFn } from "./script-agent.js";
 import type { RunnerOptions } from "./types.js";
+
+const DEFAULT_CONVENTIONS = [FAIL_ON_ERROR_DECORATOR] as const;
 
 export class Runner<TData extends Record<string, unknown> = Record<string, unknown>> {
   private readonly options: RunnerOptions<TData>;
   readonly data: DataRegistry<TData>;
-  private readonly handlers = new Map<string, Registry<WorkItemHandler>>();
+  private readonly scripts = new Registry<ScriptFn<TData>>();
+  private readonly decorators = new Registry<DecoratorFn<TData>>();
+  private conventions: string[] = [...DEFAULT_CONVENTIONS];
   private peer: RunnerPeer | null = null;
   private heartbeat: HeartbeatHandle | null = null;
   private unsubscribeDispatch: (() => void) | null = null;
@@ -22,22 +32,36 @@ export class Runner<TData extends Record<string, unknown> = Record<string, unkno
   constructor(options: RunnerOptions<TData> = {}) {
     this.options = options;
     this.data = options.data ?? (createDataRegistry() as DataRegistry<TData>);
+    this.registerDecorator(FAIL_ON_ERROR_DECORATOR, failOnError as DecoratorFn<TData>);
   }
 
-  registerWorkItemHandler(handler: WorkItemHandler): void {
-    this.ensureHandlerRegistry(handler.kind).register(handler.name, handler);
+  registerScript(kind: string, fn: ScriptFn<TData>): void {
+    this.scripts.register(kind, fn);
   }
 
-  registerScriptAgent(name: string, fn: ScriptFn): void {
-    this.registerWorkItemHandler(createScriptAgent(fn, name));
+  registerDecorator(name: string, fn: DecoratorFn<TData>): void {
+    this.decorators.register(name, fn);
   }
 
-  getWorkItemHandler(kind: string, name: string): WorkItemHandler | undefined {
-    return this.handlers.get(kind)?.get(name);
+  addConvention(name: string): void {
+    if (!this.decorators.has(name)) {
+      throw new Error(`Unknown decorator: ${name}`);
+    }
+    if (!this.conventions.includes(name)) {
+      this.conventions.push(name);
+    }
   }
 
-  hasWorkItemHandler(kind: string, name: string): boolean {
-    return this.handlers.get(kind)?.has(name) ?? false;
+  registerScriptAgent(name: string, fn: LegacyScriptFn): void {
+    adaptLegacyScript(this, name, fn);
+  }
+
+  hasScript(kind: string): boolean {
+    return this.scripts.has(kind);
+  }
+
+  hasDecorator(name: string): boolean {
+    return this.decorators.has(name);
   }
 
   async start(): Promise<void> {
@@ -53,7 +77,13 @@ export class Runner<TData extends Record<string, unknown> = Record<string, unkno
     });
 
     const rpc = createRpcClient(peer);
-    this.unsubscribeDispatch = registerDispatchHandler(peer, this.handlers, this.data, rpc);
+    this.unsubscribeDispatch = registerDispatchHandler(peer, {
+      scripts: this.scripts,
+      decorators: this.decorators,
+      conventions: this.conventions,
+      data: this.data,
+      rpc,
+    });
     this.heartbeat = startHeartbeat(peer, resolved.identity, resolved.heartbeatIntervalMs);
 
     if (resolved.abortSignal !== undefined) {
@@ -82,13 +112,6 @@ export class Runner<TData extends Record<string, unknown> = Record<string, unkno
     }
     return this.peer;
   }
-
-  private ensureHandlerRegistry(kind: string): Registry<WorkItemHandler> {
-    let registry = this.handlers.get(kind);
-    if (registry === undefined) {
-      registry = new Registry<WorkItemHandler>();
-      this.handlers.set(kind, registry);
-    }
-    return registry;
-  }
 }
+
+export type { WorkItemResult };

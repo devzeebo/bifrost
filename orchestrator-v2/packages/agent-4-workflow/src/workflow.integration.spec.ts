@@ -39,8 +39,8 @@ async function linear_integration_setup(this: Context) {
   this.source = createGraphMemoryWorkItemSource([
     {
       workItemId: "workflow-1",
-      kind: "workflow",
-      name: "linear-flow",
+      kind: "linear-flow",
+      flow: [],
       state: {
         workingDir: "/tmp",
         definitionName: "linear-flow",

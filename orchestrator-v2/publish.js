@@ -55,10 +55,27 @@ const discoverPublishablePackages = async () => {
 
     const dir = join(packagesDir, entry.name);
     const pkgPath = join(dir, "package.json");
-    // oxlint-disable-next-line no-await-in-loop
-    const pkg = JSON.parse(await readFile(pkgPath, "utf-8"));
 
-    if (pkg.private || pkg.name?.includes("example")) {
+    let contents;
+    try {
+      // oxlint-disable-next-line no-await-in-loop
+      contents = await readFile(pkgPath, "utf-8");
+    } catch {
+      continue;
+    }
+
+    let pkg;
+    try {
+      pkg = JSON.parse(contents);
+    } catch {
+      continue;
+    }
+
+    if (typeof pkg.name !== "string" || pkg.name.length === 0) {
+      continue;
+    }
+
+    if (pkg.private || pkg.name.includes("example")) {
       continue;
     }
 

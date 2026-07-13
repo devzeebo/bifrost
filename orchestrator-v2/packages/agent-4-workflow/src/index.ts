@@ -1,7 +1,7 @@
-export { createWorkflowAgent } from "./create-workflow-agent.js";
+export { createWorkflowScript } from "./create-workflow-agent.js";
 export { flattenWorkflowBuilder } from "./flatten-workflow.js";
 export { runWorkflowAgent } from "./run-workflow-agent.js";
-export { createStepWrapperHandler, runStepWrapper } from "./step-wrapper.js";
+export { createStepDecorator, runStepDecorator } from "./step-wrapper.js";
 export {
   continueStep,
   failStep,

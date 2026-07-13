@@ -25,10 +25,7 @@ export type WorkflowState = {
 };
 
 export type StepWrapperState = {
-  stepId: string;
   workflowWorkItemId: string;
-  innerKind: "task" | "script";
-  innerName: string;
   workingDir: string;
   instructions?: string;
   engineName?: string;

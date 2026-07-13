@@ -4,17 +4,17 @@ A rebuild of the Bifrost orchestrator as a thin **get-work + dispatch** system. 
 
 ## Packages
 
-| Package                          | Purpose                                                              |
-| -------------------------------- | -------------------------------------------------------------------- |
-| `@bifrost-ai/interfaces-work`    | Work item, handler, and execution contracts                          |
-| `@bifrost-ai/protocol`           | Signed WebSocket RPC between orchestrator and runners                |
-| `@bifrost-ai/orchestrator`       | Thin orchestrator: stream work items, dispatch, record outcomes      |
-| `@bifrost-ai/runner`             | Remote runner: config-driven dial, execute handlers, report outcomes |
-| `@bifrost-ai/engine`             | Engine interface, types, and `TestEngine` for development/testing    |
-| `@bifrost-ai/engine-claude-code` | Claude Code Agent SDK engine (`ClaudeCodeEngine`)                    |
-| `@bifrost-ai/engine-cursor`      | Cursor SDK engine (`CursorEngine`)                                   |
-| `@bifrost-ai/agent-3-task`       | Task Agent — single-shot LLM execution (`kind: "task"`)              |
-| `@bifrost-ai/agent-4-workflow`   | Workflow Agent — DAG scheduling with dependencies (`kind: "workflow"`) |
+| Package                          | Purpose                                                                   |
+| -------------------------------- | ------------------------------------------------------------------------- |
+| `@bifrost-ai/interfaces-work`    | Work item, handler, and execution contracts                               |
+| `@bifrost-ai/protocol`           | Signed WebSocket RPC between orchestrator and runners                     |
+| `@bifrost-ai/orchestrator`       | Thin orchestrator: stream work items, dispatch, record outcomes           |
+| `@bifrost-ai/runner`             | Remote runner: script stack execution, conventions, decorators            |
+| `@bifrost-ai/engine`             | Engine interface, types, and `TestEngine` for development/testing         |
+| `@bifrost-ai/engine-claude-code` | Claude Code Agent SDK engine (`ClaudeCodeEngine`)                         |
+| `@bifrost-ai/engine-cursor`      | Cursor SDK engine (`CursorEngine`)                                        |
+| `@bifrost-ai/agent-3-task`       | Task Agent — single-shot LLM execution (registered as scripts)            |
+| `@bifrost-ai/agent-4-workflow`   | Workflow Agent — DAG scheduling with dependencies (registered as scripts) |
 
 For design background and how each piece fits together, see [docs/](docs/).
 
@@ -37,32 +37,32 @@ vp run -r build # build all packages
 
 ## Usage
 
-### Define a work item handler
+### Register a script on the runner
 
-Handlers are registered on the runner and executed when a matching work item is dispatched. Higher-level agents (Task Agent, Workflow Agent) build on this interface.
+Scripts and decorators are registered on the runner. Dispatch resolves `workItem.kind` to a script and `workItem.flow` to an ordered list of decorators. Runner-level **conventions** wrap every execution (including the built-in `failOnError` decorator).
 
 ```typescript
-import type { WorkItemHandler } from "@bifrost-ai/interfaces-work";
+import type { ScriptFn } from "@bifrost-ai/interfaces-work";
+import { Runner } from "@bifrost-ai/runner";
 
-const echo: WorkItemHandler = {
-  kind: "script",
-  name: "echo",
-  async run(workItem, ctx) {
-    const message = workItem.metadata.message as string;
-    await ctx.setState({ echoed: message });
-    return { outcome: "completed", message };
-  },
+const echo: ScriptFn = async (workItem, ctx) => {
+  const message = workItem.metadata.message as string;
+  await ctx.setState({ echoed: message });
+  return { outcome: "completed", message };
 };
+
+const runner = new Runner();
+runner.registerScript("echo", echo);
 ```
 
-A handler receives:
+A script receives:
 
-- `workItem` — the dispatched instance (`workItemId`, `kind`, `name`, `state`, `metadata`)
-- `ctx.data` — `get(type)` returns a typed `Registry<T>`, then `.get(name)` for the instance
-- `ctx.handlers` — `get(kind, name)` for other registered handlers
+- `workItem` — the dispatched instance (`workItemId`, `kind`, `flow`, `state`, `metadata`)
+- `ctx.cwd` — working directory for local execution
+- `ctx.data` — typed sub-registries (`ctx.data.get("engine").get("claude")`)
 - `ctx.setState(state)` — persist state updates back to the work item source
 
-It returns `{ outcome: "completed" | "failed" | "paused", message?, telemetry? }`. A thrown error is treated as `failed`.
+It returns `{ outcome: "completed" | "failed" | "paused", message?, telemetry? }` or any other value (treated as completed). Thrown errors are caught by the `failOnError` convention.
 
 ### Implement a work item source
 
@@ -75,8 +75,8 @@ const workItemSource: WorkItemSource = {
   async *watchWorkItems() {
     yield {
       workItemId: "work-item-1",
-      kind: "script",
-      name: "echo",
+      kind: "echo",
+      flow: [],
       state: {},
       metadata: { message: "hello" },
     } satisfies WorkItem;
@@ -105,7 +105,7 @@ import { Orchestrator, loadAuthorizedRunners } from "@bifrost-ai/orchestrator";
 import { exportPublicKeyPem, generateKeyPair } from "@bifrost-ai/protocol";
 
 const orchestratorIdentity = generateKeyPair("orchestrator");
-const runnerIdentity = generateKeyPair("runner-1");
+const runnerIdentity = generateKeyPair("runner");
 
 const orchestrator = new Orchestrator();
 orchestrator.registerWorkItemSource(workItemSource);
@@ -165,37 +165,20 @@ identity:
 
 See [docs/runner.md](docs/runner.md) for config discovery, trust model, and handler enrollment.
 
-### RPC methods exposed by the orchestrator
+## RPC surface
 
-Runners call back into the orchestrator over the same signed WebSocket:
-
-| Method                    | Params                     | Description              |
-| ------------------------- | -------------------------- | ------------------------ |
-| `workItem.complete`       | `{ workItemId }`           | Mark work item completed |
-| `workItem.fail`           | `{ workItemId, message? }` | Mark work item failed    |
-| `workItem.pause`          | `{ workItemId }`           | Mark work item paused    |
-| `workItemSource.setState`         | `{ workItemId, state }`    | Persist handler state       |
-| `workItemSource.createDraftWorkItem` | `{ input }`             | Create a draft work item    |
-| `workItemSource.startWorkItem`    | `{ workItemId }`           | Promote draft to live       |
-| `workItemSource.setDependency`    | `{ workItemId, dependsOnWorkItemId, type? }` | Add dependency edge |
-| `workItemSource.getDependencies`  | `{ workItemId }`           | List dependency edges       |
-| `workItemSource.getWorkItemStatus`| `{ workItemId }`           | Query work item status      |
+| Method                    | Params                    | Purpose                  |
+| ------------------------- | ------------------------- | ------------------------ |
+| `dispatch`                | `WorkItem`                | Execute work on runner   |
+| `workItem.complete`       | `{ workItemId }`          | Mark work item completed |
+| `workItem.fail`           | `{ workItemId, message }` | Mark work item failed    |
+| `workItem.pause`          | `{ workItemId }`          | Mark work item paused    |
+| `workItemSource.setState` | `{ workItemId, state }`   | Persist handler state    |
 
 The orchestrator dispatches work with `dispatch` RPC requests containing a full `WorkItem` object.
 
-## Documentation
+## Roadmap
 
-- [docs/](docs/) — how the system works (architecture, design decisions)
-- [packages/protocol/README.md](packages/protocol/README.md) — protocol implementation details
-
-## Related issues
-
-This work tracks the Orchestrator v2 rebuild:
-
-- [#32 Script task execution primitive](https://github.com/devzeebo/bifrost/issues/32)
-- [#33 Runner↔orchestrator protocol](https://github.com/devzeebo/bifrost/issues/33)
-- [#35 Thin orchestrator](https://github.com/devzeebo/bifrost/issues/35)
-- [#36 Runner package](https://github.com/devzeebo/bifrost/issues/36)
 - [#37 Task Agent (`agent-3-task`)](https://github.com/devzeebo/bifrost/issues/37) — [lifecycle docs](docs/agent-3-task.md)
 - [#39 Workflow Agent (`agent-4-workflow`)](https://github.com/devzeebo/bifrost/issues/39) — [lifecycle docs](docs/agent-4-workflow.md)
 - [#41 Structured output package](https://github.com/devzeebo/bifrost/issues/41) — schemas, sentinel files, JSON/YAML validation

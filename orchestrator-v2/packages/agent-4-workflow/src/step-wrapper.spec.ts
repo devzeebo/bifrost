@@ -1,8 +1,6 @@
 import type {
   CreateDraftWorkItemInput,
-  WorkItem,
-  WorkItemExecutionContext,
-  WorkItemHandler,
+  ScriptContext,
   WorkItemResult,
   WorkItemSourceClient,
   WorkItemStatus,
@@ -12,15 +10,13 @@ import { describe, expect } from "vite-plus/test";
 import test from "vitest-gwt";
 
 import { continueStep, failStep, rewindStep } from "./step-result.js";
-import { runStepWrapper } from "./step-wrapper.js";
+import { runStepDecorator } from "./step-wrapper.js";
 import type { StepWrapperState } from "./types.js";
 
 type Context = {
-  workItem: WorkItem;
-  ctx: WorkItemExecutionContext;
   result: WorkItemResult;
   source: MockSource;
-  innerHandler: WorkItemHandler;
+  innerResult: unknown;
 };
 
 class MockSource implements WorkItemSourceClient {
@@ -52,74 +48,51 @@ class MockSource implements WorkItemSourceClient {
 }
 
 const wrapperState: StepWrapperState = {
-  stepId: "flow:step1-1[a]",
   workflowWorkItemId: "workflow-1",
-  innerKind: "script",
-  innerName: "a",
   workingDir: "/tmp",
 };
 
-describe("runStepWrapper", () => {
+describe("runStepDecorator", () => {
   test("continue step result completes wrapper", {
     given: { continue_step_fixture },
-    when: { running_wrapper },
+    when: { running_decorator },
     then: { outcome_is_completed },
   });
 
   test("fail step result fails wrapper", {
     given: { fail_step_fixture },
-    when: { running_wrapper },
+    when: { running_decorator },
     then: { outcome_is_failed },
   });
 
   test("rewind step result rewinds workflow", {
     given: { rewind_step_fixture },
-    when: { running_wrapper },
+    when: { running_decorator },
     then: { workflow_is_rewound },
   });
 });
 
 function continue_step_fixture(this: Context) {
   this.source = new MockSource();
-  this.innerHandler = {
-    kind: "script",
-    name: "a",
-    async run() {
-      return continueStep("done") as unknown as WorkItemResult;
-    },
-  };
-  this.workItem = makeWorkItem();
-  this.ctx = makeCtx(this.source, this.innerHandler);
+  this.innerResult = continueStep("done");
 }
 
 function fail_step_fixture(this: Context) {
   this.source = new MockSource();
-  this.innerHandler = {
-    kind: "script",
-    name: "a",
-    async run() {
-      return failStep("boom") as unknown as WorkItemResult;
-    },
-  };
-  this.workItem = makeWorkItem();
-  this.ctx = makeCtx(this.source, this.innerHandler);
+  this.innerResult = failStep("boom");
 }
 
 function rewind_step_fixture(this: Context) {
   this.source = new MockSource();
-  this.innerHandler = {
-    kind: "script",
-    name: "a",
-    async run() {
-      return rewindStep("flow:step1-1[a]", "try again") as unknown as WorkItemResult;
-    },
-  };
-  this.workItem = makeWorkItem();
-  this.ctx = makeCtx(this.source, this.innerHandler);
+  this.innerResult = rewindStep("flow:step1-1[a]", "try again");
 }
 
-async function running_wrapper(this: Context) {
-  this.result = await runStepWrapper(this.workItem, this.ctx, wrapperState);
+async function running_decorator(this: Context) {
+  this.result = await runStepDecorator(
+    wrapperState,
+    makeCtx(this.source),
+    async () => this.innerResult,
+  );
 }
 
 function outcome_is_completed(this: Context) {
@@ -143,18 +116,9 @@ function workflow_is_rewound(this: Context) {
   ]);
 }
 
-function makeWorkItem(): WorkItem {
+function makeCtx(source: MockSource): ScriptContext {
   return {
-    workItemId: "child-1",
-    kind: "script",
-    name: "flow:step1-1[a]",
-    state: { ...wrapperState },
-    metadata: {},
-  };
-}
-
-function makeCtx(source: MockSource, innerHandler: WorkItemHandler): WorkItemExecutionContext {
-  return {
+    cwd: "/tmp",
     data: {
       get() {
         return {
@@ -166,17 +130,6 @@ function makeCtx(source: MockSource, innerHandler: WorkItemHandler): WorkItemExe
           },
           register() {},
         };
-      },
-    },
-    handlers: {
-      get(kind, name) {
-        if (kind === innerHandler.kind && name === innerHandler.name) {
-          return innerHandler;
-        }
-        return undefined;
-      },
-      has(kind, name) {
-        return kind === innerHandler.kind && name === innerHandler.name;
       },
     },
     source,

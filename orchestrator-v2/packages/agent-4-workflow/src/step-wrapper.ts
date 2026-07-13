@@ -1,35 +1,19 @@
-import type {
-  WorkItem,
-  WorkItemExecutionContext,
-  WorkItemHandler,
-  WorkItemResult,
-} from "@bifrost-ai/interfaces-work";
+import type { DecoratorFn, ScriptContext, WorkItemResult } from "@bifrost-ai/interfaces-work";
 
 import { parseStepOutput } from "./step-result.js";
 import type { StepResult } from "./step-result.js";
 import type { FlattenedStep, StepWrapperState } from "./types.js";
 
-const STEP_WRAPPER_KIND = "script";
-
-export function createStepWrapperHandler(step: FlattenedStep): WorkItemHandler {
-  return {
-    kind: STEP_WRAPPER_KIND,
-    name: step.id,
-    async run(workItem, ctx) {
-      return runStepWrapper(workItem, ctx);
-    },
-  };
+export function createStepDecorator(_step: FlattenedStep): DecoratorFn {
+  return async (workItem, ctx, next) => runStepDecorator(workItem.state, ctx, next);
 }
 
-export async function runStepWrapper(
-  workItem: WorkItem,
-  ctx: WorkItemExecutionContext,
-  wrapperState?: StepWrapperState,
+export async function runStepDecorator(
+  state: Record<string, unknown>,
+  ctx: ScriptContext,
+  next: () => Promise<unknown>,
 ): Promise<WorkItemResult> {
-  const parsed =
-    wrapperState !== undefined
-      ? { ok: true as const, state: wrapperState }
-      : parseStepWrapperState(workItem.state);
+  const parsed = parseStepWrapperState(state);
   if (!parsed.ok) {
     return {
       outcome: "failed",
@@ -37,38 +21,12 @@ export async function runStepWrapper(
     };
   }
 
-  const state = parsed.state;
-  const innerHandler = ctx.handlers.get(state.innerKind, state.innerName);
-  if (innerHandler === undefined) {
-    return {
-      outcome: "failed",
-      message: `Unknown inner handler: ${state.innerKind}:${state.innerName}`,
-    };
-  }
-
-  const cwd =
-    typeof state.workingDir === "string" && state.workingDir.length > 0
-      ? state.workingDir
-      : process.cwd();
-
-  const innerWorkItem: WorkItem = {
-    workItemId: workItem.workItemId,
-    kind: state.innerKind,
-    name: state.innerName,
-    state: {
-      workingDir: cwd,
-      instructions: state.instructions ?? "",
-      engineName: state.engineName ?? "",
-    },
-    metadata: workItem.metadata,
-  };
-
   let rawResult: unknown;
   try {
-    rawResult = await innerHandler.run(innerWorkItem, ctx);
+    rawResult = await next();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return applyStepResult({ transition: "fail", message }, state, ctx.source);
+    return applyStepResult({ transition: "fail", message }, parsed.state, ctx.source);
   }
 
   const stepOutput = parseStepOutput(rawResult);
@@ -76,13 +34,13 @@ export async function runStepWrapper(
     return stepOutput.result;
   }
 
-  return applyStepResult(stepOutput.result, state, ctx.source);
+  return applyStepResult(stepOutput.result, parsed.state, ctx.source);
 }
 
 async function applyStepResult(
   result: StepResult,
   state: StepWrapperState,
-  source: WorkItemExecutionContext["source"],
+  source: ScriptContext["source"],
 ): Promise<WorkItemResult> {
   if (result.transition === "continue") {
     return { outcome: "completed", message: result.message, telemetry: result.telemetry };
@@ -108,13 +66,7 @@ async function applyStepResult(
 function parseStepWrapperState(
   state: Record<string, unknown>,
 ): { ok: true; state: StepWrapperState } | { ok: false; missing: string[] } {
-  const required = [
-    "stepId",
-    "workflowWorkItemId",
-    "innerKind",
-    "innerName",
-    "workingDir",
-  ] as const;
+  const required = ["workflowWorkItemId", "workingDir"] as const;
   const missing: string[] = [];
 
   for (const field of required) {
@@ -130,15 +82,10 @@ function parseStepWrapperState(
   return {
     ok: true,
     state: {
-      stepId: state.stepId as string,
       workflowWorkItemId: state.workflowWorkItemId as string,
-      innerKind: state.innerKind as "task" | "script",
-      innerName: state.innerName as string,
       workingDir: state.workingDir as string,
       ...(typeof state.instructions === "string" ? { instructions: state.instructions } : {}),
       ...(typeof state.engineName === "string" ? { engineName: state.engineName } : {}),
     },
   };
 }
-
-export { STEP_WRAPPER_KIND };

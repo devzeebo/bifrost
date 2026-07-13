@@ -9,6 +9,7 @@ declare module "@bifrost-ai/runner" {
   interface Runner {
     registerTaskAgent(name: string, agent: AgentDefinition): void;
     registerEngine(name: string, engine: Engine): void;
+    registerScript(kind: string, fn: import("@bifrost-ai/interfaces-work").ScriptFn): void;
   }
 }
 
@@ -18,7 +19,7 @@ Runner.prototype.registerTaskAgent = function registerTaskAgent(
   agent: AgentDefinition,
 ): void {
   this.data.get(AGENT_DEFINITION_DATA_TYPE).register(name, agent);
-  this.registerWorkItemHandler(createTaskAgent(agent, name));
+  this.registerScript(name, createTaskAgent(agent, name));
 };
 
 Runner.prototype.registerEngine = function registerEngine(

@@ -32,5 +32,5 @@ function a_task_agent_is_registered(this: Context) {
 }
 
 function the_handler_is_available_by_dispatch_name(this: Context) {
-  expect(this.runner.hasWorkItemHandler("task", "greeter")).toBe(true);
+  expect(this.runner.hasScript("greeter")).toBe(true);
 }

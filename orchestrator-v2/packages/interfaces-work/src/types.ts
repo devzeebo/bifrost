@@ -1,7 +1,7 @@
 export type WorkItem = {
   workItemId: string;
   kind: string;
-  name: string;
+  flow: string[];
   state: Record<string, unknown>;
   readonly metadata: Record<string, unknown>;
 };
@@ -13,7 +13,7 @@ export type WorkItemDependency = {
 
 export type CreateDraftWorkItemInput = {
   kind: string;
-  name: string;
+  flow?: string[];
   state?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
 };
@@ -43,7 +43,30 @@ export type WorkItemSourceClient = Pick<
   | "setState"
 >;
 
-const REQUIRED_WORK_ITEM_FIELDS = ["workItemId", "kind", "name"] as const;
+export type ScriptContext<TData extends Record<string, unknown> = Record<string, unknown>> = {
+  cwd: string;
+  data: DataRegistry<TData>;
+  source: WorkItemSourceClient;
+  setState: (state: Record<string, unknown>) => Promise<void>;
+};
+
+export type ScriptFn<TData extends Record<string, unknown> = Record<string, unknown>> = (
+  workItem: WorkItem,
+  ctx: ScriptContext<TData>,
+) => Promise<unknown>;
+
+export type DecoratorFn<TData extends Record<string, unknown> = Record<string, unknown>> = (
+  workItem: WorkItem,
+  ctx: ScriptContext<TData>,
+  next: () => Promise<unknown>,
+) => Promise<unknown>;
+
+export type ScriptStack<TData extends Record<string, unknown> = Record<string, unknown>> = {
+  scripts: Record<string, ScriptFn<TData>>;
+  decorators: Record<string, DecoratorFn<TData>>;
+};
+
+const REQUIRED_WORK_ITEM_FIELDS = ["workItemId", "kind", "flow"] as const;
 
 export function isWorkItem(value: unknown): value is WorkItem {
   if (value === null || typeof value !== "object") {
@@ -56,8 +79,8 @@ export function isWorkItem(value: unknown): value is WorkItem {
     record.workItemId.length === 0 ||
     typeof record.kind !== "string" ||
     record.kind.length === 0 ||
-    typeof record.name !== "string" ||
-    record.name.length === 0 ||
+    !Array.isArray(record.flow) ||
+    !record.flow.every((entry) => typeof entry === "string" && entry.length > 0) ||
     record.state === null ||
     typeof record.state !== "object" ||
     record.metadata === null ||
@@ -93,11 +116,17 @@ export function missingWorkItemFields(value: unknown): string[] {
   if (typeof record.workItemId === "string" && record.workItemId.length === 0) {
     missing.push("workItemId");
   }
-  if (typeof record.name === "string" && record.name.length === 0) {
-    missing.push("name");
-  }
   if (typeof record.kind === "string" && record.kind.length === 0) {
     missing.push("kind");
+  }
+  if (record.flow !== undefined && !Array.isArray(record.flow)) {
+    missing.push("flow");
+  }
+  if (
+    Array.isArray(record.flow) &&
+    !record.flow.every((entry) => typeof entry === "string" && entry.length > 0)
+  ) {
+    missing.push("flow");
   }
 
   return [...new Set(missing)];
@@ -163,5 +192,16 @@ export function isWorkItemHandler(value: unknown): value is WorkItemHandler {
     typeof record.kind === "string" &&
     typeof record.name === "string" &&
     typeof record.run === "function"
+  );
+}
+
+export function isWorkItemResult(value: unknown): value is WorkItemResult {
+  if (value === null || typeof value !== "object") {
+    return false;
+  }
+
+  const record = value as Partial<WorkItemResult>;
+  return (
+    record.outcome === "completed" || record.outcome === "failed" || record.outcome === "paused"
   );
 }

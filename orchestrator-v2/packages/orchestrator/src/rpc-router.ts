@@ -220,7 +220,14 @@ function readCreateDraftParams(params: unknown): { input: CreateDraftWorkItemInp
     return null;
   }
   const input = record.input as Partial<CreateDraftWorkItemInput>;
-  if (typeof input.kind !== "string" || typeof input.name !== "string") {
+  if (typeof input.kind !== "string") {
+    return null;
+  }
+  if (
+    input.flow !== undefined &&
+    (!Array.isArray(input.flow) ||
+      !input.flow.every((entry) => typeof entry === "string" && entry.length > 0))
+  ) {
     return null;
   }
   if (

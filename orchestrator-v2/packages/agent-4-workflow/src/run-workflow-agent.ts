@@ -1,16 +1,11 @@
-import type {
-  WorkItem,
-  WorkItemExecutionContext,
-  WorkItemResult,
-} from "@bifrost-ai/interfaces-work";
+import type { ScriptContext, WorkItem, WorkItemResult } from "@bifrost-ai/interfaces-work";
 
 import type { WorkflowDefinition, WorkflowState } from "./types.js";
 import { missingFieldsMessage, parseWorkflowState } from "./types.js";
-import { STEP_WRAPPER_KIND } from "./step-wrapper.js";
 
 export async function runWorkflowAgent(
   workItem: WorkItem,
-  ctx: WorkItemExecutionContext,
+  ctx: ScriptContext,
   definition: WorkflowDefinition,
 ): Promise<WorkItemResult> {
   const parsed = parseWorkflowState(workItem.state);
@@ -35,7 +30,7 @@ export async function runWorkflowAgent(
 
 async function schedulePass(
   workItem: WorkItem,
-  ctx: WorkItemExecutionContext,
+  ctx: ScriptContext,
   definition: WorkflowDefinition,
   state: WorkflowState,
 ): Promise<WorkItemResult> {
@@ -48,14 +43,17 @@ async function schedulePass(
       }
 
       const childId = await ctx.source.createDraftWorkItem({
-        kind: STEP_WRAPPER_KIND,
-        name: step.id,
+        kind: step.innerName,
+        flow: [step.id],
         state: {
-          stepId: step.id,
           workflowWorkItemId: workItem.workItemId,
-          innerKind: step.innerKind,
-          innerName: step.innerName,
           workingDir: state.workingDir,
+          ...(typeof workItem.state.instructions === "string"
+            ? { instructions: workItem.state.instructions }
+            : {}),
+          ...(typeof workItem.state.engineName === "string"
+            ? { engineName: workItem.state.engineName }
+            : {}),
         },
         metadata: {
           workflowName: definition.name,
@@ -99,7 +97,7 @@ async function schedulePass(
 }
 
 async function verifyPass(
-  ctx: WorkItemExecutionContext,
+  ctx: ScriptContext,
   definition: WorkflowDefinition,
   state: WorkflowState,
 ): Promise<WorkItemResult> {

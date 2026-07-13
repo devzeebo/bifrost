@@ -1,4 +1,4 @@
-import type { WorkItem, WorkItemExecutionContext } from "@bifrost-ai/interfaces-work";
+import type { ScriptContext, WorkItem } from "@bifrost-ai/interfaces-work";
 
 import type { StepResult } from "./step-result.js";
 
@@ -10,7 +10,7 @@ export type TaskRef = {
 export type WorkflowScriptFn = (ctx: {
   workItem: WorkItem;
   cwd: string;
-  setState: WorkItemExecutionContext["setState"];
+  setState: ScriptContext["setState"];
 }) => Promise<StepResult> | StepResult;
 
 export type ScriptRef = {

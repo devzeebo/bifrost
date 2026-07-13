@@ -1,7 +1,7 @@
 import type {
   CreateDraftWorkItemInput,
+  ScriptContext,
   WorkItem,
-  WorkItemExecutionContext,
   WorkItemSourceClient,
   WorkItemStatus,
 } from "@bifrost-ai/interfaces-work";
@@ -13,7 +13,7 @@ import type { WorkflowDefinition } from "./types.js";
 
 type Context = {
   workItem: WorkItem;
-  ctx: WorkItemExecutionContext;
+  ctx: ScriptContext;
   definition: WorkflowDefinition;
   result: Awaited<ReturnType<typeof runWorkflowAgent>>;
   source: MockSource;
@@ -97,8 +97,8 @@ function schedule_fixture(this: Context) {
   this.definition = linearDefinition;
   this.workItem = {
     workItemId: "workflow-1",
-    kind: "workflow",
-    name: "linear",
+    kind: "linear",
+    flow: [],
     state: {
       workingDir: "/tmp",
       definitionName: "linear",
@@ -117,8 +117,8 @@ function verify_fixture_with_failed_child(this: Context) {
   this.source.statuses.set("child-3", "completed");
   this.workItem = {
     workItemId: "workflow-1",
-    kind: "workflow",
-    name: "linear",
+    kind: "linear",
+    flow: [],
     state: {
       workingDir: "/tmp",
       definitionName: "linear",
@@ -142,8 +142,8 @@ function verify_fixture_all_completed(this: Context) {
   }
   this.workItem = {
     workItemId: "workflow-1",
-    kind: "workflow",
-    name: "linear",
+    kind: "linear",
+    flow: [],
     state: {
       workingDir: "/tmp",
       definitionName: "linear",
@@ -167,8 +167,8 @@ function verify_fixture_with_live_child(this: Context) {
   this.source.statuses.set("child-3", "completed");
   this.workItem = {
     workItemId: "workflow-1",
-    kind: "workflow",
-    name: "linear",
+    kind: "linear",
+    flow: [],
     state: {
       workingDir: "/tmp",
       definitionName: "linear",
@@ -194,6 +194,11 @@ function outcome_is_paused(this: Context) {
 
 function children_created_and_started(this: Context) {
   expect(this.source.drafts).toHaveLength(3);
+  expect(this.source.drafts[0]?.input).toMatchObject({
+    kind: "a",
+    flow: ["step-a"],
+    state: { workflowWorkItemId: "workflow-1", workingDir: "/tmp" },
+  });
   expect(this.source.started).toEqual(["child-1", "child-2", "child-3"]);
   expect(this.source.dependencies.some((dep) => dep.workItemId === "workflow-1")).toBe(true);
 }
@@ -206,9 +211,10 @@ function outcome_is_completed(this: Context) {
   expect(this.result.outcome).toBe("completed");
 }
 
-function makeCtx(source: MockSource): WorkItemExecutionContext {
+function makeCtx(source: MockSource): ScriptContext {
   const state: Record<string, unknown> = {};
   return {
+    cwd: "/tmp",
     data: {
       get() {
         return {
@@ -222,7 +228,6 @@ function makeCtx(source: MockSource): WorkItemExecutionContext {
         };
       },
     },
-    handlers: { get: () => undefined, has: () => false },
     source,
     async setState(nextState) {
       Object.assign(state, nextState);

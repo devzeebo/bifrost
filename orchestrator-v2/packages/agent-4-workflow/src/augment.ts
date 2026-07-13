@@ -1,10 +1,10 @@
-import type { WorkItemHandler, WorkItemResult } from "@bifrost-ai/interfaces-work";
+import type { ScriptFn } from "@bifrost-ai/interfaces-work";
 import { Runner } from "@bifrost-ai/runner";
 
 import { flattenWorkflowBuilder } from "./flatten-workflow.js";
-import { createWorkflowAgent } from "./create-workflow-agent.js";
+import { createWorkflowScript } from "./create-workflow-agent.js";
 import type { ScriptRef } from "./step-refs.js";
-import { createStepWrapperHandler } from "./step-wrapper.js";
+import { createStepDecorator } from "./step-wrapper.js";
 import type { WorkflowDefinition } from "./types.js";
 import { Workflow } from "./workflow.js";
 
@@ -22,14 +22,14 @@ Runner.prototype.registerWorkflowAgent = function registerWorkflowAgent(
   const definition = flattenWorkflowBuilder(workflow);
   validateDefinition(this, definition);
   registerScriptSteps(this, workflow);
-  registerStepWrappers(this, definition);
-  this.registerWorkItemHandler(createWorkflowAgent(definition, definition.name));
+  registerStepDecorators(this, definition);
+  this.registerScript(definition.name, createWorkflowScript(definition));
   return definition;
 };
 
 function validateDefinition(runner: Runner, definition: WorkflowDefinition): void {
   for (const step of definition.steps) {
-    if (step.innerKind === "task" && !runner.hasWorkItemHandler("task", step.innerName)) {
+    if (step.innerKind === "task" && !runner.hasScript(step.innerName)) {
       throw new Error(`Task agent not registered: ${step.innerName}`);
     }
   }
@@ -37,30 +37,20 @@ function validateDefinition(runner: Runner, definition: WorkflowDefinition): voi
 
 function registerScriptSteps(runner: Runner, workflow: Workflow): void {
   for (const ref of collectScriptRefs(workflow)) {
-    if (!runner.hasWorkItemHandler("script", ref.displayName)) {
-      runner.registerWorkItemHandler(createWorkflowScriptHandler(ref));
+    if (!runner.hasScript(ref.displayName)) {
+      runner.registerScript(ref.displayName, createWorkflowInlineScript(ref));
     }
   }
 }
 
-function createWorkflowScriptHandler(ref: ScriptRef): WorkItemHandler {
-  return {
-    kind: "script",
-    name: ref.displayName,
-    async run(workItem, ctx) {
-      const cwd =
-        typeof workItem.state.workingDir === "string" && workItem.state.workingDir.length > 0
-          ? workItem.state.workingDir
-          : process.cwd();
-      return ref.fn({ workItem, cwd, setState: ctx.setState }) as unknown as WorkItemResult;
-    },
-  };
+function createWorkflowInlineScript(ref: ScriptRef): ScriptFn {
+  return async (workItem, ctx) => ref.fn({ workItem, cwd: ctx.cwd, setState: ctx.setState });
 }
 
-function registerStepWrappers(runner: Runner, definition: WorkflowDefinition): void {
+function registerStepDecorators(runner: Runner, definition: WorkflowDefinition): void {
   for (const step of definition.steps) {
-    if (!runner.hasWorkItemHandler("script", step.id)) {
-      runner.registerWorkItemHandler(createStepWrapperHandler(step));
+    if (!runner.hasDecorator(step.id)) {
+      runner.registerDecorator(step.id, createStepDecorator(step));
     }
   }
 }
