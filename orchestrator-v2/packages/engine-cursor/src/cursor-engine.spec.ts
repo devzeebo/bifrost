@@ -110,7 +110,9 @@ describe("CursorEngine", () => {
   let mockResume: MockedFunction<typeof Agent.resume>;
 
   beforeEach(() => {
+    // oxlint-disable-next-line typescript/unbound-method -- mocked
     mockCreate = vi.mocked(Agent.create) as MockedFunction<typeof Agent.create>;
+    // oxlint-disable-next-line typescript/unbound-method -- mocked
     mockResume = vi.mocked(Agent.resume) as MockedFunction<typeof Agent.resume>;
     mockCreate.mockReset();
     mockResume.mockReset();
