@@ -21,16 +21,13 @@ export async function runStepDecorator(
 ): Promise<void> {
   verifyStepWrapperState(state);
 
-  const wrapperState = state as StepWrapperState;
-
   const rawResult = await next();
-  await applyStepResult(parseStepOutput(rawResult), workItemId, wrapperState, ctx);
+  await applyStepResult(parseStepOutput(rawResult), workItemId, ctx);
 }
 
 async function applyStepResult(
   result: StepResult,
   workItemId: string,
-  state: StepWrapperState,
   ctx: ScriptContext,
 ): Promise<void> {
   if (result.transition === "continue") {
@@ -42,19 +39,11 @@ async function applyStepResult(
     return;
   }
 
-  if (result.transition === "rewind") {
-    await ctx.workItemSource.setState(state.workflowWorkItemId, {
-      rewindTarget: result.rewindTo,
-      phase: "schedule",
-    });
-    throw new Error(result.message ?? `Rewinding to ${result.rewindTo}`);
-  }
-
   throw new Error(result.message ?? "fail");
 }
 
 function verifyStepWrapperState(state: Record<string, unknown>): asserts state is StepWrapperState {
-  const required = ["workflowWorkItemId", "workingDir"] as const;
+  const required = ["workflowWorkItemId", "workingDir", "definitionName"] as const;
   const missing: string[] = [];
 
   for (const field of required) {

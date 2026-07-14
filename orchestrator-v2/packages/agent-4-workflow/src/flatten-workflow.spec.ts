@@ -30,6 +30,11 @@ describe("flattenWorkflowBuilder", () => {
     given: { parallel_same_name_workflow },
     then: { parallel_step_ids_are_unique },
   });
+
+  test("duplicate nested workflow names get distinct ids", {
+    given: { duplicate_nested_workflow },
+    then: { nested_workflow_ids_are_distinct },
+  });
 });
 
 function linear_workflow(this: Context) {
@@ -72,7 +77,9 @@ function nested_workflow(this: Context) {
 }
 
 function nested_steps_are_namespaced(this: Context) {
-  const innerStep = this.definition.steps.find((step) => step.id.includes("inner:step1-1[someFn]"));
+  const innerStep = this.definition.steps.find((step) =>
+    step.id.includes("step2-2[inner]:step1-1[someFn]"),
+  );
   const lastStep = this.definition.steps.find((step) => step.id.includes("[last]"));
   expect(innerStep).toBeDefined();
   expect(lastStep?.dependsOn.length).toBeGreaterThan(0);
@@ -85,6 +92,23 @@ function parallel_same_name_workflow(this: Context) {
 
 function parallel_step_ids_are_unique(this: Context) {
   const ids = this.definition.steps.map((step) => step.id);
+  expect(ids).toHaveLength(2);
   expect(new Set(ids).size).toBe(ids.length);
   expect(ids[0]).not.toBe(ids[1]);
+}
+
+function duplicate_nested_workflow(this: Context) {
+  const inner = new Workflow({ name: "inner" }).step(task("x"));
+  const workflow = new Workflow({ name: "outer" }).step(inner, inner).step(task("after"));
+  this.definition = flattenWorkflowBuilder(workflow);
+}
+
+function nested_workflow_ids_are_distinct(this: Context) {
+  const innerSteps = this.definition.steps.filter((step) => step.id.includes("[inner]"));
+  expect(innerSteps).toHaveLength(2);
+  expect(innerSteps[0]?.id).not.toBe(innerSteps[1]?.id);
+  expect(innerSteps[0]?.dependsOn).toEqual([]);
+  expect(innerSteps[1]?.dependsOn).toEqual([]);
+  const afterStep = this.definition.steps.find((step) => step.id.includes("[after]"));
+  expect(afterStep?.dependsOn.sort()).toEqual(innerSteps.map((step) => step.id).sort());
 }

@@ -8,7 +8,7 @@ import type {
 import { describe, expect } from "vite-plus/test";
 import test from "vitest-gwt";
 
-import { continueStep, failStep, rewindStep } from "./step-result.js";
+import { continueStep, failStep, pauseStep } from "./step-result.js";
 import { runStepDecorator } from "./step-wrapper.js";
 import type { StepWrapperState } from "./types.js";
 
@@ -20,6 +20,7 @@ type Context = {
 
 class MockSource implements WorkItemSourceClient {
   public workflowStateUpdates: Array<{ workItemId: string; state: Record<string, unknown> }> = [];
+  public paused: Array<{ workItemId: string }> = [];
 
   async completeWorkItem(): Promise<void> {
     throw new Error("not implemented");
@@ -29,8 +30,8 @@ class MockSource implements WorkItemSourceClient {
     throw new Error("not implemented");
   }
 
-  async pauseWorkItem(): Promise<void> {
-    throw new Error("not implemented");
+  async pauseWorkItem(workItemId: string): Promise<void> {
+    this.paused.push({ workItemId });
   }
 
   async createDraftWorkItem(_input: CreateDraftWorkItemInput): Promise<string> {
@@ -61,6 +62,7 @@ class MockSource implements WorkItemSourceClient {
 const wrapperState: StepWrapperState = {
   workflowWorkItemId: "workflow-1",
   workingDir: "/tmp",
+  definitionName: "flow",
 };
 
 describe("runStepDecorator", () => {
@@ -76,10 +78,10 @@ describe("runStepDecorator", () => {
     then: { fail_is_thrown },
   });
 
-  test("rewind step result rewinds workflow", {
-    given: { rewind_step_fixture },
+  test("pause step result pauses work item", {
+    given: { pause_step_fixture },
     when: { running_decorator },
-    then: { workflow_is_rewound },
+    then: { work_item_is_paused },
   });
 });
 
@@ -93,9 +95,9 @@ function fail_step_fixture(this: Context) {
   this.innerResult = failStep("boom");
 }
 
-function rewind_step_fixture(this: Context) {
+function pause_step_fixture(this: Context) {
   this.workItemSource = new MockSource();
-  this.innerResult = rewindStep("flow:step1-1[a]", "try again");
+  this.innerResult = pauseStep();
 }
 
 async function running_decorator(this: Context) {
@@ -120,14 +122,9 @@ function fail_is_thrown(this: Context) {
   expect(this.error?.message).toBe("boom");
 }
 
-function workflow_is_rewound(this: Context) {
-  expect(this.error?.message).toBe("try again");
-  expect(this.workItemSource.workflowStateUpdates).toEqual([
-    {
-      workItemId: "workflow-1",
-      state: { rewindTarget: "flow:step1-1[a]", phase: "schedule" },
-    },
-  ]);
+function work_item_is_paused(this: Context) {
+  expect(this.error).toBeNull();
+  expect(this.workItemSource.paused).toEqual([{ workItemId: "step-child-1" }]);
 }
 
 function makeCtx(workItemSource: MockSource): ScriptContext {

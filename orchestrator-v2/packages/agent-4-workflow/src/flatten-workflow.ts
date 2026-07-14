@@ -22,7 +22,7 @@ function flattenWorkflowGroup(
 
     for (const [itemIndex, item] of group.entries()) {
       if (item instanceof Workflow) {
-        const nestedPrefix = `${prefix}:${item.name}`;
+        const nestedPrefix = `${prefix}:step${groupIndex + 1}-${itemIndex + 1}[${item.name}]`;
         const nested = flattenWorkflowGroup(item, nestedPrefix, previousExitIds);
         steps.push(...nested.steps);
         if (nested.exitStepIds.length > 0) {

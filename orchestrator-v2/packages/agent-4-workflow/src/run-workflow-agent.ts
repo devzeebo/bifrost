@@ -34,7 +34,7 @@ async function schedulePass(
   definition: WorkflowDefinition,
   state: WorkflowState,
 ): Promise<void> {
-  const childIds = state.childIds ?? {};
+  const childIds = { ...state.childIds };
 
   if (Object.keys(childIds).length === 0) {
     for (const step of definition.steps) {
@@ -49,6 +49,7 @@ async function schedulePass(
         state: {
           workflowWorkItemId: workItem.workItemId,
           workingDir: state.workingDir,
+          definitionName: state.definitionName,
         },
         metadata: {
           workflowName: definition.name,
@@ -58,28 +59,8 @@ async function schedulePass(
       childIds[step.id] = childId;
     }
 
-    for (const step of definition.steps) {
-      const childId = childIds[step.id];
-      if (childId === undefined) {
-        throw new Error(`Missing child for step ${step.id}`);
-      }
-
-      for (const depStepId of step.dependsOn) {
-        const depChildId = childIds[depStepId];
-        if (depChildId === undefined) {
-          throw new Error(`Missing dependency child for ${depStepId}`);
-        }
-        await ctx.workItemSource.setDependency(childId, depChildId);
-      }
-    }
-
-    for (const step of definition.steps) {
-      const childId = childIds[step.id];
-      if (childId !== undefined) {
-        await ctx.workItemSource.startWorkItem(childId);
-        await ctx.workItemSource.setDependency(workItem.workItemId, childId);
-      }
-    }
+    await wireDependencies(ctx, definition, childIds);
+    await startChildren(ctx, workItem.workItemId, definition, childIds);
   }
 
   await ctx.setState({
@@ -89,6 +70,42 @@ async function schedulePass(
   });
 
   await pauseWorkItem(ctx, workItem.workItemId);
+}
+
+async function wireDependencies(
+  ctx: ScriptContext,
+  definition: WorkflowDefinition,
+  childIds: Record<string, string>,
+): Promise<void> {
+  for (const step of definition.steps) {
+    const childId = childIds[step.id];
+    if (childId === undefined) {
+      throw new Error(`Missing child for step ${step.id}`);
+    }
+
+    for (const depStepId of step.dependsOn) {
+      const depChildId = childIds[depStepId];
+      if (depChildId === undefined) {
+        throw new Error(`Missing dependency child for ${depStepId}`);
+      }
+      await ctx.workItemSource.setDependency(childId, depChildId);
+    }
+  }
+}
+
+async function startChildren(
+  ctx: ScriptContext,
+  workflowWorkItemId: string,
+  definition: WorkflowDefinition,
+  childIds: Record<string, string>,
+): Promise<void> {
+  for (const step of definition.steps) {
+    const childId = childIds[step.id];
+    if (childId !== undefined) {
+      await ctx.workItemSource.startWorkItem(childId);
+      await ctx.workItemSource.setDependency(workflowWorkItemId, childId);
+    }
+  }
 }
 
 async function verifyPass(

@@ -32,11 +32,12 @@ export function createScriptContext<TData extends Record<string, unknown>>(
     data,
     workItemSource: createRpcWorkItemSourceClient(rpc),
     async setState(nextState) {
-      Object.assign(liveWorkItem.state, nextState);
+      const mergedState = { ...liveWorkItem.state, ...nextState };
       await rpc.call("workItemSource.setState", {
         workItemId: workItem.workItemId,
-        state: liveWorkItem.state,
+        state: mergedState,
       });
+      Object.assign(liveWorkItem.state, nextState);
     },
   };
 

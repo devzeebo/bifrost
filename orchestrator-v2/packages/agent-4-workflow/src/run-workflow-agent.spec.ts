@@ -226,7 +226,11 @@ function children_created_and_started(this: Context) {
     kind: "task",
     name: "a",
     flow: ["step-a"],
-    state: { workflowWorkItemId: "workflow-1", workingDir: "/tmp" },
+    state: {
+      workflowWorkItemId: "workflow-1",
+      workingDir: "/tmp",
+      definitionName: "linear",
+    },
   });
   expect(this.workItemSource.started).toEqual(["child-1", "child-2", "child-3"]);
   expect(this.workItemSource.dependencies.some((dep) => dep.workItemId === "workflow-1")).toBe(

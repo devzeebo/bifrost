@@ -14,7 +14,7 @@ import { createDataRegistry } from "./data-registry.js";
 import { Registry } from "./registry.js";
 import type { RunnerOptions } from "./types.js";
 
-const DEFAULT_CONVENTIONS = [FAIL_ON_ERROR_DECORATOR, COMPLETE_ON_SUCCESS_DECORATOR] as const;
+const DEFAULT_CONVENTIONS = [COMPLETE_ON_SUCCESS_DECORATOR, FAIL_ON_ERROR_DECORATOR] as const;
 
 export class Runner<TData extends Record<string, unknown> = Record<string, unknown>> {
   private readonly options: RunnerOptions<TData>;

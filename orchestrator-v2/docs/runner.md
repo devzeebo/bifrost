@@ -125,7 +125,7 @@ sequenceDiagram
 | `ctx.handlers`        | Other registered handlers — `ctx.handlers.get(kind, name)`                         |
 | `ctx.setState(state)` | RPC `workItemSource.setState` to orchestrator                                      |
 
-Work item source methods are reached over RPC via `ctx.source`. The engine (when used by agent packages) runs locally on the runner — never proxied.
+Work item source methods are reached over RPC via `ctx.workItemSource`. The engine (when used by agent packages) runs locally on the runner — never proxied.
 
 ## Alternatives rejected
 
