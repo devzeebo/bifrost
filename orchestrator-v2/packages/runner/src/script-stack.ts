@@ -1,4 +1,11 @@
-import type { DecoratorFn, ScriptContext, ScriptFn, WorkItem } from "@bifrost-ai/interfaces-work";
+import type {
+  DecoratorFactory,
+  DecoratorFn,
+  ScriptContext,
+  ScriptFn,
+  WorkItem,
+} from "@bifrost-ai/interfaces-work";
+import { normalizeFlowEntry, type NormalizedFlowEntry } from "@bifrost-ai/interfaces-work";
 
 import type { Registry } from "./registry.js";
 
@@ -10,7 +17,7 @@ export type ResolvedStack<TData extends Record<string, unknown> = Record<string,
 export function resolveStack<TData extends Record<string, unknown> = Record<string, unknown>>(
   workItem: WorkItem,
   scripts: Registry<ScriptFn<TData>>,
-  decorators: Registry<DecoratorFn<TData>>,
+  decorators: Registry<DecoratorFactory<TData>>,
   conventions: readonly string[],
 ): ResolvedStack<TData> {
   const script = scripts.get(workItem.name);
@@ -18,15 +25,18 @@ export function resolveStack<TData extends Record<string, unknown> = Record<stri
     throw new Error(`Unknown script: ${workItem.name}`);
   }
 
-  const decoratorNames = [...conventions, ...workItem.flow];
+  const flowEntries: NormalizedFlowEntry[] = [
+    ...conventions.map((name) => ({ name, args: [] as unknown[] })),
+    ...workItem.flow.map(normalizeFlowEntry),
+  ];
   const resolvedDecorators: DecoratorFn<TData>[] = [];
 
-  for (const name of decoratorNames) {
-    const decorator = decorators.get(name);
-    if (decorator === undefined) {
-      throw new Error(`Unknown decorator: ${name}`);
+  for (const entry of flowEntries) {
+    const factory = decorators.get(entry.name);
+    if (factory === undefined) {
+      throw new Error(`Unknown decorator: ${entry.name}`);
     }
-    resolvedDecorators.push(decorator);
+    resolvedDecorators.push(factory(...entry.args));
   }
 
   return { script, decorators: resolvedDecorators };

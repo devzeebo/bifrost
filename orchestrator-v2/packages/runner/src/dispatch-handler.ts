@@ -3,7 +3,7 @@ import {
   missingWorkItemFieldsMessage,
   validateWorkItem,
 } from "@bifrost-ai/interfaces-work";
-import type { DataRegistry, DecoratorFn, ScriptFn } from "@bifrost-ai/interfaces-work";
+import type { DataRegistry, DecoratorFactory, ScriptFn } from "@bifrost-ai/interfaces-work";
 import type { FramePayload, RunnerPeer } from "@bifrost-ai/protocol";
 
 import { sendRpcResponse, type RpcClient } from "./rpc-client.js";
@@ -13,7 +13,7 @@ import type { Registry } from "./registry.js";
 
 export type DispatchScriptStack<TData extends Record<string, unknown>> = {
   scripts: Registry<ScriptFn<TData>>;
-  decorators: Registry<DecoratorFn<TData>>;
+  decorators: Registry<DecoratorFactory<TData>>;
   conventions: readonly string[];
   data: DataRegistry<TData>;
   rpc: RpcClient;

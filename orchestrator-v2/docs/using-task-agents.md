@@ -27,12 +27,12 @@ If the job naturally breaks into “first do X, then Y, then Z,” consider a wo
 
 ## What you need
 
-| Piece | What it does |
-| ----- | ------------ |
-| **AGENT.md** | Describes the agent: name, tools, prompt template, and parameter declarations |
-| **An engine** | The AI backend (for example `claude` or `cursor`) |
-| **A runner** | The process that receives work and runs agents |
-| **A work item** | A message that says “run this agent now” with the right settings |
+| Piece           | What it does                                                                  |
+| --------------- | ----------------------------------------------------------------------------- |
+| **AGENT.md**    | Describes the agent: name, tools, prompt template, and parameter declarations |
+| **An engine**   | The AI backend (for example `claude` or `cursor`)                             |
+| **A runner**    | The process that receives work and runs agents                                |
+| **A work item** | A message that says “run this agent now” with the right settings              |
 
 ## Step 1 — Write an AGENT.md file
 
@@ -55,13 +55,13 @@ Review the code carefully. Focus on bugs, readability, and tests.
 
 **Header fields:**
 
-| Field | Required | Meaning |
-| ----- | -------- | ------- |
-| `name` | Yes | Short name for the agent |
-| `description` | Yes | One-line summary of what it does |
-| `tools` | Yes | Tools the AI may use (can be an empty list `[]`) |
-| `template.parameters` | No | Declares inputs the prompt can use (see below) |
-| `model` | No | Which model to use (engine-specific) |
+| Field                 | Required | Meaning                                          |
+| --------------------- | -------- | ------------------------------------------------ |
+| `name`                | Yes      | Short name for the agent                         |
+| `description`         | Yes      | One-line summary of what it does                 |
+| `tools`               | Yes      | Tools the AI may use (can be an empty list `[]`) |
+| `template.parameters` | No       | Declares inputs the prompt can use (see below)   |
+| `model`               | No       | Which model to use (engine-specific)             |
 
 **Prompt body:** Write the instructions the AI should follow. Use `{{parameterName}}` placeholders for values that will come from work item `state` once [template rendering is implemented](https://github.com/devzeebo/bifrost/issues/56).
 
@@ -70,8 +70,8 @@ Review the code carefully. Focus on bugs, readability, and tests.
 ```yaml
 template:
   parameters:
-    user_prompt: string    # required in state (once rendering lands)
-    phrase: string?        # optional
+    user_prompt: string # required in state (once rendering lands)
+    phrase: string? # optional
 ```
 
 ## Step 2 — Register the agent on your runner
@@ -105,12 +105,12 @@ See [examples/lvl4/runner.ts](../examples/lvl4/runner.ts) for a full example.
 
 When the orchestrator dispatches a work item to the runner, the Task Agent expects these fields in `state`:
 
-| Field | Required | Meaning |
-| ----- | -------- | ------- |
-| `workingDir` | Yes | Folder where the AI should work |
-| `instructions` | Yes | What to do this time (often copied from a task description) |
-| `engineName` | Yes | Which registered engine to use (for example `"cursor"`) |
-| `sessionId` | No | Resume a previous conversation instead of starting fresh |
+| Field          | Required | Meaning                                                     |
+| -------------- | -------- | ----------------------------------------------------------- |
+| `workingDir`   | Yes      | Folder where the AI should work                             |
+| `instructions` | Yes      | What to do this time (often copied from a task description) |
+| `engineName`   | Yes      | Which registered engine to use (for example `"cursor"`)     |
+| `sessionId`    | No       | Resume a previous conversation instead of starting fresh    |
 
 Any **required** `template.parameters` from your AGENT.md should also appear in `state` once template rendering is implemented. Optional parameters (declared with `?`) can be omitted.
 

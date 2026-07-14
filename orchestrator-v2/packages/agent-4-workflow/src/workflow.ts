@@ -49,7 +49,17 @@ function isStepDecorator(value: unknown): value is StepDecorator {
     return true;
   }
 
-  return (
-    value !== null && typeof value === "object" && "fn" in value && typeof value.fn === "function"
-  );
+  if (value === null || typeof value !== "object" || !("fn" in value)) {
+    return false;
+  }
+
+  if (typeof value.fn !== "function") {
+    return false;
+  }
+
+  if ("args" in value) {
+    return Array.isArray(value.args);
+  }
+
+  return true;
 }

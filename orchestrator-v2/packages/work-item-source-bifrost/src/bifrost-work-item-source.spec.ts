@@ -265,6 +265,47 @@ describe("BifrostWorkItemSource", () => {
         }),
       );
     });
+
+    it("should write flow to rune state as bifrost:flow", async () => {
+      const { source, cleanup } = await createTestSource();
+
+      global.fetch = vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => runeDetailFixture({ id: "rune-new", status: "draft" }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 204,
+        });
+
+      await source.createDraftWorkItem({
+        kind: "task",
+        name: "implementer",
+        flow: ["step-wrapper", { name: "retry", args: [4] }],
+        state: { workingDir: "/tmp" },
+      });
+
+      await cleanup();
+
+      expect(global.fetch).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining("/api/update-rune-state"),
+        expect.objectContaining({
+          method: "POST",
+          body: expect.stringContaining("bifrost:flow"),
+        }),
+      );
+      expect(global.fetch).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining("/api/update-rune-state"),
+        expect.objectContaining({
+          method: "POST",
+          body: expect.stringContaining("retry"),
+        }),
+      );
+    });
   });
 
   describe("startWorkItem", () => {
@@ -360,7 +401,13 @@ describe("BifrostWorkItemSource", () => {
         })
         .mockResolvedValueOnce({
           ok: true,
-          json: async () => runeDetailFixture(),
+          json: async () =>
+            runeDetailFixture({
+              state: {
+                step: 1,
+                "bifrost:flow": ["step-wrapper", { name: "retry", args: [4] }],
+              },
+            }),
         });
 
       let workItem: WorkItem | null = null;
@@ -376,7 +423,7 @@ describe("BifrostWorkItemSource", () => {
       expect(workItem!.workItemId).toBe("rune-1");
       expect(workItem!.kind).toBe("task");
       expect(workItem!.name).toBe("implementer");
-      expect(workItem!.flow).toEqual([]);
+      expect(workItem!.flow).toEqual(["step-wrapper", { name: "retry", args: [4] }]);
       expect(workItem!.metadata.description).toBe("Test description");
       expect(workItem!.metadata.dependencies).toEqual([
         { target_id: "rune-2", relationship: "blocks" },

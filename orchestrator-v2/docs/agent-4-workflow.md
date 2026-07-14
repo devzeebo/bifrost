@@ -197,7 +197,7 @@ The orchestrator never inspects the dependency graph. It dispatches whatever the
 | Creating the full step graph on first dispatch | Which children are runnable at any moment            |
 | Wiring dependency edges between children       | Promoting children as prerequisites complete         |
 | Registering blockers and pausing               | Dispatching children to runners                      |
-| Final verification                               | Running LLM conversations, retries, producing output |
+| Final verification                             | Running LLM conversations, retries, producing output |
 
 ## Child failure
 

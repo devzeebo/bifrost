@@ -10,6 +10,6 @@ import { createCowsayFlow, LOG_STEP_DECORATOR, logStep } from "./agents/cowsay-f
 export const runner = new Runner({ data: createDataRegistry(taskAgentDataGuards) });
 
 runner.registerEngine("cursor", new CursorEngine());
-runner.registerDecorator(LOG_STEP_DECORATOR, logStep);
+runner.registerDecorator(LOG_STEP_DECORATOR, () => logStep);
 runner.registerTaskAgent("cowsay", await loadAgent(cowsayAgentPath));
 runner.registerWorkflowAgent(createCowsayFlow());

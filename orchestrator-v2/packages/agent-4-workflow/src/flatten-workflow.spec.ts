@@ -4,7 +4,7 @@ import test from "vitest-gwt";
 
 import { flattenWorkflowBuilder } from "./flatten-workflow.js";
 import { continueStep } from "./step-result.js";
-import { script, task } from "./step-refs.js";
+import { retry, script, task } from "./step-refs.js";
 import { Workflow } from "./workflow.js";
 
 const noopDecorator: DecoratorFn = async (_workItem, _ctx, next) => next();
@@ -42,6 +42,11 @@ describe("flattenWorkflowBuilder", () => {
   test("step decorators are resolved into flow with step wrapper outermost", {
     given: { decorated_workflow },
     then: { step_flow_includes_custom_decorators },
+  });
+
+  test("retry decorator is serialized with args in flow", {
+    given: { retry_workflow },
+    then: { retry_flow_includes_args },
   });
 });
 
@@ -134,4 +139,14 @@ function step_flow_includes_custom_decorators(this: Context) {
   expect(taskStep?.flow).toEqual([taskStep?.id, "logging"]);
   expect(scriptStep?.flow).toEqual([scriptStep?.id, "metrics"]);
   expect(scriptStep?.decoratorFns?.metrics).toBeTypeOf("function");
+}
+
+function retry_workflow(this: Context) {
+  const workflow = new Workflow({ name: "retry-flow" }).step(task("a"), [retry(4)]);
+  this.definition = flattenWorkflowBuilder(workflow);
+}
+
+function retry_flow_includes_args(this: Context) {
+  const [taskStep] = this.definition.steps;
+  expect(taskStep?.flow).toEqual([taskStep?.id, { name: "retry", args: [4] }]);
 }

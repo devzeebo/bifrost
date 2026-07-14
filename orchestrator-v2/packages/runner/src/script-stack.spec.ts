@@ -1,4 +1,9 @@
-import type { DecoratorFn, ScriptFn, WorkItem } from "@bifrost-ai/interfaces-work";
+import type {
+  DecoratorFactory,
+  ScriptContext,
+  ScriptFn,
+  WorkItem,
+} from "@bifrost-ai/interfaces-work";
 import { describe, expect } from "vite-plus/test";
 import test from "vitest-gwt";
 
@@ -8,7 +13,7 @@ import { executeScriptStack, resolveStack } from "./script-stack.js";
 type Context = {
   workItem: WorkItem;
   scripts: Registry<ScriptFn>;
-  decorators: Registry<DecoratorFn>;
+  decorators: Registry<DecoratorFactory>;
   result: unknown;
   error: Error | null;
 };
@@ -98,7 +103,7 @@ describe("script-stack", () => {
 function a_script_registry_with_hunt(this: Context) {
   this.workItem = baseWorkItem();
   this.scripts = new Registry<ScriptFn>();
-  this.decorators = new Registry<DecoratorFn>();
+  this.decorators = new Registry<DecoratorFactory>();
   this.scripts.register("hunt", async () => {
     this.result = "meat";
   });
@@ -118,23 +123,29 @@ function nested_decorators(this: Context) {
   this.result = order;
   this.workItem = { ...baseWorkItem(), flow: ["outer", "inner"] };
   this.scripts = new Registry<ScriptFn>();
-  this.decorators = new Registry<DecoratorFn>();
+  this.decorators = new Registry<DecoratorFactory>();
 
   this.scripts.register("hunt", async () => {
     order.push("script");
   });
 
-  this.decorators.register("outer", async (_wi, _ctx, next) => {
-    order.push("outer-before");
-    await next();
-    order.push("outer-after");
-  });
+  this.decorators.register(
+    "outer",
+    () => async (_wi: WorkItem, _ctx: ScriptContext, next: () => Promise<unknown>) => {
+      order.push("outer-before");
+      await next();
+      order.push("outer-after");
+    },
+  );
 
-  this.decorators.register("inner", async (_wi, _ctx, next) => {
-    order.push("inner-before");
-    await next();
-    order.push("inner-after");
-  });
+  this.decorators.register(
+    "inner",
+    () => async (_wi: WorkItem, _ctx: ScriptContext, next: () => Promise<unknown>) => {
+      order.push("inner-before");
+      await next();
+      order.push("inner-after");
+    },
+  );
 }
 
 async function executing_nested_stack(this: Context) {
@@ -157,13 +168,13 @@ function skip_decorator(this: Context) {
   this.result = state;
   this.workItem = { ...baseWorkItem(), flow: ["skip"] };
   this.scripts = new Registry<ScriptFn>();
-  this.decorators = new Registry<DecoratorFn>();
+  this.decorators = new Registry<DecoratorFactory>();
 
   this.scripts.register("hunt", async () => {
     state.scriptRan = true;
   });
 
-  this.decorators.register("skip", async () => undefined);
+  this.decorators.register("skip", () => async () => undefined);
 }
 
 async function executing_short_circuit(this: Context) {
@@ -178,9 +189,9 @@ function script_never_ran(this: Context) {
 function flaky_script_and_retry_decorator(this: Context) {
   const state = { attempts: 0 };
   this.result = state;
-  this.workItem = { ...baseWorkItem(), flow: ["retry"] };
+  this.workItem = { ...baseWorkItem(), flow: [{ name: "retry", args: [3] }] };
   this.scripts = new Registry<ScriptFn>();
-  this.decorators = new Registry<DecoratorFn>();
+  this.decorators = new Registry<DecoratorFactory>();
 
   this.scripts.register("hunt", async () => {
     state.attempts += 1;
@@ -189,18 +200,21 @@ function flaky_script_and_retry_decorator(this: Context) {
     }
   });
 
-  this.decorators.register("retry", async (_wi, _ctx, next) => {
-    let tries = 0;
-    while (true) {
-      try {
-        await next();
-        return;
-      } catch (error) {
-        if (++tries >= 3) {
-          throw error;
+  this.decorators.register("retry", (maxAttempts: unknown) => {
+    const limit = maxAttempts as number;
+    return async (_wi: WorkItem, _ctx: ScriptContext, next: () => Promise<unknown>) => {
+      let tries = 0;
+      while (true) {
+        try {
+          await next();
+          return;
+        } catch (error) {
+          if (++tries >= limit) {
+            throw error;
+          }
         }
       }
-    }
+    };
   });
 }
 
@@ -216,7 +230,7 @@ function script_succeeds_on_third_try(this: Context) {
 function empty_registries(this: Context) {
   this.workItem = baseWorkItem();
   this.scripts = new Registry<ScriptFn>();
-  this.decorators = new Registry<DecoratorFn>();
+  this.decorators = new Registry<DecoratorFactory>();
 }
 
 function resolving_unknown_script(this: Context) {
@@ -235,7 +249,7 @@ function script_error_thrown(this: Context) {
 function script_without_decorator(this: Context) {
   this.workItem = { ...baseWorkItem(), flow: ["missing"] };
   this.scripts = new Registry<ScriptFn>();
-  this.decorators = new Registry<DecoratorFn>();
+  this.decorators = new Registry<DecoratorFactory>();
   this.scripts.register("hunt", async () => undefined);
 }
 

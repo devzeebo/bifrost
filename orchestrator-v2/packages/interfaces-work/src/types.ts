@@ -1,8 +1,11 @@
+import type { FlowEntry } from "./flow.js";
+import { isFlowEntry } from "./flow.js";
+
 export type WorkItem = {
   workItemId: string;
   kind: string;
   name: string;
-  flow: string[];
+  flow: FlowEntry[];
   state: Record<string, unknown>;
   readonly metadata: Record<string, unknown>;
 };
@@ -15,7 +18,7 @@ export type WorkItemDependency = {
 export type CreateDraftWorkItemInput = {
   kind: string;
   name: string;
-  flow?: string[];
+  flow?: FlowEntry[];
   state?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
 };
@@ -66,9 +69,13 @@ export type DecoratorFn<TData extends Record<string, unknown> = Record<string, u
   next: () => Promise<unknown>,
 ) => Promise<unknown>;
 
+export type DecoratorFactory<TData extends Record<string, unknown> = Record<string, unknown>> = (
+  ...args: unknown[]
+) => DecoratorFn<TData>;
+
 export type ScriptStack<TData extends Record<string, unknown> = Record<string, unknown>> = {
   scripts: Record<string, ScriptFn<TData>>;
-  decorators: Record<string, DecoratorFn<TData>>;
+  decorators: Record<string, DecoratorFactory<TData>>;
 };
 
 const REQUIRED_WORK_ITEM_FIELDS = ["workItemId", "kind", "name", "flow"] as const;
@@ -87,7 +94,7 @@ export function isWorkItem(value: unknown): value is WorkItem {
     typeof record.name !== "string" ||
     record.name.length === 0 ||
     !Array.isArray(record.flow) ||
-    !record.flow.every((entry) => typeof entry === "string" && entry.length > 0) ||
+    !record.flow.every((entry) => isFlowEntry(entry)) ||
     record.state === null ||
     typeof record.state !== "object" ||
     record.metadata === null ||
@@ -132,10 +139,7 @@ export function missingWorkItemFields(value: unknown): string[] {
   if (record.flow !== undefined && !Array.isArray(record.flow)) {
     missing.push("flow");
   }
-  if (
-    Array.isArray(record.flow) &&
-    !record.flow.every((entry) => typeof entry === "string" && entry.length > 0)
-  ) {
+  if (Array.isArray(record.flow) && !record.flow.every((entry) => isFlowEntry(entry))) {
     missing.push("flow");
   }
 

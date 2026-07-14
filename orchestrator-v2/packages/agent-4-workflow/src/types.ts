@@ -1,4 +1,4 @@
-import type { DecoratorFn } from "@bifrost-ai/interfaces-work";
+import type { DecoratorFactory, FlowEntry } from "@bifrost-ai/interfaces-work";
 
 export type WorkflowPhase = "schedule" | "verify";
 
@@ -9,8 +9,8 @@ export type FlattenedStep = {
   innerKind: "task" | "script";
   innerName: string;
   dependsOn: string[];
-  flow: string[];
-  decoratorFns?: Record<string, DecoratorFn>;
+  flow: FlowEntry[];
+  decoratorFns?: Record<string, DecoratorFactory>;
 };
 
 export type WorkflowDefinition = {

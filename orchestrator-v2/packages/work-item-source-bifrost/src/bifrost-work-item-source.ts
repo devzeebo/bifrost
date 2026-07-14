@@ -1,10 +1,12 @@
 import type {
   CreateDraftWorkItemInput,
+  FlowEntry,
   WorkItem,
   WorkItemDependency,
   WorkItemSource,
   WorkItemStatus,
 } from "@bifrost-ai/interfaces-work";
+import { isFlowEntry } from "@bifrost-ai/interfaces-work";
 import { BifrostHttpClient } from "./client/bifrost-http-client.js";
 import { loadConfig } from "./config/config-loader.js";
 import { CredentialLoader } from "./config/credential-loader.js";
@@ -12,6 +14,8 @@ import type { BifrostWorkItemSourceConfig, CreateRuneRequest, RuneDetail } from 
 import createDebug from "debug";
 
 const debug = createDebug("bifrost");
+
+export const BIFROST_FLOW_STATE_KEY = "bifrost:flow";
 
 export class BifrostWorkItemSource implements WorkItemSource {
   readonly #config: BifrostWorkItemSourceConfig;
@@ -138,6 +142,10 @@ export class BifrostWorkItemSource implements WorkItemSource {
     const client = await this.#getClient();
     const request = BifrostWorkItemSource.buildCreateRuneRequest(input);
     const detail = await client.createRune(request);
+    await client.updateRuneState(detail.id, {
+      ...input.state,
+      [BIFROST_FLOW_STATE_KEY]: input.flow ?? [],
+    });
     return detail.id;
   }
 
@@ -203,10 +211,12 @@ export class BifrostWorkItemSource implements WorkItemSource {
     return kindTag.slice(5);
   }
 
-  public static extractDecoratorNames(tags: string[]): string[] {
-    return tags
-      .filter((tag) => tag.startsWith("decorator:"))
-      .map((tag) => tag.slice("decorator:".length));
+  public static extractFlowFromState(state: Record<string, unknown>): FlowEntry[] {
+    const flow = state[BIFROST_FLOW_STATE_KEY];
+    if (!Array.isArray(flow)) {
+      return [];
+    }
+    return flow.filter((entry) => isFlowEntry(entry));
   }
 
   public static buildCreateRuneRequest(input: CreateDraftWorkItemInput): CreateRuneRequest {
@@ -224,10 +234,6 @@ export class BifrostWorkItemSource implements WorkItemSource {
     tags.push(`agent:${input.name}`);
     tags.push(`kind:${input.kind}`);
 
-    for (const decorator of input.flow ?? []) {
-      tags.push(`decorator:${decorator}`);
-    }
-
     return {
       title,
       description,
@@ -244,7 +250,7 @@ export class BifrostWorkItemSource implements WorkItemSource {
       workItemId: rune.id,
       kind: BifrostWorkItemSource.extractAgentKind(rune.tags ?? []),
       name: agentName,
-      flow: BifrostWorkItemSource.extractDecoratorNames(rune.tags ?? []),
+      flow: BifrostWorkItemSource.extractFlowFromState(rune.state),
       state: { ...rune.state },
       metadata: rune as unknown as Record<string, unknown>,
     };

@@ -1,6 +1,7 @@
 export type {
   CreateDraftWorkItemInput,
   DataRegistry,
+  DecoratorFactory,
   DecoratorFn,
   ExecutionStats,
   Registry,
@@ -16,6 +17,8 @@ export type {
   WorkItemSourceClient,
   WorkItemStatus,
 } from "./types.js";
+export type { FlowEntry, NormalizedFlowEntry } from "./flow.js";
+export { getFlowEntryArgs, getFlowEntryName, isFlowEntry, normalizeFlowEntry } from "./flow.js";
 export {
   isWorkItemHandler,
   missingWorkItemFields,

@@ -26,13 +26,13 @@ Use a [Task Agent](using-task-agents.md) when a single AI conversation is all yo
 
 ## What you need
 
-| Piece | What it does |
-| ----- | ------------ |
-| **A Workflow definition** | Lists the steps and their order |
-| **Task Agents** | Registered for any step that needs an AI |
-| **Script functions** | Optional small code steps before or after AI work |
-| **A runner** | Registers the workflow and its dependencies |
-| **A work item** | Says “run this workflow now” |
+| Piece                     | What it does                                      |
+| ------------------------- | ------------------------------------------------- |
+| **A Workflow definition** | Lists the steps and their order                   |
+| **Task Agents**           | Registered for any step that needs an AI          |
+| **Script functions**      | Optional small code steps before or after AI work |
+| **A runner**              | Registers the workflow and its dependencies       |
+| **A work item**           | Says “run this workflow now”                      |
 
 ## Step 1 — Define your workflow
 
@@ -63,8 +63,8 @@ Pass multiple items in one `.step()` call to run them at the same time (after ea
 ```typescript
 new Workflow({ name: "diamond" })
   .step(task("plan"))
-  .step(task("build"), task("document"))  // both run after plan
-  .step(task("review"));                   // runs after both finish
+  .step(task("build"), task("document")) // both run after plan
+  .step(task("review")); // runs after both finish
 ```
 
 ```
@@ -77,10 +77,10 @@ new Workflow({ name: "diamond" })
 
 ### Two kinds of steps
 
-| Kind | How to add it | Good for |
-| ---- | ------------- | -------- |
-| **Task** | `task("agent-name")` | AI work — `name` must match a registered Task Agent |
-| **Script** | `script(myFn, "display-name")` | Short code: setup, logging, validation, cleanup |
+| Kind       | How to add it                  | Good for                                            |
+| ---------- | ------------------------------ | --------------------------------------------------- |
+| **Task**   | `task("agent-name")`           | AI work — `name` must match a registered Task Agent |
+| **Script** | `script(myFn, "display-name")` | Short code: setup, logging, validation, cleanup     |
 
 A **script step** is a plain async function. Return `continueStep()` when the step succeeds:
 
@@ -110,11 +110,22 @@ const logStep: DecoratorFn = async (workItem, _ctx, next) => {
   return result;
 };
 
-new Workflow({ name: "my-flow" })
-  .step(task("reviewer"), [{ name: "logStep", fn: logStep }]);
+new Workflow({ name: "my-flow" }).step(task("reviewer"), [{ name: "logStep", fn: logStep }]);
 ```
 
 You can also register decorators by name if you prefer to reuse them across steps.
+
+### Retrying flaky steps
+
+Use the built-in `retry` decorator to retry a step when inner execution throws:
+
+```typescript
+import { retry, task, Workflow } from "@bifrost-ai/agent-4-workflow";
+
+new Workflow({ name: "my-flow" }).step(task("flaky-task"), [retry(4)]);
+```
+
+`retry` auto-registers when you import `@bifrost-ai/agent-4-workflow/augment`. It writes `state.retry = { maxAttempts, currentAttempt }` and retries `next()` until success or attempts are exhausted.
 
 ### Enriching task steps
 
@@ -157,10 +168,10 @@ See [examples/lvl4/runner.ts](../examples/lvl4/runner.ts) and [examples/lvl4/age
 
 A workflow work item needs:
 
-| Field | Required | Meaning |
-| ----- | -------- | ------- |
-| `name` | Yes | Must match the workflow definition name (for example `"my-flow"`) |
-| `state.workingDir` | Yes | Folder passed down to child steps |
+| Field              | Required | Meaning                                                           |
+| ------------------ | -------- | ----------------------------------------------------------------- |
+| `name`             | Yes      | Must match the workflow definition name (for example `"my-flow"`) |
+| `state.workingDir` | Yes      | Folder passed down to child steps                                 |
 
 With Bifrost runes, `kind` is typically `"workflow"`. The runner resolves the workflow script by **`name`**, not `kind`.
 
@@ -205,12 +216,12 @@ You do not need to manually start each child step. The workflow creates them on 
 
 ## Task Agent vs Workflow Agent
 
-| | Task Agent | Workflow Agent |
-| - | ---------- | -------------- |
-| **Job** | One AI conversation | Coordinate many steps |
-| **Talks to AI?** | Yes | No |
-| **How many runs?** | Once | Twice (set up, then verify) |
-| **Has child jobs?** | No | Yes — one per step |
+|                     | Task Agent          | Workflow Agent              |
+| ------------------- | ------------------- | --------------------------- |
+| **Job**             | One AI conversation | Coordinate many steps       |
+| **Talks to AI?**    | Yes                 | No                          |
+| **How many runs?**  | Once                | Twice (set up, then verify) |
+| **Has child jobs?** | No                  | Yes — one per step          |
 
 ## Quick checklist
 

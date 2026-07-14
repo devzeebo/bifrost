@@ -1,3 +1,4 @@
+import type { FlowEntry } from "@bifrost-ai/interfaces-work";
 import type { FlattenedStep, WorkflowDefinition } from "./types.js";
 import type { WorkflowStepInput } from "./step-refs.js";
 import { Workflow } from "./workflow.js";
@@ -66,8 +67,8 @@ function buildStepId(
 function resolveStepFlow(
   step: WorkflowStepInput,
   stepId: string,
-): { flow: string[]; decoratorFns: NonNullable<FlattenedStep["decoratorFns"]> } {
-  const flow: string[] = [stepId];
+): { flow: FlowEntry[]; decoratorFns: NonNullable<FlattenedStep["decoratorFns"]> } {
+  const flow: FlowEntry[] = [stepId];
   const decoratorFns: NonNullable<FlattenedStep["decoratorFns"]> = {};
 
   for (const [index, decorator] of (step.decorators ?? []).entries()) {
@@ -77,8 +78,16 @@ function resolveStepFlow(
     }
 
     const name = decorator.name.length > 0 ? decorator.name : `${stepId}:decorator-${index}`;
+
+    if ("args" in decorator) {
+      flow.push({ name, args: decorator.args });
+      decoratorFns[name] = decorator.fn;
+      continue;
+    }
+
     flow.push(name);
-    decoratorFns[name] = decorator.fn;
+    const decoratorFn = decorator.fn;
+    decoratorFns[name] = () => decoratorFn;
   }
 
   return { flow, decoratorFns };

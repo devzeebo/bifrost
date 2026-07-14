@@ -1,4 +1,9 @@
-import type { DataRegistry, DecoratorFn, ScriptFn } from "@bifrost-ai/interfaces-work";
+import type {
+  DataRegistry,
+  DecoratorFactory,
+  DecoratorFn,
+  ScriptFn,
+} from "@bifrost-ai/interfaces-work";
 import { createRunnerPeer, type RunnerPeer } from "@bifrost-ai/protocol";
 
 import { resolveRunnerOptions } from "./config-loader.js";
@@ -20,7 +25,7 @@ export class Runner<TData extends Record<string, unknown> = Record<string, unkno
   private readonly options: RunnerOptions<TData>;
   readonly data: DataRegistry<TData>;
   private readonly scripts = new Registry<ScriptFn<TData>>();
-  private readonly decorators = new Registry<DecoratorFn<TData>>();
+  private readonly decorators = new Registry<DecoratorFactory<TData>>();
   private conventions: string[] = [...DEFAULT_CONVENTIONS];
   private peer: RunnerPeer | null = null;
   private heartbeat: HeartbeatHandle | null = null;
@@ -30,16 +35,19 @@ export class Runner<TData extends Record<string, unknown> = Record<string, unkno
   constructor(options: RunnerOptions<TData> = {}) {
     this.options = options;
     this.data = options.data ?? (createDataRegistry() as DataRegistry<TData>);
-    this.registerDecorator(FAIL_ON_ERROR_DECORATOR, failOnError as DecoratorFn<TData>);
-    this.registerDecorator(COMPLETE_ON_SUCCESS_DECORATOR, completeOnSuccess as DecoratorFn<TData>);
+    this.registerDecorator(FAIL_ON_ERROR_DECORATOR, () => failOnError as DecoratorFn<TData>);
+    this.registerDecorator(
+      COMPLETE_ON_SUCCESS_DECORATOR,
+      () => completeOnSuccess as DecoratorFn<TData>,
+    );
   }
 
   registerScript(kind: string, fn: ScriptFn<TData>): void {
     this.scripts.register(kind, fn);
   }
 
-  registerDecorator(name: string, fn: DecoratorFn<TData>): void {
-    this.decorators.register(name, fn);
+  registerDecorator(name: string, factory: DecoratorFactory<TData>): void {
+    this.decorators.register(name, factory);
   }
 
   addConvention(name: string): void {

@@ -1,9 +1,11 @@
 import type { ScriptFn } from "@bifrost-ai/interfaces-work";
+import { getFlowEntryName } from "@bifrost-ai/interfaces-work";
 import { Runner } from "@bifrost-ai/runner";
 
 import { flattenWorkflowBuilder } from "./flatten-workflow.js";
 import { createWorkflowScript } from "./create-workflow-agent.js";
 import type { ScriptRef } from "./step-refs.js";
+import { createRetryDecorator, RETRY_DECORATOR } from "./retry.js";
 import { createStepDecorator } from "./step-wrapper.js";
 import type { WorkflowDefinition } from "./types.js";
 import { Workflow } from "./workflow.js";
@@ -21,11 +23,18 @@ Runner.prototype.registerWorkflowAgent = function registerWorkflowAgent(
 ): WorkflowDefinition {
   const definition = flattenWorkflowBuilder(workflow);
   registerScriptSteps(this, workflow);
+  registerGlobalDecorators(this);
   registerStepDecorators(this, definition);
   validateDefinition(this, definition);
   this.registerScript(definition.name, createWorkflowScript(definition));
   return definition;
 };
+
+function registerGlobalDecorators(runner: Runner): void {
+  if (!runner.hasDecorator(RETRY_DECORATOR)) {
+    runner.registerDecorator(RETRY_DECORATOR, createRetryDecorator);
+  }
+}
 
 function validateDefinition(runner: Runner, definition: WorkflowDefinition): void {
   for (const step of definition.steps) {
@@ -33,7 +42,8 @@ function validateDefinition(runner: Runner, definition: WorkflowDefinition): voi
       throw new Error(`Task agent not registered: ${step.innerName}`);
     }
 
-    for (const decoratorName of step.flow) {
+    for (const entry of step.flow) {
+      const decoratorName = getFlowEntryName(entry);
       if (decoratorName === step.id) {
         continue;
       }
@@ -67,7 +77,7 @@ function registerStepDecorators(runner: Runner, definition: WorkflowDefinition):
     }
 
     if (!runner.hasDecorator(step.id)) {
-      runner.registerDecorator(step.id, createStepDecorator(step));
+      runner.registerDecorator(step.id, () => createStepDecorator(step));
     }
   }
 }

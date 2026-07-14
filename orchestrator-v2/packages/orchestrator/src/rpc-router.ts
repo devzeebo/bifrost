@@ -1,4 +1,5 @@
 import type { CreateDraftWorkItemInput, WorkItemSource } from "@bifrost-ai/interfaces-work";
+import { isFlowEntry } from "@bifrost-ai/interfaces-work";
 import type { ConnectedPeer, FramePayload } from "@bifrost-ai/protocol";
 
 import { sendRpcError, sendRpcResponse } from "./dispatcher.js";
@@ -228,8 +229,7 @@ function readCreateDraftParams(params: unknown): { input: CreateDraftWorkItemInp
   }
   if (
     input.flow !== undefined &&
-    (!Array.isArray(input.flow) ||
-      !input.flow.every((entry) => typeof entry === "string" && entry.length > 0))
+    (!Array.isArray(input.flow) || !input.flow.every((entry) => isFlowEntry(entry)))
   ) {
     return null;
   }
