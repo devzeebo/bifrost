@@ -2,6 +2,17 @@
 
 This folder describes **how the libraries work**: architecture, contracts, and design decisions. For usage examples and API quick-starts, see the [root README](../README.md).
 
+## Usage guides
+
+Plain-language how-to guides for the agent packages:
+
+| Document                                         | Summary                                              |
+| ------------------------------------------------ | ---------------------------------------------------- |
+| [using-task-agents.md](using-task-agents.md)     | Set up an AGENT.md, register it, and dispatch work   |
+| [using-workflow-agents.md](using-workflow-agents.md) | Define multi-step flows and register them on a runner |
+
+For lifecycle and architecture detail, see the agent design docs below.
+
 ## Contents
 
 | Document                                   | Issue                                                | Summary                                                       |
@@ -57,7 +68,7 @@ Higher-level agents are built on the [work item interface](work-items.md), but t
 | -------------- | ------------------------ | ------------------------------------------------------ |
 | **Job**        | Run one LLM conversation | Coordinate multiple Task Agents through a step graph   |
 | **Dispatches** | Once                     | Twice — schedule, then verify                          |
-| **Children**   | None (leaf)              | One Task Agent per step, all created on first dispatch |
+| **Children**   | None (leaf)              | One child work item per step, all created on first dispatch |
 | **Waits on**   | Nothing                  | All children, as blockers registered on first dispatch |
 
 See [agent-3-task.md](agent-3-task.md) and [agent-4-workflow.md](agent-4-workflow.md) for walkthroughs with concrete examples.
@@ -71,7 +82,7 @@ orchestrator             Dispatch loop, peer registry, RPC routing
 runner                   Work item execution, config, heartbeat, dispatch handling
 engine                   Engine interface, types, and TestEngine
 agent-3-task             Task Agent — single-shot engine execution as a leaf handler
-agent-4-workflow         Workflow Agent — DAG scheduling as a handler (planned)
+agent-4-workflow         Workflow Agent — DAG scheduling as a handler
 ```
 
 The runner package consumes `protocol` and `interfaces-work` to execute work items remotely.

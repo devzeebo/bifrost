@@ -38,13 +38,15 @@ The workflow never polls or checks on children between dispatches. If it reaches
 
 ### 1. First dispatch — schedule and pause
 
-When the workflow runs for the first time, it reads its definition (steps, dependencies, retry policies) and **schedules the entire graph in one shot**:
+When the workflow runs for the first time, it reads its definition (steps and dependencies) and **schedules the entire graph in one shot**:
 
-1. Create a child Task Agent for every step.
+1. Create a child work item for every step (task or script).
 2. Wire dependency edges between children (e.g. Implement is blocked by Research).
-3. Promote the initially-ready steps to live so the task source can dispatch them.
+3. Promote all children to live; the work item source only dispatches those whose dependencies are satisfied.
 4. Register **every child** as a blocker on the workflow itself.
 5. Save state and return **paused**.
+
+Child task steps are created with `workingDir` and a parent reference only. Enriching them with `instructions`, `engineName`, or template parameters is the job of **step decorators** (or similar workflow-specific logic), not the workflow framework.
 
 From here the workflow goes to sleep. It will not run again until all of its child blockers have cleared.
 
@@ -66,8 +68,8 @@ When the last child blocker clears, the workflow becomes ready and is dispatched
 
 This invocation is purely about wrapping up. The workflow checks that every child reached a successful terminal state:
 
-- **All children completed** → verify outputs, roll up telemetry (tokens, cost, duration), return **completed**.
-- **Anything still outstanding or failed** → return **failed** immediately. The workflow does not pause again and does not attempt recovery.
+- **All children completed** → return **completed**.
+- **Anything failed or still outstanding** → return **failed** immediately. The workflow does not pause again and does not attempt recovery.
 
 There is no third happy-path dispatch. Two runs, done.
 
@@ -103,7 +105,6 @@ sequenceDiagram
   Orch->>Runner: dispatch workflow
   Runner->>WF: verify
   alt all children completed
-    WF->>WF: verify outputs, aggregate stats
     WF-->>Runner: completed
   else anything not done
     WF-->>Runner: failed
@@ -130,7 +131,7 @@ The workflow does not run during any of this.
 
 **Dispatch 2 — verify**
 
-The workflow wakes up, confirms all three children completed successfully, aggregates their telemetry, and returns **completed**.
+The workflow wakes up, confirms all three children completed successfully, and returns **completed**.
 
 ```
 Time ──────────────────────────────────────────────────────────▶
@@ -196,18 +197,17 @@ The orchestrator never inspects the dependency graph. It dispatches whatever the
 | Creating the full step graph on first dispatch | Which children are runnable at any moment            |
 | Wiring dependency edges between children       | Promoting children as prerequisites complete         |
 | Registering blockers and pausing               | Dispatching children to runners                      |
-| Final verification and stat aggregation        | Running LLM conversations, retries, producing output |
+| Final verification                               | Running LLM conversations, retries, producing output |
 
-## Open questions
+## Child failure
 
-### Permanent child failure (die-die)
-
-When a child reaches a terminal **failed** state, the work item source treats that dependency edge as satisfied (same as **completed**). The workflow's own blockers clear, it is re-dispatched for the verify pass, and returns **failed** if any child failed.
+When a child reaches a terminal **failed** state, the work item source treats that dependency edge as satisfied (same as **completed**). The workflow's own blockers clear, it is re-dispatched for the verify pass, and returns **failed** if any child failed or is still outstanding.
 
 Work item sources must implement this semantics: a `blocks` edge is cleared when the blocking work item reaches any terminal state (`completed` or `failed`).
 
 ## Related
 
+- [Using Workflow Agents](using-workflow-agents.md) — plain-language setup and usage guide
 - [Task Agent](agent-3-task.md) — the leaf agent that does LLM work
 - [Work items](work-items.md) — the execution primitive underneath all agents
 - [Work item source](orchestrator.md) — owns dependency resolution and draft/live gating

@@ -35,7 +35,7 @@ runner.registerScript("doSomething", doSomething);
 await runner.start();
 ```
 
-`registerTaskAgent(name, agent)` registers a script under `kind: name` and stores the definition in `data.get("agentDefinition")`.
+`registerTaskAgent(name, agent)` registers a script looked up by `workItem.name` and stores the definition in `data.get("agentDefinition")`.
 
 When `runner.yaml` (or `.bifrost-runner.yaml`) is present, keys and orchestrator URL are loaded automatically inside `start()` — no manual key handling required.
 
@@ -44,7 +44,7 @@ When `runner.yaml` (or `.bifrost-runner.yaml`) is present, keys and orchestrator
 | Layer          | Setup                                                               | Dispatch                                                     |
 | -------------- | ------------------------------------------------------------------- | ------------------------------------------------------------ |
 | **Data**       | `createDataRegistry(guards)` then `.get(type).register(name, item)` | Available via `ctx.data` in scripts and decorators           |
-| **Script**     | `registerScript(kind, fn)`                                          | `workItem.kind`                                              |
+| **Script**     | `registerScript(kind, fn)`                                          | `workItem.name`                                              |
 | **Decorator**  | `registerDecorator(name, fn)`                                       | Names in `workItem.flow` (outermost first)                   |
 | **Convention** | `addConvention(name)`                                               | Runner-level; wraps every work item (default: `failOnError`) |
 

@@ -115,10 +115,10 @@ describe("runWorkflowAgent", () => {
     then: { run_succeeds },
   });
 
-  test("verify pass pauses when a child is still live", {
+  test("verify pass throws when a child is still live", {
     given: { verify_fixture_with_live_child },
     when: { running_workflow },
-    then: { workflow_is_paused },
+    then: { workflow_throws_not_completed },
   });
 });
 
@@ -247,6 +247,10 @@ function children_created_and_started(this: Context) {
 
 function workflow_throws(this: Context) {
   expect(this.error?.message).toContain("failed");
+}
+
+function workflow_throws_not_completed(this: Context) {
+  expect(this.error?.message).toContain("is not completed");
 }
 
 function run_succeeds(this: Context) {

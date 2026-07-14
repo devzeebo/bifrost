@@ -16,7 +16,7 @@ A rebuild of the Bifrost orchestrator as a thin **get-work + dispatch** system. 
 | `@bifrost-ai/agent-3-task`       | Task Agent — single-shot LLM execution (registered as scripts)            |
 | `@bifrost-ai/agent-4-workflow`   | Workflow Agent — DAG scheduling with dependencies (registered as scripts) |
 
-For design background and how each piece fits together, see [docs/](docs/).
+For design background and how each piece fits together, see [docs/](docs/). For plain-language agent setup guides, see [using Task Agents](docs/using-task-agents.md) and [using Workflow Agents](docs/using-workflow-agents.md).
 
 ## Prerequisites
 
@@ -39,7 +39,7 @@ vp run -r build # build all packages
 
 ### Register a script on the runner
 
-Scripts and decorators are registered on the runner. Dispatch resolves `workItem.kind` to a script and `workItem.flow` to an ordered list of decorators. Runner-level **conventions** wrap every execution (including the built-in `failOnError` decorator).
+Scripts and decorators are registered on the runner. Dispatch resolves `workItem.name` to a script and `workItem.flow` to an ordered list of decorators. Runner-level **conventions** wrap every execution (including the built-in `failOnError` decorator).
 
 ```typescript
 import type { ScriptFn } from "@bifrost-ai/interfaces-work";
@@ -184,6 +184,6 @@ The orchestrator dispatches work with `dispatch` RPC requests containing a full 
 
 ## Roadmap
 
-- [#37 Task Agent (`agent-3-task`)](https://github.com/devzeebo/bifrost/issues/37) — [lifecycle docs](docs/agent-3-task.md)
-- [#39 Workflow Agent (`agent-4-workflow`)](https://github.com/devzeebo/bifrost/issues/39) — [lifecycle docs](docs/agent-4-workflow.md)
+- [#37 Task Agent (`agent-3-task`)](https://github.com/devzeebo/bifrost/issues/37) — [lifecycle docs](docs/agent-3-task.md) · [usage guide](docs/using-task-agents.md)
+- [#39 Workflow Agent (`agent-4-workflow`)](https://github.com/devzeebo/bifrost/issues/39) — [lifecycle docs](docs/agent-4-workflow.md) · [usage guide](docs/using-workflow-agents.md)
 - [#41 Structured output package](https://github.com/devzeebo/bifrost/issues/41) — schemas, sentinel files, JSON/YAML validation

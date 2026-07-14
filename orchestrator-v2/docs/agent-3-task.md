@@ -21,13 +21,12 @@ Each Task Agent invocation is self-contained. It receives:
 
 It produces:
 
-- **An outcome** — completed, failed, or paused.
-- **A message** — human-readable summary of what happened.
-- **Telemetry** — duration, token counts, cost, and number of engine turns.
+- **An outcome** — completed or failed (via runner conventions after the engine returns).
+- **Telemetry** — duration, token counts, cost, and number of engine turns (when the engine reports stats).
 
 ## Lifecycle
 
-The Task Agent lifecycle is linear. There is no pause-and-resume loop built into the agent itself — it starts, does its work, and finishes. **A Task Agent can _never_ pause**; it either completes successfully or when an error is encountered, fails.
+The Task Agent lifecycle is linear. There is no pause-and-resume loop built into the agent itself — it starts, does its work, and finishes. **A Task Agent can _never_ pause**; it either completes successfully or, when an error is encountered, fails.
 
 ```
   dispatched ──▶ running ──▶ completed
@@ -41,17 +40,13 @@ The task source marks the task as ready and the orchestrator sends it to an avai
 
 ### 2. Running
 
-The runner executes the Task Agent script. Inside, the agent runs a **turn loop** against the configured engine:
+The runner executes the Task Agent script. Inside, the agent calls the configured engine once. The engine owns the conversation loop:
 
-1. Send the current prompt/context to the engine.
-2. Receive the engine's response.
-3. Update the conversation session so the next turn continues where this one left off.
-4. Accumulate telemetry (tokens, cost, elapsed time).
-5. Decide whether to take another turn or stop.
+1. Build a prompt from the agent definition and work item state.
+2. Run the AI conversation (possibly across several back-and-forth turns).
+3. Return success or failure, along with telemetry when available.
 
-The loop continues until the engine signals it is done, an error occurs, or a configured **maximum turn limit** is reached. This limit prevents runaway conversations from consuming unbounded resources.
-
-During the run, the agent may checkpoint progress (session ID, partial telemetry) so that if something goes wrong mid-flight, a retry can pick up where it left off.
+The Task Agent persists `sessionId` back to state when the engine provides one, so a retry or follow-up dispatch can resume the same conversation.
 
 ### 3. Finished
 
@@ -115,5 +110,6 @@ For the full coordinator lifecycle, see [agent-4-workflow.md](agent-4-workflow.m
 
 ## Related
 
+- [Using Task Agents](using-task-agents.md) — plain-language setup and usage guide
 - [Work items](work-items.md) — the execution primitive underneath all agents
 - [Workflow Agent](agent-4-workflow.md) — schedules Task Agents as children

@@ -129,8 +129,7 @@ async function verifyPass(
       throw new Error(`Step ${step.id} failed`);
     }
     if (status !== "completed") {
-      await pauseWorkItem(ctx, workItem.workItemId);
-      return;
+      throw new Error(`Step ${step.id} is not completed (status: ${status})`);
     }
   }
 }
