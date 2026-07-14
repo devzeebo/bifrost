@@ -13,9 +13,9 @@ export async function runWorkflowAgent(
 
   const state = workItem.state;
 
-  if (state.definitionName !== definition.name) {
+  if (workItem.name !== definition.name) {
     throw new Error(
-      `Workflow definition mismatch: expected ${definition.name}, got ${state.definitionName}`,
+      `Workflow definition mismatch: expected ${definition.name}, got ${workItem.name}`,
     );
   }
 
@@ -45,11 +45,10 @@ async function schedulePass(
       const childId = await ctx.workItemSource.createDraftWorkItem({
         kind: step.innerKind,
         name: step.innerName,
-        flow: [step.id],
+        flow: step.flow,
         state: {
           workflowWorkItemId: workItem.workItemId,
           workingDir: state.workingDir,
-          definitionName: state.definitionName,
         },
         metadata: {
           workflowName: definition.name,

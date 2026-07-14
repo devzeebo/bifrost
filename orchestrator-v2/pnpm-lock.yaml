@@ -275,6 +275,9 @@ importers:
       '@bifrost-ai/engine-cursor':
         specifier: workspace:*
         version: link:../../packages/engine-cursor
+      '@bifrost-ai/interfaces-work':
+        specifier: workspace:*
+        version: link:../../packages/interfaces-work
       '@bifrost-ai/orchestrator':
         specifier: workspace:*
         version: link:../../packages/orchestrator

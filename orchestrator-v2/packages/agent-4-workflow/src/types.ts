@@ -1,3 +1,5 @@
+import type { DecoratorFn } from "@bifrost-ai/interfaces-work";
+
 export type WorkflowPhase = "schedule" | "verify";
 
 export type StepTransition = "continue" | "fail" | "pause";
@@ -7,6 +9,8 @@ export type FlattenedStep = {
   innerKind: "task" | "script";
   innerName: string;
   dependsOn: string[];
+  flow: string[];
+  decoratorFns?: Record<string, DecoratorFn>;
 };
 
 export type WorkflowDefinition = {
@@ -16,7 +20,6 @@ export type WorkflowDefinition = {
 
 export type WorkflowState = {
   workingDir: string;
-  definitionName: string;
   phase?: WorkflowPhase;
   childIds?: Record<string, string>;
 };
@@ -24,7 +27,6 @@ export type WorkflowState = {
 export type StepWrapperState = {
   workflowWorkItemId: string;
   workingDir: string;
-  definitionName: string;
 };
 
 export type WorkflowStateParseResult = { ok: true } | { ok: false; missing: string[] };
@@ -35,11 +37,6 @@ export function getWorkflowStateMissingFields(taskState: Record<string, unknown>
   const workingDir = taskState.workingDir;
   if (typeof workingDir !== "string" || workingDir.length === 0) {
     missing.push("workingDir");
-  }
-
-  const definitionName = taskState.definitionName;
-  if (typeof definitionName !== "string" || definitionName.length === 0) {
-    missing.push("definitionName");
   }
 
   const phase = taskState.phase;

@@ -20,9 +20,9 @@ Runner.prototype.registerWorkflowAgent = function registerWorkflowAgent(
   workflow: Workflow,
 ): WorkflowDefinition {
   const definition = flattenWorkflowBuilder(workflow);
-  validateDefinition(this, definition);
   registerScriptSteps(this, workflow);
   registerStepDecorators(this, definition);
+  validateDefinition(this, definition);
   this.registerScript(definition.name, createWorkflowScript(definition));
   return definition;
 };
@@ -31,6 +31,15 @@ function validateDefinition(runner: Runner, definition: WorkflowDefinition): voi
   for (const step of definition.steps) {
     if (step.innerKind === "task" && !runner.hasScript(step.innerName)) {
       throw new Error(`Task agent not registered: ${step.innerName}`);
+    }
+
+    for (const decoratorName of step.flow) {
+      if (decoratorName === step.id) {
+        continue;
+      }
+      if (!runner.hasDecorator(decoratorName)) {
+        throw new Error(`Decorator not registered: ${decoratorName}`);
+      }
     }
   }
 }
@@ -49,6 +58,14 @@ function createWorkflowInlineScript(ref: ScriptRef): ScriptFn {
 
 function registerStepDecorators(runner: Runner, definition: WorkflowDefinition): void {
   for (const step of definition.steps) {
+    if (step.decoratorFns !== undefined) {
+      for (const [name, fn] of Object.entries(step.decoratorFns)) {
+        if (!runner.hasDecorator(name)) {
+          runner.registerDecorator(name, fn);
+        }
+      }
+    }
+
     if (!runner.hasDecorator(step.id)) {
       runner.registerDecorator(step.id, createStepDecorator(step));
     }

@@ -44,7 +44,6 @@ async function linear_integration_setup(this: Context) {
       flow: [],
       state: {
         workingDir: "/tmp",
-        definitionName: "linear-flow",
       },
       metadata: {},
     },

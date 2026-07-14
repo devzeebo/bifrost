@@ -21,7 +21,15 @@ export async function runStepDecorator(
 ): Promise<void> {
   verifyStepWrapperState(state);
 
-  const rawResult = await next();
+  let rawResult: unknown;
+  try {
+    rawResult = await next();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await applyStepResult({ transition: "fail", message }, workItemId, ctx);
+    return;
+  }
+
   await applyStepResult(parseStepOutput(rawResult), workItemId, ctx);
 }
 
@@ -43,7 +51,7 @@ async function applyStepResult(
 }
 
 function verifyStepWrapperState(state: Record<string, unknown>): asserts state is StepWrapperState {
-  const required = ["workflowWorkItemId", "workingDir", "definitionName"] as const;
+  const required = ["workflowWorkItemId", "workingDir"] as const;
   const missing: string[] = [];
 
   for (const field of required) {

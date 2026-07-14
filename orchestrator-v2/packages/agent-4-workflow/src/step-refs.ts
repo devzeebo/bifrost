@@ -1,10 +1,13 @@
-import type { ScriptContext, WorkItem } from "@bifrost-ai/interfaces-work";
+import type { DecoratorFn, ScriptContext, WorkItem } from "@bifrost-ai/interfaces-work";
 
 import type { StepResult } from "./step-result.js";
+
+export type StepDecorator = string | { name: string; fn: DecoratorFn };
 
 export type TaskRef = {
   type: "task";
   name: string;
+  decorators?: StepDecorator[];
 };
 
 export type WorkflowScriptFn = (ctx: {
@@ -17,6 +20,7 @@ export type ScriptRef = {
   type: "script";
   fn: WorkflowScriptFn;
   displayName: string;
+  decorators?: StepDecorator[];
 };
 
 export type WorkflowStepInput = TaskRef | ScriptRef;

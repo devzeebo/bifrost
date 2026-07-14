@@ -78,9 +78,21 @@ class MockSource implements WorkItemSourceClient {
 const linearDefinition: WorkflowDefinition = {
   name: "linear",
   steps: [
-    { id: "step-a", innerKind: "task", innerName: "a", dependsOn: [] },
-    { id: "step-b", innerKind: "task", innerName: "b", dependsOn: ["step-a"] },
-    { id: "step-c", innerKind: "task", innerName: "c", dependsOn: ["step-b"] },
+    { id: "step-a", innerKind: "task", innerName: "a", dependsOn: [], flow: ["step-a"] },
+    {
+      id: "step-b",
+      innerKind: "task",
+      innerName: "b",
+      dependsOn: ["step-a"],
+      flow: ["step-b"],
+    },
+    {
+      id: "step-c",
+      innerKind: "task",
+      innerName: "c",
+      dependsOn: ["step-b"],
+      flow: ["step-c"],
+    },
   ],
 };
 
@@ -120,7 +132,6 @@ function schedule_fixture(this: Context) {
     flow: [],
     state: {
       workingDir: "/tmp",
-      definitionName: "linear",
       phase: "schedule",
     },
     metadata: {},
@@ -141,7 +152,6 @@ function verify_fixture_with_failed_child(this: Context) {
     flow: [],
     state: {
       workingDir: "/tmp",
-      definitionName: "linear",
       phase: "verify",
       childIds: {
         "step-a": "child-1",
@@ -167,7 +177,6 @@ function verify_fixture_all_completed(this: Context) {
     flow: [],
     state: {
       workingDir: "/tmp",
-      definitionName: "linear",
       phase: "verify",
       childIds: {
         "step-a": "child-1",
@@ -193,7 +202,6 @@ function verify_fixture_with_live_child(this: Context) {
     flow: [],
     state: {
       workingDir: "/tmp",
-      definitionName: "linear",
       phase: "verify",
       childIds: {
         "step-a": "child-1",
@@ -229,7 +237,6 @@ function children_created_and_started(this: Context) {
     state: {
       workflowWorkItemId: "workflow-1",
       workingDir: "/tmp",
-      definitionName: "linear",
     },
   });
   expect(this.workItemSource.started).toEqual(["child-1", "child-2", "child-3"]);

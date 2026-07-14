@@ -62,7 +62,6 @@ class MockSource implements WorkItemSourceClient {
 const wrapperState: StepWrapperState = {
   workflowWorkItemId: "workflow-1",
   workingDir: "/tmp",
-  definitionName: "flow",
 };
 
 describe("runStepDecorator", () => {
@@ -83,6 +82,12 @@ describe("runStepDecorator", () => {
     when: { running_decorator },
     then: { work_item_is_paused },
   });
+
+  test("thrown inner error is converted to fail transition", {
+    given: { thrown_error_fixture },
+    when: { running_decorator },
+    then: { fail_is_thrown },
+  });
 });
 
 function continue_step_fixture(this: Context) {
@@ -100,15 +105,20 @@ function pause_step_fixture(this: Context) {
   this.innerResult = pauseStep();
 }
 
+function thrown_error_fixture(this: Context) {
+  this.workItemSource = new MockSource();
+  this.innerResult = new Error("boom");
+}
+
 async function running_decorator(this: Context) {
   this.error = null;
   try {
-    await runStepDecorator(
-      "step-child-1",
-      wrapperState,
-      makeCtx(this.workItemSource),
-      async () => this.innerResult,
-    );
+    await runStepDecorator("step-child-1", wrapperState, makeCtx(this.workItemSource), async () => {
+      if (this.innerResult instanceof Error) {
+        throw this.innerResult;
+      }
+      return this.innerResult;
+    });
   } catch (error) {
     this.error = error as Error;
   }

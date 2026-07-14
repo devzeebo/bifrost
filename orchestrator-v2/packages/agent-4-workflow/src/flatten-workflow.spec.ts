@@ -1,3 +1,4 @@
+import type { DecoratorFn } from "@bifrost-ai/interfaces-work";
 import { describe, expect } from "vite-plus/test";
 import test from "vitest-gwt";
 
@@ -5,6 +6,8 @@ import { flattenWorkflowBuilder } from "./flatten-workflow.js";
 import { continueStep } from "./step-result.js";
 import { script, task } from "./step-refs.js";
 import { Workflow } from "./workflow.js";
+
+const noopDecorator: DecoratorFn = async (_workItem, _ctx, next) => next();
 
 type Context = {
   definition: ReturnType<typeof flattenWorkflowBuilder>;
@@ -34,6 +37,11 @@ describe("flattenWorkflowBuilder", () => {
   test("duplicate nested workflow names get distinct ids", {
     given: { duplicate_nested_workflow },
     then: { nested_workflow_ids_are_distinct },
+  });
+
+  test("step decorators are resolved into flow with step wrapper outermost", {
+    given: { decorated_workflow },
+    then: { step_flow_includes_custom_decorators },
   });
 });
 
@@ -111,4 +119,19 @@ function nested_workflow_ids_are_distinct(this: Context) {
   expect(innerSteps[1]?.dependsOn).toEqual([]);
   const afterStep = this.definition.steps.find((step) => step.id.includes("[after]"));
   expect(afterStep?.dependsOn.sort()).toEqual(innerSteps.map((step) => step.id).sort());
+}
+
+function decorated_workflow(this: Context) {
+  const workflow = new Workflow({ name: "decorated" }).step(task("a"), ["logging"]).step(
+    script(() => continueStep(), "inline"),
+    [{ name: "metrics", fn: noopDecorator }],
+  );
+  this.definition = flattenWorkflowBuilder(workflow);
+}
+
+function step_flow_includes_custom_decorators(this: Context) {
+  const [taskStep, scriptStep] = this.definition.steps;
+  expect(taskStep?.flow).toEqual([taskStep?.id, "logging"]);
+  expect(scriptStep?.flow).toEqual([scriptStep?.id, "metrics"]);
+  expect(scriptStep?.decoratorFns?.metrics).toBeTypeOf("function");
 }

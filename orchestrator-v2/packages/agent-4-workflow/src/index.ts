@@ -5,7 +5,13 @@ export { createStepDecorator, pauseWorkItem, runStepDecorator } from "./step-wra
 export { continueStep, failStep, isStepResult, parseStepOutput, pauseStep } from "./step-result.js";
 export type { StepResult } from "./step-result.js";
 export { script, task } from "./step-refs.js";
-export type { ScriptRef, TaskRef, WorkflowScriptFn, WorkflowStepInput } from "./step-refs.js";
+export type {
+  ScriptRef,
+  StepDecorator,
+  TaskRef,
+  WorkflowScriptFn,
+  WorkflowStepInput,
+} from "./step-refs.js";
 export { Workflow } from "./workflow.js";
 export type { WorkflowGroupItem } from "./workflow.js";
 export type {
