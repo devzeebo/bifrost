@@ -30,7 +30,7 @@ const runner = new Runner({ data });
 
 runner.registerEngine("claude", claudeEngine);
 runner.registerTaskAgent("reviewer", await loadAgent("./agents/reviewer/AGENT.md"));
-runner.registerScriptAgent("doSomething", doSomething);
+runner.registerScript("doSomething", doSomething);
 
 await runner.start();
 ```
@@ -125,7 +125,7 @@ sequenceDiagram
 | `ctx.handlers`        | Other registered handlers — `ctx.handlers.get(kind, name)`                         |
 | `ctx.setState(state)` | RPC `workItemSource.setState` to orchestrator                                      |
 
-Task source and scheduler are reached over RPC. The engine (when used by agent packages) runs locally on the runner — never proxied.
+Work item source methods are reached over RPC via `ctx.workItemSource`. The engine (when used by agent packages) runs locally on the runner — never proxied.
 
 ## Alternatives rejected
 

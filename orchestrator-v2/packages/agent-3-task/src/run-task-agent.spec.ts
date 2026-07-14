@@ -15,7 +15,7 @@ import type { TaskAgentDataSchema } from "./types.js";
 type Context = {
   workItem: WorkItem;
   ctx: WorkItemExecutionContext<Pick<TaskAgentDataSchema, "engine">>;
-  result: Awaited<ReturnType<typeof runTaskAgent>>;
+  error: Error | null;
   engine: TestEngine | TrackingEngine;
 };
 
@@ -78,7 +78,8 @@ function makeExecutionFixture(
 
   const workItem: WorkItem = {
     workItemId: "work-item-123",
-    kind: name,
+    kind: "task",
+    name,
     flow: [],
     metadata: { priority: "high" },
     state: liveState,
@@ -87,6 +88,35 @@ function makeExecutionFixture(
   const ctx: WorkItemExecutionContext<Pick<TaskAgentDataSchema, "engine">> = {
     data: makeData(engine),
     handlers: emptyHandlers,
+    workItemSource: {
+      async completeWorkItem() {
+        throw new Error("not implemented");
+      },
+      async failWorkItem() {
+        throw new Error("not implemented");
+      },
+      async pauseWorkItem() {
+        throw new Error("not implemented");
+      },
+      async createDraftWorkItem() {
+        throw new Error("not implemented");
+      },
+      async startWorkItem() {
+        throw new Error("not implemented");
+      },
+      async setDependency() {
+        throw new Error("not implemented");
+      },
+      async getDependencies() {
+        return [];
+      },
+      async getWorkItemStatus() {
+        return "live";
+      },
+      async setState() {
+        throw new Error("not implemented");
+      },
+    },
     async setState(nextState) {
       Object.assign(liveState, nextState);
     },
@@ -105,12 +135,11 @@ function validTaskState(overrides: Record<string, unknown> = {}): Record<string,
 }
 
 describe("runTaskAgent", () => {
-  test("returns completed with telemetry when engine succeeds", {
+  test("completes when engine succeeds", {
     given: { task_agent_with_test_engine, valid_state_context },
     when: { task_agent_run },
     then: {
-      outcome_is_completed,
-      telemetry_is_returned,
+      run_succeeds,
       session_id_is_persisted,
     },
   });
@@ -120,29 +149,29 @@ describe("runTaskAgent", () => {
     when: { task_agent_run },
     then: {
       engine_received_session_id,
-      follow_up_outcome_returned,
+      run_succeeds,
     },
   });
 
-  test("fails immediately when required task state fields are missing", {
+  test("throws when required task state fields are missing", {
     given: { task_agent_with_test_engine, empty_state_context },
     when: { task_agent_run },
     then: { missing_fields_failure },
   });
 
-  test("fails when engine name is unknown", {
+  test("throws when engine name is unknown", {
     given: { task_agent_with_test_engine, context_with_unknown_engine },
     when: { task_agent_run },
     then: { unknown_engine_failure },
   });
 
-  test("fails when engine returns unsuccessful result", {
+  test("throws when engine returns unsuccessful result", {
     given: { failing_engine, valid_state_context },
     when: { task_agent_run },
-    then: { engine_failure_returned },
+    then: { engine_failure_thrown },
   });
 
-  test("fails when engine throws", {
+  test("throws when engine throws", {
     given: { throwing_engine, valid_state_context },
     when: { task_agent_run },
     then: { thrown_error_returned },
@@ -193,21 +222,16 @@ function context_with_unknown_engine(this: Context) {
 }
 
 async function task_agent_run(this: Context) {
-  this.result = await runTaskAgent(this.workItem, this.ctx, sampleAgent);
+  this.error = null;
+  try {
+    await runTaskAgent(this.workItem, this.ctx, sampleAgent);
+  } catch (error) {
+    this.error = error as Error;
+  }
 }
 
-function outcome_is_completed(this: Context) {
-  expect(this.result.outcome).toBe("completed");
-  expect(this.result.message).toContain("reviewer");
-}
-
-function telemetry_is_returned(this: Context) {
-  expect(this.result.telemetry).toMatchObject({
-    inputTokens: expect.any(Number),
-    outputTokens: expect.any(Number),
-    totalCostUsd: expect.any(Number),
-    numTurns: expect.any(Number),
-  });
+function run_succeeds(this: Context) {
+  expect(this.error).toBeNull();
 }
 
 function session_id_is_persisted(this: Context) {
@@ -219,30 +243,20 @@ function engine_received_session_id(this: Context) {
   expect(tracking.executeCalls[0]?.sessionId).toBe("existing-session-42");
 }
 
-function follow_up_outcome_returned(this: Context) {
-  expect(this.result.outcome).toBe("completed");
-  expect(this.result.message).toContain("Follow-up");
-  expect(this.result.message).toContain("existing-session-42");
-}
-
 function missing_fields_failure(this: Context) {
-  expect(this.result.outcome).toBe("failed");
-  expect(this.result.message).toContain("workingDir");
-  expect(this.result.message).toContain("instructions");
-  expect(this.result.message).toContain("engineName");
+  expect(this.error?.message).toContain("workingDir");
+  expect(this.error?.message).toContain("instructions");
+  expect(this.error?.message).toContain("engineName");
 }
 
 function unknown_engine_failure(this: Context) {
-  expect(this.result.outcome).toBe("failed");
-  expect(this.result.message).toBe("Unknown engine: missing");
+  expect(this.error?.message).toBe("Unknown engine: missing");
 }
 
-function engine_failure_returned(this: Context) {
-  expect(this.result.outcome).toBe("failed");
-  expect(this.result.message).toContain("Engine failed");
+function engine_failure_thrown(this: Context) {
+  expect(this.error?.message).toContain("Engine failed");
 }
 
 function thrown_error_returned(this: Context) {
-  expect(this.result.outcome).toBe("failed");
-  expect(this.result.message).toBe("Simulated engine error");
+  expect(this.error?.message).toBe("Simulated engine error");
 }

@@ -12,12 +12,12 @@ export type {
   WorkItemExecutionContext,
   WorkItemHandler,
   WorkItemHandlerRegistry,
-  WorkItemResult,
   WorkItemSource,
+  WorkItemSourceClient,
+  WorkItemStatus,
 } from "./types.js";
 export {
   isWorkItemHandler,
-  isWorkItemResult,
   missingWorkItemFields,
   missingWorkItemFieldsMessage,
   isWorkItem as validateWorkItem,

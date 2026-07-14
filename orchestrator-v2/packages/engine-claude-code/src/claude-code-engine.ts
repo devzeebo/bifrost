@@ -46,6 +46,7 @@ type ContentBlock = {
 
 const formatToolInput = (input: unknown): string => {
   if (!input || typeof input !== "object") {
+    // oxlint-disable-next-line typescript/no-base-to-string -- will never be "[object Object]"
     return String(input ?? "");
   }
   const entries = Object.entries(input as Record<string, unknown>).slice(0, 3);

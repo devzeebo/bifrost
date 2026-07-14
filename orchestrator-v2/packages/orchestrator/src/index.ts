@@ -6,4 +6,4 @@ export type {
   OrchestratorStartOptions,
   WorkItemMapper,
 } from "./orchestrator.js";
-export type { OrchestratorOptions, Scheduler } from "./types.js";
+export type { OrchestratorOptions } from "./types.js";

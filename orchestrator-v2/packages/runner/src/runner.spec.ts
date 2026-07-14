@@ -35,14 +35,15 @@ type Context = {
 const echoScript: ScriptFn = async (workItem, ctx) => {
   const message = workItem.metadata.message as string;
   await ctx.setState({ echoed: message });
-  return { outcome: "completed" };
 };
 
 const failScript: ScriptFn = async () => {
   throw new Error("boom");
 };
 
-const pauseScript: ScriptFn = async () => ({ outcome: "paused" });
+const pauseScript: ScriptFn = async (workItem, ctx) => {
+  await ctx.workItemSource.pauseWorkItem(workItem.workItemId);
+};
 
 describe("runner", () => {
   withAspect(setup_identities, teardown_runner);
@@ -142,7 +143,8 @@ function work_item_source_with_echo(this: Context) {
   this.workItemSource = createMemoryWorkItemSource([
     {
       workItemId: "work-item-1",
-      kind: "echo",
+      kind: "script",
+      name: "echo",
       flow: [],
       state: {},
       metadata: { message: "hello" },
@@ -154,7 +156,8 @@ function work_item_source_with_fail(this: Context) {
   this.workItemSource = createMemoryWorkItemSource([
     {
       workItemId: "work-item-fail",
-      kind: "fail",
+      kind: "script",
+      name: "fail",
       flow: [],
       state: {},
       metadata: {},
@@ -166,7 +169,8 @@ function work_item_source_with_pause(this: Context) {
   this.workItemSource = createMemoryWorkItemSource([
     {
       workItemId: "work-item-pause",
-      kind: "pause",
+      kind: "script",
+      name: "pause",
       flow: [],
       state: {},
       metadata: {},

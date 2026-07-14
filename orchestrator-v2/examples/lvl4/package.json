@@ -1,0 +1,17 @@
+{
+  "name": "@bifrost-ai/example-lvl4",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@bifrost-ai/agent-3-task": "workspace:*",
+    "@bifrost-ai/agent-4-workflow": "workspace:*",
+    "@bifrost-ai/engine-cursor": "workspace:*",
+    "@bifrost-ai/interfaces-work": "workspace:*",
+    "@bifrost-ai/orchestrator": "workspace:*",
+    "@bifrost-ai/runner": "workspace:*",
+    "@bifrost-ai/work-item-source-bifrost": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
+}

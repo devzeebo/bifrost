@@ -4,16 +4,17 @@ A rebuild of the Bifrost orchestrator as a thin **get-work + dispatch** system. 
 
 ## Packages
 
-| Package                          | Purpose                                                           |
-| -------------------------------- | ----------------------------------------------------------------- |
-| `@bifrost-ai/interfaces-work`    | Work item, handler, and execution contracts                       |
-| `@bifrost-ai/protocol`           | Signed WebSocket RPC between orchestrator and runners             |
-| `@bifrost-ai/orchestrator`       | Thin orchestrator: stream work items, dispatch, record outcomes   |
-| `@bifrost-ai/runner`             | Remote runner: script stack execution, conventions, decorators    |
-| `@bifrost-ai/engine`             | Engine interface, types, and `TestEngine` for development/testing |
-| `@bifrost-ai/engine-claude-code` | Claude Code Agent SDK engine (`ClaudeCodeEngine`)                 |
-| `@bifrost-ai/engine-cursor`      | Cursor SDK engine (`CursorEngine`)                                |
-| `@bifrost-ai/agent-3-task`       | Task Agent — single-shot LLM execution (registered as scripts)    |
+| Package                          | Purpose                                                                   |
+| -------------------------------- | ------------------------------------------------------------------------- |
+| `@bifrost-ai/interfaces-work`    | Work item, handler, and execution contracts                               |
+| `@bifrost-ai/protocol`           | Signed WebSocket RPC between orchestrator and runners                     |
+| `@bifrost-ai/orchestrator`       | Thin orchestrator: stream work items, dispatch, record outcomes           |
+| `@bifrost-ai/runner`             | Remote runner: script stack execution, conventions, decorators            |
+| `@bifrost-ai/engine`             | Engine interface, types, and `TestEngine` for development/testing         |
+| `@bifrost-ai/engine-claude-code` | Claude Code Agent SDK engine (`ClaudeCodeEngine`)                         |
+| `@bifrost-ai/engine-cursor`      | Cursor SDK engine (`CursorEngine`)                                        |
+| `@bifrost-ai/agent-3-task`       | Task Agent — single-shot LLM execution (registered as scripts)            |
+| `@bifrost-ai/agent-4-workflow`   | Workflow Agent — DAG scheduling with dependencies (registered as scripts) |
 
 For design background and how each piece fits together, see [docs/](docs/).
 
@@ -104,7 +105,7 @@ import { Orchestrator, loadAuthorizedRunners } from "@bifrost-ai/orchestrator";
 import { exportPublicKeyPem, generateKeyPair } from "@bifrost-ai/protocol";
 
 const orchestratorIdentity = generateKeyPair("orchestrator");
-const runnerIdentity = generateKeyPair("runner-1");
+const runnerIdentity = generateKeyPair("runner");
 
 const orchestrator = new Orchestrator();
 orchestrator.registerWorkItemSource(workItemSource);
@@ -114,12 +115,6 @@ const handle = await orchestrator.start({
   authorizedRunners: loadAuthorizedRunners([
     { keyId: runnerIdentity.keyId, publicKeyPem: exportPublicKeyPem(runnerIdentity.publicKey) },
   ]),
-  scheduler: {
-    async call(method, params) {
-      // workflow scheduling callbacks from runners
-      return { ok: true };
-    },
-  },
   port: 9100,
 });
 
@@ -144,7 +139,7 @@ const runner = new Runner({ data });
 runner.registerEngine("claude", new ClaudeCodeEngine());
 runner.registerEngine("cursor", new CursorEngine());
 runner.registerTaskAgent("reviewer", await loadAgent("./agents/reviewer/AGENT.md"));
-runner.registerScriptAgent("echo", echo);
+runner.registerScript("echo", echo);
 
 await runner.start();
 ```
@@ -170,33 +165,25 @@ identity:
 
 See [docs/runner.md](docs/runner.md) for config discovery, trust model, and handler enrollment.
 
-### RPC methods exposed by the orchestrator
+## RPC surface
 
-Runners call back into the orchestrator over the same signed WebSocket:
-
-| Method                    | Params                     | Description              |
-| ------------------------- | -------------------------- | ------------------------ |
-| `workItem.complete`       | `{ workItemId }`           | Mark work item completed |
-| `workItem.fail`           | `{ workItemId, message? }` | Mark work item failed    |
-| `workItem.pause`          | `{ workItemId }`           | Mark work item paused    |
-| `workItemSource.setState` | `{ workItemId, state }`    | Persist handler state    |
-| `scheduler.call`          | `{ method, args }`         | Invoke scheduler proxy   |
+| Method                               | Params                                       | Purpose                           |
+| ------------------------------------ | -------------------------------------------- | --------------------------------- |
+| `dispatch`                           | `WorkItem`                                   | Execute work on runner            |
+| `workItem.complete`                  | `{ workItemId }`                             | Mark work item completed          |
+| `workItem.fail`                      | `{ workItemId, message }`                    | Mark work item failed             |
+| `workItem.pause`                     | `{ workItemId }`                             | Mark work item paused             |
+| `workItemSource.setState`            | `{ workItemId, state }`                      | Persist handler state             |
+| `workItemSource.createDraftWorkItem` | `{ input }`                                  | Create a draft child work item    |
+| `workItemSource.startWorkItem`       | `{ workItemId }`                             | Promote a draft work item to live |
+| `workItemSource.setDependency`       | `{ workItemId, dependsOnWorkItemId, type? }` | Link work item execution order    |
+| `workItemSource.getDependencies`     | `{ workItemId }`                             | List dependencies for a work item |
+| `workItemSource.getWorkItemStatus`   | `{ workItemId }`                             | Read current work item status     |
 
 The orchestrator dispatches work with `dispatch` RPC requests containing a full `WorkItem` object.
 
-## Documentation
+## Roadmap
 
-- [docs/](docs/) — how the system works (architecture, design decisions)
-- [packages/protocol/README.md](packages/protocol/README.md) — protocol implementation details
-
-## Related issues
-
-This work tracks the Orchestrator v2 rebuild:
-
-- [#32 Script task execution primitive](https://github.com/devzeebo/bifrost/issues/32)
-- [#33 Runner↔orchestrator protocol](https://github.com/devzeebo/bifrost/issues/33)
-- [#35 Thin orchestrator](https://github.com/devzeebo/bifrost/issues/35)
-- [#36 Runner package](https://github.com/devzeebo/bifrost/issues/36)
 - [#37 Task Agent (`agent-3-task`)](https://github.com/devzeebo/bifrost/issues/37) — [lifecycle docs](docs/agent-3-task.md)
 - [#39 Workflow Agent (`agent-4-workflow`)](https://github.com/devzeebo/bifrost/issues/39) — [lifecycle docs](docs/agent-4-workflow.md)
 - [#41 Structured output package](https://github.com/devzeebo/bifrost/issues/41) — schemas, sentinel files, JSON/YAML validation

@@ -87,4 +87,4 @@ The runner package consumes `protocol` and `interfaces-work` to execute work ite
 | Runner package                                 | Done                                                           |
 | Bifrost work item source adapter               | Planned ([#40](https://github.com/devzeebo/bifrost/issues/40)) |
 | Task Agent (`agent-3-task`)                    | Done ([#37](https://github.com/devzeebo/bifrost/issues/37))    |
-| Workflow Agent (`agent-4-workflow`)            | Planned ([#39](https://github.com/devzeebo/bifrost/issues/39)) |
+| Workflow Agent (`agent-4-workflow`)            | Done ([#39](https://github.com/devzeebo/bifrost/issues/39))    |

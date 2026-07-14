@@ -1,6 +1,7 @@
 export type WorkItem = {
   workItemId: string;
   kind: string;
+  name: string;
   flow: string[];
   state: Record<string, unknown>;
   readonly metadata: Record<string, unknown>;
@@ -13,10 +14,13 @@ export type WorkItemDependency = {
 
 export type CreateDraftWorkItemInput = {
   kind: string;
+  name: string;
   flow?: string[];
   state?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
 };
+
+export type WorkItemStatus = "draft" | "live" | "paused" | "completed" | "failed";
 
 export type WorkItemSource = {
   watchWorkItems: () => AsyncGenerator<WorkItem>;
@@ -28,11 +32,26 @@ export type WorkItemSource = {
   startWorkItem(workItemId: string): Promise<void>;
   setDependency(workItemId: string, dependsOnWorkItemId: string, type?: string): Promise<void>;
   getDependencies(workItemId: string): Promise<WorkItemDependency[]>;
+  getWorkItemStatus(workItemId: string): Promise<WorkItemStatus>;
 };
+
+export type WorkItemSourceClient = Pick<
+  WorkItemSource,
+  | "completeWorkItem"
+  | "failWorkItem"
+  | "pauseWorkItem"
+  | "createDraftWorkItem"
+  | "startWorkItem"
+  | "setDependency"
+  | "getDependencies"
+  | "getWorkItemStatus"
+  | "setState"
+>;
 
 export type ScriptContext<TData extends Record<string, unknown> = Record<string, unknown>> = {
   cwd: string;
   data: DataRegistry<TData>;
+  workItemSource: WorkItemSourceClient;
   setState: (state: Record<string, unknown>) => Promise<void>;
 };
 
@@ -52,7 +71,7 @@ export type ScriptStack<TData extends Record<string, unknown> = Record<string, u
   decorators: Record<string, DecoratorFn<TData>>;
 };
 
-const REQUIRED_WORK_ITEM_FIELDS = ["workItemId", "kind", "flow"] as const;
+const REQUIRED_WORK_ITEM_FIELDS = ["workItemId", "kind", "name", "flow"] as const;
 
 export function isWorkItem(value: unknown): value is WorkItem {
   if (value === null || typeof value !== "object") {
@@ -65,6 +84,8 @@ export function isWorkItem(value: unknown): value is WorkItem {
     record.workItemId.length === 0 ||
     typeof record.kind !== "string" ||
     record.kind.length === 0 ||
+    typeof record.name !== "string" ||
+    record.name.length === 0 ||
     !Array.isArray(record.flow) ||
     !record.flow.every((entry) => typeof entry === "string" && entry.length > 0) ||
     record.state === null ||
@@ -104,6 +125,9 @@ export function missingWorkItemFields(value: unknown): string[] {
   }
   if (typeof record.kind === "string" && record.kind.length === 0) {
     missing.push("kind");
+  }
+  if (typeof record.name === "string" && record.name.length === 0) {
+    missing.push("name");
   }
   if (record.flow !== undefined && !Array.isArray(record.flow)) {
     missing.push("flow");
@@ -152,19 +176,14 @@ export type WorkItemExecutionContext<
 > = {
   readonly data: DataRegistry<TData>;
   readonly handlers: WorkItemHandlerRegistry;
+  readonly workItemSource: WorkItemSourceClient;
   setState: (state: Record<string, unknown>) => Promise<void>;
-};
-
-export type WorkItemResult = {
-  outcome: "completed" | "failed" | "paused";
-  message?: string;
-  telemetry?: ExecutionStats;
 };
 
 export type WorkItemHandler<TData extends Record<string, unknown> = Record<string, unknown>> = {
   kind: string;
   name: string;
-  run: (workItem: WorkItem, ctx: WorkItemExecutionContext<TData>) => Promise<WorkItemResult>;
+  run: (workItem: WorkItem, ctx: WorkItemExecutionContext<TData>) => Promise<void>;
 };
 
 export function isWorkItemHandler(value: unknown): value is WorkItemHandler {
@@ -177,16 +196,5 @@ export function isWorkItemHandler(value: unknown): value is WorkItemHandler {
     typeof record.kind === "string" &&
     typeof record.name === "string" &&
     typeof record.run === "function"
-  );
-}
-
-export function isWorkItemResult(value: unknown): value is WorkItemResult {
-  if (value === null || typeof value !== "object") {
-    return false;
-  }
-
-  const record = value as Partial<WorkItemResult>;
-  return (
-    record.outcome === "completed" || record.outcome === "failed" || record.outcome === "paused"
   );
 }

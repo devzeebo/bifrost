@@ -1,0 +1,39 @@
+{
+  "name": "@bifrost-ai/agent-4-workflow",
+  "version": "0.1.0",
+  "description": "Workflow Agent — DAG scheduling with dependencies",
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./augment": "./dist/augment.mjs",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vp pack",
+    "dev": "vp pack --watch",
+    "test": "vp test",
+    "check": "vp check",
+    "prepublishOnly": "vp run build"
+  },
+  "dependencies": {
+    "@bifrost-ai/interfaces-work": "workspace:*",
+    "@bifrost-ai/runner": "workspace:*"
+  },
+  "devDependencies": {
+    "@bifrost-ai/orchestrator": "workspace:*",
+    "@bifrost-ai/protocol": "workspace:*",
+    "@types/node": "catalog:",
+    "@typescript/native-preview": "catalog:",
+    "bumpp": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest-gwt": "catalog:"
+  }
+}

@@ -3,11 +3,7 @@ import { describe, expect } from "vite-plus/test";
 import test from "vitest-gwt";
 
 import { Registry } from "./registry.js";
-import {
-  executeScriptStack,
-  normalizeScriptResult,
-  resolveStack,
-} from "./script-stack.js";
+import { executeScriptStack, resolveStack } from "./script-stack.js";
 
 type Context = {
   workItem: WorkItem;
@@ -19,7 +15,8 @@ type Context = {
 
 const baseWorkItem = (): WorkItem => ({
   workItemId: "wi-1",
-  kind: "hunt",
+  kind: "script",
+  name: "hunt",
   flow: [],
   state: {},
   metadata: {},
@@ -39,6 +36,23 @@ const scriptContext = {
         },
       };
     },
+  },
+  workItemSource: {
+    async completeWorkItem() {},
+    async failWorkItem() {},
+    async pauseWorkItem() {},
+    async createDraftWorkItem() {
+      return "draft-1";
+    },
+    async startWorkItem() {},
+    async setDependency() {},
+    async getDependencies() {
+      return [];
+    },
+    async getWorkItemStatus() {
+      return "live" as const;
+    },
+    async setState() {},
   },
   async setState() {},
 };
@@ -79,16 +93,6 @@ describe("script-stack", () => {
     when: { resolving_unknown_decorator },
     then: { decorator_error_thrown },
   });
-
-  test("normalizeScriptResult treats WorkItemResult as-is", {
-    when: { normalizing_work_item_result },
-    then: { result_is_preserved },
-  });
-
-  test("normalizeScriptResult treats unknown as completed", {
-    when: { normalizing_unknown },
-    then: { outcome_is_completed },
-  });
 });
 
 function a_script_registry_with_hunt(this: Context) {
@@ -97,17 +101,16 @@ function a_script_registry_with_hunt(this: Context) {
   this.decorators = new Registry<DecoratorFn>();
   this.scripts.register("hunt", async () => {
     this.result = "meat";
-    return this.result;
   });
 }
 
 async function executing_without_conventions(this: Context) {
   const stack = resolveStack(this.workItem, this.scripts, this.decorators, []);
-  this.result = await executeScriptStack(this.workItem, scriptContext, stack);
+  await executeScriptStack(this.workItem, scriptContext, stack);
 }
 
 function script_ran(this: Context) {
-  expect(this.result).toEqual({ outcome: "completed" });
+  expect(this.result).toBe("meat");
 }
 
 function nested_decorators(this: Context) {
@@ -119,7 +122,6 @@ function nested_decorators(this: Context) {
 
   this.scripts.register("hunt", async () => {
     order.push("script");
-    return "done";
   });
 
   this.decorators.register("outer", async (_wi, _ctx, next) => {
@@ -161,7 +163,7 @@ function skip_decorator(this: Context) {
     state.scriptRan = true;
   });
 
-  this.decorators.register("skip", async () => "skipped");
+  this.decorators.register("skip", async () => undefined);
 }
 
 async function executing_short_circuit(this: Context) {
@@ -185,14 +187,14 @@ function flaky_script_and_retry_decorator(this: Context) {
     if (state.attempts < 3) {
       throw new Error("not yet");
     }
-    return "ok";
   });
 
   this.decorators.register("retry", async (_wi, _ctx, next) => {
     let tries = 0;
     while (true) {
       try {
-        return await next();
+        await next();
+        return;
       } catch (error) {
         if (++tries >= 3) {
           throw error;
@@ -234,7 +236,7 @@ function script_without_decorator(this: Context) {
   this.workItem = { ...baseWorkItem(), flow: ["missing"] };
   this.scripts = new Registry<ScriptFn>();
   this.decorators = new Registry<DecoratorFn>();
-  this.scripts.register("hunt", async () => "ok");
+  this.scripts.register("hunt", async () => undefined);
 }
 
 function resolving_unknown_decorator(this: Context) {
@@ -248,20 +250,4 @@ function resolving_unknown_decorator(this: Context) {
 
 function decorator_error_thrown(this: Context) {
   expect(this.error?.message).toBe("Unknown decorator: missing");
-}
-
-function normalizing_work_item_result(this: Context) {
-  this.result = normalizeScriptResult({ outcome: "paused" });
-}
-
-function result_is_preserved(this: Context) {
-  expect(this.result).toEqual({ outcome: "paused" });
-}
-
-function normalizing_unknown(this: Context) {
-  this.result = normalizeScriptResult(undefined);
-}
-
-function outcome_is_completed(this: Context) {
-  expect(this.result).toEqual({ outcome: "completed" });
 }

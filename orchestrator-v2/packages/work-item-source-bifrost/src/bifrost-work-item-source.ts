@@ -3,6 +3,7 @@ import type {
   WorkItem,
   WorkItemDependency,
   WorkItemSource,
+  WorkItemStatus,
 } from "@bifrost-ai/interfaces-work";
 import { BifrostHttpClient } from "./client/bifrost-http-client.js";
 import { loadConfig } from "./config/config-loader.js";
@@ -163,12 +164,43 @@ export class BifrostWorkItemSource implements WorkItemSource {
     }));
   }
 
+  public async getWorkItemStatus(workItemId: string): Promise<WorkItemStatus> {
+    const client = await this.#getClient();
+    const detail = await client.getRune(workItemId);
+    return BifrostWorkItemSource.mapRuneStatus(detail.status);
+  }
+
+  public static mapRuneStatus(status: string): WorkItemStatus {
+    switch (status) {
+      case "draft":
+        return "draft";
+      case "open":
+      case "claimed":
+        return "live";
+      case "fulfilled":
+        return "completed";
+      case "sealed":
+      case "shattered":
+        return "failed";
+      default:
+        return "live";
+    }
+  }
+
   public static extractAgentName(tags: string[]): string | null {
     const agentTag = tags.find((tag) => tag.startsWith("agent:"));
     if (!agentTag) {
       return null;
     }
     return agentTag.slice(6);
+  }
+
+  public static extractAgentKind(tags: string[]): string {
+    const kindTag = tags.find((tag) => tag.startsWith("kind:"));
+    if (!kindTag) {
+      return "task";
+    }
+    return kindTag.slice(5);
   }
 
   public static extractDecoratorNames(tags: string[]): string[] {
@@ -180,7 +212,7 @@ export class BifrostWorkItemSource implements WorkItemSource {
   public static buildCreateRuneRequest(input: CreateDraftWorkItemInput): CreateRuneRequest {
     const metadata = input.metadata ?? {};
     const title =
-      typeof metadata.title === "string" && metadata.title.length > 0 ? metadata.title : input.kind;
+      typeof metadata.title === "string" && metadata.title.length > 0 ? metadata.title : input.name;
     const description = typeof metadata.description === "string" ? metadata.description : undefined;
     const priority = typeof metadata.priority === "number" ? metadata.priority : 1;
     const parentId = typeof metadata.parentId === "string" ? metadata.parentId : undefined;
@@ -189,7 +221,8 @@ export class BifrostWorkItemSource implements WorkItemSource {
 
     const tags = Array.isArray(metadata.tags) ? [...(metadata.tags as string[])] : ([] as string[]);
 
-    tags.push(`agent:${input.kind}`);
+    tags.push(`agent:${input.name}`);
+    tags.push(`kind:${input.kind}`);
 
     for (const decorator of input.flow ?? []) {
       tags.push(`decorator:${decorator}`);
@@ -209,7 +242,8 @@ export class BifrostWorkItemSource implements WorkItemSource {
   public static mapToWorkItem(rune: RuneDetail, agentName: string): WorkItem {
     return {
       workItemId: rune.id,
-      kind: agentName,
+      kind: BifrostWorkItemSource.extractAgentKind(rune.tags ?? []),
+      name: agentName,
       flow: BifrostWorkItemSource.extractDecoratorNames(rune.tags ?? []),
       state: { ...rune.state },
       metadata: rune as unknown as Record<string, unknown>,

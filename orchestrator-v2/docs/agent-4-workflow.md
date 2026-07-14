@@ -202,9 +202,9 @@ The orchestrator never inspects the dependency graph. It dispatches whatever the
 
 ### Permanent child failure (die-die)
 
-> **TO BE RESOLVED**
+When a child reaches a terminal **failed** state, the work item source treats that dependency edge as satisfied (same as **completed**). The workflow's own blockers clear, it is re-dispatched for the verify pass, and returns **failed** if any child failed.
 
-When a child exhausts all retries and permanently fails, the workflow needs a dispatch so it can fail itself. The exact trigger — whether the child's terminal failure clears the workflow's blocker immediately, or whether the task source needs explicit logic to re-yield the workflow on child failure — is not yet decided.
+Work item sources must implement this semantics: a `blocks` edge is cleared when the blocking work item reaches any terminal state (`completed` or `failed`).
 
 ## Related
 
