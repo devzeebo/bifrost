@@ -4,6 +4,7 @@ import { Runner } from "@bifrost-ai/runner";
 
 import { flattenWorkflowBuilder } from "./flatten-workflow.js";
 import { createWorkflowScript } from "./create-workflow-agent.js";
+import { createWorkflowDebug } from "./debug.js";
 import type { ScriptRef } from "./step-refs.js";
 import { createRetryDecorator, RETRY_DECORATOR } from "./retry.js";
 import { createStepDecorator } from "./step-wrapper.js";
@@ -22,11 +23,14 @@ Runner.prototype.registerWorkflowAgent = function registerWorkflowAgent(
   workflow: Workflow,
 ): WorkflowDefinition {
   const definition = flattenWorkflowBuilder(workflow);
+  const debug = createWorkflowDebug(definition.name);
+  debug("registering workflow stepCount=%d", definition.steps.length);
   registerScriptSteps(this, workflow);
   registerGlobalDecorators(this);
   registerStepDecorators(this, definition);
   validateDefinition(this, definition);
   this.registerScript(definition.name, createWorkflowScript(definition));
+  debug("registered workflow");
   return definition;
 };
 
@@ -77,7 +81,7 @@ function registerStepDecorators(runner: Runner, definition: WorkflowDefinition):
     }
 
     if (!runner.hasDecorator(step.id)) {
-      runner.registerDecorator(step.id, () => createStepDecorator(step));
+      runner.registerDecorator(step.id, () => createStepDecorator(step, definition.name));
     }
   }
 }

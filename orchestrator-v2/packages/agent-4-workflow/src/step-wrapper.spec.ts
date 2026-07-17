@@ -9,6 +9,7 @@ import { describe, expect } from "vite-plus/test";
 import test from "vitest-gwt";
 
 import { continueStep, failStep, pauseStep } from "./step-result.js";
+import { createWorkflowStepDebug } from "./debug.js";
 import { runStepDecorator } from "./step-wrapper.js";
 import type { StepWrapperState } from "./types.js";
 
@@ -42,7 +43,11 @@ class MockSource implements WorkItemSourceClient {
     throw new Error("not implemented");
   }
 
-  async setDependency(_workItemId: string, _dependsOnWorkItemId: string): Promise<void> {
+  async setDependency(
+    _blockerId: string,
+    _relationship: "blocks",
+    _blockedId: string,
+  ): Promise<void> {
     throw new Error("not implemented");
   }
 
@@ -56,6 +61,10 @@ class MockSource implements WorkItemSourceClient {
 
   async setState(workItemId: string, state: Record<string, unknown>): Promise<void> {
     this.workflowStateUpdates.push({ workItemId, state });
+  }
+
+  async updateWorkItemMetadata(): Promise<void> {
+    throw new Error("not implemented");
   }
 }
 
@@ -110,15 +119,24 @@ function thrown_error_fixture(this: Context) {
   this.innerResult = new Error("boom");
 }
 
+const stepDebug = createWorkflowStepDebug("test-workflow", "test-workflow:step1-1[test]");
+
 async function running_decorator(this: Context) {
   this.error = null;
   try {
-    await runStepDecorator("step-child-1", wrapperState, makeCtx(this.workItemSource), async () => {
-      if (this.innerResult instanceof Error) {
-        throw this.innerResult;
-      }
-      return this.innerResult;
-    });
+    await runStepDecorator(
+      "step-child-1",
+      wrapperState,
+      makeCtx(this.workItemSource),
+      async () => {
+        if (this.innerResult instanceof Error) {
+          throw this.innerResult;
+        }
+        return this.innerResult;
+      },
+      stepDebug,
+      "test-workflow",
+    );
   } catch (error) {
     this.error = error as Error;
   }

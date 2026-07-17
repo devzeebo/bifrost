@@ -48,6 +48,16 @@ describe("flattenWorkflowBuilder", () => {
     given: { retry_workflow },
     then: { retry_flow_includes_args },
   });
+
+  test("workflow hooks are passed through flattening", {
+    given: { hooked_workflow },
+    then: { hooks_are_present_on_definition },
+  });
+
+  test("multiple hooks on same lifecycle preserve builder order", {
+    given: { multiple_hooked_workflow },
+    then: { multiple_hooks_preserve_order },
+  });
 });
 
 function linear_workflow(this: Context) {
@@ -149,4 +159,33 @@ function retry_workflow(this: Context) {
 function retry_flow_includes_args(this: Context) {
   const [taskStep] = this.definition.steps;
   expect(taskStep?.flow).toEqual([taskStep?.id, { name: "retry", args: [4] }]);
+}
+
+function hooked_workflow(this: Context) {
+  const onBeforeDraftChildren = () => {};
+  const workflow = new Workflow({ name: "hooked" })
+    .onBeforeDraftChildren(onBeforeDraftChildren)
+    .step(task("a"));
+  this.definition = flattenWorkflowBuilder(workflow);
+}
+
+function hooks_are_present_on_definition(this: Context) {
+  expect(this.definition.hooks?.onBeforeDraftChildren).toEqual([expect.any(Function)]);
+}
+
+function multiple_hooked_workflow(this: Context) {
+  const hookA = () => {};
+  const hookB = () => {};
+  const workflow = new Workflow({ name: "multi-hooked" })
+    .onBeforeDraftChildren(hookA)
+    .onBeforeDraftChildren(hookB)
+    .step(task("a"));
+  this.definition = flattenWorkflowBuilder(workflow);
+}
+
+function multiple_hooks_preserve_order(this: Context) {
+  const [hookA, hookB] = this.definition.hooks?.onBeforeDraftChildren ?? [];
+  expect(hookA).toBeTypeOf("function");
+  expect(hookB).toBeTypeOf("function");
+  expect(this.definition.hooks?.onBeforeDraftChildren).toHaveLength(2);
 }

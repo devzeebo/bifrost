@@ -1,4 +1,9 @@
-import type { DecoratorFactory, FlowEntry } from "@bifrost-ai/interfaces-work";
+import type {
+  DecoratorFactory,
+  FlowEntry,
+  ScriptContext,
+  WorkItem,
+} from "@bifrost-ai/interfaces-work";
 
 export type WorkflowPhase = "schedule" | "verify";
 
@@ -13,9 +18,52 @@ export type FlattenedStep = {
   decoratorFns?: Record<string, DecoratorFactory>;
 };
 
+export type WorkflowChildRef = {
+  stepId: string;
+  workItemId: string;
+  step: FlattenedStep;
+};
+
+export type ScheduleContext = {
+  steps: FlattenedStep[];
+  childIds: Record<string, string>;
+  draftMetadata: Record<string, unknown>;
+  draftState: Record<string, unknown>;
+};
+
+export type ScheduleHookContext = {
+  workflow: WorkItem;
+  definition: WorkflowDefinition;
+  schedule: ScheduleContext;
+  ctx: ScriptContext;
+};
+
+export type VerifyHookContext = {
+  workflow: WorkItem;
+  definition: WorkflowDefinition;
+  children: WorkflowChildRef[];
+  ctx: ScriptContext;
+};
+
+export type ScheduleHook = (
+  context: ScheduleHookContext,
+) => void | FlattenedStep[] | Promise<void | FlattenedStep[]>;
+export type VerifyHook = (context: VerifyHookContext) => void | Promise<void>;
+
+export type WorkflowHooks = {
+  onBeforeCreateStepList?: ScheduleHook[];
+  onBeforeDraftChildren?: ScheduleHook[];
+  onBeforeWireDependencies?: ScheduleHook[];
+  onBeforeStartChildren?: ScheduleHook[];
+  onAfterStartChildren?: ScheduleHook[];
+  onBeforeVerify?: VerifyHook[];
+  onAfterVerify?: VerifyHook[];
+};
+
 export type WorkflowDefinition = {
   name: string;
   steps: FlattenedStep[];
+  hooks?: WorkflowHooks;
 };
 
 export type WorkflowState = {

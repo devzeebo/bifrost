@@ -232,6 +232,29 @@ describe("BifrostWorkItemSource", () => {
     });
   });
 
+  describe("updateWorkItemMetadata", () => {
+    it("should call update-rune API", async () => {
+      const { source, cleanup } = await createTestSource();
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 204,
+      });
+
+      await source.updateWorkItemMetadata("rune-1", { branch: "feature/story-1" });
+
+      await cleanup();
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/api/update-rune"),
+        expect.objectContaining({
+          method: "POST",
+          body: '{"id":"rune-1","branch":"feature/story-1"}',
+        }),
+      );
+    });
+  });
+
   describe("createDraftWorkItem", () => {
     it("should call create-rune API and return work item id", async () => {
       const { source, cleanup } = await createTestSource();
@@ -340,7 +363,7 @@ describe("BifrostWorkItemSource", () => {
         status: 204,
       });
 
-      await source.setDependency("rune-1", "rune-2");
+      await source.setDependency("rune-1", "blocks", "rune-2");
 
       await cleanup();
 

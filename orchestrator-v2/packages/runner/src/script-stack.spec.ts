@@ -58,6 +58,7 @@ const scriptContext = {
       return "live" as const;
     },
     async setState() {},
+    async updateWorkItemMetadata() {},
   },
   async setState() {},
 };

@@ -1,7 +1,9 @@
 import type {
   CreateDraftWorkItemInput,
+  DependencyRelationship,
   WorkItem,
   WorkItemDependency,
+  WorkItemMetadataPatch,
   WorkItemSource,
   WorkItemStatus,
 } from "@bifrost-ai/interfaces-work";
@@ -170,6 +172,15 @@ export function createGraphMemoryWorkItemSource(
         items.set(workItemId, { ...item, state: { ...state } });
       }
     },
+    async updateWorkItemMetadata(workItemId: string, patch: WorkItemMetadataPatch) {
+      const item = items.get(workItemId);
+      if (item !== undefined) {
+        items.set(workItemId, {
+          ...item,
+          metadata: { ...item.metadata, ...patch },
+        });
+      }
+    },
     async createDraftWorkItem(input: CreateDraftWorkItemInput) {
       const workItemId = `draft-${nextDraftId}`;
       nextDraftId += 1;
@@ -193,10 +204,14 @@ export function createGraphMemoryWorkItemSource(
       statuses.set(workItemId, "live");
       enqueueIfReady(workItemId);
     },
-    async setDependency(workItemId: string, dependsOnWorkItemId: string, type = "blocks") {
-      const edges = dependencies.get(workItemId) ?? [];
-      edges.push({ workItemId: dependsOnWorkItemId, type });
-      dependencies.set(workItemId, edges);
+    async setDependency(
+      blockerId: string,
+      relationship: DependencyRelationship,
+      blockedId: string,
+    ) {
+      const edges = dependencies.get(blockedId) ?? [];
+      edges.push({ workItemId: blockerId, type: relationship });
+      dependencies.set(blockedId, edges);
     },
     async getDependencies(workItemId: string) {
       return dependencies.get(workItemId) ?? [];

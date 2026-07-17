@@ -116,6 +116,9 @@ function makeExecutionFixture(
       async setState() {
         throw new Error("not implemented");
       },
+      async updateWorkItemMetadata() {
+        throw new Error("not implemented");
+      },
     },
     async setState(nextState) {
       Object.assign(liveState, nextState);

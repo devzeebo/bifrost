@@ -1,13 +1,26 @@
 import type { FlowEntry } from "@bifrost-ai/interfaces-work";
 import type { FlattenedStep, WorkflowDefinition } from "./types.js";
 import type { WorkflowStepInput } from "./step-refs.js";
+import { createWorkflowDebug } from "./debug.js";
 import { Workflow } from "./workflow.js";
 
 export function flattenWorkflowBuilder(workflow: Workflow, parentPrefix = ""): WorkflowDefinition {
   const name = workflow.name;
+  const debug = createWorkflowDebug(name);
   const prefix = parentPrefix.length > 0 ? `${parentPrefix}:${name}` : name;
   const { steps } = flattenWorkflowGroup(workflow, prefix, []);
-  return { name, steps };
+  const hooks = workflow.hooks;
+  const hasHooks = Object.values(hooks).some((arr) => arr.length > 0);
+  debug(
+    "flattened stepCount=%d steps=%o",
+    steps.length,
+    steps.map((step) => step.id),
+  );
+  return {
+    name,
+    steps,
+    ...(hasHooks ? { hooks } : {}),
+  };
 }
 
 function flattenWorkflowGroup(

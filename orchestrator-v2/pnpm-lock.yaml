@@ -334,6 +334,9 @@ importers:
       '@bifrost-ai/runner':
         specifier: workspace:*
         version: link:../runner
+      debug:
+        specifier: ^4.4.0
+        version: 4.4.3
     devDependencies:
       '@bifrost-ai/orchestrator':
         specifier: workspace:*
@@ -341,6 +344,9 @@ importers:
       '@bifrost-ai/protocol':
         specifier: workspace:*
         version: link:../protocol
+      '@types/debug':
+        specifier: ^4.1.12
+        version: 4.1.13
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.4

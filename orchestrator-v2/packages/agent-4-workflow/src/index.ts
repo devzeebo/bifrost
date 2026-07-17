@@ -18,9 +18,16 @@ export { Workflow } from "./workflow.js";
 export type { WorkflowGroupItem } from "./workflow.js";
 export type {
   FlattenedStep,
+  ScheduleContext,
+  ScheduleHook,
+  ScheduleHookContext,
   StepTransition,
   StepWrapperState,
+  VerifyHook,
+  VerifyHookContext,
+  WorkflowChildRef,
   WorkflowDefinition,
+  WorkflowHooks,
   WorkflowPhase,
   WorkflowState,
   WorkflowStateParseResult,

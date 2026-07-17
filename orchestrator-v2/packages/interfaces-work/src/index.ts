@@ -1,5 +1,6 @@
 export type {
   CreateDraftWorkItemInput,
+  DependencyRelationship,
   DataRegistry,
   DecoratorFactory,
   DecoratorFn,
@@ -13,6 +14,7 @@ export type {
   WorkItemExecutionContext,
   WorkItemHandler,
   WorkItemHandlerRegistry,
+  WorkItemMetadataPatch,
   WorkItemSource,
   WorkItemSourceClient,
   WorkItemStatus,

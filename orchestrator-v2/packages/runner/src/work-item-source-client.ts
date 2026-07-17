@@ -1,6 +1,8 @@
 import type {
   CreateDraftWorkItemInput,
+  DependencyRelationship,
   WorkItemDependency,
+  WorkItemMetadataPatch,
   WorkItemSourceClient,
   WorkItemStatus,
 } from "@bifrost-ai/interfaces-work";
@@ -32,8 +34,12 @@ export function createRpcWorkItemSourceClient(rpc: RpcClient): WorkItemSourceCli
     async startWorkItem(workItemId: string) {
       await rpc.call("workItemSource.startWorkItem", { workItemId });
     },
-    async setDependency(workItemId: string, dependsOnWorkItemId: string, type?: string) {
-      await rpc.call("workItemSource.setDependency", { workItemId, dependsOnWorkItemId, type });
+    async setDependency(
+      blockerId: string,
+      relationship: DependencyRelationship,
+      blockedId: string,
+    ) {
+      await rpc.call("workItemSource.setDependency", { blockerId, relationship, blockedId });
     },
     async getDependencies(workItemId: string) {
       const result = await rpc.call("workItemSource.getDependencies", { workItemId });
@@ -55,6 +61,9 @@ export function createRpcWorkItemSourceClient(rpc: RpcClient): WorkItemSourceCli
     },
     async setState(workItemId: string, state: Record<string, unknown>) {
       await rpc.call("workItemSource.setState", { workItemId, state });
+    },
+    async updateWorkItemMetadata(workItemId: string, patch: WorkItemMetadataPatch) {
+      await rpc.call("workItemSource.updateWorkItemMetadata", { workItemId, patch });
     },
   };
 }

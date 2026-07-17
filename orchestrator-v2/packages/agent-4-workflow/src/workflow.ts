@@ -1,13 +1,54 @@
 import type { StepDecorator, WorkflowStepInput } from "./step-refs.js";
+import type { ScheduleHook, VerifyHook, WorkflowHooks } from "./types.js";
 
 export type WorkflowGroupItem = WorkflowStepInput | Workflow;
 
 export class Workflow {
   public readonly name: string;
   public readonly groups: WorkflowGroupItem[][] = [];
+  readonly #hooks: WorkflowHooks = {};
 
   public constructor(options: { name: string }) {
     this.name = options.name;
+  }
+
+  public get hooks(): WorkflowHooks {
+    return this.#hooks;
+  }
+
+  public onBeforeCreateStepList(hook: ScheduleHook): this {
+    (this.#hooks.onBeforeCreateStepList ??= []).push(hook);
+    return this;
+  }
+
+  public onBeforeDraftChildren(hook: ScheduleHook): this {
+    (this.#hooks.onBeforeDraftChildren ??= []).push(hook);
+    return this;
+  }
+
+  public onBeforeWireDependencies(hook: ScheduleHook): this {
+    (this.#hooks.onBeforeWireDependencies ??= []).push(hook);
+    return this;
+  }
+
+  public onBeforeStartChildren(hook: ScheduleHook): this {
+    (this.#hooks.onBeforeStartChildren ??= []).push(hook);
+    return this;
+  }
+
+  public onAfterStartChildren(hook: ScheduleHook): this {
+    (this.#hooks.onAfterStartChildren ??= []).push(hook);
+    return this;
+  }
+
+  public onBeforeVerify(hook: VerifyHook): this {
+    (this.#hooks.onBeforeVerify ??= []).push(hook);
+    return this;
+  }
+
+  public onAfterVerify(hook: VerifyHook): this {
+    (this.#hooks.onAfterVerify ??= []).push(hook);
+    return this;
   }
 
   public step(...items: [...WorkflowGroupItem[], StepDecorator[]]): this;

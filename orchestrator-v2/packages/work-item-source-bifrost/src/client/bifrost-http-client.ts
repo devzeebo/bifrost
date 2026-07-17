@@ -1,4 +1,4 @@
-import type { CreateRuneRequest, ReadyRune, RuneDetail } from "../types.js";
+import type { CreateRuneRequest, ReadyRune, RuneDetail, UpdateRuneRequest } from "../types.js";
 import createDebug from "debug";
 
 const debug = createDebug("bifrost");
@@ -90,6 +90,13 @@ export class BifrostHttpClient {
     await this.request("/api/update-rune-state", {
       method: "POST",
       body: JSON.stringify({ rune_id: runeId, patch: JSON.stringify(taskState) }),
+    });
+  }
+
+  public async updateRune(request: UpdateRuneRequest): Promise<void> {
+    await this.request("/api/update-rune", {
+      method: "POST",
+      body: JSON.stringify(request),
     });
   }
 

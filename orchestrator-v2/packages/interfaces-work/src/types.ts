@@ -25,15 +25,31 @@ export type CreateDraftWorkItemInput = {
 
 export type WorkItemStatus = "draft" | "live" | "paused" | "completed" | "failed";
 
+export type WorkItemMetadataPatch = {
+  branch?: string;
+  title?: string;
+  description?: string;
+  priority?: number;
+  tags?: string[];
+};
+
+/** Supported dependency relationships for setDependency. Only "blocks" for now. */
+export type DependencyRelationship = "blocks";
+
 export type WorkItemSource = {
   watchWorkItems: () => AsyncGenerator<WorkItem>;
   completeWorkItem: (workItemId: string) => Promise<void>;
   failWorkItem: (workItemId: string, error: string) => Promise<void>;
   pauseWorkItem: (workItemId: string) => Promise<void>;
   setState: (workItemId: string, state: Record<string, unknown>) => Promise<void>;
+  updateWorkItemMetadata: (workItemId: string, patch: WorkItemMetadataPatch) => Promise<void>;
   createDraftWorkItem(input: CreateDraftWorkItemInput): Promise<string>;
   startWorkItem(workItemId: string): Promise<void>;
-  setDependency(workItemId: string, dependsOnWorkItemId: string, type?: string): Promise<void>;
+  setDependency(
+    blockerId: string,
+    relationship: DependencyRelationship,
+    blockedId: string,
+  ): Promise<void>;
   getDependencies(workItemId: string): Promise<WorkItemDependency[]>;
   getWorkItemStatus(workItemId: string): Promise<WorkItemStatus>;
 };
@@ -49,6 +65,7 @@ export type WorkItemSourceClient = Pick<
   | "getDependencies"
   | "getWorkItemStatus"
   | "setState"
+  | "updateWorkItemMetadata"
 >;
 
 export type ScriptContext<TData extends Record<string, unknown> = Record<string, unknown>> = {

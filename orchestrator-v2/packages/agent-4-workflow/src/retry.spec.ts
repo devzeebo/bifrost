@@ -41,6 +41,7 @@ const scriptContext = (ctx: Context): ScriptContext => ({
       return "live" as const;
     },
     async setState() {},
+    async updateWorkItemMetadata() {},
   },
   async setState(state) {
     ctx.setStateCalls.push(state);
@@ -53,7 +54,7 @@ const workItem = {
   name: "hunt",
   flow: [],
   state: {},
-  metadata: {},
+  metadata: { workflowName: "test-workflow" },
 };
 
 describe("createRetryDecorator", () => {

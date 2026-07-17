@@ -167,18 +167,18 @@ See [docs/runner.md](docs/runner.md) for config discovery, trust model, and hand
 
 ## RPC surface
 
-| Method                               | Params                                       | Purpose                           |
-| ------------------------------------ | -------------------------------------------- | --------------------------------- |
-| `dispatch`                           | `WorkItem`                                   | Execute work on runner            |
-| `workItem.complete`                  | `{ workItemId }`                             | Mark work item completed          |
-| `workItem.fail`                      | `{ workItemId, message }`                    | Mark work item failed             |
-| `workItem.pause`                     | `{ workItemId }`                             | Mark work item paused             |
-| `workItemSource.setState`            | `{ workItemId, state }`                      | Persist handler state             |
-| `workItemSource.createDraftWorkItem` | `{ input }`                                  | Create a draft child work item    |
-| `workItemSource.startWorkItem`       | `{ workItemId }`                             | Promote a draft work item to live |
-| `workItemSource.setDependency`       | `{ workItemId, dependsOnWorkItemId, type? }` | Link work item execution order    |
-| `workItemSource.getDependencies`     | `{ workItemId }`                             | List dependencies for a work item |
-| `workItemSource.getWorkItemStatus`   | `{ workItemId }`                             | Read current work item status     |
+| Method                               | Params                                             | Purpose                           |
+| ------------------------------------ | -------------------------------------------------- | --------------------------------- |
+| `dispatch`                           | `WorkItem`                                         | Execute work on runner            |
+| `workItem.complete`                  | `{ workItemId }`                                   | Mark work item completed          |
+| `workItem.fail`                      | `{ workItemId, message }`                          | Mark work item failed             |
+| `workItem.pause`                     | `{ workItemId }`                                   | Mark work item paused             |
+| `workItemSource.setState`            | `{ workItemId, state }`                            | Persist handler state             |
+| `workItemSource.createDraftWorkItem` | `{ input }`                                        | Create a draft child work item    |
+| `workItemSource.startWorkItem`       | `{ workItemId }`                                   | Promote a draft work item to live |
+| `workItemSource.setDependency`       | `{ blockerId, relationship: "blocks", blockedId }` | Link work item execution order    |
+| `workItemSource.getDependencies`     | `{ workItemId }`                                   | List dependencies for a work item |
+| `workItemSource.getWorkItemStatus`   | `{ workItemId }`                                   | Read current work item status     |
 
 The orchestrator dispatches work with `dispatch` RPC requests containing a full `WorkItem` object.
 

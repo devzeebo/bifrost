@@ -87,17 +87,17 @@ The protocol package defines the transport. The orchestrator package defines the
 
 **Runner → Orchestrator:**
 
-| Method                               | Params                                       | Notes                       |
-| ------------------------------------ | -------------------------------------------- | --------------------------- |
-| `workItem.complete`                  | `{ workItemId }`                             |                             |
-| `workItem.fail`                      | `{ workItemId, message? }`                   |                             |
-| `workItem.pause`                     | `{ workItemId }`                             |                             |
-| `workItemSource.setState`            | `{ workItemId, state }`                      | Proxied to work item source |
-| `workItemSource.createDraftWorkItem` | `{ input }`                                  | Proxied to work item source |
-| `workItemSource.startWorkItem`       | `{ workItemId }`                             | Proxied to work item source |
-| `workItemSource.setDependency`       | `{ workItemId, dependsOnWorkItemId, type? }` | Proxied to work item source |
-| `workItemSource.getDependencies`     | `{ workItemId }`                             | Proxied to work item source |
-| `workItemSource.getWorkItemStatus`   | `{ workItemId }`                             | Proxied to work item source |
+| Method                               | Params                                             | Notes                       |
+| ------------------------------------ | -------------------------------------------------- | --------------------------- |
+| `workItem.complete`                  | `{ workItemId }`                                   |                             |
+| `workItem.fail`                      | `{ workItemId, message? }`                         |                             |
+| `workItem.pause`                     | `{ workItemId }`                                   |                             |
+| `workItemSource.setState`            | `{ workItemId, state }`                            | Proxied to work item source |
+| `workItemSource.createDraftWorkItem` | `{ input }`                                        | Proxied to work item source |
+| `workItemSource.startWorkItem`       | `{ workItemId }`                                   | Proxied to work item source |
+| `workItemSource.setDependency`       | `{ blockerId, relationship: "blocks", blockedId }` | Proxied to work item source |
+| `workItemSource.getDependencies`     | `{ workItemId }`                                   | Proxied to work item source |
+| `workItemSource.getWorkItemStatus`   | `{ workItemId }`                                   | Proxied to work item source |
 
 ## Alternatives rejected
 

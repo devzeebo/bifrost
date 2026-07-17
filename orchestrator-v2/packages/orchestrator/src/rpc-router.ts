@@ -1,4 +1,8 @@
-import type { CreateDraftWorkItemInput, WorkItemSource } from "@bifrost-ai/interfaces-work";
+import type {
+  CreateDraftWorkItemInput,
+  WorkItemSource,
+  WorkItemMetadataPatch,
+} from "@bifrost-ai/interfaces-work";
 import { isFlowEntry } from "@bifrost-ai/interfaces-work";
 import type { ConnectedPeer, FramePayload } from "@bifrost-ai/protocol";
 
@@ -55,6 +59,9 @@ export class RpcRouter {
         return;
       case "workItemSource.getWorkItemStatus":
         await this.handleGetWorkItemStatus(peer, requestId, params);
+        return;
+      case "workItemSource.updateWorkItemMetadata":
+        await this.handleUpdateWorkItemMetadata(peer, requestId, params);
         return;
       default:
         sendRpcError(peer, requestId, "METHOD_NOT_FOUND", `Unknown method: ${method}`);
@@ -129,16 +136,16 @@ export class RpcRouter {
         peer,
         requestId,
         "INVALID_PARAMS",
-        "workItemId and dependsOnWorkItemId are required",
+        "blockerId, relationship, and blockedId are required",
       );
       return;
     }
 
     try {
       await this.workItemSource.setDependency(
-        parsed.workItemId,
-        parsed.dependsOnWorkItemId,
-        parsed.type,
+        parsed.blockerId,
+        parsed.relationship,
+        parsed.blockedId,
       );
       sendRpcResponse(peer, requestId, { ok: true });
     } catch (error) {
@@ -179,6 +186,25 @@ export class RpcRouter {
     try {
       const status = await this.workItemSource.getWorkItemStatus(workItemId);
       sendRpcResponse(peer, requestId, { status });
+    } catch (error) {
+      sendRpcError(peer, requestId, "SOURCE_ERROR", error);
+    }
+  }
+
+  private async handleUpdateWorkItemMetadata(
+    peer: ConnectedPeer,
+    requestId: string,
+    params: unknown,
+  ): Promise<void> {
+    const parsed = readUpdateWorkItemMetadataParams(params);
+    if (parsed === null) {
+      sendRpcError(peer, requestId, "INVALID_PARAMS", "workItemId and patch are required");
+      return;
+    }
+
+    try {
+      await this.workItemSource.updateWorkItemMetadata(parsed.workItemId, parsed.patch);
+      sendRpcResponse(peer, requestId, { ok: true });
     } catch (error) {
       sendRpcError(peer, requestId, "SOURCE_ERROR", error);
     }
@@ -250,21 +276,44 @@ function readCreateDraftParams(params: unknown): { input: CreateDraftWorkItemInp
 
 function readSetDependencyParams(
   params: unknown,
-): { workItemId: string; dependsOnWorkItemId: string; type?: string } | null {
+): { blockerId: string; relationship: "blocks"; blockedId: string } | null {
   if (params === null || typeof params !== "object") {
     return null;
   }
   const record = params as {
-    workItemId?: unknown;
-    dependsOnWorkItemId?: unknown;
-    type?: unknown;
+    blockerId?: unknown;
+    relationship?: unknown;
+    blockedId?: unknown;
   };
-  if (typeof record.workItemId !== "string" || typeof record.dependsOnWorkItemId !== "string") {
+  if (
+    typeof record.blockerId !== "string" ||
+    record.relationship !== "blocks" ||
+    typeof record.blockedId !== "string"
+  ) {
+    return null;
+  }
+  return {
+    blockerId: record.blockerId,
+    relationship: record.relationship,
+    blockedId: record.blockedId,
+  };
+}
+
+function readUpdateWorkItemMetadataParams(
+  params: unknown,
+): { workItemId: string; patch: WorkItemMetadataPatch } | null {
+  if (params === null || typeof params !== "object") {
+    return null;
+  }
+  const record = params as { workItemId?: unknown; patch?: unknown };
+  if (typeof record.workItemId !== "string") {
+    return null;
+  }
+  if (record.patch === null || typeof record.patch !== "object" || Array.isArray(record.patch)) {
     return null;
   }
   return {
     workItemId: record.workItemId,
-    dependsOnWorkItemId: record.dependsOnWorkItemId,
-    ...(typeof record.type === "string" ? { type: record.type } : {}),
+    patch: record.patch as WorkItemMetadataPatch,
   };
 }

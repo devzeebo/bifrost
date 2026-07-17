@@ -62,3 +62,12 @@ export type CreateRuneRequest = {
   tags?: string[];
   type?: string;
 };
+
+export type UpdateRuneRequest = {
+  id: string;
+  title?: string;
+  description?: string;
+  priority?: number;
+  branch?: string;
+  tags?: string[];
+};

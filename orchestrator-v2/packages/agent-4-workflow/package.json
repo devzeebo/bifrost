@@ -24,11 +24,13 @@
   },
   "dependencies": {
     "@bifrost-ai/interfaces-work": "workspace:*",
-    "@bifrost-ai/runner": "workspace:*"
+    "@bifrost-ai/runner": "workspace:*",
+    "debug": "^4.4.0"
   },
   "devDependencies": {
     "@bifrost-ai/orchestrator": "workspace:*",
     "@bifrost-ai/protocol": "workspace:*",
+    "@types/debug": "^4.1.12",
     "@types/node": "catalog:",
     "@typescript/native-preview": "catalog:",
     "bumpp": "catalog:",

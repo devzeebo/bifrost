@@ -111,13 +111,13 @@ Authorized runners are loaded via `loadAuthorizedRunners([{ keyId, publicKeyPem 
 
 Runners access work item source methods through the orchestrator via typed RPC routes (same transport as `workItemSource.setState`):
 
-| RPC method                           | Work item source call                                   |
-| ------------------------------------ | ------------------------------------------------------- |
-| `workItemSource.createDraftWorkItem` | `createDraftWorkItem(input)`                            |
-| `workItemSource.startWorkItem`       | `startWorkItem(workItemId)`                             |
-| `workItemSource.setDependency`       | `setDependency(workItemId, dependsOnWorkItemId, type?)` |
-| `workItemSource.getDependencies`     | `getDependencies(workItemId)`                           |
-| `workItemSource.getWorkItemStatus`   | `getWorkItemStatus(workItemId)`                         |
+| RPC method                           | Work item source call                           |
+| ------------------------------------ | ----------------------------------------------- |
+| `workItemSource.createDraftWorkItem` | `createDraftWorkItem(input)`                    |
+| `workItemSource.startWorkItem`       | `startWorkItem(workItemId)`                     |
+| `workItemSource.setDependency`       | `setDependency(blockerId, "blocks", blockedId)` |
+| `workItemSource.getDependencies`     | `getDependencies(workItemId)`                   |
+| `workItemSource.getWorkItemStatus`   | `getWorkItemStatus(workItemId)`                 |
 
 Handlers receive these via `ctx.source` on `WorkItemExecutionContext`.
 

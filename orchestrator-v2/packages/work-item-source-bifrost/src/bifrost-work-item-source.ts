@@ -3,6 +3,7 @@ import type {
   FlowEntry,
   WorkItem,
   WorkItemDependency,
+  WorkItemMetadataPatch,
   WorkItemSource,
   WorkItemStatus,
 } from "@bifrost-ai/interfaces-work";
@@ -10,7 +11,12 @@ import { isFlowEntry } from "@bifrost-ai/interfaces-work";
 import { BifrostHttpClient } from "./client/bifrost-http-client.js";
 import { loadConfig } from "./config/config-loader.js";
 import { CredentialLoader } from "./config/credential-loader.js";
-import type { BifrostWorkItemSourceConfig, CreateRuneRequest, RuneDetail } from "./types.js";
+import type {
+  BifrostWorkItemSourceConfig,
+  CreateRuneRequest,
+  RuneDetail,
+  UpdateRuneRequest,
+} from "./types.js";
 import createDebug from "debug";
 
 const debug = createDebug("bifrost");
@@ -138,6 +144,14 @@ export class BifrostWorkItemSource implements WorkItemSource {
     }
   }
 
+  public async updateWorkItemMetadata(
+    workItemId: string,
+    patch: WorkItemMetadataPatch,
+  ): Promise<void> {
+    const client = await this.#getClient();
+    await client.updateRune(BifrostWorkItemSource.buildUpdateRuneRequest(workItemId, patch));
+  }
+
   public async createDraftWorkItem(input: CreateDraftWorkItemInput): Promise<string> {
     const client = await this.#getClient();
     const request = BifrostWorkItemSource.buildCreateRuneRequest(input);
@@ -155,12 +169,12 @@ export class BifrostWorkItemSource implements WorkItemSource {
   }
 
   public async setDependency(
-    workItemId: string,
-    dependsOnWorkItemId: string,
-    type = "blocks",
+    blockerId: string,
+    relationship: "blocks",
+    blockedId: string,
   ): Promise<void> {
     const client = await this.#getClient();
-    await client.addDependency(workItemId, dependsOnWorkItemId, type);
+    await client.addDependency(blockerId, blockedId, relationship);
   }
 
   public async getDependencies(workItemId: string): Promise<WorkItemDependency[]> {
@@ -243,6 +257,29 @@ export class BifrostWorkItemSource implements WorkItemSource {
       tags: tags.length > 0 ? tags : undefined,
       type,
     };
+  }
+
+  public static buildUpdateRuneRequest(
+    workItemId: string,
+    patch: WorkItemMetadataPatch,
+  ): UpdateRuneRequest {
+    const request: UpdateRuneRequest = { id: workItemId };
+    if (typeof patch.title === "string") {
+      request.title = patch.title;
+    }
+    if (typeof patch.description === "string") {
+      request.description = patch.description;
+    }
+    if (typeof patch.priority === "number") {
+      request.priority = patch.priority;
+    }
+    if (typeof patch.branch === "string") {
+      request.branch = patch.branch;
+    }
+    if (Array.isArray(patch.tags)) {
+      request.tags = patch.tags;
+    }
+    return request;
   }
 
   public static mapToWorkItem(rune: RuneDetail, agentName: string): WorkItem {

@@ -65,6 +65,7 @@ function makeCtx(workItemSource: Context["workItemSource"]): ScriptContext {
         return workItemSource.status as "live";
       },
       async setState() {},
+      async updateWorkItemMetadata() {},
     },
     async setState() {},
   };
