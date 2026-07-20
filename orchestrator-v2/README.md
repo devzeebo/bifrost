@@ -13,6 +13,7 @@ A rebuild of the Bifrost orchestrator as a thin **get-work + dispatch** system. 
 | `@bifrost-ai/engine`             | Engine interface, types, and `TestEngine` for development/testing         |
 | `@bifrost-ai/engine-claude-code` | Claude Code Agent SDK engine (`ClaudeCodeEngine`)                         |
 | `@bifrost-ai/engine-cursor`      | Cursor SDK engine (`CursorEngine`)                                        |
+| `@bifrost-ai/engine-pi`          | Pi coding agent SDK engine (`PiEngine`)                                   |
 | `@bifrost-ai/agent-3-task`       | Task Agent — single-shot LLM execution (registered as scripts)            |
 | `@bifrost-ai/agent-4-workflow`   | Workflow Agent — DAG scheduling with dependencies (registered as scripts) |
 

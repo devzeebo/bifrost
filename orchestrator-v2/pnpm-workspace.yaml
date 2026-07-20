@@ -15,3 +15,7 @@ catalog:
   vite-plus: ^0.2.0
   vitest-gwt: ^4.1.0
   ws: ^8.18.3
+
+allowBuilds:
+  '@google/genai': set this to true or false
+  protobufjs: set this to true or false

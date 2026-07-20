@@ -83,10 +83,12 @@ import { Runner, createDataRegistry } from "@bifrost-ai/runner";
 import "@bifrost-ai/agent-3-task/augment";
 import { loadAgent, taskAgentDataGuards } from "@bifrost-ai/agent-3-task";
 import { CursorEngine } from "@bifrost-ai/engine-cursor";
+import { PiEngine } from "@bifrost-ai/engine-pi";
 
 const runner = new Runner({ data: createDataRegistry(taskAgentDataGuards) });
 
 runner.registerEngine("cursor", new CursorEngine());
+runner.registerEngine("pi", new PiEngine());
 runner.registerTaskAgent("reviewer", await loadAgent("./agents/reviewer/AGENT.md"));
 
 await runner.start();
@@ -98,6 +100,8 @@ Important details:
 - The first argument must match the work item's `name` field when the job is dispatched.
 - The agent definition is loaded at registration time, not on each dispatch.
 - You must register an engine before dispatching work. The work item says which engine to use.
+- Supported engines include `cursor`, `claude` (Claude Code), and `pi` (Pi coding agent SDK).
+- **Pi permissions:** AGENT.md `tools` (including path/command allow and deny patterns) are enforced in-process via Pi's tool allowlist plus a `tool_call` interceptor. Pi has no built-in sandbox — isolate unattended work with containers or OS boundaries.
 
 See [examples/lvl4/runner.ts](../examples/lvl4/runner.ts) for a full example.
 
@@ -109,7 +113,7 @@ When the orchestrator dispatches a work item to the runner, the Task Agent expec
 | -------------- | -------- | ----------------------------------------------------------- |
 | `workingDir`   | Yes      | Folder where the AI should work                             |
 | `instructions` | Yes      | What to do this time (often copied from a task description) |
-| `engineName`   | Yes      | Which registered engine to use (for example `"cursor"`)     |
+| `engineName`   | Yes      | Which registered engine to use (`"cursor"`, `"pi"`, …)      |
 | `sessionId`    | No       | Resume a previous conversation instead of starting fresh    |
 
 Any **required** `template.parameters` from your AGENT.md should also appear in `state` once template rendering is implemented. Optional parameters (declared with `?`) can be omitted.
