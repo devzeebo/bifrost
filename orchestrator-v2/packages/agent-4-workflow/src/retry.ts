@@ -1,6 +1,6 @@
 import type { DecoratorFactory, DecoratorFn } from "@bifrost-ai/interfaces-work";
 
-import { createWorkflowDebug, getWorkflowNameFromWorkItem } from "./debug.js";
+import { createWorkflowDebug } from "./debug.js";
 
 export const RETRY_DECORATOR = "retry";
 
@@ -16,7 +16,7 @@ export const createRetryDecorator: DecoratorFactory = (...args: unknown[]): Deco
   }
 
   return async (workItem, ctx, next) => {
-    const debug = createWorkflowDebug(getWorkflowNameFromWorkItem(workItem));
+    const debug = createWorkflowDebug(workItem.name);
     const retryState: RetryState = {
       maxAttempts,
       currentAttempt: 1,

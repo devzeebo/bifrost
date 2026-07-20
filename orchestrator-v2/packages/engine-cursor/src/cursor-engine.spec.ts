@@ -20,8 +20,23 @@ vi.mock("debug", () => ({
   default: vi.fn(() => vi.fn()),
 }));
 
+vi.mock("./materialize-policies.js", () => ({
+  materializeCursorPolicies: vi.fn().mockResolvedValue({
+    permissions: { terminalAllowlist: [], mcpAllowlist: [] },
+    cli: {
+      version: 1,
+      editor: { vimMode: false },
+      approvalMode: "allowlist",
+      permissions: { allow: [], deny: ["Shell(*)"] },
+    },
+    sandbox: { type: "workspace_readwrite", networkPolicy: { default: "deny" } },
+    shellPermitted: false,
+  }),
+}));
+
 import { Agent, CursorAgentError } from "@cursor/sdk";
 import { CursorEngine, type McpToolkitConstructor } from "./cursor-engine.js";
+import { materializeCursorPolicies } from "./materialize-policies.js";
 
 type MockRun = {
   id: string;
@@ -116,6 +131,7 @@ describe("CursorEngine", () => {
     mockResume = vi.mocked(Agent.resume) as MockedFunction<typeof Agent.resume>;
     mockCreate.mockReset();
     mockResume.mockReset();
+    vi.mocked(materializeCursorPolicies).mockClear();
     delete process.env.CURSOR_API_KEY;
   });
 
@@ -165,7 +181,57 @@ describe("CursorEngine", () => {
 
       expect(mockCreate).toHaveBeenCalledWith(
         expect.objectContaining({
-          local: expect.objectContaining({ cwd: "/some/worktree/path" }),
+          local: expect.objectContaining({
+            cwd: "/some/worktree/path",
+            settingSources: ["project"],
+            autoReview: true,
+            sandboxOptions: { enabled: true },
+          }),
+        }),
+      );
+    });
+
+    it("should materialize cursor policies from agent tools before create", async () => {
+      const run = makeRun();
+      mockCreate.mockResolvedValue(makeAgent("agent-policies", run) as never);
+
+      const context = makeContext({
+        workItemId: "task-42",
+        agent: {
+          name: "bdd-red",
+          description: "",
+          tools: ["Read(./**)", "Write(*.spec.ts)", "mcp__context7__*"],
+          template: { parameters: {} },
+          promptBody: "red",
+        },
+      });
+      const engine = new CursorEngine({ apiKey: "test-key" });
+      await engine.execute(context);
+
+      expect(materializeCursorPolicies).toHaveBeenCalledWith({
+        workingDir: "/test/project",
+        workItemId: "task-42",
+        tools: ["Read(./**)", "Write(*.spec.ts)", "mcp__context7__*"],
+      });
+    });
+
+    it("should allow disabling autoReview and sandbox via config", async () => {
+      const run = makeRun();
+      mockCreate.mockResolvedValue(makeAgent("agent-nosandbox", run) as never);
+
+      const engine = new CursorEngine({
+        apiKey: "test-key",
+        autoReview: false,
+        sandbox: false,
+      });
+      await engine.execute(makeContext());
+
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          local: expect.objectContaining({
+            autoReview: false,
+            sandboxOptions: { enabled: false },
+          }),
         }),
       );
     });
@@ -203,7 +269,12 @@ describe("CursorEngine", () => {
       expect(mockResume).toHaveBeenCalledWith(
         "agent-continue",
         expect.objectContaining({
-          local: expect.objectContaining({ cwd: "/test/project", settingSources: [] }),
+          local: expect.objectContaining({
+            cwd: "/test/project",
+            settingSources: ["project"],
+            autoReview: true,
+            sandboxOptions: { enabled: true },
+          }),
         }),
       );
 
@@ -408,6 +479,39 @@ describe("CursorEngine", () => {
         command: "node",
         args: [name],
       }) satisfies McpServerConfig;
+
+    it("should bind a toolkit module to stdio mcpServers when agent uses its tools", async () => {
+      const run = makeRun();
+      mockCreate.mockResolvedValue(makeAgent("agent-module", run) as never);
+
+      const engine = new CursorEngine({ apiKey: "test-key" });
+      engine.registerToolkit("devzeebo_node", "@tools/node/toolkit-entry");
+
+      await engine.execute(
+        makeContext({
+          agent: {
+            name: "test-agent",
+            description: "",
+            tools: ["mcp__devzeebo_node__install_package"],
+            template: { parameters: {} },
+            promptBody: "This is the agent definition",
+          },
+        }),
+      );
+
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mcpServers: {
+            devzeebo_node: expect.objectContaining({
+              type: "stdio",
+              env: expect.objectContaining({
+                BIFROST_TOOLKIT_MODULE: "@tools/node/toolkit-entry",
+              }),
+            }),
+          },
+        }),
+      );
+    });
 
     it("should pass registered toolkit to mcpServers when agent uses its tools", async () => {
       const run = makeRun();

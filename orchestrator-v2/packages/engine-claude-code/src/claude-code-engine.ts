@@ -5,7 +5,9 @@ import type {
   EngineContext,
   EngineResult,
   ExecutionStats,
+  ToolkitModuleRef,
 } from "@bifrost-ai/engine";
+import { isToolkitModuleRef, resolveToolkit } from "@bifrost-ai/engine";
 import {
   query,
   type SDKMessage,
@@ -17,6 +19,8 @@ import {
   type McpSdkServerConfigWithInstance,
 } from "@anthropic-ai/claude-agent-sdk";
 import createDebug from "debug";
+
+import { bindToolkitToClaude, loadToolkitModule } from "./bind-toolkit.js";
 
 const debug = createDebug("bifrost:engine:claude-code");
 
@@ -157,24 +161,26 @@ const mcpServerNamePattern = /^mcp__([^_]+(?:_[^_]+)*)__/;
 
 export type ToolkitConstructor = (context: EngineContext) => McpSdkServerConfigWithInstance;
 
-export class ClaudeCodeEngine implements Engine {
-  private toolkits = new Map<string, McpSdkServerConfigWithInstance | ToolkitConstructor>();
+export type RegisteredToolkit =
+  | ToolkitModuleRef
+  | McpSdkServerConfigWithInstance
+  | ToolkitConstructor;
 
-  public registerToolkit(
-    name: string,
-    toolkit: McpSdkServerConfigWithInstance | ToolkitConstructor,
-  ): void {
+export class ClaudeCodeEngine implements Engine {
+  private toolkits = new Map<string, RegisteredToolkit>();
+
+  public registerToolkit(name: string, toolkit: RegisteredToolkit): void {
     this.toolkits.set(name, toolkit);
   }
 
-  private resolveToolOptions(
+  private async resolveToolOptions(
     tools: AgentTool[],
     context: EngineContext,
-  ): {
+  ): Promise<{
     bareToolNames: string[];
     toolOptions: { tools: string[]; allowedTools: string[]; disallowedTools?: string[] };
     mcpServersOption: { mcpServers: Record<string, McpSdkServerConfigWithInstance> } | undefined;
-  } {
+  }> {
     const bareToolNames = [
       ...new Set(
         tools.map((tool) => (typeof tool === "string" ? tool.replace(/\(.*\)$/, "") : tool.name)),
@@ -214,8 +220,18 @@ export class ClaudeCodeEngine implements Engine {
     const mcpServers: Record<string, McpSdkServerConfigWithInstance> = {};
     for (const name of activeServerNames) {
       const entry = this.toolkits.get(name);
-      if (entry !== undefined && entry !== null) {
-        mcpServers[name] = typeof entry === "function" ? entry(context) : entry;
+      if (entry === undefined || entry === null) {
+        continue;
+      }
+
+      if (isToolkitModuleRef(entry)) {
+        const toolkit = await loadToolkitModule(entry);
+        const definition = resolveToolkit(toolkit, context);
+        mcpServers[name] = bindToolkitToClaude(definition, context);
+      } else if (typeof entry === "function") {
+        mcpServers[name] = entry(context);
+      } else {
+        mcpServers[name] = entry;
       }
     }
 
@@ -235,7 +251,7 @@ export class ClaudeCodeEngine implements Engine {
     debug("execute workingDir=%s sessionId=%s", workingDir, sessionId ?? "none");
     debug("prompt: %s", prompt);
 
-    const { toolOptions, mcpServersOption } = this.resolveToolOptions(tools, context);
+    const { toolOptions, mcpServersOption } = await this.resolveToolOptions(tools, context);
 
     const options = {
       cwd: workingDir,

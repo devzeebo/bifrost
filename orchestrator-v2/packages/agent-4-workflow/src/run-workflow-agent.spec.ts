@@ -294,9 +294,7 @@ function children_created_and_started(this: Context) {
       workflowWorkItemId: "workflow-1",
       workingDir: "/tmp",
     },
-    metadata: {
-      parentId: "workflow-1",
-    },
+    metadata: {},
   });
   expect(this.workItemSource.started).toEqual(["child-1", "child-2", "child-3"]);
   step_dependencies_block_in_order.call(this);

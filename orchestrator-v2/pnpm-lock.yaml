@@ -398,6 +398,9 @@ importers:
       debug:
         specifier: ^4.4.0
         version: 4.4.3
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@types/debug':
         specifier: ^4.1.12
@@ -429,8 +432,14 @@ importers:
       '@cursor/sdk':
         specifier: ^1.0.22
         version: 1.0.23
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.29.0
+        version: 1.29.0(zod@4.4.3)
       debug:
         specifier: ^4.4.0
+        version: 4.4.3
+      zod:
+        specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
       '@types/debug':

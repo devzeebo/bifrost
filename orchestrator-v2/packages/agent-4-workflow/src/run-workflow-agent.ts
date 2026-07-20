@@ -182,12 +182,7 @@ async function draftChildren(
         workingDir: state.workingDir,
         ...schedule.draftState,
       },
-      metadata: {
-        ...schedule.draftMetadata,
-        workflowName: definition.name,
-        stepId: step.id,
-        parentId: workItem.workItemId,
-      },
+      metadata: schedule.draftMetadata,
     });
     schedule.childIds[step.id] = childId;
     debug(

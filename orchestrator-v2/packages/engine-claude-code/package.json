@@ -24,7 +24,8 @@
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.150",
     "@bifrost-ai/engine": "workspace:*",
-    "debug": "^4.4.0"
+    "debug": "^4.4.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/debug": "^4.1.12",

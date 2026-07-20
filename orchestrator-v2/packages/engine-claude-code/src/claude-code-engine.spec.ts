@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi, type MockedFunction } from "vite-plus/test";
+import { fileURLToPath } from "node:url";
 import type { EngineContext } from "@bifrost-ai/engine";
 import type {
   query as queryFn,
@@ -9,6 +10,16 @@ import type {
 
 vi.mock("@anthropic-ai/claude-agent-sdk", () => ({
   query: vi.fn(),
+  createSdkMcpServer: vi.fn((config) => ({
+    type: "sdk",
+    name: config.name,
+    instance: {},
+  })),
+  tool: vi.fn((name, description, _schema, handler) => ({
+    name,
+    description,
+    handler,
+  })),
 }));
 
 vi.mock("debug", () => ({
@@ -510,12 +521,48 @@ describe("ClaudeCodeEngine", () => {
   });
 
   describe("registerToolkit", () => {
+    const testToolkitModule = fileURLToPath(
+      new URL("./test-fixtures/test-toolkit.ts", import.meta.url),
+    );
+
     const makeToolkit = (name: string): McpSdkServerConfigWithInstance =>
       ({
         type: "sdk",
         name,
         instance: {} as McpSdkServerConfigWithInstance["instance"],
       }) satisfies McpSdkServerConfigWithInstance;
+
+    it("should bind a toolkit module to mcpServers when agent uses its tools", async () => {
+      mockQuery.mockReturnValue(mockStream(resultSuccess()));
+
+      const engine = new ClaudeCodeEngine();
+      engine.registerToolkit("testtoolkit", testToolkitModule);
+
+      await engine.execute(
+        makeContext({
+          agent: {
+            name: "test-agent",
+            description: "",
+            tools: ["mcp__testtoolkit__echo"],
+            template: { parameters: {} },
+            promptBody: "This is the agent definition",
+          },
+        }),
+      );
+
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          options: expect.objectContaining({
+            mcpServers: {
+              testtoolkit: expect.objectContaining({
+                type: "sdk",
+                name: "testtoolkit",
+              }),
+            },
+          }),
+        }),
+      );
+    });
 
     it("should pass registered toolkit to mcpServers when agent uses its tools", async () => {
       mockQuery.mockReturnValue(mockStream(resultSuccess()));

@@ -54,7 +54,7 @@ const workItem = {
   name: "hunt",
   flow: [],
   state: {},
-  metadata: { workflowName: "test-workflow" },
+  metadata: {},
 };
 
 describe("createRetryDecorator", () => {
