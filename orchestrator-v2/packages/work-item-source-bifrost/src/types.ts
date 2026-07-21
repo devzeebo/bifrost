@@ -22,6 +22,7 @@ export type ReadyRune = {
   realm_id: string;
   created_at: string;
   updated_at: string;
+  parent_id?: string;
 };
 
 export type RuneNoteEntry = {

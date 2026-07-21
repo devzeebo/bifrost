@@ -24,6 +24,9 @@
     },
     {
       "path": "./packages/agent-3-task/tsconfig.json"
+    },
+    {
+      "path": "./packages/ui-events/tsconfig.json"
     }
   ],
   "include": ["./vite.config.ts"]

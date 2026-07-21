@@ -5,14 +5,17 @@ import type {
 } from "@bifrost-ai/interfaces-work";
 import { isFlowEntry } from "@bifrost-ai/interfaces-work";
 import type { ConnectedPeer, FramePayload } from "@bifrost-ai/protocol";
+import { parentWorkItemIdFrom } from "@bifrost-ai/ui-events";
 
 import { sendRpcError, sendRpcResponse } from "./dispatcher.js";
 import type { ResultHandler } from "./result-handler.js";
+import type { UiEventBus } from "./ui-event-bus.js";
 
 export class RpcRouter {
   constructor(
     private readonly workItemSource: WorkItemSource,
     private readonly results: ResultHandler,
+    private readonly uiEvents: UiEventBus,
   ) {}
 
   handle(peer: ConnectedPeer, payload: FramePayload): void {
@@ -100,6 +103,13 @@ export class RpcRouter {
 
     try {
       const workItemId = await this.workItemSource.createDraftWorkItem(parsed.input);
+      this.uiEvents.upsert({
+        workItemId,
+        kind: parsed.input.kind,
+        name: parsed.input.name,
+        status: "draft",
+        parentWorkItemId: parentWorkItemIdFrom(parsed.input.state, parsed.input.metadata),
+      });
       sendRpcResponse(peer, requestId, { workItemId });
     } catch (error) {
       sendRpcError(peer, requestId, "SOURCE_ERROR", error);
@@ -119,6 +129,7 @@ export class RpcRouter {
 
     try {
       await this.workItemSource.startWorkItem(workItemId);
+      this.uiEvents.updateStatus(workItemId, "live");
       sendRpcResponse(peer, requestId, { ok: true });
     } catch (error) {
       sendRpcError(peer, requestId, "SOURCE_ERROR", error);

@@ -16,6 +16,8 @@ A rebuild of the Bifrost orchestrator as a thin **get-work + dispatch** system. 
 | `@bifrost-ai/engine-pi`          | Pi coding agent SDK engine (`PiEngine`)                                   |
 | `@bifrost-ai/agent-3-task`       | Task Agent — single-shot LLM execution (registered as scripts)            |
 | `@bifrost-ai/agent-4-workflow`   | Workflow Agent — DAG scheduling with dependencies (registered as scripts) |
+| `@bifrost-ai/ui-events`          | Redux-shaped UI action contracts for the open-work console                |
+| `@bifrost-ai/ui`                 | React console: open work items streamed over the UI WebSocket             |
 
 For design background and how each piece fits together, see [docs/](docs/). For plain-language agent setup guides, see [using Task Agents](docs/using-task-agents.md) and [using Workflow Agents](docs/using-workflow-agents.md).
 
@@ -117,11 +119,25 @@ const handle = await orchestrator.start({
     { keyId: runnerIdentity.keyId, publicKeyPem: exportPublicKeyPem(runnerIdentity.publicKey) },
   ]),
   port: 9100,
+  // UI event WebSocket defaults to 9101; pass ui: false to disable
 });
 
-// handle.peer.address — WebSocket listen address
+// handle.peer.address — signed runner WebSocket
+// handle.uiServer?.port — unsigned UI event WebSocket (Redux actions)
 // handle.done — resolves when watchWorkItems() ends and in-flight work drains
 ```
+
+### Open-work UI
+
+`@bifrost-ai/ui` is a React console that projects open work items from Redux-shaped events:
+
+```bash
+vp run --filter @bifrost-ai/ui dev
+# optional fixtures without an orchestrator:
+VITE_UI_FIXTURES=1 vp run --filter @bifrost-ai/ui dev
+```
+
+The orchestrator emits `workItems/hydrated`, `workItems/upserted`, and `workItems/removed` over `ws://127.0.0.1:9101`. Workflow children link via `parentWorkItemId` (`state.workflowWorkItemId`).
 
 ### Run a runner
 

@@ -1,0 +1,6 @@
+- paused => in progress
+- live needs to split into "ready" and "in progress"
+- children of a workflow need to be organized by dependency tree
+- make it modern and beautiful
+- ensure story complete was failed, but shows live
+- add work item id in subtext to cards

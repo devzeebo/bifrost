@@ -5,12 +5,16 @@ import { recordBestEffort } from "./best-effort.js";
 import { sendRpcError, sendRpcResponse } from "./dispatcher.js";
 import type { DispatchTracker } from "./dispatch-tracker.js";
 import type { PeerRegistry } from "./peer-registry.js";
+import type { UiEventBus } from "./ui-event-bus.js";
+
+type SettleOutcome = "completed" | "failed" | "paused";
 
 export class ResultHandler {
   constructor(
     private readonly workItemSource: WorkItemSource,
     private readonly tracker: DispatchTracker,
     private readonly registry: PeerRegistry,
+    private readonly uiEvents: UiEventBus,
   ) {}
 
   async handleComplete(peer: ConnectedPeer, requestId: string, params: unknown): Promise<void> {
@@ -34,6 +38,8 @@ export class ResultHandler {
     await this.settle(
       peer,
       requestId,
+      workItemId,
+      "completed",
       () => this.workItemSource.completeWorkItem(workItemId),
       "complete work item",
     );
@@ -60,6 +66,8 @@ export class ResultHandler {
     await this.settle(
       peer,
       requestId,
+      parsed.workItemId,
+      "failed",
       () => this.workItemSource.failWorkItem(parsed.workItemId, parsed.message),
       "fail work item",
     );
@@ -86,6 +94,8 @@ export class ResultHandler {
     await this.settle(
       peer,
       requestId,
+      workItemId,
+      "paused",
       () => this.workItemSource.pauseWorkItem(workItemId),
       "pause work item",
     );
@@ -98,6 +108,7 @@ export class ResultHandler {
         () => this.workItemSource.failWorkItem(entry.workItemId, "Runner disconnected"),
         "fail orphaned work item",
       );
+      this.uiEvents.markTerminal(entry.workItemId, "failed");
       this.registry.markTerminal(peer.peerId);
     }
   }
@@ -108,10 +119,17 @@ export class ResultHandler {
   private async settle(
     peer: ConnectedPeer,
     requestId: string,
+    workItemId: string,
+    outcome: SettleOutcome,
     record: () => Promise<void>,
     context: string,
   ): Promise<void> {
     await recordBestEffort(record, context);
+    if (outcome === "paused") {
+      this.uiEvents.updateStatus(workItemId, "paused");
+    } else {
+      this.uiEvents.markTerminal(workItemId, outcome);
+    }
     this.registry.markTerminal(peer.peerId);
     sendRpcResponse(peer, requestId, { ok: true });
   }

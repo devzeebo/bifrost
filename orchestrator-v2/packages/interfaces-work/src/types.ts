@@ -25,6 +25,14 @@ export type CreateDraftWorkItemInput = {
 
 export type WorkItemStatus = "draft" | "live" | "paused" | "completed" | "failed";
 
+export type WorkItemListing = {
+  workItemId: string;
+  kind: string;
+  name: string;
+  status: WorkItemStatus;
+  parentWorkItemId?: string;
+};
+
 export type WorkItemMetadataPatch = {
   branch?: string;
   title?: string;
@@ -52,6 +60,8 @@ export type WorkItemSource = {
   ): Promise<void>;
   getDependencies(workItemId: string): Promise<WorkItemDependency[]>;
   getWorkItemStatus(workItemId: string): Promise<WorkItemStatus>;
+  /** Non-terminal items plus all descendants (including terminal children). */
+  listVisibleWorkItems(): Promise<WorkItemListing[]>;
 };
 
 export type WorkItemSourceClient = Pick<

@@ -17,5 +17,5 @@ catalog:
   ws: ^8.18.3
 
 allowBuilds:
-  "@google/genai": set this to true or false
-  protobufjs: set this to true or false
+  "@google/genai": false
+  protobufjs: false

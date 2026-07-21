@@ -3,10 +3,13 @@ import type {
   DependencyRelationship,
   WorkItem,
   WorkItemDependency,
+  WorkItemListing,
   WorkItemMetadataPatch,
   WorkItemSource,
   WorkItemStatus,
 } from "@bifrost-ai/interfaces-work";
+import { selectVisibleWorkItems } from "@bifrost-ai/interfaces-work";
+import { parentWorkItemIdFrom } from "@bifrost-ai/ui-events";
 
 const POLL_MS = 10;
 
@@ -218,6 +221,24 @@ export function createGraphMemoryWorkItemSource(
     },
     async getWorkItemStatus(workItemId: string) {
       return getStatus(workItemId);
+    },
+    async listVisibleWorkItems() {
+      const listings: WorkItemListing[] = [];
+      for (const [workItemId, item] of items) {
+        const state = states.get(workItemId) ?? item.state;
+        const listing: WorkItemListing = {
+          workItemId,
+          kind: item.kind,
+          name: item.name,
+          status: getStatus(workItemId),
+        };
+        const parentWorkItemId = parentWorkItemIdFrom(state, item.metadata);
+        if (parentWorkItemId !== undefined) {
+          listing.parentWorkItemId = parentWorkItemId;
+        }
+        listings.push(listing);
+      }
+      return selectVisibleWorkItems(listings);
     },
     abort() {
       aborted = true;

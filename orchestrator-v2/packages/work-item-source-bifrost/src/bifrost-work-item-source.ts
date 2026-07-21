@@ -3,17 +3,19 @@ import type {
   FlowEntry,
   WorkItem,
   WorkItemDependency,
+  WorkItemListing,
   WorkItemMetadataPatch,
   WorkItemSource,
   WorkItemStatus,
 } from "@bifrost-ai/interfaces-work";
-import { isFlowEntry } from "@bifrost-ai/interfaces-work";
+import { isFlowEntry, selectVisibleWorkItems } from "@bifrost-ai/interfaces-work";
 import { BifrostHttpClient } from "./client/bifrost-http-client.js";
 import { loadConfig } from "./config/config-loader.js";
 import { CredentialLoader } from "./config/credential-loader.js";
 import type {
   BifrostWorkItemSourceConfig,
   CreateRuneRequest,
+  ReadyRune,
   RuneDetail,
   UpdateRuneRequest,
 } from "./types.js";
@@ -192,6 +194,13 @@ export class BifrostWorkItemSource implements WorkItemSource {
     return BifrostWorkItemSource.mapRuneStatus(detail.status);
   }
 
+  public async listVisibleWorkItems(): Promise<WorkItemListing[]> {
+    const client = await this.#getClient();
+    const runes = await client.listRunes();
+    const listings = runes.map((rune) => BifrostWorkItemSource.mapToListing(rune));
+    return selectVisibleWorkItems(listings);
+  }
+
   public static mapRuneStatus(status: string): WorkItemStatus {
     switch (status) {
       case "draft":
@@ -207,6 +216,21 @@ export class BifrostWorkItemSource implements WorkItemSource {
       default:
         return "live";
     }
+  }
+
+  public static mapToListing(rune: ReadyRune): WorkItemListing {
+    const tags = rune.tags ?? [];
+    const agentName = BifrostWorkItemSource.extractAgentName(tags);
+    const listing: WorkItemListing = {
+      workItemId: rune.id,
+      kind: BifrostWorkItemSource.extractAgentKind(tags),
+      name: agentName ?? rune.title,
+      status: BifrostWorkItemSource.mapRuneStatus(rune.status),
+    };
+    if (typeof rune.parent_id === "string" && rune.parent_id.length > 0) {
+      listing.parentWorkItemId = rune.parent_id;
+    }
+    return listing;
   }
 
   public static extractAgentName(tags: string[]): string | null {

@@ -6,6 +6,8 @@ export const orchestrator = new Orchestrator();
 
 orchestrator.registerWorkItemSource(new BifrostWorkItemSource());
 
+// start() opens the UI event WebSocket on port 9101 by default (ui: false to disable).
+
 orchestrator.addWorkItemMapper("task", (workItem) => {
   const rune = workItem.metadata as RuneDetail;
   return {
