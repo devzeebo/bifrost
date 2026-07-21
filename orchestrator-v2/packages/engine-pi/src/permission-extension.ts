@@ -1,3 +1,4 @@
+import path from "node:path";
 import { minimatch } from "minimatch";
 import type {
   ExtensionAPI,
@@ -11,7 +12,14 @@ import { findPermissionRule, type ToolPermissionRule } from "./tool-permissions.
 
 const debug = createDebug("bifrost:engine:pi:permissions");
 
-const PATH_TOOLS = new Set(["read", "write", "edit", "grep", "find", "ls"]);
+/** Tools whose permission subject is a filesystem path (or defaults to cwd). */
+const PATH_TOOLS = new Set(["read", "write", "edit", "ls"]);
+
+/**
+ * Search tools: `pattern` is a glob/regex, not a path. Permission applies to the
+ * search root (`path`), defaulting to the working directory when omitted.
+ */
+const SEARCH_TOOLS = new Set(["grep", "find"]);
 
 const extractSubject = (event: ToolCallEvent): string | undefined => {
   const input = event.input as Record<string, unknown>;
@@ -21,9 +29,18 @@ const extractSubject = (event: ToolCallEvent): string | undefined => {
     return typeof command === "string" ? command : undefined;
   }
 
+  if (SEARCH_TOOLS.has(event.toolName)) {
+    const searchRoot = input.path ?? input.target_directory;
+    if (typeof searchRoot === "string" && searchRoot.length > 0) {
+      return searchRoot;
+    }
+    // No explicit root → searching cwd; evaluate against allow patterns as "."
+    return ".";
+  }
+
   if (PATH_TOOLS.has(event.toolName)) {
-    const path = input.path ?? input.file_path ?? input.pattern ?? input.target_directory;
-    return typeof path === "string" ? path : undefined;
+    const filePath = input.path ?? input.file_path ?? input.target_directory;
+    return typeof filePath === "string" ? filePath : undefined;
   }
 
   // Custom / MCP-style tools: prefer common path-like fields when present
@@ -36,6 +53,26 @@ const extractSubject = (event: ToolCallEvent): string | undefined => {
 
   return undefined;
 };
+
+/**
+ * Normalize a filesystem subject for matching AGENT.md path globs like `./**`.
+ * Paths under cwd become `./…` so they match `./**`. Paths outside cwd stay absolute.
+ */
+export function normalizePathSubject(subject: string, cwd: string): string {
+  const resolved = path.isAbsolute(subject) ? path.normalize(subject) : path.resolve(cwd, subject);
+  const relative = path.relative(cwd, resolved);
+
+  // Outside cwd (or different root on Windows)
+  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    return resolved.split(path.sep).join("/");
+  }
+
+  if (relative === "") {
+    return "./";
+  }
+
+  return `./${relative.split(path.sep).join("/")}`;
+}
 
 const matchesPattern = (subject: string, pattern: string): boolean => {
   // Exact match or glob (paths, file globs, shell command patterns)
@@ -61,8 +98,17 @@ const matchesPattern = (subject: string, pattern: string): boolean => {
     }
   }
 
-  return minimatch(subject, pattern, { dot: true, matchBase: true });
+  if (minimatch(subject, pattern, { dot: true, matchBase: true })) {
+    return true;
+  }
+
+  // Basename-only globs (e.g. `*.spec.ts`) against `./src/foo.spec.ts`
+  const base = path.posix.basename(subject.replaceAll("\\", "/"));
+  return base !== subject && minimatch(base, pattern, { dot: true });
 };
+
+const isPathTool = (toolName: string): boolean =>
+  PATH_TOOLS.has(toolName) || SEARCH_TOOLS.has(toolName);
 
 /**
  * Evaluate whether a tool call is permitted under Bifrost allow/deny rules.
@@ -71,6 +117,7 @@ const matchesPattern = (subject: string, pattern: string): boolean => {
 export function evaluateToolPermission(
   rules: ToolPermissionRule[],
   event: ToolCallEvent,
+  cwd?: string,
 ): ToolCallEventResult | undefined {
   const rule = findPermissionRule(rules, event.toolName);
 
@@ -80,10 +127,10 @@ export function evaluateToolPermission(
     return { block: true, reason };
   }
 
-  const subject = extractSubject(event);
+  const rawSubject = extractSubject(event);
 
   // No path/command subject and no patterns → name allowlist alone is enough
-  if (subject === undefined) {
+  if (rawSubject === undefined) {
     if (rule.denyPatterns.length > 0 || rule.allowPatterns.length > 0) {
       // Patterns exist but we can't evaluate — allow name-level permission only for
       // custom tools without extractable subjects when allow is empty-or-unrestricted
@@ -97,10 +144,21 @@ export function evaluateToolPermission(
     return undefined;
   }
 
+  const subject =
+    cwd !== undefined && isPathTool(event.toolName)
+      ? normalizePathSubject(rawSubject, cwd)
+      : rawSubject;
+
   for (const deny of rule.denyPatterns) {
     if (matchesPattern(subject, deny)) {
       const reason = `Tool "${event.toolName}" denied by pattern "${deny}" (matched "${subject}").`;
-      debug("block tool=%s subject=%s reason=%s", event.toolName, subject, reason);
+      debug(
+        "block tool=%s subject=%s raw=%s reason=%s",
+        event.toolName,
+        subject,
+        rawSubject,
+        reason,
+      );
       return { block: true, reason };
     }
   }
@@ -109,21 +167,30 @@ export function evaluateToolPermission(
     const allowed = rule.allowPatterns.some((pattern) => matchesPattern(subject, pattern));
     if (!allowed) {
       const reason = `Tool "${event.toolName}" not allowed for "${subject}" (allow: ${rule.allowPatterns.join(", ")}).`;
-      debug("block tool=%s subject=%s reason=%s", event.toolName, subject, reason);
+      debug(
+        "block tool=%s subject=%s raw=%s reason=%s",
+        event.toolName,
+        subject,
+        rawSubject,
+        reason,
+      );
       return { block: true, reason };
     }
   }
 
-  debug("allow tool=%s subject=%s", event.toolName, subject);
+  debug("allow tool=%s subject=%s raw=%s", event.toolName, subject, rawSubject);
   return undefined;
 }
 
-export function createPermissionExtension(rules: ToolPermissionRule[]): InlineExtension {
+export function createPermissionExtension(
+  rules: ToolPermissionRule[],
+  cwd: string,
+): InlineExtension {
   return {
     name: "bifrost-tool-permissions",
     factory: (pi: ExtensionAPI) => {
       pi.on("tool_call", (event: ToolCallEvent): ToolCallEventResult | undefined =>
-        evaluateToolPermission(rules, event),
+        evaluateToolPermission(rules, event, cwd),
       );
     },
   };

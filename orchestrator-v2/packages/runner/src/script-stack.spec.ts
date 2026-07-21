@@ -4,18 +4,20 @@ import type {
   ScriptFn,
   WorkItem,
 } from "@bifrost-ai/interfaces-work";
-import { describe, expect } from "vite-plus/test";
+import { describe, expect, vi } from "vite-plus/test";
 import test from "vitest-gwt";
 
 import { Registry } from "./registry.js";
-import { executeScriptStack, resolveStack } from "./script-stack.js";
+import { executeScriptStack, formatScriptStack, resolveStack } from "./script-stack.js";
 
 type Context = {
   workItem: WorkItem;
   scripts: Registry<ScriptFn>;
   decorators: Registry<DecoratorFactory>;
+  conventions: readonly string[];
   result: unknown;
   error: Error | null;
+  logSpy: ReturnType<typeof vi.spyOn>;
 };
 
 const baseWorkItem = (): WorkItem => ({
@@ -98,6 +100,18 @@ describe("script-stack", () => {
     given: { script_without_decorator },
     when: { resolving_unknown_decorator },
     then: { decorator_error_thrown },
+  });
+
+  test("resolveStack layers are outermost-first including conventions", {
+    given: { nested_decorators_with_convention },
+    when: { resolving_stack },
+    then: { layers_are_convention_then_flow_then_script },
+  });
+
+  test("executeScriptStack logs layers before running", {
+    given: { nested_decorators, console_log_spied },
+    when: { executing_nested_stack },
+    then: { stack_was_logged },
   });
 });
 
@@ -265,4 +279,40 @@ function resolving_unknown_decorator(this: Context) {
 
 function decorator_error_thrown(this: Context) {
   expect(this.error?.message).toBe("Unknown decorator: missing");
+}
+
+function nested_decorators_with_convention(this: Context) {
+  nested_decorators.call(this);
+  this.conventions = ["convention"];
+  this.decorators.register(
+    "convention",
+    () => async (_wi: WorkItem, _ctx: ScriptContext, next: () => Promise<unknown>) => {
+      await next();
+    },
+  );
+}
+
+function resolving_stack(this: Context) {
+  this.result = resolveStack(this.workItem, this.scripts, this.decorators, this.conventions ?? []);
+}
+
+function layers_are_convention_then_flow_then_script(this: Context) {
+  expect((this.result as { layers: string[] }).layers).toEqual([
+    "convention",
+    "outer",
+    "inner",
+    "hunt",
+  ]);
+  expect(formatScriptStack((this.result as { layers: string[] }).layers)).toBe(
+    "convention => outer => inner => hunt",
+  );
+}
+
+function console_log_spied(this: Context) {
+  this.logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+}
+
+function stack_was_logged(this: Context) {
+  expect(this.logSpy).toHaveBeenCalledWith("outer => inner => hunt");
+  this.logSpy.mockRestore();
 }

@@ -4,7 +4,12 @@ export { createDataRegistry } from "./data-registry.js";
 export type { ScriptFn } from "@bifrost-ai/interfaces-work";
 export { discoverConfigPath, loadRunnerConfig, resolveRunnerOptions } from "./config-loader.js";
 export { createScriptContext } from "./script-context.js";
-export { composeStack, executeScriptStack, resolveStack } from "./script-stack.js";
+export {
+  composeStack,
+  executeScriptStack,
+  formatScriptStack,
+  resolveStack,
+} from "./script-stack.js";
 export { createRpcWorkItemSourceClient } from "./work-item-source-client.js";
 export { createRpcClient } from "./rpc-client.js";
 export type { RpcClient } from "./rpc-client.js";

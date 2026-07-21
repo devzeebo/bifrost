@@ -1,9 +1,11 @@
 import type { AgentTool } from "@bifrost-ai/engine";
+import { minimatch } from "minimatch";
 
 import { isMcpToolName, toPiToolName } from "./tool-names.js";
 
 const mcpServerNamePattern = /^mcp__([^_]+(?:_[^_]+)*)__/;
 const bareToolName = (tool: string): string => tool.replace(/\(.*\)$/, "");
+const isGlobPattern = (name: string): boolean => name.includes("*") || name.includes("?");
 
 export type ToolPermissionRule = {
   /** Pi tool name (after Bifrost → Pi mapping) */
@@ -99,9 +101,21 @@ export function mapAgentToolsToPiPermissions(tools: AgentTool[]): PiToolPermissi
   };
 }
 
+/**
+ * Resolve the permission rule for a Pi tool name.
+ * Supports AGENT.md wildcards such as `mcp__devzeebo_node__*`.
+ * Exact matches win over glob matches.
+ */
 export function findPermissionRule(
   rules: ToolPermissionRule[],
   piToolName: string,
 ): ToolPermissionRule | undefined {
-  return rules.find((rule) => rule.piName === piToolName);
+  const exact = rules.find((rule) => rule.piName === piToolName);
+  if (exact !== undefined) {
+    return exact;
+  }
+
+  return rules.find(
+    (rule) => isGlobPattern(rule.piName) && minimatch(piToolName, rule.piName, { dot: true }),
+  );
 }

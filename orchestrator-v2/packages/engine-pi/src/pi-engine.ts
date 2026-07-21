@@ -188,7 +188,7 @@ export class PiEngine implements Engine {
       cwd: workingDir,
       agentDir,
       settingsManager,
-      extensionFactories: [createPermissionExtension(permissions.rules)],
+      extensionFactories: [createPermissionExtension(permissions.rules, workingDir)],
       additionalExtensionPaths: [...(this.config.additionalExtensionPaths ?? [])],
       // Skip discovered project/user extensions; still load additionalExtensionPaths + factories
       noExtensions: true,

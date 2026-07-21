@@ -89,7 +89,9 @@ Contract:
 
 ```typescript
 const runner = new Runner({
-  isolation: new DockerIsolation({ /* … */ }),
+  isolation: new DockerIsolation({
+    /* … */
+  }),
   // default: new InProcessIsolation({ scripts, decorators, … })
 });
 
@@ -106,11 +108,11 @@ On `dispatch`:
 
 Registration of scripts/engines/agents:
 
-| Isolation     | Where registrations live                                      |
-| ------------- | ------------------------------------------------------------- |
-| `in-process`  | On the Runner (today's API)                                   |
-| `docker`      | Baked into the worker image bootstrap                         |
-| `kubernetes`  | Baked into the worker image / pod template (same as docker)   |
+| Isolation    | Where registrations live                                    |
+| ------------ | ----------------------------------------------------------- |
+| `in-process` | On the Runner (today's API)                                 |
+| `docker`     | Baked into the worker image bootstrap                       |
+| `kubernetes` | Baked into the worker image / pod template (same as docker) |
 
 The Runner may still expose `registerScript` for in-process; docker/k8s
 isolations ignore host registries and use the image. Alternatively, a shared
@@ -254,11 +256,11 @@ Branch resolution for docker/k8s: `metadata.branch` → fail if missing.
 
 ## Consumer / mapper impact
 
-| In-process                                 | Docker / k8s                                      |
-| ------------------------------------------ | ------------------------------------------------- |
-| Mapper/source supplies `state.workingDir`  | Prepare writes `workingDir`                       |
-| Host cwd is the repo                       | `/workspace` (or pod mount) is the repo           |
-| Engines run with host permissions          | Engines limited to the isolation boundary         |
+| In-process                                | Docker / k8s                              |
+| ----------------------------------------- | ----------------------------------------- |
+| Mapper/source supplies `state.workingDir` | Prepare writes `workingDir`               |
+| Host cwd is the repo                      | `/workspace` (or pod mount) is the repo   |
+| Engines run with host permissions         | Engines limited to the isolation boundary |
 
 ## Security / ops (docker v1)
 
