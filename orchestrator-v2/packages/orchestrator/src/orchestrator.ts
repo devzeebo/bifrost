@@ -132,7 +132,7 @@ export class Orchestrator {
             workItemId: workItem.workItemId,
             kind: workItem.kind,
             name: workItem.name,
-            status: "live",
+            status: "in_progress",
             parentWorkItemId: parentWorkItemIdFrom(workItem.state, workItem.metadata),
           });
 
@@ -191,6 +191,9 @@ function mapListingsToOpenWorkItems(listings: WorkItemListing[]): OpenWorkItem[]
     };
     if (listing.parentWorkItemId !== undefined) {
       item.parentWorkItemId = listing.parentWorkItemId;
+    }
+    if (listing.blockedByWorkItemIds !== undefined) {
+      item.blockedByWorkItemIds = listing.blockedByWorkItemIds;
     }
     return item;
   });

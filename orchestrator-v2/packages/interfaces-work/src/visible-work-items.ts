@@ -1,7 +1,7 @@
 import type { WorkItemListing, WorkItemStatus } from "./types.js";
 
 export function isNonTerminalWorkItemStatus(status: WorkItemStatus): boolean {
-  return status === "draft" || status === "live" || status === "paused";
+  return status === "draft" || status === "ready" || status === "in_progress";
 }
 
 /**

@@ -397,6 +397,100 @@ describe("BifrostWorkItemSource", () => {
     });
   });
 
+  describe("blockedByIdsFromDependencies", () => {
+    it("extracts blocker ids from blocked_by edges", async () => {
+      const { BifrostWorkItemSource } = await import("./bifrost-work-item-source.js");
+      expect(
+        BifrostWorkItemSource.blockedByIdsFromDependencies([
+          { target_id: "pred", relationship: "blocked_by" },
+          { target_id: "other", relationship: "blocks" },
+        ]),
+      ).toEqual(["pred"]);
+    });
+  });
+
+  describe("listVisibleWorkItems", () => {
+    it("enriches listings with blockedByWorkItemIds from rune detail", async () => {
+      const { source, cleanup } = await createTestSource();
+
+      global.fetch = vi.fn().mockImplementation(async (url: string) => {
+        if (String(url).includes("/api/runes")) {
+          return {
+            ok: true,
+            json: async () => [
+              {
+                id: "wf-1",
+                title: "bdd-flow",
+                status: "open",
+                priority: 1,
+                tags: ["agent:bdd-flow", "kind:workflow"],
+                realm_id: "test-realm",
+                created_at: "2026-05-08T00:00:00Z",
+                updated_at: "2026-05-08T01:00:00Z",
+              },
+              {
+                id: "step-green",
+                title: "bdd-green",
+                status: "fulfilled",
+                priority: 1,
+                tags: ["agent:bdd-green", "kind:task"],
+                realm_id: "test-realm",
+                created_at: "2026-05-08T00:00:00Z",
+                updated_at: "2026-05-08T01:00:00Z",
+                parent_id: "wf-1",
+              },
+              {
+                id: "step-red",
+                title: "bdd-red",
+                status: "fulfilled",
+                priority: 1,
+                tags: ["agent:bdd-red", "kind:task"],
+                realm_id: "test-realm",
+                created_at: "2026-05-08T00:00:00Z",
+                updated_at: "2026-05-08T01:00:00Z",
+                parent_id: "wf-1",
+              },
+            ],
+          };
+        }
+        if (String(url).includes("id=step-green")) {
+          return {
+            ok: true,
+            json: async () =>
+              runeDetailFixture({
+                id: "step-green",
+                title: "bdd-green",
+                status: "fulfilled",
+                tags: ["agent:bdd-green", "kind:task"],
+                parent_id: "wf-1",
+                dependencies: [{ target_id: "step-red", relationship: "blocked_by" }],
+              }),
+          };
+        }
+        return {
+          ok: true,
+          json: async () =>
+            runeDetailFixture({
+              id: "step-red",
+              title: "bdd-red",
+              status: "fulfilled",
+              tags: ["agent:bdd-red", "kind:task"],
+              parent_id: "wf-1",
+              dependencies: [],
+            }),
+        };
+      });
+
+      const listings = await source.listVisibleWorkItems();
+      await cleanup();
+
+      const green = listings.find((item) => item.workItemId === "step-green");
+      expect(green?.blockedByWorkItemIds).toEqual(["step-red"]);
+      const red = listings.find((item) => item.workItemId === "step-red");
+      expect(red?.blockedByWorkItemIds).toBeUndefined();
+    });
+  });
+
   describe("work item mapping", () => {
     it("should map rune detail to work item with all required fields", async () => {
       const { source, cleanup } = await createTestSource();
@@ -503,12 +597,13 @@ describe("BifrostWorkItemSource", () => {
   describe("mapRuneStatus", () => {
     it.each([
       ["draft", "draft"],
-      ["open", "live"],
-      ["claimed", "live"],
+      ["open", "ready"],
+      ["claimed", "ready"],
       ["fulfilled", "completed"],
+      ["failed", "failed"],
       ["sealed", "failed"],
       ["shattered", "failed"],
-      ["unknown-status", "live"],
+      ["unknown-status", "ready"],
     ] as const)("maps %s to %s", async (status, expected) => {
       const { BifrostWorkItemSource } = await import("./bifrost-work-item-source.js");
       expect(BifrostWorkItemSource.mapRuneStatus(status)).toBe(expected);
@@ -518,12 +613,13 @@ describe("BifrostWorkItemSource", () => {
   describe("getWorkItemStatus", () => {
     it.each([
       ["draft", "draft"],
-      ["open", "live"],
-      ["claimed", "live"],
+      ["open", "ready"],
+      ["claimed", "ready"],
       ["fulfilled", "completed"],
+      ["failed", "failed"],
       ["sealed", "failed"],
       ["shattered", "failed"],
-      ["unknown-status", "live"],
+      ["unknown-status", "ready"],
     ] as const)("returns %s for rune status %s", async (runeStatus, expected) => {
       const { source, cleanup } = await createTestSource();
 

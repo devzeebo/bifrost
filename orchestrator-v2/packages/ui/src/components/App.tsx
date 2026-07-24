@@ -9,8 +9,14 @@ export function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>Open work</h1>
-        <p className={`connection connection-${connectionStatus}`}>{connectionStatus}</p>
+        <div className="brand-block">
+          <p className="brand-mark">Bifrost</p>
+          <h1>Open work</h1>
+        </div>
+        <p className={`connection connection-${connectionStatus}`}>
+          <span className="connection-dot" aria-hidden="true" />
+          {connectionStatus}
+        </p>
       </header>
       <main>
         <WorkItemTree />

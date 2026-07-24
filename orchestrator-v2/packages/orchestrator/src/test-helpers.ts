@@ -45,7 +45,7 @@ export function createMemoryWorkItemSource(workItems: WorkItem[]): MemoryWorkIte
     workItems.map((workItem) => [workItem.workItemId, workItem]),
   );
   const statuses = new Map<string, WorkItemStatus>(
-    workItems.map((workItem) => [workItem.workItemId, "live"]),
+    workItems.map((workItem) => [workItem.workItemId, "ready"]),
   );
   let nextDraftId = 1;
 
@@ -72,7 +72,7 @@ export function createMemoryWorkItemSource(workItems: WorkItem[]): MemoryWorkIte
     },
     async pauseWorkItem(workItemId: string) {
       paused.push(workItemId);
-      statuses.set(workItemId, "paused");
+      statuses.set(workItemId, "in_progress");
     },
     async setState(workItemId: string, state: Record<string, unknown>) {
       states.set(workItemId, state);
@@ -95,7 +95,7 @@ export function createMemoryWorkItemSource(workItems: WorkItem[]): MemoryWorkIte
     },
     async startWorkItem(workItemId: string) {
       started.add(workItemId);
-      statuses.set(workItemId, "live");
+      statuses.set(workItemId, "ready");
     },
     async setDependency(
       blockerId: string,
@@ -125,6 +125,10 @@ export function createMemoryWorkItemSource(workItems: WorkItem[]): MemoryWorkIte
         const parentWorkItemId = parentWorkItemIdFrom(state, item.metadata);
         if (parentWorkItemId !== undefined) {
           listing.parentWorkItemId = parentWorkItemId;
+        }
+        const blockedBy = dependencies.get(workItemId);
+        if (blockedBy !== undefined && blockedBy.length > 0) {
+          listing.blockedByWorkItemIds = blockedBy.map((dep) => dep.workItemId);
         }
         listings.push(listing);
       }

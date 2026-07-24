@@ -1,4 +1,4 @@
-export type OpenWorkItemStatus = "draft" | "live" | "paused" | "completed" | "failed";
+export type OpenWorkItemStatus = "draft" | "ready" | "in_progress" | "completed" | "failed";
 
 export type OpenWorkItem = {
   workItemId: string;
@@ -6,6 +6,7 @@ export type OpenWorkItem = {
   name: string;
   status: OpenWorkItemStatus;
   parentWorkItemId?: string;
+  blockedByWorkItemIds?: string[];
 };
 
 export type WorkItemsHydrated = {
@@ -29,9 +30,15 @@ export type WorkItemsRemoved = {
 
 export type UiAction = WorkItemsHydrated | WorkItemsUpserted | WorkItemsRemoved;
 
-export const OPEN_WORK_ITEM_STATUSES = ["draft", "live", "paused", "completed", "failed"] as const;
+export const OPEN_WORK_ITEM_STATUSES = [
+  "draft",
+  "ready",
+  "in_progress",
+  "completed",
+  "failed",
+] as const;
 
-export const NON_TERMINAL_WORK_ITEM_STATUSES = ["draft", "live", "paused"] as const;
+export const NON_TERMINAL_WORK_ITEM_STATUSES = ["draft", "ready", "in_progress"] as const;
 
 export function isOpenWorkItemStatus(status: string): status is OpenWorkItemStatus {
   return (OPEN_WORK_ITEM_STATUSES as readonly string[]).includes(status);
@@ -39,7 +46,7 @@ export function isOpenWorkItemStatus(status: string): status is OpenWorkItemStat
 
 export function isNonTerminalOpenWorkItemStatus(
   status: OpenWorkItemStatus,
-): status is "draft" | "live" | "paused" {
+): status is "draft" | "ready" | "in_progress" {
   return (NON_TERMINAL_WORK_ITEM_STATUSES as readonly string[]).includes(status);
 }
 
@@ -86,6 +93,15 @@ export function isOpenWorkItem(value: unknown): value is OpenWorkItem {
 
   if (record.parentWorkItemId !== undefined && typeof record.parentWorkItemId !== "string") {
     return false;
+  }
+
+  if (record.blockedByWorkItemIds !== undefined) {
+    if (
+      !Array.isArray(record.blockedByWorkItemIds) ||
+      !record.blockedByWorkItemIds.every((id) => typeof id === "string")
+    ) {
+      return false;
+    }
   }
 
   return true;

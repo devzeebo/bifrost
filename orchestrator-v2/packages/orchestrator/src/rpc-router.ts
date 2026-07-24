@@ -129,7 +129,7 @@ export class RpcRouter {
 
     try {
       await this.workItemSource.startWorkItem(workItemId);
-      this.uiEvents.updateStatus(workItemId, "live");
+      this.uiEvents.updateStatus(workItemId, "ready");
       sendRpcResponse(peer, requestId, { ok: true });
     } catch (error) {
       sendRpcError(peer, requestId, "SOURCE_ERROR", error);
@@ -158,6 +158,15 @@ export class RpcRouter {
         parsed.relationship,
         parsed.blockedId,
       );
+      const existing = this.uiEvents.get(parsed.blockedId);
+      if (existing !== undefined) {
+        const blockedBy = new Set(existing.blockedByWorkItemIds ?? []);
+        blockedBy.add(parsed.blockerId);
+        this.uiEvents.upsert({
+          ...existing,
+          blockedByWorkItemIds: [...blockedBy],
+        });
+      }
       sendRpcResponse(peer, requestId, { ok: true });
     } catch (error) {
       sendRpcError(peer, requestId, "SOURCE_ERROR", error);

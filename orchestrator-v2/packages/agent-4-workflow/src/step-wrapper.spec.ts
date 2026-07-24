@@ -56,7 +56,7 @@ class MockSource implements WorkItemSourceClient {
   }
 
   async getWorkItemStatus(_workItemId: string): Promise<WorkItemStatus> {
-    return "live";
+    return "ready";
   }
 
   async setState(workItemId: string, state: Record<string, unknown>): Promise<void> {

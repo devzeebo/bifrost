@@ -47,7 +47,7 @@ async function a_ui_server_with_existing_item(this: Context) {
     workItemId: "existing",
     kind: "task",
     name: "already-open",
-    status: "live",
+    status: "ready",
   });
   this.server = await startUiServer(this.bus, { port: 0, host: "127.0.0.1" });
   this.received = [];
@@ -103,7 +103,7 @@ async function a_ui_server_with_backfill(this: Context) {
       workItemId: "bf-7c45",
       kind: "workflow",
       name: "bdd-flow",
-      status: "live",
+      status: "ready",
     },
     {
       workItemId: "bf-7c45.42",
@@ -149,7 +149,7 @@ function client_received_backfilled_hydrate(this: Context) {
     type: "workItems/hydrated",
     payload: {
       items: [
-        { workItemId: "bf-7c45", status: "live" },
+        { workItemId: "bf-7c45", status: "ready" },
         { workItemId: "bf-7c45.42", status: "failed", parentWorkItemId: "bf-7c45" },
       ],
     },

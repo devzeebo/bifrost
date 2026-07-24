@@ -46,6 +46,18 @@ describe("workItems projection", () => {
       orphan_appears_as_root,
     },
   });
+
+  test("orders workflow children by dependency tree", {
+    given: {
+      a_store_with_dependency_chain,
+    },
+    when: {
+      tree_is_selected,
+    },
+    then: {
+      children_follow_dependency_order,
+    },
+  });
 });
 
 function an_empty_store(this: Context) {
@@ -59,7 +71,7 @@ function hydrate_upsert_and_remove_are_dispatched(this: Context) {
         workItemId: "wf-1",
         kind: "workflow",
         name: "flow",
-        status: "live",
+        status: "ready",
       },
     ]),
   );
@@ -87,13 +99,13 @@ function a_store_with_workflow_tree(this: Context) {
         workItemId: "wf-1",
         kind: "workflow",
         name: "flow",
-        status: "paused",
+        status: "in_progress",
       },
       {
         workItemId: "b",
         kind: "task",
         name: "beta",
-        status: "live",
+        status: "ready",
         parentWorkItemId: "wf-1",
       },
       {
@@ -107,7 +119,7 @@ function a_store_with_workflow_tree(this: Context) {
         workItemId: "solo",
         kind: "task",
         name: "solo",
-        status: "live",
+        status: "ready",
       },
     ]),
   );
@@ -132,7 +144,7 @@ function a_store_with_orphan_child(this: Context) {
         workItemId: "orphan",
         kind: "task",
         name: "orphan",
-        status: "live",
+        status: "ready",
         parentWorkItemId: "missing-parent",
       },
     ]),
@@ -142,4 +154,51 @@ function a_store_with_orphan_child(this: Context) {
 function orphan_appears_as_root(this: Context) {
   expect(this.tree).toHaveLength(1);
   expect(this.tree[0]?.workItemId).toBe("orphan");
+}
+
+function a_store_with_dependency_chain(this: Context) {
+  this.store = createAppStore();
+  this.store.dispatch(
+    workItemsHydrated([
+      {
+        workItemId: "wf-1",
+        kind: "workflow",
+        name: "flow",
+        status: "in_progress",
+      },
+      {
+        workItemId: "step-c",
+        kind: "task",
+        name: "zebra-last",
+        status: "ready",
+        parentWorkItemId: "wf-1",
+        blockedByWorkItemIds: ["step-b"],
+      },
+      {
+        workItemId: "step-b",
+        kind: "task",
+        name: "middle",
+        status: "ready",
+        parentWorkItemId: "wf-1",
+        blockedByWorkItemIds: ["step-a"],
+      },
+      {
+        workItemId: "step-a",
+        kind: "task",
+        name: "first",
+        status: "completed",
+        parentWorkItemId: "wf-1",
+      },
+    ]),
+  );
+}
+
+function children_follow_dependency_order(this: Context) {
+  const workflow = this.tree.find((node) => node.workItemId === "wf-1");
+  expect(workflow?.children.map((child) => child.workItemId)).toEqual([
+    "step-a",
+    "step-b",
+    "step-c",
+  ]);
+  expect(workflow?.children.map((child) => child.depDepth)).toEqual([0, 1, 2]);
 }

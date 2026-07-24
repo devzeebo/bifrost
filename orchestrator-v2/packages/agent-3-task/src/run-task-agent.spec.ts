@@ -111,7 +111,7 @@ function makeExecutionFixture(
         return [];
       },
       async getWorkItemStatus() {
-        return "live";
+        return "ready";
       },
       async setState() {
         throw new Error("not implemented");

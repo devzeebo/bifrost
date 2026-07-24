@@ -43,8 +43,12 @@ const workItemsSlice = createSlice({
 
 export const workItemsReducer = workItemsSlice.reducer;
 
+export type WorkItemChildNode = OpenWorkItem & {
+  depDepth: number;
+};
+
 export type WorkItemTreeNode = OpenWorkItem & {
-  children: OpenWorkItem[];
+  children: WorkItemChildNode[];
 };
 
 export function selectWorkItemTree(state: { workItems: WorkItemsState }): WorkItemTreeNode[] {
@@ -66,18 +70,92 @@ export function selectWorkItemTree(state: { workItems: WorkItemsState }): WorkIt
     const parentMissing =
       item.parentWorkItemId !== undefined && byId[item.parentWorkItemId] === undefined;
     if (item.parentWorkItemId === undefined || parentMissing) {
+      const rawChildren = childrenByParent.get(item.workItemId) ?? [];
       roots.push({
         ...item,
-        children: childrenByParent.get(item.workItemId) ?? [],
+        children: orderChildrenByDependency(rawChildren),
       });
     }
   }
 
   roots.sort(compareByName);
-  for (const root of roots) {
-    root.children.sort(compareByName);
-  }
   return roots;
+}
+
+/** Topological order among siblings; depDepth = longest blocker path within the set. */
+export function orderChildrenByDependency(children: OpenWorkItem[]): WorkItemChildNode[] {
+  if (children.length === 0) {
+    return [];
+  }
+
+  const siblingIds = new Set(children.map((child) => child.workItemId));
+  const byId = new Map(children.map((child) => [child.workItemId, child]));
+  const blockers = new Map<string, string[]>();
+  const dependents = new Map<string, string[]>();
+  const indegree = new Map<string, number>();
+
+  for (const child of children) {
+    const deps = (child.blockedByWorkItemIds ?? []).filter((id) => siblingIds.has(id));
+    blockers.set(child.workItemId, deps);
+    indegree.set(child.workItemId, deps.length);
+    for (const depId of deps) {
+      const list = dependents.get(depId) ?? [];
+      list.push(child.workItemId);
+      dependents.set(depId, list);
+    }
+  }
+
+  const depth = new Map<string, number>();
+  const ready = children
+    .filter((child) => (indegree.get(child.workItemId) ?? 0) === 0)
+    .sort(compareByName)
+    .map((child) => child.workItemId);
+
+  for (const id of ready) {
+    depth.set(id, 0);
+  }
+
+  const ordered: string[] = [];
+  while (ready.length > 0) {
+    const id = ready.shift();
+    if (id === undefined) {
+      break;
+    }
+    ordered.push(id);
+    const currentDepth = depth.get(id) ?? 0;
+
+    const nextIds = (dependents.get(id) ?? []).sort((a, b) =>
+      compareByName(byId.get(a)!, byId.get(b)!),
+    );
+    for (const nextId of nextIds) {
+      depth.set(nextId, Math.max(depth.get(nextId) ?? 0, currentDepth + 1));
+      const nextDegree = (indegree.get(nextId) ?? 0) - 1;
+      indegree.set(nextId, nextDegree);
+      if (nextDegree === 0) {
+        ready.push(nextId);
+        ready.sort((a, b) => compareByName(byId.get(a)!, byId.get(b)!));
+      }
+    }
+  }
+
+  if (ordered.length < children.length) {
+    const seen = new Set(ordered);
+    const rest = children.filter((child) => !seen.has(child.workItemId)).sort(compareByName);
+    for (const child of rest) {
+      ordered.push(child.workItemId);
+      if (!depth.has(child.workItemId)) {
+        depth.set(child.workItemId, 0);
+      }
+    }
+  }
+
+  return ordered.map((id) => {
+    const item = byId.get(id)!;
+    return {
+      ...item,
+      depDepth: depth.get(id) ?? 0,
+    };
+  });
 }
 
 function compareByName(a: OpenWorkItem, b: OpenWorkItem): number {

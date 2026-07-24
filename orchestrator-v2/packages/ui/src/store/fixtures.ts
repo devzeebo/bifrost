@@ -7,30 +7,41 @@ import type { AppStore } from "./store.js";
 export function dispatchFixtureWorkItems(store: AppStore): void {
   const fixtures: OpenWorkItem[] = [
     {
-      workItemId: "wf-demo",
+      workItemId: "bf-7c45",
       kind: "workflow",
-      name: "cowsay-flow",
-      status: "paused",
+      name: "bdd-flow",
+      status: "in_progress",
     },
     {
-      workItemId: "task-say",
-      kind: "script",
-      name: "cowsay",
+      workItemId: "bf-7c45.39",
+      kind: "task",
+      name: "bdd-red",
       status: "completed",
-      parentWorkItemId: "wf-demo",
+      parentWorkItemId: "bf-7c45",
     },
     {
-      workItemId: "task-summarize",
+      workItemId: "bf-7c45.41",
       kind: "task",
-      name: "summarize",
+      name: "bdd-green",
+      status: "completed",
+      parentWorkItemId: "bf-7c45",
+      blockedByWorkItemIds: ["bf-7c45.39"],
+    },
+    {
+      workItemId: "bf-7c45.40",
+      kind: "task",
+      name: "bdd-refactor",
+      status: "completed",
+      parentWorkItemId: "bf-7c45",
+      blockedByWorkItemIds: ["bf-7c45.41"],
+    },
+    {
+      workItemId: "bf-7c45.42",
+      kind: "task",
+      name: "ensure-story-complete",
       status: "failed",
-      parentWorkItemId: "wf-demo",
-    },
-    {
-      workItemId: "solo-task",
-      kind: "task",
-      name: "standalone-review",
-      status: "live",
+      parentWorkItemId: "bf-7c45",
+      blockedByWorkItemIds: ["bf-7c45.40"],
     },
   ];
 

@@ -16,7 +16,7 @@ export function WorkItemTree() {
 
   return (
     <div className="work-tree" role="tree">
-      {roots.map((root) => {
+      {roots.map((root, rootIndex) => {
         const isWorkflow = root.kind === "workflow";
         const expanded = isWorkflow ? (expandedMap[root.workItemId] ?? true) : true;
         const hasChildren = root.children.length > 0;
@@ -34,6 +34,7 @@ export function WorkItemTree() {
               isWorkflow={isWorkflow}
               expanded={expanded}
               hasChildren={hasChildren}
+              index={rootIndex}
               onToggle={() => {
                 dispatch(toggleWorkflowExpanded(root.workItemId));
               }}
@@ -44,8 +45,10 @@ export function WorkItemTree() {
                     key={child.workItemId}
                     item={child}
                     depth={1}
+                    depDepth={child.depDepth}
                     isWorkflow={false}
                     isLastChild={index === root.children.length - 1}
+                    index={rootIndex + index + 1}
                   />
                 ))
               : null}

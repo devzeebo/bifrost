@@ -51,7 +51,7 @@ function makeCtx(workItemSource: Context["workItemSource"]): ScriptContext {
         workItemSource.status = "failed";
       },
       async pauseWorkItem() {
-        workItemSource.status = "paused";
+        workItemSource.status = "in_progress";
       },
       async createDraftWorkItem() {
         return "draft-1";
@@ -62,7 +62,7 @@ function makeCtx(workItemSource: Context["workItemSource"]): ScriptContext {
         return [];
       },
       async getWorkItemStatus() {
-        return workItemSource.status as "live";
+        return workItemSource.status as "ready";
       },
       async setState() {},
       async updateWorkItemMetadata() {},
@@ -78,13 +78,13 @@ describe("lifecycle decorators", () => {
     then: { failure_recorded },
   });
 
-  test("completeOnSuccess completes when status is still live", {
+  test("completeOnSuccess completes when status is still ready", {
     given: { succeeding_script_context },
     when: { running_complete_on_success },
     then: { work_item_completed },
   });
 
-  test("completeOnSuccess skips complete when status is paused", {
+  test("completeOnSuccess skips complete when status is in_progress", {
     given: { paused_script_context },
     when: { running_complete_on_success },
     then: { work_item_not_completed },
@@ -93,19 +93,19 @@ describe("lifecycle decorators", () => {
 
 function failing_script_context(this: Context) {
   this.workItem = baseWorkItem();
-  this.workItemSource = { completed: [], failed: [], status: "live" };
+  this.workItemSource = { completed: [], failed: [], status: "ready" };
   this.ctx = makeCtx(this.workItemSource);
 }
 
 function succeeding_script_context(this: Context) {
   this.workItem = baseWorkItem();
-  this.workItemSource = { completed: [], failed: [], status: "live" };
+  this.workItemSource = { completed: [], failed: [], status: "ready" };
   this.ctx = makeCtx(this.workItemSource);
 }
 
 function paused_script_context(this: Context) {
   this.workItem = baseWorkItem();
-  this.workItemSource = { completed: [], failed: [], status: "paused" };
+  this.workItemSource = { completed: [], failed: [], status: "in_progress" };
   this.ctx = makeCtx(this.workItemSource);
 }
 

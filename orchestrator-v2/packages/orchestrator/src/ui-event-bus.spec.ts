@@ -76,7 +76,7 @@ function workflow_child_lifecycle_is_emitted(this: Context) {
     workItemId: "wf-1",
     kind: "workflow",
     name: "flow",
-    status: "live",
+    status: "ready",
   });
   this.bus.upsert({
     workItemId: "child-1",
@@ -85,8 +85,8 @@ function workflow_child_lifecycle_is_emitted(this: Context) {
     status: "draft",
     parentWorkItemId: "wf-1",
   });
-  this.bus.updateStatus("child-1", "live");
-  this.bus.updateStatus("wf-1", "paused");
+  this.bus.updateStatus("child-1", "ready");
+  this.bus.updateStatus("wf-1", "in_progress");
   this.bus.remove("child-1");
 }
 
@@ -100,7 +100,7 @@ function actions_match_lifecycle(this: Context) {
   ]);
   expect(this.actions[2]).toMatchObject({
     type: "workItems/upserted",
-    payload: { workItemId: "child-1", status: "live" },
+    payload: { workItemId: "child-1", status: "ready" },
   });
 }
 
@@ -110,7 +110,7 @@ function snapshot_only_has_paused_workflow(this: Context) {
       workItemId: "wf-1",
       kind: "workflow",
       name: "flow",
-      status: "paused",
+      status: "in_progress",
     },
   ]);
 }
@@ -122,7 +122,7 @@ function a_bus_with_items(this: Context) {
     workItemId: "a",
     kind: "task",
     name: "alpha",
-    status: "live",
+    status: "ready",
   });
 }
 
@@ -139,7 +139,7 @@ function hydrate_payload_matches_snapshot(this: Context) {
           workItemId: "a",
           kind: "task",
           name: "alpha",
-          status: "live",
+          status: "ready",
         },
       ],
     },
@@ -151,13 +151,13 @@ function workflow_with_live_child(this: Context) {
     workItemId: "wf-1",
     kind: "workflow",
     name: "flow",
-    status: "live",
+    status: "ready",
   });
   this.bus.upsert({
     workItemId: "child-1",
     kind: "task",
     name: "step",
-    status: "live",
+    status: "ready",
     parentWorkItemId: "wf-1",
   });
   this.actions = [];
@@ -169,7 +169,7 @@ function child_is_marked_completed(this: Context) {
 
 function child_remains_completed_under_parent(this: Context) {
   expect(this.bus.get("child-1")).toMatchObject({ status: "completed", parentWorkItemId: "wf-1" });
-  expect(this.bus.get("wf-1")?.status).toBe("live");
+  expect(this.bus.get("wf-1")?.status).toBe("ready");
   expect(this.actions).toEqual([
     {
       type: "workItems/upserted",
@@ -189,7 +189,7 @@ function workflow_with_completed_child(this: Context) {
     workItemId: "wf-1",
     kind: "workflow",
     name: "flow",
-    status: "live",
+    status: "ready",
   });
   this.bus.upsert({
     workItemId: "child-1",

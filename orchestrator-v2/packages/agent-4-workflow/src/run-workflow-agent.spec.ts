@@ -50,7 +50,7 @@ class MockSource implements WorkItemSourceClient {
 
   async pauseWorkItem(workItemId: string) {
     this.paused.push(workItemId);
-    this.statuses.set(workItemId, "paused");
+    this.statuses.set(workItemId, "in_progress");
   }
 
   async createDraftWorkItem(input: CreateDraftWorkItemInput) {
@@ -63,7 +63,7 @@ class MockSource implements WorkItemSourceClient {
 
   async startWorkItem(workItemId: string) {
     this.started.push(workItemId);
-    this.statuses.set(workItemId, "live");
+    this.statuses.set(workItemId, "ready");
   }
 
   async setDependency(blockerId: string, relationship: DependencyRelationship, blockedId: string) {
@@ -249,7 +249,7 @@ function verify_fixture_with_live_child(this: Context) {
   this.workItemSource = new MockSource();
   this.definition = linearDefinition;
   this.workItemSource.statuses.set("child-1", "completed");
-  this.workItemSource.statuses.set("child-2", "live");
+  this.workItemSource.statuses.set("child-2", "ready");
   this.workItemSource.statuses.set("child-3", "completed");
   this.workItem = {
     workItemId: "workflow-1",

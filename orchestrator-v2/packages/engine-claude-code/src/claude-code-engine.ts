@@ -5,6 +5,8 @@ import type {
   EngineContext,
   EngineResult,
   ExecutionStats,
+  ToolkitDefinition,
+  ToolkitFactory,
   ToolkitModuleRef,
 } from "@bifrost-ai/engine";
 import { isToolkitModuleRef, resolveToolkit } from "@bifrost-ai/engine";
@@ -163,14 +165,48 @@ export type ToolkitConstructor = (context: EngineContext) => McpSdkServerConfigW
 
 export type RegisteredToolkit =
   | ToolkitModuleRef
+  | ToolkitDefinition
+  | ToolkitFactory
   | McpSdkServerConfigWithInstance
   | ToolkitConstructor;
+
+const isMcpSdkServerConfig = (value: unknown): value is McpSdkServerConfigWithInstance =>
+  typeof value === "object" &&
+  value !== null &&
+  "type" in value &&
+  (value as { type: unknown }).type === "sdk";
+
+const isToolkitDefinition = (value: unknown): value is ToolkitDefinition =>
+  typeof value === "object" &&
+  value !== null &&
+  "name" in value &&
+  "version" in value &&
+  "tools" in value;
 
 export class ClaudeCodeEngine implements Engine {
   private toolkits = new Map<string, RegisteredToolkit>();
 
   public registerToolkit(name: string, toolkit: RegisteredToolkit): void {
     this.toolkits.set(name, toolkit);
+  }
+
+  private resolveBoundToolkit(
+    entry: Exclude<RegisteredToolkit, ToolkitModuleRef>,
+    context: EngineContext,
+  ): McpSdkServerConfigWithInstance {
+    if (typeof entry === "function") {
+      const result = entry(context);
+      if (isMcpSdkServerConfig(result)) {
+        return result;
+      }
+      return bindToolkitToClaude(resolveToolkit(result, context), context);
+    }
+
+    if (isToolkitDefinition(entry)) {
+      return bindToolkitToClaude(resolveToolkit(entry, context), context);
+    }
+
+    return entry;
   }
 
   private async resolveToolOptions(
@@ -228,10 +264,8 @@ export class ClaudeCodeEngine implements Engine {
         const toolkit = await loadToolkitModule(entry);
         const definition = resolveToolkit(toolkit, context);
         mcpServers[name] = bindToolkitToClaude(definition, context);
-      } else if (typeof entry === "function") {
-        mcpServers[name] = entry(context);
       } else {
-        mcpServers[name] = entry;
+        mcpServers[name] = this.resolveBoundToolkit(entry, context);
       }
     }
 

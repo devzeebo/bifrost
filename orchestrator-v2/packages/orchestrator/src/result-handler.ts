@@ -126,7 +126,7 @@ export class ResultHandler {
   ): Promise<void> {
     await recordBestEffort(record, context);
     if (outcome === "paused") {
-      this.uiEvents.updateStatus(workItemId, "paused");
+      this.uiEvents.updateStatus(workItemId, "in_progress");
     } else {
       this.uiEvents.markTerminal(workItemId, outcome);
     }

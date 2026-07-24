@@ -53,7 +53,7 @@ export class UiEventBus {
   }
 
   /**
-   * Update status of an already-projected item (e.g. draft → live on start).
+   * Update status of an already-projected item (e.g. draft → ready on start).
    * No-op if the item is unknown.
    */
   updateStatus(workItemId: string, status: OpenWorkItemStatus): void {

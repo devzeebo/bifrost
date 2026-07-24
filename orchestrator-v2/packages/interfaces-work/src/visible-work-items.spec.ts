@@ -9,7 +9,7 @@ describe("selectVisibleWorkItems", () => {
         workItemId: "bf-7c45",
         kind: "workflow",
         name: "bdd-flow",
-        status: "live",
+        status: "ready",
       },
       {
         workItemId: "bf-7c45.39",
@@ -46,7 +46,7 @@ describe("selectVisibleWorkItems", () => {
         workItemId: "solo",
         kind: "task",
         name: "solo",
-        status: "live",
+        status: "ready",
       },
     ]);
 

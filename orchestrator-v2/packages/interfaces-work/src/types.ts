@@ -23,7 +23,7 @@ export type CreateDraftWorkItemInput = {
   metadata?: Record<string, unknown>;
 };
 
-export type WorkItemStatus = "draft" | "live" | "paused" | "completed" | "failed";
+export type WorkItemStatus = "draft" | "ready" | "in_progress" | "completed" | "failed";
 
 export type WorkItemListing = {
   workItemId: string;
@@ -31,6 +31,7 @@ export type WorkItemListing = {
   name: string;
   status: WorkItemStatus;
   parentWorkItemId?: string;
+  blockedByWorkItemIds?: string[];
 };
 
 export type WorkItemMetadataPatch = {

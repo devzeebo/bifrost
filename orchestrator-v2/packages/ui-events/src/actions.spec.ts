@@ -40,7 +40,7 @@ function actions_are_created(this: Context) {
         workItemId: "wf-1",
         kind: "workflow",
         name: "flow",
-        status: "live",
+        status: "ready",
       },
     ]),
     workItemsUpserted({

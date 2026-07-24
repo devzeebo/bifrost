@@ -1,5 +1,6 @@
 {
   "extends": "../../tsconfig.base.json",
+  "include": ["src"],
   "references": [
     {
       "path": "../ui-events"
@@ -13,6 +14,10 @@
     "moduleResolution": "bundler",
     "noEmit": true,
     "noFallthroughCasesInSwitch": true,
-    "noUnusedParameters": true
+    "noUnusedParameters": true,
+    "paths": {
+      "@bifrost-ai/ui-events/*": ["../ui-events/src/*"],
+      "@bifrost-ai/ui-events": ["../ui-events/src"]
+    }
   }
 }
