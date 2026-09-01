@@ -3,17 +3,19 @@ import type {
   FlowEntry,
   WorkItem,
   WorkItemDependency,
+  WorkItemListing,
   WorkItemMetadataPatch,
   WorkItemSource,
   WorkItemStatus,
 } from "@bifrost-ai/interfaces-work";
-import { isFlowEntry } from "@bifrost-ai/interfaces-work";
+import { isFlowEntry, selectVisibleWorkItems } from "@bifrost-ai/interfaces-work";
 import { BifrostHttpClient } from "./client/bifrost-http-client.js";
 import { loadConfig } from "./config/config-loader.js";
 import { CredentialLoader } from "./config/credential-loader.js";
 import type {
   BifrostWorkItemSourceConfig,
   CreateRuneRequest,
+  ReadyRune,
   RuneDetail,
   UpdateRuneRequest,
 } from "./types.js";
@@ -192,21 +194,73 @@ export class BifrostWorkItemSource implements WorkItemSource {
     return BifrostWorkItemSource.mapRuneStatus(detail.status);
   }
 
+  public async listVisibleWorkItems(): Promise<WorkItemListing[]> {
+    const client = await this.#getClient();
+    const runes = await client.listRunes();
+    const listings = selectVisibleWorkItems(
+      runes.map((rune) => BifrostWorkItemSource.mapToListing(rune)),
+    );
+    await Promise.all(
+      listings.map(async (listing) => {
+        try {
+          const detail = await client.getRune(listing.workItemId);
+          const blockedBy = BifrostWorkItemSource.blockedByIdsFromDependencies(detail.dependencies);
+          if (blockedBy.length > 0) {
+            listing.blockedByWorkItemIds = blockedBy;
+          }
+        } catch {
+          // Best-effort: hydrate without edges if a detail fetch fails.
+        }
+      }),
+    );
+    return listings;
+  }
+
+  /** Bifrost stores inverse `blocked_by` on the blocked rune (target_id = blocker). */
+  public static blockedByIdsFromDependencies(
+    dependencies: { target_id: string; relationship: string }[],
+  ): string[] {
+    return dependencies
+      .filter((dep) => dep.relationship === "blocked_by")
+      .map((dep) => dep.target_id);
+  }
+
   public static mapRuneStatus(status: string): WorkItemStatus {
     switch (status) {
       case "draft":
         return "draft";
       case "open":
+        return "ready";
       case "claimed":
-        return "live";
+        // Claimed runes are still active for completeOnSuccess; listings map to in_progress.
+        return "ready";
       case "fulfilled":
         return "completed";
+      case "failed":
       case "sealed":
       case "shattered":
         return "failed";
       default:
-        return "live";
+        return "ready";
     }
+  }
+
+  public static mapToListing(rune: ReadyRune): WorkItemListing {
+    const tags = rune.tags ?? [];
+    const agentName = BifrostWorkItemSource.extractAgentName(tags);
+    const listing: WorkItemListing = {
+      workItemId: rune.id,
+      kind: BifrostWorkItemSource.extractAgentKind(tags),
+      name: agentName ?? rune.title,
+      status:
+        rune.status === "claimed"
+          ? "in_progress"
+          : BifrostWorkItemSource.mapRuneStatus(rune.status),
+    };
+    if (typeof rune.parent_id === "string" && rune.parent_id.length > 0) {
+      listing.parentWorkItemId = rune.parent_id;
+    }
+    return listing;
   }
 
   public static extractAgentName(tags: string[]): string | null {

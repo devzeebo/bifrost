@@ -89,9 +89,7 @@ Contract:
 
 ```typescript
 const runner = new Runner({
-  isolation: new DockerIsolation({
-    /* … */
-  }),
+  isolation: new DockerIsolation({/* … */}),
   // default: new InProcessIsolation({ scripts, decorators, … })
 });
 

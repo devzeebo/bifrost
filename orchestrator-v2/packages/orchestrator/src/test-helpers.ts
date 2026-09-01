@@ -3,12 +3,15 @@ import type {
   DependencyRelationship,
   WorkItem,
   WorkItemDependency,
+  WorkItemListing,
   WorkItemMetadataPatch,
   WorkItemSource,
   WorkItemStatus,
 } from "@bifrost-ai/interfaces-work";
+import { selectVisibleWorkItems } from "@bifrost-ai/interfaces-work";
 import type { FramePayload, PeerIdentity, RunnerPeer } from "@bifrost-ai/protocol";
 import { createRunnerPeer, generateKeyPair } from "@bifrost-ai/protocol";
+import { parentWorkItemIdFrom } from "@bifrost-ai/ui-events";
 
 import { Orchestrator } from "./orchestrator.js";
 
@@ -38,8 +41,11 @@ export function createMemoryWorkItemSource(workItems: WorkItem[]): MemoryWorkIte
   const drafts = new Map<string, CreateDraftWorkItemInput>();
   const started = new Set<string>(workItems.map((workItem) => workItem.workItemId));
   const dependencies = new Map<string, WorkItemDependency[]>();
+  const knownItems = new Map<string, WorkItem>(
+    workItems.map((workItem) => [workItem.workItemId, workItem]),
+  );
   const statuses = new Map<string, WorkItemStatus>(
-    workItems.map((workItem) => [workItem.workItemId, "live"]),
+    workItems.map((workItem) => [workItem.workItemId, "ready"]),
   );
   let nextDraftId = 1;
 
@@ -66,7 +72,7 @@ export function createMemoryWorkItemSource(workItems: WorkItem[]): MemoryWorkIte
     },
     async pauseWorkItem(workItemId: string) {
       paused.push(workItemId);
-      statuses.set(workItemId, "paused");
+      statuses.set(workItemId, "in_progress");
     },
     async setState(workItemId: string, state: Record<string, unknown>) {
       states.set(workItemId, state);
@@ -77,11 +83,19 @@ export function createMemoryWorkItemSource(workItems: WorkItem[]): MemoryWorkIte
       nextDraftId += 1;
       drafts.set(workItemId, input);
       statuses.set(workItemId, "draft");
+      knownItems.set(workItemId, {
+        workItemId,
+        kind: input.kind,
+        name: input.name,
+        flow: [...(input.flow ?? [])],
+        state: input.state ?? {},
+        metadata: input.metadata ?? {},
+      });
       return workItemId;
     },
     async startWorkItem(workItemId: string) {
       started.add(workItemId);
-      statuses.set(workItemId, "live");
+      statuses.set(workItemId, "ready");
     },
     async setDependency(
       blockerId: string,
@@ -97,6 +111,28 @@ export function createMemoryWorkItemSource(workItems: WorkItem[]): MemoryWorkIte
     },
     async getWorkItemStatus(workItemId: string) {
       return statuses.get(workItemId) ?? "draft";
+    },
+    async listVisibleWorkItems() {
+      const listings: WorkItemListing[] = [];
+      for (const [workItemId, item] of knownItems) {
+        const state = states.get(workItemId) ?? item.state;
+        const listing: WorkItemListing = {
+          workItemId,
+          kind: item.kind,
+          name: item.name,
+          status: statuses.get(workItemId) ?? "draft",
+        };
+        const parentWorkItemId = parentWorkItemIdFrom(state, item.metadata);
+        if (parentWorkItemId !== undefined) {
+          listing.parentWorkItemId = parentWorkItemId;
+        }
+        const blockedBy = dependencies.get(workItemId);
+        if (blockedBy !== undefined && blockedBy.length > 0) {
+          listing.blockedByWorkItemIds = blockedBy.map((dep) => dep.workItemId);
+        }
+        listings.push(listing);
+      }
+      return selectVisibleWorkItems(listings);
     },
   };
 }
@@ -159,6 +195,7 @@ export async function startOrchestratorInBackground(options: {
     authorizedRunners: options.authorizedRunners,
     maxInFlightPerPeer: options.maxInFlightPerPeer,
     abortSignal: abortController.signal,
+    ui: false,
   });
 
   const { host, port } = handle.peer.address;

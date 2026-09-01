@@ -1,6 +1,6 @@
 {
   "name": "@bifrost-ai/engine-claude-code",
-  "version": "0.1.0",
+  "version": "0.1.1-build.1784925625308",
   "description": "Claude Code Agent SDK engine for Bifrost orchestrator v2",
   "license": "MIT",
   "files": [
@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.150",
-    "@bifrost-ai/engine": "workspace:*",
+    "@bifrost-ai/engine": "0.1.1-build.1784925625308",
     "debug": "^4.4.0",
     "zod": "^4.4.3"
   },

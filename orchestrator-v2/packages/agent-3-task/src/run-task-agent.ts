@@ -1,6 +1,7 @@
 import type { AgentDefinition } from "@bifrost-ai/engine";
 import type { DataRegistry, WorkItem } from "@bifrost-ai/interfaces-work";
 
+import { renderInstructions } from "./render-instructions.js";
 import { ENGINE_DATA_TYPE, verifyIsTaskAgentState, type TaskAgentDataSchema } from "./types.js";
 
 type TaskAgentContext = {
@@ -27,7 +28,7 @@ export async function runTaskAgent(
       workItemId: workItem.workItemId,
       workingDir,
       agent,
-      instructions,
+      instructions: renderInstructions(instructions),
       state: workItem.state,
       metadata: workItem.metadata,
       setState: ctx.setState,

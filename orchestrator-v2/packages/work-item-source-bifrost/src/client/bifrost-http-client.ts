@@ -21,6 +21,11 @@ export class BifrostHttpClient {
     return (response as ReadyRune[]) ?? [];
   }
 
+  public async listRunes(): Promise<ReadyRune[]> {
+    const response = await this.request("/api/runes", { method: "GET" });
+    return (response as ReadyRune[]) ?? [];
+  }
+
   public async getRune(runeId: string): Promise<RuneDetail> {
     const response = await this.request(`/api/rune?id=${encodeURIComponent(runeId)}`, {
       method: "GET",

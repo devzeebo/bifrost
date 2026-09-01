@@ -57,7 +57,7 @@ const scriptContext = {
       return [];
     },
     async getWorkItemStatus() {
-      return "live" as const;
+      return "ready" as const;
     },
     async setState() {},
     async updateWorkItemMetadata() {},

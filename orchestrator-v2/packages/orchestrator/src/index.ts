@@ -7,3 +7,6 @@ export type {
   WorkItemMapper,
 } from "./orchestrator.js";
 export type { OrchestratorOptions } from "./types.js";
+export { UiEventBus } from "./ui-event-bus.js";
+export { startUiServer } from "./ui-server.js";
+export type { UiServerHandle, UiServerOptions } from "./ui-server.js";

@@ -14,6 +14,7 @@ export type {
   WorkItemExecutionContext,
   WorkItemHandler,
   WorkItemHandlerRegistry,
+  WorkItemListing,
   WorkItemMetadataPatch,
   WorkItemSource,
   WorkItemSourceClient,
@@ -27,3 +28,4 @@ export {
   missingWorkItemFieldsMessage,
   isWorkItem as validateWorkItem,
 } from "./types.js";
+export { isNonTerminalWorkItemStatus, selectVisibleWorkItems } from "./visible-work-items.js";

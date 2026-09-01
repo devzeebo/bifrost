@@ -1,6 +1,6 @@
 {
   "name": "@bifrost-ai/engine",
-  "version": "0.1.0",
+  "version": "0.1.1-build.1784925625308",
   "description": "Engine interface and types for Bifrost orchestrator v2",
   "license": "MIT",
   "files": [

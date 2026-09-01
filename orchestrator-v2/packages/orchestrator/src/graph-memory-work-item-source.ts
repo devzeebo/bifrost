@@ -3,10 +3,13 @@ import type {
   DependencyRelationship,
   WorkItem,
   WorkItemDependency,
+  WorkItemListing,
   WorkItemMetadataPatch,
   WorkItemSource,
   WorkItemStatus,
 } from "@bifrost-ai/interfaces-work";
+import { selectVisibleWorkItems } from "@bifrost-ai/interfaces-work";
+import { parentWorkItemIdFrom } from "@bifrost-ai/ui-events";
 
 const POLL_MS = 10;
 
@@ -43,7 +46,7 @@ export function createGraphMemoryWorkItemSource(
   let aborted = false;
 
   for (const workItem of initialWorkItems) {
-    registerItem(workItem, "live");
+    registerItem(workItem, "ready");
     started.add(workItem.workItemId);
   }
 
@@ -75,7 +78,7 @@ export function createGraphMemoryWorkItemSource(
 
   function isRunnable(workItemId: string): boolean {
     const status = getStatus(workItemId);
-    if (status !== "live") {
+    if (status !== "ready") {
       return false;
     }
     return depsSatisfied(workItemId);
@@ -102,10 +105,10 @@ export function createGraphMemoryWorkItemSource(
     }
   }
 
-  function reevaluatePaused(): void {
+  function reevaluateInProgress(): void {
     for (const [workItemId, status] of statuses) {
-      if (status === "paused" && depsSatisfied(workItemId)) {
-        statuses.set(workItemId, "live");
+      if (status === "in_progress" && depsSatisfied(workItemId)) {
+        statuses.set(workItemId, "ready");
         queued.delete(workItemId);
         enqueueIfReady(workItemId);
       }
@@ -114,7 +117,7 @@ export function createGraphMemoryWorkItemSource(
 
   function onTerminal(workItemId: string): void {
     queued.delete(workItemId);
-    reevaluatePaused();
+    reevaluateInProgress();
     scanForReady();
   }
 
@@ -158,7 +161,7 @@ export function createGraphMemoryWorkItemSource(
     },
     async pauseWorkItem(workItemId: string) {
       paused.push(workItemId);
-      statuses.set(workItemId, "paused");
+      statuses.set(workItemId, "in_progress");
       queued.delete(workItemId);
       const queuedIndex = readyQueue.findIndex((item) => item.workItemId === workItemId);
       if (queuedIndex >= 0) {
@@ -201,7 +204,7 @@ export function createGraphMemoryWorkItemSource(
     async startWorkItem(workItemId: string) {
       started.add(workItemId);
       startedOrder.push(workItemId);
-      statuses.set(workItemId, "live");
+      statuses.set(workItemId, "ready");
       enqueueIfReady(workItemId);
     },
     async setDependency(
@@ -218,6 +221,28 @@ export function createGraphMemoryWorkItemSource(
     },
     async getWorkItemStatus(workItemId: string) {
       return getStatus(workItemId);
+    },
+    async listVisibleWorkItems() {
+      const listings: WorkItemListing[] = [];
+      for (const [workItemId, item] of items) {
+        const state = states.get(workItemId) ?? item.state;
+        const listing: WorkItemListing = {
+          workItemId,
+          kind: item.kind,
+          name: item.name,
+          status: getStatus(workItemId),
+        };
+        const parentWorkItemId = parentWorkItemIdFrom(state, item.metadata);
+        if (parentWorkItemId !== undefined) {
+          listing.parentWorkItemId = parentWorkItemId;
+        }
+        const blockedBy = dependencies.get(workItemId);
+        if (blockedBy !== undefined && blockedBy.length > 0) {
+          listing.blockedByWorkItemIds = blockedBy.map((dep) => dep.workItemId);
+        }
+        listings.push(listing);
+      }
+      return selectVisibleWorkItems(listings);
     },
     abort() {
       aborted = true;

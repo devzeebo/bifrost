@@ -23,7 +23,7 @@ export const mapTaskWorkItem: WorkItemMapper<RuneDetail> = (workItem) => {
     ...workItem,
     state: {
       ...workItem.state,
-      instructions: rune.description,
+      instructions: [rune.description],
       workingDir,
       engineName,
       sessionId,

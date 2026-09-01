@@ -1,0 +1,32 @@
+{
+  "name": "@bifrost-ai/ui-events",
+  "version": "0.1.1-build.1784925625308",
+  "description": "Redux-shaped UI event actions for the orchestrator console",
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vp pack",
+    "dev": "vp pack --watch",
+    "test": "vp test --passWithNoTests",
+    "check": "vp check",
+    "prepublishOnly": "vp run build"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@typescript/native-preview": "catalog:",
+    "bumpp": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest-gwt": "catalog:"
+  }
+}

@@ -26,6 +26,7 @@ vi.mock("debug", () => ({
   default: vi.fn(() => vi.fn()),
 }));
 
+import type { ToolkitDefinition, ToolkitFactory } from "@bifrost-ai/engine";
 import { ClaudeCodeEngine, type ToolkitConstructor } from "./claude-code-engine.js";
 
 const makeContext = (overrides: Partial<EngineContext> = {}): EngineContext => ({
@@ -720,6 +721,115 @@ describe("ClaudeCodeEngine", () => {
 
       expect(captured.context?.workingDir).toBe("/some/specific/path");
       expect(captured.context?.workItemId).toBe(context.workItemId);
+    });
+
+    it("should bind a ToolkitDefinition object to mcpServers when agent uses its tools", async () => {
+      mockQuery.mockReturnValue(mockStream(resultSuccess()));
+
+      const engine = new ClaudeCodeEngine();
+      const toolkit: ToolkitDefinition = {
+        name: "devzeebo_node",
+        version: "1.0.0",
+        tools: [
+          {
+            name: "install_package",
+            description: "install a package",
+            inputSchema: {
+              type: "object",
+              properties: {
+                package_name: { type: "string" },
+              },
+              required: ["package_name"],
+            },
+            execute: async () => ({
+              content: [{ type: "text", text: "ok" }],
+            }),
+          },
+        ],
+      };
+      engine.registerToolkit("devzeebo_node", toolkit);
+
+      await engine.execute(
+        makeContext({
+          agent: {
+            name: "test-agent",
+            description: "",
+            tools: ["mcp__devzeebo_node__install_package"],
+            template: { parameters: {} },
+            promptBody: "This is the agent definition",
+          },
+        }),
+      );
+
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          options: expect.objectContaining({
+            mcpServers: {
+              devzeebo_node: expect.objectContaining({
+                type: "sdk",
+                name: "devzeebo_node",
+              }),
+            },
+          }),
+        }),
+      );
+    });
+
+    it("should bind a ToolkitFactory to mcpServers when agent uses its tools", async () => {
+      mockQuery.mockReturnValue(mockStream(resultSuccess()));
+
+      const engine = new ClaudeCodeEngine();
+      const captured: { context: EngineContext | undefined } = { context: undefined };
+      const factory: ToolkitFactory = (ctx) => {
+        captured.context = ctx;
+        return {
+          name: "factorytoolkit",
+          version: "1.0.0",
+          tools: [
+            {
+              name: "echo",
+              description: "echo",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  message: { type: "string" },
+                },
+                required: ["message"],
+              },
+              execute: async () => ({
+                content: [{ type: "text", text: "ok" }],
+              }),
+            },
+          ],
+        };
+      };
+      engine.registerToolkit("factorytoolkit", factory);
+
+      const context = makeContext({
+        workingDir: "/factory/cwd",
+        agent: {
+          name: "test-agent",
+          description: "",
+          tools: ["mcp__factorytoolkit__echo"],
+          template: { parameters: {} },
+          promptBody: "This is the agent definition",
+        },
+      });
+      await engine.execute(context);
+
+      expect(captured.context?.workingDir).toBe("/factory/cwd");
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          options: expect.objectContaining({
+            mcpServers: {
+              factorytoolkit: expect.objectContaining({
+                type: "sdk",
+                name: "factorytoolkit",
+              }),
+            },
+          }),
+        }),
+      );
     });
   });
 });

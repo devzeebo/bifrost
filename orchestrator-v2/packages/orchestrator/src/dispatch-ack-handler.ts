@@ -5,12 +5,14 @@ import { recordBestEffort } from "./best-effort.js";
 import type { DispatchTracker } from "./dispatch-tracker.js";
 import type { PeerRegistry } from "./peer-registry.js";
 import type { DispatchAck } from "./types.js";
+import type { UiEventBus } from "./ui-event-bus.js";
 
 export class DispatchAckHandler {
   constructor(
     private readonly workItemSource: WorkItemSource,
     private readonly tracker: DispatchTracker,
     private readonly registry: PeerRegistry,
+    private readonly uiEvents: UiEventBus,
   ) {}
 
   handle(peer: ConnectedPeer, payload: FramePayload): void {
@@ -46,5 +48,6 @@ export class DispatchAckHandler {
       () => this.workItemSource.failWorkItem(workItemId, reason),
       "fail rejected work item",
     );
+    this.uiEvents.markTerminal(workItemId, "failed");
   }
 }
