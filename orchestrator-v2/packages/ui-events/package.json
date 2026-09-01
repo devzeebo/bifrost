@@ -1,6 +1,6 @@
 {
   "name": "@bifrost-ai/ui-events",
-  "version": "0.1.0",
+  "version": "0.1.1-build.1784925625308",
   "description": "Redux-shaped UI event actions for the orchestrator console",
   "license": "MIT",
   "files": [

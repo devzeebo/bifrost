@@ -1,6 +1,6 @@
 {
   "name": "@bifrost-ai/agent-4-workflow",
-  "version": "0.1.0",
+  "version": "0.1.1-build.1784925625308",
   "description": "Workflow Agent — DAG scheduling with dependencies",
   "license": "MIT",
   "files": [
@@ -23,13 +23,13 @@
     "prepublishOnly": "vp run build"
   },
   "dependencies": {
-    "@bifrost-ai/interfaces-work": "workspace:*",
-    "@bifrost-ai/runner": "workspace:*",
+    "@bifrost-ai/interfaces-work": "0.1.1-build.1784925625308",
+    "@bifrost-ai/runner": "0.1.1-build.1784925625308",
     "debug": "^4.4.0"
   },
   "devDependencies": {
-    "@bifrost-ai/orchestrator": "workspace:*",
-    "@bifrost-ai/protocol": "workspace:*",
+    "@bifrost-ai/orchestrator": "0.1.1-build.1784925625308",
+    "@bifrost-ai/protocol": "0.1.1-build.1784925625308",
     "@types/debug": "^4.1.12",
     "@types/node": "catalog:",
     "@typescript/native-preview": "catalog:",

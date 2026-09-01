@@ -1,6 +1,6 @@
 {
   "name": "@bifrost-ai/engine-cursor",
-  "version": "0.1.0",
+  "version": "0.1.1-build.1784925625308",
   "description": "Cursor SDK engine for Bifrost orchestrator v2",
   "license": "MIT",
   "files": [
@@ -23,7 +23,7 @@
     "prepublishOnly": "vp run build"
   },
   "dependencies": {
-    "@bifrost-ai/engine": "workspace:*",
+    "@bifrost-ai/engine": "0.1.1-build.1784925625308",
     "@cursor/sdk": "^1.0.22",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "debug": "^4.4.0",

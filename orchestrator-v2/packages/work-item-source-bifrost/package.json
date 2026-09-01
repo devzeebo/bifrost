@@ -1,6 +1,6 @@
 {
   "name": "@bifrost-ai/work-item-source-bifrost",
-  "version": "0.1.0",
+  "version": "0.1.1-build.1784925625308",
   "description": "Bifrost work item source adapter for Orchestrator v2",
   "license": "MIT",
   "files": [
@@ -22,7 +22,7 @@
     "prepublishOnly": "vp run build"
   },
   "dependencies": {
-    "@bifrost-ai/interfaces-work": "workspace:*",
+    "@bifrost-ai/interfaces-work": "0.1.1-build.1784925625308",
     "debug": "^4.4.0",
     "yaml": "^2.8.2"
   },

@@ -14,7 +14,7 @@ orchestrator.addWorkItemMapper("task", (workItem) => {
     ...workItem,
     state: {
       ...workItem.state,
-      instructions: rune.description,
+      instructions: [rune.description],
       workingDir: workItem.state.workingDir as string,
       engineName: workItem.state.engineName as string,
       sessionId: workItem.state.sessionId as string | undefined,

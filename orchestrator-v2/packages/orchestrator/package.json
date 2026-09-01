@@ -1,6 +1,6 @@
 {
   "name": "@bifrost-ai/orchestrator",
-  "version": "0.1.0",
+  "version": "0.1.1-build.1784925625308",
   "description": "Thin get-work + dispatch orchestrator for Bifrost v2",
   "license": "MIT",
   "files": [
@@ -23,9 +23,9 @@
     "prepublishOnly": "vp run build"
   },
   "dependencies": {
-    "@bifrost-ai/interfaces-work": "workspace:*",
-    "@bifrost-ai/protocol": "workspace:*",
-    "@bifrost-ai/ui-events": "workspace:*",
+    "@bifrost-ai/interfaces-work": "0.1.1-build.1784925625308",
+    "@bifrost-ai/protocol": "0.1.1-build.1784925625308",
+    "@bifrost-ai/ui-events": "0.1.1-build.1784925625308",
     "ws": "catalog:"
   },
   "devDependencies": {

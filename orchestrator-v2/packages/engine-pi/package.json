@@ -1,6 +1,6 @@
 {
   "name": "@bifrost-ai/engine-pi",
-  "version": "0.1.0",
+  "version": "0.1.1-build.1784925625308",
   "description": "Pi coding agent SDK engine for Bifrost orchestrator v2",
   "license": "MIT",
   "files": [
@@ -22,7 +22,7 @@
     "prepublishOnly": "vp run build"
   },
   "dependencies": {
-    "@bifrost-ai/engine": "workspace:*",
+    "@bifrost-ai/engine": "0.1.1-build.1784925625308",
     "@earendil-works/pi-ai": "^0.80.10",
     "@earendil-works/pi-coding-agent": "^0.80.10",
     "debug": "^4.4.3",

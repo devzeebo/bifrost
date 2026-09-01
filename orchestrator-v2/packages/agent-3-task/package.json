@@ -1,6 +1,6 @@
 {
   "name": "@bifrost-ai/agent-3-task",
-  "version": "0.1.0",
+  "version": "0.1.1-build.1784925625308",
   "description": "Task Agent — single-shot LLM execution as a script",
   "license": "MIT",
   "files": [
@@ -23,9 +23,9 @@
     "prepublishOnly": "vp run build"
   },
   "dependencies": {
-    "@bifrost-ai/engine": "workspace:*",
-    "@bifrost-ai/interfaces-work": "workspace:*",
-    "@bifrost-ai/runner": "workspace:*",
+    "@bifrost-ai/engine": "0.1.1-build.1784925625308",
+    "@bifrost-ai/interfaces-work": "0.1.1-build.1784925625308",
+    "@bifrost-ai/runner": "0.1.1-build.1784925625308",
     "gray-matter": "^4.0.3"
   },
   "devDependencies": {

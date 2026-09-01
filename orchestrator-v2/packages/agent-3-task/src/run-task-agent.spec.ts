@@ -28,12 +28,12 @@ const sampleAgent: AgentDefinition = {
 };
 
 class TrackingEngine implements Engine {
-  public executeCalls: { sessionId?: string }[] = [];
+  public executeCalls: { sessionId?: string; instructions?: string }[] = [];
 
   public constructor(private readonly inner: TestEngine) {}
 
   public async execute(context: EngineContext, sessionId?: string): Promise<EngineResult> {
-    this.executeCalls.push({ sessionId });
+    this.executeCalls.push({ sessionId, instructions: context.instructions });
     return this.inner.execute(context, sessionId);
   }
 }
@@ -131,7 +131,7 @@ function makeExecutionFixture(
 function validTaskState(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     workingDir: "/home/user/project",
-    instructions: "Review this code for quality",
+    instructions: ["Review this code for quality"],
     engineName: "test",
     ...overrides,
   };
@@ -152,6 +152,15 @@ describe("runTaskAgent", () => {
     when: { task_agent_run },
     then: {
       engine_received_session_id,
+      run_succeeds,
+    },
+  });
+
+  test("passes rendered instructions to the engine", {
+    given: { tracking_engine, context_with_mixed_instructions },
+    when: { task_agent_run },
+    then: {
+      engine_received_rendered_instructions,
       run_succeeds,
     },
   });
@@ -212,6 +221,21 @@ function context_with_existing_session(this: Context) {
   this.ctx = fixture.ctx;
 }
 
+function context_with_mixed_instructions(this: Context) {
+  const fixture = makeExecutionFixture(
+    validTaskState({
+      instructions: [
+        "an instruction",
+        { key: "my-thing", instructions: "custom instructions" },
+        "more things",
+      ],
+    }),
+    this.engine,
+  );
+  this.workItem = fixture.workItem;
+  this.ctx = fixture.ctx;
+}
+
 function empty_state_context(this: Context) {
   const fixture = makeExecutionFixture({}, this.engine);
   this.workItem = fixture.workItem;
@@ -244,6 +268,15 @@ function session_id_is_persisted(this: Context) {
 function engine_received_session_id(this: Context) {
   const tracking = this.engine as TrackingEngine;
   expect(tracking.executeCalls[0]?.sessionId).toBe("existing-session-42");
+}
+
+function engine_received_rendered_instructions(this: Context) {
+  const tracking = this.engine as TrackingEngine;
+  expect(tracking.executeCalls[0]?.instructions).toBe(
+    ["an instruction", "<my-thing>", "custom instructions", "</my-thing>", "more things"].join(
+      "\n",
+    ),
+  );
 }
 
 function missing_fields_failure(this: Context) {

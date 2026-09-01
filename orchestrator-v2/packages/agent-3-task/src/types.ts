@@ -8,9 +8,16 @@ export type TaskAgentDataSchema = {
   agentDefinition: AgentDefinition;
 };
 
+export type Instruction =
+  | string
+  | {
+      key: string;
+      instructions: string;
+    };
+
 export type TaskAgentState = {
   workingDir: string;
-  instructions: string;
+  instructions: Instruction[];
   engineName: string;
   sessionId?: string;
 };
@@ -34,7 +41,7 @@ export function getTaskAgentStateMissingFields(taskState: Record<string, unknown
   if (typeof workingDir !== "string" || workingDir.length === 0) {
     missing.push("workingDir");
   }
-  if (typeof instructions !== "string") {
+  if (!isInstructionArray(instructions)) {
     missing.push("instructions");
   }
   if (typeof engineName !== "string" || engineName.length === 0) {
@@ -89,3 +96,20 @@ export const taskAgentDataGuards = {
   engine: isEngine,
   agentDefinition: isAgentDefinition,
 } as const;
+
+function isInstructionArray(value: unknown): value is Instruction[] {
+  return Array.isArray(value) && value.every(isInstruction);
+}
+
+function isInstruction(value: unknown): value is Instruction {
+  if (typeof value === "string") {
+    return true;
+  }
+
+  if (value === null || typeof value !== "object") {
+    return false;
+  }
+
+  const record = value as Partial<{ key: unknown; instructions: unknown }>;
+  return typeof record.key === "string" && typeof record.instructions === "string";
+}
