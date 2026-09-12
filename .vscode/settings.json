@@ -1,0 +1,24 @@
+{
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "explicit"
+  },
+  "[csharp]": {
+    "editor.defaultFormatter": "csharpier.csharpier-vscode"
+  },
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/obj": true,
+    "**/bin": true
+  },
+  "files.watcherExclude": {
+    "**/node_modules": true,
+    "**/obj": true,
+    "**/bin": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/obj": true,
+    "**/bin": true
+  }
+}

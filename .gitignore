@@ -1,0 +1,7 @@
+bin/
+obj/
+.idea/
+.vs/
+*.user
+*.swp
+.DS_Store
