@@ -1,6 +1,6 @@
 using Bifrost.Domain.RelationshipTypes.Aggregate;
 using Bifrost.Domain.RelationshipTypes.Events;
-using Bifrost.Domain.RelationshipTypes.Projections;
+using Bifrost.Domain.RelationshipTypes.Services;
 using Marten;
 using Wolverine.Marten;
 using MartenEvents = Wolverine.Marten.Events;
@@ -29,7 +29,14 @@ public static class RetireRelationshipTypeHandler
         IDocumentSession session
     )
     {
-        RelationshipTypeWordIndex.ReleaseWords(session, type.ForwardWord, type.InverseWord);
+        ReleaseRelationshipTypeWordsHandler.Handle(
+            new ReleaseRelationshipTypeWordsHandler.Message
+            {
+                Forward = type.ForwardWord,
+                Inverse = type.InverseWord,
+            },
+            session
+        );
 
         return
         [

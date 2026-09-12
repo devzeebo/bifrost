@@ -1,3 +1,4 @@
+using Bifrost.Domain.RelationshipTypes;
 using Bifrost.Domain.RelationshipTypes.Projections;
 using Bifrost.Domain.WorkItems.Aggregate;
 using Bifrost.Domain.WorkItems.Events;

@@ -1,6 +1,7 @@
 using Bifrost.Domain.RelationshipTypes.Aggregate;
 using Bifrost.Domain.RelationshipTypes.Events;
 using Bifrost.Domain.RelationshipTypes.Projections;
+using Bifrost.Domain.RelationshipTypes.Services;
 using Bifrost.Domain.WorkItems.Projections;
 using Marten;
 using Wolverine.Marten;
@@ -53,8 +54,23 @@ public static class ChangeRelationshipTypeWordsHandler
         RelationshipTypeWord forward = command.ForwardWord;
         RelationshipTypeWord inverse = command.InverseWord;
 
-        RelationshipTypeWordIndex.ReleaseWords(session, type.ForwardWord, type.InverseWord);
-        RelationshipTypeWordIndex.ClaimWords(session, type.Id, forward, inverse);
+        ReleaseRelationshipTypeWordsHandler.Handle(
+            new ReleaseRelationshipTypeWordsHandler.Message
+            {
+                Forward = type.ForwardWord,
+                Inverse = type.InverseWord,
+            },
+            session
+        );
+        ClaimRelationshipTypeWordsHandler.Handle(
+            new ClaimRelationshipTypeWordsHandler.Message
+            {
+                RelationshipTypeId = type.Id,
+                Forward = forward,
+                Inverse = inverse,
+            },
+            session
+        );
 
         await RefreshWorkItemViewWordsAsync(session, type.Id, forward, inverse);
 

@@ -1,5 +1,5 @@
+using Bifrost.Domain.RelationshipTypes;
 using Bifrost.Domain.RelationshipTypes.Projections;
-using Bifrost.Domain.RelationshipTypes.ValueObjects;
 using Bifrost.Domain.WorkItems.Aggregate;
 using Bifrost.Domain.WorkItems.Events;
 using Marten;

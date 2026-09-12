@@ -1,6 +1,7 @@
 using Bifrost.Domain.RelationshipTypes.Aggregate;
 using Bifrost.Domain.RelationshipTypes.Events;
 using Bifrost.Domain.RelationshipTypes.Projections;
+using Bifrost.Domain.RelationshipTypes.Services;
 using Marten;
 using Wolverine.Marten;
 
@@ -38,11 +39,14 @@ public static class DefineRelationshipTypeHandler
 
     public static IStartStream Handle(Command command, IDocumentSession session)
     {
-        RelationshipTypeWordIndex.ClaimWords(
-            session,
-            command.Id,
-            command.ForwardWord,
-            command.InverseWord
+        ClaimRelationshipTypeWordsHandler.Handle(
+            new ClaimRelationshipTypeWordsHandler.Message
+            {
+                RelationshipTypeId = command.Id,
+                Forward = command.ForwardWord,
+                Inverse = command.InverseWord,
+            },
+            session
         );
 
         return MartenOps.StartStream<RelationshipType>(
