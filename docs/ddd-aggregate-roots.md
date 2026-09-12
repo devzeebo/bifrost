@@ -1,8 +1,8 @@
-# Aggregate roots in Bifrost.Domain
+# Aggregate roots in Bifrost
 
 Bifrost models the write side with **event-sourced aggregate roots**, Wolverine message handlers, and Marten for the event store and read models.
 
-This document describes **how to work inside a single aggregate root folder**. It is the pattern to follow for every aggregate under `net/Bifrost.Domain`.
+This document describes **how to work inside a single aggregate root folder**. It is the pattern to follow for every aggregate under `net/Bifrost`.
 
 ## Mental model
 
@@ -27,7 +27,7 @@ HTTP / other callers
 
 ## Folder layout
 
-Each aggregate root is a top-level folder under `Bifrost.Domain`:
+Each aggregate root is a top-level folder under `Bifrost`:
 
 ```
 {AggregateName}/
@@ -35,11 +35,12 @@ Each aggregate root is a top-level folder under `Bifrost.Domain`:
   Commands/
   Events/
   Projections/
+  Queries/         # optional — HTTP read endpoints for this aggregate
   Services/        # optional — only when needed
   ValueObjects/    # optional — only when needed
 ```
 
-Namespaces match folders: `Bifrost.Domain.{AggregateName}.{Layer}`.
+Namespaces match folders: `Bifrost.{AggregateName}.{Layer}`.
 
 | Layer | Required? | Responsibility |
 |-------|-----------|----------------|
@@ -47,12 +48,13 @@ Namespaces match folders: `Bifrost.Domain.{AggregateName}.{Layer}`.
 | `Commands/` | yes | Public write handlers (`Command` + `Validate` + `Handle`) |
 | `Events/` | yes | Domain event records appended to the stream |
 | `Projections/` | yes* | Read models and lookup documents |
+| `Queries/` | no | HTTP query endpoints (`[WolverineQuery]`); one file per query |
 | `Services/` | no | Same-session domain services (`Message` + `Handle`) |
 | `ValueObjects/` | no | Small typed values owned by this aggregate |
 
 \*An aggregate without reads yet may still introduce `Projections/` as soon as anything is queried or looked up.
 
-Cross-cutting types that are not owned by one aggregate (for example shared enums or `CommandValidationException`) live at the `Bifrost.Domain` root, not inside an aggregate folder.
+Cross-cutting types that are not owned by one aggregate (for example shared enums or `CommandValidationException`) live at the `Bifrost` root, not inside an aggregate folder.
 
 ---
 
@@ -107,10 +109,12 @@ public static class DoSomethingHandler
     }
 
     // create:
+    [WolverinePost("/do-something"), EmptyResponse]
     public static IStartStream Handle(Command command, IDocumentSession session) =>
         MartenOps.StartStream<TheAggregate>(command.Id, new SomethingHappened { ... });
 
     // or mutate:
+    [WolverinePost("/do-something"), EmptyResponse]
     [AggregateHandler]
     public static MartenEvents Handle(Command command, TheAggregate aggregate, IDocumentSession session) =>
         [ new SomethingHappened { ... } ];
@@ -141,7 +145,7 @@ These are not HTTP commands and must not be registered as API endpoints.
 **Shape:**
 
 ```csharp
-public static class ClaimSomethingHandler
+public static class RefreshSomethingHandler
 {
     public sealed record Message
     {
@@ -173,25 +177,57 @@ public static class ClaimSomethingHandler
 
 Two common forms:
 
-### 1. Marten stream projections
+### 1. Marten event projections
 
-`SingleStreamProjection<TModel, TId>` (or related Marten projection types) with a nested `Model` record and `Create` / `Apply` methods driven by this aggregate’s events.
+`SingleStreamProjection<TModel, TId>` or `MultiStreamProjection<TModel, TId>` with a nested `Model` record and `Create` / `Apply` methods driven by events.
+
+- **Single-stream** — one document per aggregate stream (for example `RelationshipTypeView`, `WorkItemView`).
+- **Multi-stream** — documents keyed by something other than stream id, often via `Identities<TEvent>(…)` fan-out (for example `RelationshipTypeByWord`, a word → type lookup derived from relationship-type events).
 
 Register them in `MartenConfiguration` (typically `ProjectionLifecycle.Inline` in this project).
 
 Used by query endpoints and by `Validate` when existence or denormalized state must be checked.
 
-### 2. Documents maintained in-command
+### 2. Documents patched in-command
 
-Plain document types stored via `IDocumentSession` inside a command or service (for example unique lookup indexes). These are not `SingleStreamProjection` classes, but they still live under `Projections/` because they are read/lookup models owned by the aggregate.
-
-Configure identity mapping in `MartenConfiguration` when Marten cannot infer it.
+Rare. Prefer event projections (including multi-stream / custom grouping when another aggregate’s events must update this read model). Only fall back to `session.Store` patches when a projection cannot express the update cleanly.
 
 **Rules:**
 
-- Prefer projections for views derived purely from the event stream.
-- Use in-command documents when you need strong, same-transaction invariants (uniqueness, immediate lookup) that must commit with the command’s events.
+- Prefer projections whenever the document is fully determined by event stream(s) — including cross-stream updates via `MultiStreamProjection` + `CustomGrouping` / `Identities`.
 - Nest the read model as `SomethingView.Model` (or `SomethingIndex.Model`) for projection types.
+
+---
+
+## Queries/
+
+**What belongs here:** Wolverine HTTP read endpoints for this aggregate. One query per file.
+
+**Shape:**
+
+```csharp
+public static class GetThingHandler
+{
+    [WolverineQuery("/get-thing/{id}")]
+    public static ThingView.Model Handle([Document] ThingView.Model item) => item;
+}
+
+public static class ListThingsHandler
+{
+    public sealed record Query;
+
+    [WolverineQuery("/list-things")]
+    public static Task<IReadOnlyList<ThingIndex.Model>> Handle(Query _, IQuerySession session) =>
+        session.Query<ThingIndex.Model>().ToListAsync();
+}
+```
+
+**Rules:**
+
+- File name is the action (`GetThing.cs`); type is `GetThingHandler`.
+- Get-by-id: route `{id}` + `[Document]` (404 when missing).
+- List/filter: thin `IQuerySession` queries over projection `Model` types.
+- Do not put write logic here.
 
 ---
 
@@ -213,15 +249,14 @@ Configure identity mapping in `MartenConfiguration` when Marten cannot infer it.
 When you add or change an aggregate’s surface:
 
 1. **Marten** — register new projections / document identities in `MartenConfiguration`.
-2. **API** — map new commands with Wolverine HTTP (`[WolverinePost]`, `EmptyResponse`, `bus.InvokeAsync(command)`). Keep query endpoints thin: load projection `Model` types from `IQuerySession`.
-3. **Tests** — prefer integration coverage through the API when command + projection behavior matters together.
+2. **HTTP** — put `[WolverinePost]` / `EmptyResponse` on the command `Handle` method (no separate endpoint hop). Put read endpoints under `{Aggregate}/Queries/` (one file per query); get-by-id uses route `{id}` and `[Document]`.
+3. **Tests** — prefer integration coverage through the HTTP API when command + projection behavior matters together.
 
 ## Checklist: adding a new command
 
 1. Add the domain event(s) under `Events/`.
 2. Extend the aggregate with `Apply` for those events.
 3. Update or add projections / lookup documents as needed; register in `MartenConfiguration`.
-4. Add `Commands/{Action}.cs` with `Command`, `Validate`, and `Handle`.
+4. Add `Commands/{Action}.cs` with `Command`, `Validate`, and `Handle` (including `[WolverinePost]` / `EmptyResponse` on `Handle`).
 5. Extract shared same-session work into `Services/` (one file per operation) when appropriate.
-6. Expose the command from the API endpoints.
-7. Add or extend tests.
+6. Add or extend tests.

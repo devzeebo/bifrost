@@ -1,5 +1,4 @@
 <Solution>
-  <Project Path="../net/Bifrost.Api/Bifrost.Api.csproj" />
-  <Project Path="../net/Bifrost.Domain/Bifrost.Domain.csproj" />
-  <Project Path="../net/Bifrost.Domain.Tests/Bifrost.Domain.Tests.csproj" />
+  <Project Path="../net/Bifrost/Bifrost.csproj" />
+  <Project Path="../net/Bifrost.Tests/Bifrost.Tests.csproj" />
 </Solution>

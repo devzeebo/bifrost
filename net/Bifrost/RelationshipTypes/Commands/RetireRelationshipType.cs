@@ -1,0 +1,35 @@
+using Bifrost.RelationshipTypes.Aggregate;
+using Bifrost.RelationshipTypes.Events;
+using Wolverine.Http;
+using Wolverine.Marten;
+using MartenEvents = Wolverine.Marten.Events;
+
+namespace Bifrost.RelationshipTypes.Commands;
+
+public static class RetireRelationshipTypeHandler
+{
+    public sealed record Command
+    {
+        public required Guid Id { get; init; }
+    }
+
+    public static void Validate(Command command, RelationshipType type)
+    {
+        if (!type.IsActive)
+        {
+            throw new CommandValidationException("Relationship type is already retired.");
+        }
+    }
+
+    [WolverinePost("/retire-relationship-type"), EmptyResponse]
+    [AggregateHandler]
+    public static MartenEvents Handle(Command command, RelationshipType type) =>
+        [
+            new RelationshipTypeRetired
+            {
+                RelationshipTypeId = type.Id,
+                ForwardWord = type.ForwardWord,
+                InverseWord = type.InverseWord,
+            },
+        ];
+}
