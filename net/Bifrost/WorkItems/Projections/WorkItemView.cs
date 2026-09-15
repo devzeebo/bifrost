@@ -14,6 +14,7 @@ public class WorkItemView : MultiStreamProjection<WorkItemView.Model, Guid>
     {
         public Guid Id { get; init; }
         public required JsonNode Data { get; init; }
+        public required WorkItemStatus Status { get; init; }
         public IReadOnlyList<Relationship> Relationships { get; init; } = [];
         public bool IsDeleted { get; init; }
     }
@@ -32,6 +33,7 @@ public class WorkItemView : MultiStreamProjection<WorkItemView.Model, Guid>
 
         Identity<IEvent<WorkItemCreated>>(e => e.StreamId);
         Identity<IEvent<WorkItemDataReplaced>>(e => e.StreamId);
+        Identity<IEvent<WorkItemStatusChanged>>(e => e.StreamId);
         Identity<IEvent<RelationshipAdded>>(e => e.StreamId);
         Identity<IEvent<RelationshipRemoved>>(e => e.StreamId);
         Identity<IEvent<WorkItemDeleted>>(e => e.StreamId);
@@ -79,6 +81,7 @@ public class WorkItemView : MultiStreamProjection<WorkItemView.Model, Guid>
         {
             Id = e.Id,
             Data = e.Data.DeepClone()!,
+            Status = e.Status,
             IsDeleted = false,
         };
 
@@ -86,6 +89,12 @@ public class WorkItemView : MultiStreamProjection<WorkItemView.Model, Guid>
         view with
         {
             Data = e.Data.DeepClone()!,
+        };
+
+    public Model Apply(WorkItemStatusChanged e, Model view) =>
+        view with
+        {
+            Status = e.Status,
         };
 
     public Model Apply(RelationshipAdded e, Model view)

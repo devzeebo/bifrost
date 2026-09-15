@@ -6,4 +6,6 @@ public sealed record WorkItemCreated
 {
     public required Guid Id { get; init; }
     public required JsonNode Data { get; init; }
+    public required WorkItemStatus Status { get; init; }
 }
+

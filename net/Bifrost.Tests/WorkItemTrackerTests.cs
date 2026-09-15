@@ -119,7 +119,12 @@ public class WorkItemTrackerTests
             await PostAsync(
                 client,
                 "/create-work-item",
-                new { id = workItemA, data = new { title = "A" } }
+                new
+                {
+                    id = workItemA,
+                    data = new { title = "A" },
+                    status = "open",
+                }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
@@ -127,7 +132,12 @@ public class WorkItemTrackerTests
             await PostAsync(
                 client,
                 "/create-work-item",
-                new { id = workItemB, data = new { title = "B" } }
+                new
+                {
+                    id = workItemB,
+                    data = new { title = "B" },
+                    status = "open",
+                }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
@@ -181,10 +191,28 @@ public class WorkItemTrackerTests
         var workItemB = Guid.NewGuid();
 
         (
-            await PostAsync(client, "/create-work-item", new { id = workItemA, data = new { } })
+            await PostAsync(
+                client,
+                "/create-work-item",
+                new
+                {
+                    id = workItemA,
+                    data = new { },
+                    status = "open",
+                }
+            )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
         (
-            await PostAsync(client, "/create-work-item", new { id = workItemB, data = new { } })
+            await PostAsync(
+                client,
+                "/create-work-item",
+                new
+                {
+                    id = workItemB,
+                    data = new { },
+                    status = "open",
+                }
+            )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
         (
@@ -231,7 +259,12 @@ public class WorkItemTrackerTests
             await PostAsync(
                 client,
                 "/create-work-item",
-                new { id, data = new { title = "before" } }
+                new
+                {
+                    id,
+                    data = new { title = "before" },
+                    status = "Open",
+                }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
@@ -246,10 +279,115 @@ public class WorkItemTrackerTests
         var item = await QueryAsync<WorkItemResponseDto>(client, $"/get-work-item/{id}");
         item.ShouldNotBeNull();
         item.Data["title"]!.GetValue<string>().ShouldBe("after");
+        item.Status.ShouldBe("open");
 
         var list = await QueryAsync<List<WorkItemIndex.Model>>(client, "/list-work-items", new { });
         list.ShouldNotBeNull();
-        list.ShouldContain(x => x.Id == id && !x.IsDeleted);
+        list.ShouldContain(x => x.Id == id && !x.IsDeleted && x.Status == "open");
+    }
+
+    [Fact]
+    public async Task change_work_item_status_and_filter_list()
+    {
+        var client = _factory.CreateClient();
+        var openId = Guid.NewGuid();
+        var claimedId = Guid.NewGuid();
+
+        (
+            await PostAsync(
+                client,
+                "/create-work-item",
+                new
+                {
+                    id = openId,
+                    data = new { },
+                    status = "  OPEN  ",
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (
+            await PostAsync(
+                client,
+                "/create-work-item",
+                new
+                {
+                    id = claimedId,
+                    data = new { },
+                    status = "open",
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (
+            await PostAsync(
+                client,
+                "/change-work-item-status",
+                new { id = claimedId, status = "Claimed" }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var claimed = await QueryAsync<WorkItemResponseDto>(
+            client,
+            $"/get-work-item/{claimedId}"
+        );
+        claimed.ShouldNotBeNull();
+        claimed.Status.ShouldBe("claimed");
+
+        var openList = await QueryAsync<List<WorkItemIndex.Model>>(
+            client,
+            "/list-work-items",
+            new { status = " Open " }
+        );
+        openList.ShouldNotBeNull();
+        openList.ShouldContain(x => x.Id == openId);
+        openList.ShouldNotContain(x => x.Id == claimedId);
+
+        var claimedList = await QueryAsync<List<WorkItemIndex.Model>>(
+            client,
+            "/list-work-items",
+            new { status = "claimed" }
+        );
+        claimedList.ShouldNotBeNull();
+        claimedList.ShouldContain(x => x.Id == claimedId);
+        claimedList.ShouldNotContain(x => x.Id == openId);
+    }
+
+    [Fact]
+    public async Task create_and_change_work_item_status_reject_blank()
+    {
+        var client = _factory.CreateClient();
+        var id = Guid.NewGuid();
+
+        (
+            await PostAsync(
+                client,
+                "/create-work-item",
+                new
+                {
+                    id,
+                    data = new { },
+                    status = "   ",
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        (
+            await PostAsync(
+                client,
+                "/create-work-item",
+                new
+                {
+                    id,
+                    data = new { },
+                    status = "open",
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (
+            await PostAsync(client, "/change-work-item-status", new { id, status = "" })
+        ).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
     [Fact]
@@ -278,10 +416,28 @@ public class WorkItemTrackerTests
         var workItemA = Guid.NewGuid();
         var workItemB = Guid.NewGuid();
         (
-            await PostAsync(client, "/create-work-item", new { id = workItemA, data = new { } })
+            await PostAsync(
+                client,
+                "/create-work-item",
+                new
+                {
+                    id = workItemA,
+                    data = new { },
+                    status = "open",
+                }
+            )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
         (
-            await PostAsync(client, "/create-work-item", new { id = workItemB, data = new { } })
+            await PostAsync(
+                client,
+                "/create-work-item",
+                new
+                {
+                    id = workItemB,
+                    data = new { },
+                    status = "open",
+                }
+            )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
         (
@@ -376,6 +532,7 @@ public class WorkItemTrackerTests
     sealed record WorkItemResponseDto(
         Guid Id,
         JsonNode Data,
+        string Status,
         List<WorkItemRelationshipDto> Relationships,
         bool IsDeleted
     );

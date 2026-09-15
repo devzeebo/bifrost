@@ -16,5 +16,6 @@ public static class MartenConfiguration
 
         opts.Schema.For<RelationshipTypeByWord.Model>().Identity(x => x.Id);
         opts.Schema.For<WorkItemIndex.Model>().Identity(x => x.Id);
+        opts.Schema.For<WorkItemIndex.Model>().Index(x => x.Status);
     }
 }

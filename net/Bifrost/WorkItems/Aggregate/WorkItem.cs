@@ -7,6 +7,7 @@ public class WorkItem
 {
     public Guid Id { get; set; }
     public required JsonNode Data { get; set; }
+    public WorkItemStatus Status { get; set; }
     public List<Edge> Relationships { get; set; } = [];
     public bool IsDeleted { get; set; }
 
@@ -21,12 +22,18 @@ public class WorkItem
     {
         Id = e.Id;
         Data = e.Data.DeepClone()!;
+        Status = e.Status;
         IsDeleted = false;
     }
 
     public void Apply(WorkItemDataReplaced e)
     {
         Data = e.Data.DeepClone()!;
+    }
+
+    public void Apply(WorkItemStatusChanged e)
+    {
+        Status = e.Status;
     }
 
     public void Apply(RelationshipAdded e)

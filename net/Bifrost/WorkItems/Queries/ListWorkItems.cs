@@ -6,11 +6,25 @@ namespace Bifrost.WorkItems.Queries;
 
 public static class ListWorkItemsHandler
 {
-    public sealed record Query;
+    public sealed record Query
+    {
+        public string? Status { get; init; }
+    }
 
     [WolverineQuery("/list-work-items")]
     public static Task<IReadOnlyList<WorkItemIndex.Model>> Handle(
-        Query _,
+        Query query,
         IQuerySession session
-    ) => session.Query<WorkItemIndex.Model>().Where(x => !x.IsDeleted).ToListAsync();
+    )
+    {
+        var items = session.Query<WorkItemIndex.Model>().Where(x => !x.IsDeleted);
+
+        if (query.Status is not null)
+        {
+            WorkItemStatus status = query.Status;
+            items = items.Where(x => x.Status == status.Value);
+        }
+
+        return items.ToListAsync();
+    }
 }

@@ -14,6 +14,7 @@ public static class CreateWorkItemHandler
     {
         public required Guid Id { get; init; }
         public required JsonNode Data { get; init; }
+        public required WorkItemStatus Status { get; init; }
     }
 
     public static async Task Validate(Command command, IQuerySession session)
@@ -28,6 +29,11 @@ public static class CreateWorkItemHandler
     public static IStartStream Handle(Command command) =>
         MartenOps.StartStream<WorkItem>(
             command.Id,
-            new WorkItemCreated { Id = command.Id, Data = command.Data }
+            new WorkItemCreated
+            {
+                Id = command.Id,
+                Data = command.Data,
+                Status = command.Status,
+            }
         );
 }
