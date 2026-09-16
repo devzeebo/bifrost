@@ -1,0 +1,2 @@
+import { a as defineConfig, c as lazyPlugins, i as computeAutoInlineList, l as resolveCoverageProviderToCheck, n as assertCoverageProviderVersionMatch, o as defineProject, r as checkCoverageProviderVersion, s as isVitestFamilySpecifier, t as AUTO_INLINE_DEPS, u as withConfigMetadataResolution } from "./define-config-DWoAkNdp.js";
+export { AUTO_INLINE_DEPS, assertCoverageProviderVersionMatch, checkCoverageProviderVersion, computeAutoInlineList, defineConfig, defineProject, isVitestFamilySpecifier, lazyPlugins, resolveCoverageProviderToCheck, withConfigMetadataResolution };

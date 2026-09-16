@@ -66,7 +66,7 @@ public class WorkItemTrackerTests
         var inverse = $"inv_{typeId:N}"[..16];
 
         (
-            await PostAsync(
+            await Post(
                 client,
                 "/define-relationship-type",
                 new
@@ -78,7 +78,7 @@ public class WorkItemTrackerTests
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
-        var duplicate = await PostAsync(
+        var duplicate = await Post(
             client,
             "/define-relationship-type",
             new
@@ -100,7 +100,7 @@ public class WorkItemTrackerTests
         var wordInverse = $"blocked_by_{typeId:N}"[..24];
 
         (
-            await PostAsync(
+            await Post(
                 client,
                 "/define-relationship-type",
                 new
@@ -116,7 +116,7 @@ public class WorkItemTrackerTests
         var workItemB = Guid.NewGuid();
 
         (
-            await PostAsync(
+            await Post(
                 client,
                 "/create-work-item",
                 new
@@ -129,7 +129,7 @@ public class WorkItemTrackerTests
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
         (
-            await PostAsync(
+            await Post(
                 client,
                 "/create-work-item",
                 new
@@ -142,7 +142,7 @@ public class WorkItemTrackerTests
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
         (
-            await PostAsync(
+            await Post(
                 client,
                 "/add-relationship",
                 new
@@ -154,8 +154,8 @@ public class WorkItemTrackerTests
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
-        var itemA = await QueryAsync<WorkItemResponseDto>(client, $"/get-work-item/{workItemA}");
-        var itemB = await QueryAsync<WorkItemResponseDto>(client, $"/get-work-item/{workItemB}");
+        var itemA = await Query<WorkItemResponseDto>(client, $"/get-work-item/{workItemA}");
+        var itemB = await Query<WorkItemResponseDto>(client, $"/get-work-item/{workItemB}");
 
         itemA.ShouldNotBeNull();
         itemB.ShouldNotBeNull();
@@ -175,7 +175,7 @@ public class WorkItemTrackerTests
         var wordForward = $"relates_{typeId:N}"[..20];
 
         (
-            await PostAsync(
+            await Post(
                 client,
                 "/define-relationship-type",
                 new
@@ -191,7 +191,7 @@ public class WorkItemTrackerTests
         var workItemB = Guid.NewGuid();
 
         (
-            await PostAsync(
+            await Post(
                 client,
                 "/create-work-item",
                 new
@@ -203,7 +203,7 @@ public class WorkItemTrackerTests
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
         (
-            await PostAsync(
+            await Post(
                 client,
                 "/create-work-item",
                 new
@@ -216,7 +216,7 @@ public class WorkItemTrackerTests
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
         (
-            await PostAsync(
+            await Post(
                 client,
                 "/add-relationship",
                 new
@@ -229,7 +229,7 @@ public class WorkItemTrackerTests
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
         (
-            await PostAsync(
+            await Post(
                 client,
                 "/remove-relationship",
                 new
@@ -241,8 +241,8 @@ public class WorkItemTrackerTests
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
-        var itemA = await QueryAsync<WorkItemResponseDto>(client, $"/get-work-item/{workItemA}");
-        var itemB = await QueryAsync<WorkItemResponseDto>(client, $"/get-work-item/{workItemB}");
+        var itemA = await Query<WorkItemResponseDto>(client, $"/get-work-item/{workItemA}");
+        var itemB = await Query<WorkItemResponseDto>(client, $"/get-work-item/{workItemB}");
 
         itemA.ShouldNotBeNull();
         itemB.ShouldNotBeNull();
@@ -256,7 +256,7 @@ public class WorkItemTrackerTests
         var client = _factory.CreateClient();
         var id = Guid.NewGuid();
         (
-            await PostAsync(
+            await Post(
                 client,
                 "/create-work-item",
                 new
@@ -269,19 +269,19 @@ public class WorkItemTrackerTests
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
         (
-            await PostAsync(
+            await Post(
                 client,
                 "/replace-work-item-data",
                 new { id, data = new { title = "after", tags = new[] { "x" } } }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
-        var item = await QueryAsync<WorkItemResponseDto>(client, $"/get-work-item/{id}");
+        var item = await Query<WorkItemResponseDto>(client, $"/get-work-item/{id}");
         item.ShouldNotBeNull();
         item.Data["title"]!.GetValue<string>().ShouldBe("after");
         item.Status.ShouldBe("open");
 
-        var list = await QueryAsync<List<WorkItemIndex.Model>>(client, "/list-work-items", new { });
+        var list = await Query<List<WorkItemIndex.Model>>(client, "/list-work-items", new { });
         list.ShouldNotBeNull();
         list.ShouldContain(x => x.Id == id && !x.IsDeleted && x.Status == "open");
     }
@@ -294,7 +294,7 @@ public class WorkItemTrackerTests
         var claimedId = Guid.NewGuid();
 
         (
-            await PostAsync(
+            await Post(
                 client,
                 "/create-work-item",
                 new
@@ -307,7 +307,7 @@ public class WorkItemTrackerTests
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
         (
-            await PostAsync(
+            await Post(
                 client,
                 "/create-work-item",
                 new
@@ -320,21 +320,18 @@ public class WorkItemTrackerTests
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
         (
-            await PostAsync(
+            await Post(
                 client,
                 "/change-work-item-status",
                 new { id = claimedId, status = "Claimed" }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
-        var claimed = await QueryAsync<WorkItemResponseDto>(
-            client,
-            $"/get-work-item/{claimedId}"
-        );
+        var claimed = await Query<WorkItemResponseDto>(client, $"/get-work-item/{claimedId}");
         claimed.ShouldNotBeNull();
         claimed.Status.ShouldBe("claimed");
 
-        var openList = await QueryAsync<List<WorkItemIndex.Model>>(
+        var openList = await Query<List<WorkItemIndex.Model>>(
             client,
             "/list-work-items",
             new { status = " Open " }
@@ -343,7 +340,7 @@ public class WorkItemTrackerTests
         openList.ShouldContain(x => x.Id == openId);
         openList.ShouldNotContain(x => x.Id == claimedId);
 
-        var claimedList = await QueryAsync<List<WorkItemIndex.Model>>(
+        var claimedList = await Query<List<WorkItemIndex.Model>>(
             client,
             "/list-work-items",
             new { status = "claimed" }
@@ -360,7 +357,7 @@ public class WorkItemTrackerTests
         var id = Guid.NewGuid();
 
         (
-            await PostAsync(
+            await Post(
                 client,
                 "/create-work-item",
                 new
@@ -373,7 +370,7 @@ public class WorkItemTrackerTests
         ).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
 
         (
-            await PostAsync(
+            await Post(
                 client,
                 "/create-work-item",
                 new
@@ -386,7 +383,7 @@ public class WorkItemTrackerTests
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
         (
-            await PostAsync(client, "/change-work-item-status", new { id, status = "" })
+            await Post(client, "/change-work-item-status", new { id, status = "" })
         ).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
@@ -401,7 +398,7 @@ public class WorkItemTrackerTests
         var newInverse = $"new_inv_{typeId:N}"[..20];
 
         (
-            await PostAsync(
+            await Post(
                 client,
                 "/define-relationship-type",
                 new
@@ -416,7 +413,7 @@ public class WorkItemTrackerTests
         var workItemA = Guid.NewGuid();
         var workItemB = Guid.NewGuid();
         (
-            await PostAsync(
+            await Post(
                 client,
                 "/create-work-item",
                 new
@@ -428,7 +425,7 @@ public class WorkItemTrackerTests
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
         (
-            await PostAsync(
+            await Post(
                 client,
                 "/create-work-item",
                 new
@@ -441,7 +438,7 @@ public class WorkItemTrackerTests
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
         (
-            await PostAsync(
+            await Post(
                 client,
                 "/add-relationship",
                 new
@@ -454,7 +451,7 @@ public class WorkItemTrackerTests
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
         (
-            await PostAsync(
+            await Post(
                 client,
                 "/change-relationship-type-words",
                 new
@@ -467,7 +464,7 @@ public class WorkItemTrackerTests
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
         (
-            await PostAsync(
+            await Post(
                 client,
                 "/add-relationship",
                 new
@@ -479,8 +476,8 @@ public class WorkItemTrackerTests
             )
         ).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
 
-        var itemA = await QueryAsync<WorkItemResponseDto>(client, $"/get-work-item/{workItemA}");
-        var itemB = await QueryAsync<WorkItemResponseDto>(client, $"/get-work-item/{workItemB}");
+        var itemA = await Query<WorkItemResponseDto>(client, $"/get-work-item/{workItemA}");
+        var itemB = await Query<WorkItemResponseDto>(client, $"/get-work-item/{workItemB}");
         itemA.ShouldNotBeNull();
         itemB.ShouldNotBeNull();
         itemA.Relationships.ShouldContain(r =>
@@ -491,7 +488,7 @@ public class WorkItemTrackerTests
         );
     }
 
-    static async Task<HttpResponseMessage> PostAsync(HttpClient client, string path, object body)
+    static async Task<HttpResponseMessage> Post(HttpClient client, string path, object body)
     {
         var response = await client.PostAsJsonAsync(path, body);
         if (!response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.BadRequest)
@@ -503,10 +500,9 @@ public class WorkItemTrackerTests
         return response;
     }
 
-    static Task<T?> QueryAsync<T>(HttpClient client, string path) =>
-        QueryAsync<T>(client, path, new { });
+    static Task<T?> Query<T>(HttpClient client, string path) => Query<T>(client, path, new { });
 
-    static async Task<T?> QueryAsync<T>(HttpClient client, string path, object body)
+    static async Task<T?> Query<T>(HttpClient client, string path, object body)
     {
         var request = new HttpRequestMessage(new HttpMethod("QUERY"), path)
         {

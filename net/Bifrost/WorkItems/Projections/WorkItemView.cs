@@ -91,11 +91,7 @@ public class WorkItemView : MultiStreamProjection<WorkItemView.Model, Guid>
             Data = e.Data.DeepClone()!,
         };
 
-    public Model Apply(WorkItemStatusChanged e, Model view) =>
-        view with
-        {
-            Status = e.Status,
-        };
+    public Model Apply(WorkItemStatusChanged e, Model view) => view with { Status = e.Status };
 
     public Model Apply(RelationshipAdded e, Model view)
     {

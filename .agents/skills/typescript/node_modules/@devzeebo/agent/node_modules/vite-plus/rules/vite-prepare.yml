@@ -1,0 +1,8 @@
+# husky => vp config
+---
+id: replace-husky
+language: bash
+rule:
+  kind: command_name
+  regex: '^husky$'
+fix: vp config

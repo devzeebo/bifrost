@@ -30,10 +30,10 @@ public static class ChangeRelationshipTypeWordsHandler
         }
 
         if (
-            await WordTakenByOtherAsync(session, command.ForwardWord, type.Id)
+            await WordTakenByOther(session, command.ForwardWord, type.Id)
             || (
                 command.InverseWord != command.ForwardWord
-                && await WordTakenByOtherAsync(session, command.InverseWord, type.Id)
+                && await WordTakenByOther(session, command.InverseWord, type.Id)
             )
         )
         {
@@ -57,7 +57,7 @@ public static class ChangeRelationshipTypeWordsHandler
             },
         ];
 
-    static async Task<bool> WordTakenByOtherAsync(
+    static async Task<bool> WordTakenByOther(
         IQuerySession session,
         RelationshipTypeWord word,
         Guid typeId

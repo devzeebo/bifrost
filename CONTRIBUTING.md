@@ -8,7 +8,14 @@ Thanks for contributing to Bifrost.
 |------|------|
 | `net/Bifrost` | ASP.NET host + event-sourced domain: aggregates, commands, events, projections, services, Wolverine HTTP endpoints, Marten wiring |
 | `net/Bifrost.Tests` | Integration tests (Testcontainers Postgres + `WebApplicationFactory`) |
+| `net/Bifrost.Rpc` | `RpcHost` (listen, launch/supervise peer processes) and `RpcPeer` (connect), options, hosted services, `AddRpcHost()` / `AddRpcPeer()` |
+| `net/Bifrost.Rpc.Abstractions` | `IRpcContract`, `IRpc<T>`, `IRpcBinding<T>`, `RpcBindings`, `IRpcEndpoint`, `RpcSession`, `Unit`, `AddRpc` / `AddRpcHandler` |
+| `net/Bifrost.Rpc.Generators` | Source generator for contract proxies and bindings |
+| `net/Bifrost.Rpc.Tests` | RPC host / peer / contract integration tests |
+| `net/Bifrost.Rpc.TestPeer` | Peer executable the host launches in process-boundary tests |
 | `docs/` | Design and pattern documentation |
+
+RPC protocol: [docs/rpc.md](docs/rpc.md).
 
 Domain work is organized by **aggregate root**. How to structure and extend an aggregate is documented in [docs/ddd-aggregate-roots.md](docs/ddd-aggregate-roots.md).
 

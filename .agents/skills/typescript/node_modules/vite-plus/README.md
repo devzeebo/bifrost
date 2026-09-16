@@ -1,0 +1,227 @@
+# VITE+(⚡︎) Local CLI
+
+**The Unified Toolchain for the Web**
+_runtime and package management, create, dev, check, test, build, pack, and monorepo task caching in a single dependency_
+
+This package provides the project-local version of Vite+. The global `vp` command automatically delegates to this package for all project-specific tasks.
+
+---
+
+Vite+ is the unified entry point for local web development. It combines [Vite](https://vite.dev/), [Vitest](https://vitest.dev/), [Oxlint](https://oxc.rs/docs/guide/usage/linter.html), [Oxfmt](https://oxc.rs/docs/guide/usage/formatter.html), [Rolldown](https://rolldown.rs/), [tsdown](https://tsdown.dev/), and [Vite Task](https://github.com/voidzero-dev/vite-task) into one zero-config toolchain that also manages runtime and package manager workflows:
+
+- **`vp env`:** Manage Node.js globally and per project
+- **`vp install`:** Install dependencies with automatic package manager detection
+- **`vp dev`:** Run Vite's fast native ESM dev server with instant HMR
+- **`vp check`:** Run formatting, linting, and type checks in one command
+- **`vp test`:** Run tests through bundled Vitest
+- **`vp build`:** Build applications for production with Vite + Rolldown
+- **`vp run`:** Run `package.json` scripts and monorepo tasks with caching and dependency-aware scheduling
+- **`vp pack`:** Build libraries for npm publishing or standalone app binaries
+- **`vp toolchain`:** Show the versions of Vite+, Vite, Rolldown, Oxc, and other tools
+- **`vp create` / `vp migrate`:** Scaffold new projects and migrate existing ones
+
+All of this is configured from your project root and works across Vite's framework ecosystem.
+Vite+ is fully open-source under the MIT license.
+
+## Getting Started
+
+Install Vite+ globally as `vp`:
+
+For Linux or macOS:
+
+```bash
+curl -fsSL https://vite.plus | bash
+```
+
+For Windows:
+
+```bash
+irm https://viteplus.dev/install.ps1 | iex
+```
+
+`vp` handles the full development lifecycle such as package management, development servers, linting, formatting, testing and building for production.
+
+## Configuring Vite+
+
+Vite+ can be configured using a single `vite.config.ts` at the root of your project:
+
+```ts
+import { defineConfig } from 'vite-plus';
+
+export default defineConfig({
+  // Standard Vite configuration for dev/build/preview.
+  plugins: [],
+
+  // Vitest configuration.
+  test: {
+    include: ['src/**/*.test.ts'],
+  },
+
+  // Oxlint configuration.
+  lint: {
+    ignorePatterns: ['dist/**'],
+  },
+
+  // Oxfmt configuration.
+  fmt: {
+    semi: true,
+    singleQuote: true,
+  },
+
+  // Vite Task configuration.
+  run: {
+    tasks: {
+      'generate:icons': {
+        command: 'node scripts/generate-icons.js',
+        envs: ['ICON_THEME'],
+      },
+    },
+  },
+
+  // `vp staged` configuration.
+  staged: {
+    '*': 'vp check --fix',
+  },
+});
+```
+
+This lets you keep the configuration for your development server, build, test, lint, format, task runner, and staged-file workflow in one place with type-safe config and shared defaults.
+
+Use `vp migrate` to migrate to Vite+. It merges tool-specific config files such as `.oxlintrc*`, `.oxfmtrc*`, and lint-staged config into `vite.config.ts`.
+
+### CLI Workflows (`vp help`)
+
+#### Start
+
+- **create** - Create a new project from a template
+- **migrate** - Migrate an existing project to Vite+
+- **config** - Configure hooks and agent integration
+- **hooks** - Manage the Git hook dispatcher
+- **staged** - Run linters on staged files
+- **install** (`i`) - Install dependencies
+- **env** - Manage Node.js versions
+
+#### Develop
+
+- **dev** - Run the development server
+- **check** - Run format, lint, and type checks
+- **lint** - Lint code
+- **fmt** - Format code
+- **test** - Run tests
+
+#### Execute
+
+- **run** - Run monorepo tasks
+- **exec** - Execute a command from local `node_modules/.bin`
+- **node** - Run a Node.js script with the resolved Vite+ environment
+- **dlx** - Execute a package binary without installing it as a dependency
+- **cache** - Manage the task cache
+
+#### Build
+
+- **build** - Build for production
+- **pack** - Build libraries
+- **preview** - Preview production build
+
+#### Manage Dependencies
+
+Vite+ automatically wraps your package manager (pnpm, npm, Yarn, or Bun) based on `packageManager` and lockfiles:
+
+- **add** - Add packages to dependencies
+- **remove** (`rm`, `un`, `uninstall`) - Remove packages from dependencies
+- **update** (`up`) - Update packages to latest versions
+- **dedupe** - Deduplicate dependencies
+- **outdated** - Check outdated packages
+- **list** (`ls`) - List installed packages
+- **why** (`explain`) - Show why a package is installed
+- **info** (`view`, `show`) - View package metadata from the registry
+- **link** (`ln`) / **unlink** - Manage local package links
+- **rebuild** - Rebuild native modules
+- **pm** - Forward a command to the package manager
+
+#### Maintain
+
+- **toolchain** - Show Vite+ tool versions and their relationships
+- **upgrade** - Update `vp` itself to the latest version
+- **implode** - Remove `vp` and all related data
+
+### Scaffolding your first Vite+ project
+
+Use `vp create` to create a new project:
+
+```bash
+vp create
+```
+
+You can run `vp create` inside of a project to add new apps or libraries to your project.
+
+Organizations can expose a curated set of templates under their npm scope by
+publishing `@org/create` with a `createConfig.templates` manifest in its `package.json`.
+Once published, `vp create @org` opens an interactive picker over those
+templates, and setting `create: { defaultTemplate: '@org' }` in
+`vite.config.ts` makes it the default for bare `vp create`. See the
+[Organization Templates guide](https://viteplus.dev/guide/create#organization-templates)
+for the authoring workflow and
+[`create.defaultTemplate`](https://viteplus.dev/config/create) for the
+config reference.
+
+### Migrating an existing project
+
+You can migrate an existing project to Vite+:
+
+```bash
+vp migrate
+```
+
+### GitHub Actions
+
+Use the official [`setup-vp`](https://github.com/voidzero-dev/setup-vp) action to install Vite+ in GitHub Actions:
+
+```yaml
+- uses: voidzero-dev/setup-vp@<setup-vp-version>
+  with:
+    node-version: '22'
+    cache: true
+```
+
+Set `<setup-vp-version>` to an exact version from the [`setup-vp` releases page](https://github.com/voidzero-dev/setup-vp/releases). You can use a commit SHA instead. Do not use the `v1` tag. The `v1` tag no longer receives updates.
+
+See [Automatic Version Updates](https://viteplus.dev/guide/ci#automatic-version-updates) to configure Dependabot or Renovate.
+
+#### Manual Installation & Migration
+
+If you are manually migrating a project to Vite+, install these dev dependencies first:
+
+```bash
+vp install -D vite-plus
+```
+
+Add package-manager overrides so that other packages use the Vite+ versions. Alias `vite` to `@voidzero-dev/vite-plus-core`. Pin `vitest` to the version from `vp toolchain vitest`. The project and `vp test` then use the same Vitest copy. Without the pin, a dependency or workspace package can install a different Vitest version. The two versions can use separate mocks, `expect` functions, and runner states:
+
+```json
+"overrides": {
+  "vite": "npm:@voidzero-dev/vite-plus-core@latest",
+  "vitest": "4.1.11"
+}
+```
+
+If you are using `pnpm`, add this to your `pnpm-workspace.yaml`:
+
+```yaml
+overrides:
+  vite: npm:@voidzero-dev/vite-plus-core@latest
+  vitest: 4.1.11
+```
+
+Or, if you are using Yarn:
+
+```json
+"resolutions": {
+  "vite": "npm:@voidzero-dev/vite-plus-core@latest",
+  "vitest": "4.1.11"
+}
+```
+
+## Sponsors
+
+Thanks to [namespace.so](https://namespace.so) for powering our CI/CD pipelines with fast, free macOS, Linux, and Windows runners.

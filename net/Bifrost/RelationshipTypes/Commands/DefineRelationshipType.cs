@@ -19,10 +19,10 @@ public static class DefineRelationshipTypeHandler
     public static async Task Validate(Command command, IQuerySession session)
     {
         if (
-            await WordTakenAsync(session, command.ForwardWord)
+            await WordTaken(session, command.ForwardWord)
             || (
                 command.InverseWord != command.ForwardWord
-                && await WordTakenAsync(session, command.InverseWord)
+                && await WordTaken(session, command.InverseWord)
             )
         )
         {
@@ -49,7 +49,7 @@ public static class DefineRelationshipTypeHandler
             }
         );
 
-    static async Task<bool> WordTakenAsync(IQuerySession session, RelationshipTypeWord word)
+    static async Task<bool> WordTaken(IQuerySession session, RelationshipTypeWord word)
     {
         var existing = await session.LoadAsync<RelationshipTypeByWord.Model>(word.Value);
         return existing is { IsActive: true };

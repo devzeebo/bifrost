@@ -8,4 +8,3 @@ public sealed record WorkItemCreated
     public required JsonNode Data { get; init; }
     public required WorkItemStatus Status { get; init; }
 }
-

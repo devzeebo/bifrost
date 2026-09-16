@@ -1,0 +1,37 @@
+{
+  "name": "@devzeebo/agent-typescript",
+  "version": "1.0.0",
+  "description": "",
+  "keywords": [],
+  "author": "Eric Siebeneich <eric.siebeneich@improving.com>",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest --run",
+    "build:elevator": "tsc -p fixtures/elevator/tsconfig.json",
+    "elevator": "pnpm build:elevator && node fixtures/elevator/dist/cli/main.js"
+  },
+  "devDependencies": {
+    "@clanker-cleanroom/cursor": "catalog:",
+    "@devzeebo/agent": "workspace:*",
+    "@types/express": "^5.0.3",
+    "@types/node": "catalog:",
+    "@types/supertest": "^6.0.3",
+    "agent-gwt": "catalog:",
+    "clanker-cleanroom": "catalog:",
+    "express": "^5.1.0",
+    "supertest": "^7.1.4",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:",
+    "vitest-gwt": "catalog:"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.3.0",
+      "onFail": "download"
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "@devzeebo/agent-csharp",
+  "version": "1.0.0",
+  "description": "",
+  "keywords": [],
+  "author": "Eric Siebeneich <eric.siebeneich@improving.com>",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest --run"
+  },
+  "devDependencies": {
+    "@clanker-cleanroom/cursor": "catalog:",
+    "@devzeebo/agent": "workspace:*",
+    "@types/node": "catalog:",
+    "agent-gwt": "catalog:",
+    "clanker-cleanroom": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:",
+    "vitest-gwt": "catalog:"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.3.0",
+      "onFail": "download"
+    }
+  }
+}

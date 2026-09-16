@@ -1,0 +1,344 @@
+# Creating a Project
+
+`vp create` interactively scaffolds new Vite+ projects, monorepos, and apps inside existing workspaces.
+
+## Overview
+
+The `create` command is the fastest way to start with Vite+. It can be used in a few different ways:
+
+- Start a new Vite+ monorepo
+- Create a new standalone application or library
+- Add a new app or library inside an existing project
+
+This command can be used with built-in templates, community templates, or remote GitHub templates.
+
+## Usage
+
+```bash
+vp create
+vp create <template>
+vp create <template> -- <template-options>
+```
+
+## Built-in Templates
+
+Vite+ ships with these built-in templates:
+
+- `vite:monorepo` creates a new monorepo
+- `vite:application` creates a new application
+- `vite:library` creates a new library
+- `vite:generator` creates a new code generator (monorepo only, see [Code Generators](#code-generators))
+
+## Template Sources
+
+`vp create` is not limited to the built-in templates.
+
+- Use shorthand templates like `vite`, `@tanstack/start`, `svelte`, `next-app`, `nuxt`, `react-router`, and `vue`
+- Use full package names like `create-vite` or `create-next-app`
+- Use local monorepo templates declared in [`create.templates`](#code-generators) (for example an internal component or service generator)
+- Use remote templates such as `github:user/repo` or `https://github.com/user/template-repo`
+
+Run `vp create --list` to see the built-in templates and the common shorthand templates Vite+ recognizes.
+
+## Options
+
+- `--directory <dir>` writes the generated project into a specific target directory
+- `--agent <name>` creates agent instructions files during scaffolding
+- `--no-agent` skips agent instruction setup
+- `--editor <name>` writes editor config files
+- `--no-editor` skips editor config setup
+- `--git` initialize a git repository
+- `--no-git` skips git repository initialization
+- `--package-manager <name>` uses a specified package manager (`pnpm`, `npm`, `yarn`, or `bun`)
+- `--approve-builds` approves and runs gated dependency build scripts without prompting
+- `--no-interactive` runs without prompts
+- `--verbose` shows detailed scaffolding output
+- `--list` prints the available built-in and popular templates
+- `--hooks` enables pre-commit hook setup (dispatcher + `.vite-hooks` + `staged` config)
+- `--no-hooks` skips hook setup
+
+After create, manage the dispatcher with `vp hooks status`, `vp hooks disable`, and `vp hooks enable`.
+See the [Commit hooks guide](/guide/commit-hooks).
+
+### Dependency build scripts
+
+For security, pnpm, bun, yarn (Berry), and npm (v12+) do not run a dependency's build scripts (`install` / `postinstall`, e.g. native builds like `better-sqlite3`) until you approve them. When a template adds such a dependency directly, `vp create` surfaces it after installing instead of leaving the project in a half-built state:
+
+- Interactive: you are asked which of those dependencies to approve and build (nothing is selected by default).
+- Non-interactive: a note lists them and points at `vp pm approve-builds`.
+- `--approve-builds`: approves and builds them automatically, so non-interactive runs (CI) can produce a ready-to-use project.
+
+Approval is recorded the way each package manager expects: pnpm's `allowBuilds`, bun's `trustedDependencies`, npm's `allowScripts`, or yarn's `dependenciesMeta.<pkg>.built` (in the workspace root manifest). Transitive build scripts you did not choose (e.g. `esbuild` pulled in by Vite) are left at the package manager's defaults and are not surfaced. npm 11 and older run build scripts during install, so there is nothing to approve there.
+
+## Template Options
+
+Arguments after `--` are passed directly to the selected template.
+
+This matters when the template itself accepts flags. For example, you can forward Vite template selection like this:
+
+```bash
+vp create vite -- --template react-ts
+```
+
+## Examples
+
+```bash
+# Interactive mode
+vp create
+
+# Create a Vite+ monorepo, application, library, or generator
+vp create vite:monorepo
+vp create vite:application
+vp create vite:library
+vp create vite:generator
+
+# Use shorthand community templates
+vp create vite
+vp create @tanstack/start
+vp create svelte
+
+# Use full package names
+vp create create-vite
+vp create create-next-app
+
+# Use remote templates
+vp create github:user/repo
+vp create https://github.com/user/template-repo
+```
+
+## Code Generators
+
+Monorepos often need to scaffold their own building blocks: a UI component, a service, or an internal package that follows house conventions. Vite+ supports this through generator packages powered by [Bingo](https://www.create.bingo/) templates.
+
+### Scaffold a generator
+
+Inside a Vite+ monorepo, run:
+
+```bash
+vp create vite:generator
+```
+
+This requires a monorepo workspace. If you don't have one yet, create it first with `vp create vite:monorepo`.
+
+The scaffolded generator package contains:
+
+- `src/template.ts` defines the template using `createTemplate` from `bingo`: an options schema built with [Zod](https://zod.dev/) and a `produce()` function that returns the files to generate
+- `bin/index.ts` is the CLI entry, powered by Bingo's `runTemplateCLI`
+
+If the monorepo has a parent directory matching `generators` or `tools`, the new package is placed there by default.
+
+### Registration
+
+Local generators are declared in [`create.templates`](/config/create#create-templates) in the monorepo's `vite.config.ts`. This is the source of truth: only registered templates appear in the `vp create` picker.
+
+`vp create vite:generator` registers the generator for you, adding an entry to `create.templates` in the root `vite.config.ts`:
+
+```ts
+import { defineConfig } from 'vite-plus';
+
+export default defineConfig({
+  create: {
+    templates: [
+      { name: 'my-generator', description: 'Generate new components', template: 'my-generator' },
+    ],
+  },
+});
+```
+
+Re-running is idempotent (no duplicate entries), and an existing `create.defaultTemplate` is preserved. You can also add entries by hand, for example to register a template you didn't scaffold this way. The `template` value is the generator's workspace package name, or a relative `./path` to it.
+
+### Run a generator
+
+Inside the monorepo, run `vp create` and pick the generator from the template list, or pass its entry `name` directly:
+
+```bash
+# Interactive mode lists registered local templates alongside the built-ins
+vp create
+
+# Run a registered template by its name
+vp create component
+
+# Pass options to the generator after --
+vp create component -- --name @your-org/button
+```
+
+When the generator depends on `bingo`, Vite+ appends `--skip-requests` automatically so it skips Bingo's outbound network requests (such as GitHub API calls).
+
+After the generator runs, the created package goes through the regular monorepo integration: workspace registration, dependency installation, and formatting.
+
+### Customize a generator
+
+Edit `src/template.ts` to define the options and the files to produce:
+
+```ts
+import { createTemplate } from 'bingo';
+import { z } from 'zod';
+
+export default createTemplate({
+  options: {
+    name: z.string().describe('Package name'),
+  },
+  async produce({ options }) {
+    return {
+      files: {
+        'package.json': JSON.stringify({ name: options.name, version: '0.0.0' }, null, 2),
+        src: {
+          'index.ts': `export const name = '${options.name}';\n`,
+        },
+      },
+    };
+  },
+});
+```
+
+- `options` defines the generator's prompts and flags using Zod schemas
+- `produce()` returns the [files](https://www.create.bingo/build/concepts/creations#files) to create, plus optional [scripts](https://www.create.bingo/build/concepts/creations#scripts) to run after generation and [suggestions](https://www.create.bingo/build/concepts/creations#suggestions) to print for the user
+
+See the [Bingo documentation](https://www.create.bingo/) for the full template API.
+
+## Organization Templates
+
+An organization can publish a curated set of templates under a single npm scope by shipping an `@org/create` package whose `package.json` carries a `createConfig.templates` manifest. Once published, `vp create @org` opens an interactive picker over those templates.
+
+### Pick from an org
+
+```bash
+# Open an interactive picker over @your-org/create's manifest
+vp create @your-org
+
+# Run a specific manifest entry directly
+vp create @your-org:web
+
+# Pin to an exact version or a dist-tag
+vp create @your-org@1.2.3
+vp create @your-org:web@next
+
+# Set the org as the default for a repo (see create.defaultTemplate config)
+vp create
+```
+
+Behind the scenes, `vp create @org` maps to `@org/create` (the existing npm `create-*` convention). If that package has no `createConfig.templates` field, Vite+ falls back to running the package normally — so adopting the manifest is zero-risk for orgs that already publish `@org/create`.
+
+Private registries work automatically: Vite+ reads `.npmrc` files from the project root and `~/`, honoring `@your-org:registry=...` scope mappings and `//host/:_authToken=...` credentials.
+
+### Authoring `@org/create`
+
+There are two common layouts. Pick the one that matches the org's template count and release cadence.
+
+**Bundled (recommended for most orgs).** All templates live as subdirectories of `@org/create` itself. Manifest entries use relative `./path` values. One repo, one publish, one versioning story — the same pattern used by `create-vite` and `create-next-app`.
+
+```
+@your-org/create/
+├── package.json              # "createConfig": { "templates": [{ "template": "./templates/web" }, ...] }
+├── templates/
+│   ├── web/
+│   │   ├── package.json
+│   │   └── src/...
+│   └── library/...
+└── README.md
+```
+
+**Manifest-only.** When the org already publishes independent `@org/template-*` packages (or hosts them on GitHub), `@org/create` stays a thin index.
+
+```
+@your-org/create/
+├── package.json              # "createConfig": { "templates": [{ "template": "@your-org/template-web" }, ...] }
+└── README.md
+```
+
+The two layouts can be mixed — a manifest can point most entries at external packages and keep a few as bundled subdirectories.
+
+Optionally, provide a `bin` script so `npm create @org` (the legacy path) keeps working for non-Vite+ users. `vp create @org` reads the manifest directly and never runs the `bin`.
+
+### Manifest schema
+
+The manifest lives at `createConfig.templates` in `@org/create`'s `package.json`:
+
+```json
+{
+  "name": "@your-org/create",
+  "version": "1.0.0",
+  "createConfig": {
+    "templates": [
+      {
+        "name": "monorepo",
+        "description": "Monorepo",
+        "template": "@your-org/template-monorepo",
+        "monorepo": true
+      },
+      {
+        "name": "web",
+        "description": "Web app template (Vite + React)",
+        "template": "@your-org/template-web"
+      },
+      {
+        "name": "demo",
+        "description": "Bundled demo template",
+        "template": "./templates/demo"
+      }
+    ]
+  }
+}
+```
+
+Each entry supports:
+
+| Field         | Required | Notes                                                                                                                                                                                                                                      |
+| ------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `name`        | yes      | Kebab-case identifier. Used by `vp create @org:<name>` for direct selection. Must be unique within the array.                                                                                                                              |
+| `description` | yes      | One-line description shown in the picker.                                                                                                                                                                                                  |
+| `template`    | yes      | An npm specifier (`@org/template-foo`, optionally `@version`), a GitHub URL (`github:user/repo`), a `vite:*` builtin, a local workspace package name, or a relative path (`./templates/foo`) that resolves against the `@org/create` root. |
+| `monorepo`    | no       | If `true`, marks this entry as a monorepo-creating template. Hidden from the picker when `vp create` runs inside an existing monorepo, mirroring the built-in `vite:monorepo` filter.                                                      |
+
+An invalid manifest is a hard error, not a silent fall-through — a maintainer who shipped a manifest should hear about the offending field, e.g. `@your-org/create: createConfig.templates[2].template must be a non-empty string`.
+
+### Bundled subdirectory templates
+
+Relative `./...` paths resolve against the enclosing `@org/create` package root — **not** the user's cwd. The referenced directory is copied into the target project as-is (no template-engine processing); the only exception is that a small set of underscore-prefixed scaffold files (`_gitignore`, `_npmrc`, `_yarnrc.yml`) are renamed to their dotfile equivalents. Paths that escape the package root are rejected.
+
+### Make the org the default in a repo
+
+Commit this in `vite.config.ts` at the project root:
+
+```ts
+import { defineConfig } from 'vite-plus';
+
+export default defineConfig({
+  create: { defaultTemplate: '@your-org' },
+});
+```
+
+Now `vp create` (with no argument) drops straight into the `@your-org` picker. See [`create.defaultTemplate`](/config/create) for details.
+
+The picker always appends a trailing **Vite+ built-in templates** entry so `vite:monorepo` / `vite:application` / `vite:library` / `vite:generator` stay reachable from the picker — selecting it routes to the standard built-in flow. For scripts and CI, explicit specifiers (`vp create vite:library`) bypass the configured default.
+
+### Non-interactive inspection
+
+`vp create @org --no-interactive` prints the manifest as a table and exits 1:
+
+```
+A template name is required when running `vp create @your-org` in non-interactive mode.
+
+Available templates in @your-org/create:
+
+  NAME     DESCRIPTION                          TEMPLATE
+  web      Web app template (Vite + React)      @your-org/template-web
+  library  TypeScript library template          @your-org/template-library
+  demo     Bundled demo template                ./templates/demo
+
+Examples:
+  # Scaffold a specific template from the org
+  vp create @your-org:web --no-interactive
+
+  # Or use a Vite+ built-in template
+  vp create vite:application --no-interactive
+```
+
+### Publishing checklist
+
+1. Create `@org/create` (scoped npm package) if you don't already have one.
+2. Add a `createConfig.templates` array to `package.json`. (Bundle the templates under `./templates/...` or point at external packages.)
+3. (Optional) Provide a `bin` launcher for `npm create @org` compatibility.
+4. Publish.
+5. Verify: `vp create @org --no-interactive` prints the manifest table; `vp create @org` opens the picker.
+6. (Optional) Commit `create: { defaultTemplate: '@org' }` in your internal template repos.

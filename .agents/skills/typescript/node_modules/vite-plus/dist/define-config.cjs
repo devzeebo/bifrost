@@ -1,0 +1,13 @@
+Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
+const require_define_config = require("./define-config-WiVlryJ2.cjs");
+require_define_config.init_define_config();
+exports.AUTO_INLINE_DEPS = require_define_config.AUTO_INLINE_DEPS;
+exports.assertCoverageProviderVersionMatch = require_define_config.assertCoverageProviderVersionMatch;
+exports.checkCoverageProviderVersion = require_define_config.checkCoverageProviderVersion;
+exports.computeAutoInlineList = require_define_config.computeAutoInlineList;
+exports.defineConfig = require_define_config.defineConfig;
+exports.defineProject = require_define_config.defineProject;
+exports.isVitestFamilySpecifier = require_define_config.isVitestFamilySpecifier;
+exports.lazyPlugins = require_define_config.lazyPlugins;
+exports.resolveCoverageProviderToCheck = require_define_config.resolveCoverageProviderToCheck;
+exports.withConfigMetadataResolution = require_define_config.withConfigMetadataResolution;

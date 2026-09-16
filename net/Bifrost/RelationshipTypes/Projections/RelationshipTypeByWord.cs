@@ -20,12 +20,7 @@ public class RelationshipTypeByWord : MultiStreamProjection<RelationshipTypeByWo
 
         Identities<RelationshipTypeDefined>(e => Words(e.ForwardWord, e.InverseWord));
         Identities<RelationshipTypeWordsChanged>(e =>
-            Words(
-                e.PreviousForwardWord,
-                e.PreviousInverseWord,
-                e.ForwardWord,
-                e.InverseWord
-            )
+            Words(e.PreviousForwardWord, e.PreviousInverseWord, e.ForwardWord, e.InverseWord)
         );
         Identities<RelationshipTypeRetired>(e => Words(e.ForwardWord, e.InverseWord));
     }

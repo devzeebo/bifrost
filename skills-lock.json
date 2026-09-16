@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "skills": {
+    "csharp": {
+      "source": "../../work/improving/stage-3",
+      "sourceType": "local",
+      "computedHash": "dc144d4f272fd87f8df16d0ab8f52e3f6edbeb9192f935ca4541cbc427332aa9"
+    },
+    "typescript": {
+      "source": "../../work/improving/stage-3",
+      "sourceType": "local",
+      "computedHash": "ef5e1a5f716698f36323d879662426b6b4f2f9cf4a8f3e08980f0b217c240513"
+    }
+  }
+}

@@ -1,4 +1,9 @@
 <Solution>
   <Project Path="../net/Bifrost/Bifrost.csproj" />
   <Project Path="../net/Bifrost.Tests/Bifrost.Tests.csproj" />
+  <Project Path="../net/Bifrost.Rpc/Bifrost.Rpc.csproj" />
+  <Project Path="../net/Bifrost.Rpc.Abstractions/Bifrost.Rpc.Abstractions.csproj" />
+  <Project Path="../net/Bifrost.Rpc.Generators/Bifrost.Rpc.Generators.csproj" />
+  <Project Path="../net/Bifrost.Rpc.Tests/Bifrost.Rpc.Tests.csproj" />
+  <Project Path="../net/Bifrost.Rpc.TestPeer/Bifrost.Rpc.TestPeer.csproj" />
 </Solution>
