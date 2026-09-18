@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Bifrost.ControlPlane</RootNamespace>
+    <AllowMissingPrunePackageData>true</AllowMissingPrunePackageData>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Bifrost.Contracts\Bifrost.Contracts.csproj" />
+    <ProjectReference Include="..\Bifrost.MessageBus.Abstractions\Bifrost.MessageBus.Abstractions.csproj" />
+    <ProjectReference Include="..\Bifrost.Rpc\Bifrost.Rpc.csproj" />
+  </ItemGroup>
+</Project>

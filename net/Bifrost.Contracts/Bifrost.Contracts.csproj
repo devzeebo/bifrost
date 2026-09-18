@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Bifrost.Contracts</RootNamespace>
+    <Description>Shared control/data plane API contracts: nested Command/Query/Response per operation.</Description>
+  </PropertyGroup>
+</Project>

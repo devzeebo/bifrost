@@ -10,7 +10,13 @@ public sealed class RpcInstanceOptions
 {
     public required string Id { get; init; }
     public RpcRole Role { get; init; } = RpcRole.Shadow;
-    public required string Executable { get; init; }
+
+    /// <summary>
+    /// Path to the peer executable. Required only when <see cref="RpcHostOptions.LaunchProcesses"/>
+    /// is true; leave null when peers connect themselves (e.g. a sidecar container).
+    /// </summary>
+    public string? Executable { get; init; }
+
     public string[] Arguments { get; init; } = [];
     public IDictionary<string, string> Environment { get; init; } =
         new Dictionary<string, string>();
@@ -32,6 +38,14 @@ public sealed class RpcHostOptions
     /// When false, the host only listens and does not launch processes (useful for in-process tests).
     /// </summary>
     public bool LaunchProcesses { get; set; } = true;
+
+    /// <summary>
+    /// When true (default), <see cref="RpcHost.Start"/> blocks until every configured instance
+    /// has completed the ready handshake, or throws after <see cref="ReadyTimeout"/>.
+    /// Set false when peers connect out-of-band (e.g. a sidecar) so the host can bind and
+    /// listen without waiting.
+    /// </summary>
+    public bool WaitForReadyOnStart { get; set; } = true;
 
     public IList<RpcInstanceOptions> Instances { get; set; } = [];
 

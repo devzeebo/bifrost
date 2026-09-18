@@ -15,9 +15,15 @@ internal sealed class RpcProcess : IAsyncDisposable
             return;
         }
 
+        var executable =
+            _options.Executable
+            ?? throw new InvalidOperationException(
+                $"RPC instance '{_options.Id}' is missing Executable."
+            );
+
         var startInfo = new ProcessStartInfo
         {
-            FileName = _options.Executable,
+            FileName = executable,
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,

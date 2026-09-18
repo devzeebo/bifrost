@@ -85,6 +85,11 @@ public sealed class RpcHost : IRpcHost, IRpcEndpoint
             }
         }
 
+        if (!_options.WaitForReadyOnStart)
+        {
+            return;
+        }
+
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCts.CancelAfter(_options.ReadyTimeout);
 
