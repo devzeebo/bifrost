@@ -1,4 +1,4 @@
-using Bifrost.Contracts;
+using Bifrost.DataPlane.Contracts;
 using Bifrost.MessageBus;
 using Bifrost.Rpc;
 using Microsoft.Extensions.DependencyInjection;

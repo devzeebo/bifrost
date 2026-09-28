@@ -1,5 +1,5 @@
 <Solution>
-  <Project Path="../net/Bifrost.Contracts/Bifrost.Contracts.csproj" />
+  <Project Path="../net/Bifrost.DataPlane.Contracts/Bifrost.DataPlane.Contracts.csproj" />
   <Project Path="../net/Bifrost.DataPlane/Bifrost.DataPlane.csproj" />
   <Project Path="../net/Bifrost.ControlPlane/Bifrost.ControlPlane.csproj" />
   <Project Path="../net/Bifrost.Tests/Bifrost.Tests.csproj" />

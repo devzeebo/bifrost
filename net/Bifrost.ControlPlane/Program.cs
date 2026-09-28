@@ -1,4 +1,4 @@
-using Bifrost.Contracts;
+using Bifrost.DataPlane.Contracts;
 using Bifrost.ControlPlane;
 using Bifrost.MessageBus;
 using Bifrost.Rpc;

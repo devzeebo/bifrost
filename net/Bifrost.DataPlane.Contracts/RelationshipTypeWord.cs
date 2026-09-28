@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Bifrost.Contracts;
+namespace Bifrost.DataPlane.Contracts;
 
 [JsonConverter(typeof(RelationshipTypeWordJsonConverter))]
 public readonly record struct RelationshipTypeWord

@@ -6,7 +6,7 @@ Thanks for contributing to Bifrost.
 
 | Path | Role |
 |------|------|
-| `net/Bifrost.Contracts` | Shared `{Operation}Api` classes with nested `Command` / `Query` / `Response` |
+| `net/Bifrost.DataPlane.Contracts` | Shared `{Operation}Api` classes with nested `Command` / `Query` / `Response` |
 | `net/Bifrost.ControlPlane` | HTTP API deployable — forwards requests over `IBifrostBus` |
 | `net/Bifrost.DataPlane` | Event store deployable — Marten + Wolverine handlers, no HTTP |
 | `net/Bifrost.MessageBus.Abstractions` | `IBifrostBus`, envelopes, RPC wire contracts, provider surface |
@@ -46,7 +46,7 @@ docker compose -f bifrost-server/docker-compose.yml up --build
 
 ## Domain conventions (short)
 
-- **API contracts** live in `Bifrost.Contracts` as `static class {Operation}Api` with nested `Command` / `Query` / `Response`.
+- **API contracts** live in `Bifrost.DataPlane.Contracts` as `static class {Operation}Api` with nested `Command` / `Query` / `Response`.
 - **Handlers** live under `{Aggregate}/Commands` or `{Aggregate}/Queries` in the data plane — named `{Operation}Handler`, taking the shared Api types. No HTTP attributes.
 - Fail validation with `CommandValidationException` (data plane) or `ContractValidationException` (value objects). Both map to bus error code `validation` → HTTP 400.
 - Register new Marten projections / document identities in `MartenConfiguration`.

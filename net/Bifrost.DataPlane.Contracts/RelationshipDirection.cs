@@ -1,4 +1,4 @@
-namespace Bifrost.Contracts;
+namespace Bifrost.DataPlane.Contracts;
 
 public enum RelationshipDirection
 {

@@ -4,7 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Bifrost;
-using Bifrost.Contracts;
+using Bifrost.DataPlane.Contracts;
 using Bifrost.MessageBus;
 using Bifrost.Rpc;
 using Marten;
