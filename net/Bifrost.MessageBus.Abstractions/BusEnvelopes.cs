@@ -23,7 +23,7 @@ public sealed record BusReply
 public sealed record BusError
 {
     /// <summary>
-    /// Stable code the control plane maps to HTTP status. Use <see cref="BusErrorCodes.Validation"/>
+    /// Stable code the HTTP host maps to HTTP status. Use <see cref="BusErrorCodes.Validation"/>
     /// for domain validation failures.
     /// </summary>
     public required string Code { get; init; }

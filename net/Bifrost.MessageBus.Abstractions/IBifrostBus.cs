@@ -1,6 +1,6 @@
 namespace Bifrost.MessageBus;
 
-/// <summary>App-facing message bus used by control and data planes.</summary>
+/// <summary>App-facing message bus used by a bounded-context host.</summary>
 public interface IBifrostBus
 {
     Task<TResponse> Request<TRequest, TResponse>(

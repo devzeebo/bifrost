@@ -6,9 +6,8 @@ Thanks for contributing to Bifrost.
 
 | Path | Role |
 |------|------|
-| `net/Bifrost.DataPlane.Contracts` | Shared `{Operation}Api` classes with nested `Command` / `Query` / `Response` |
-| `net/Bifrost.ControlPlane` | HTTP API deployable — forwards requests over `IBifrostBus` |
-| `net/Bifrost.DataPlane` | Event store deployable — Marten + Wolverine handlers, no HTTP |
+| `net/Bifrost.WorkItems.Contracts` | Shared `{Operation}Api` classes with nested `Command` / `Query` / `Response` |
+| `net/Bifrost.WorkItems` | Work Item bounded context — HTTP, Marten, and Wolverine handlers |
 | `net/Bifrost.MessageBus.Abstractions` | `IBifrostBus`, envelopes, RPC wire contracts, provider surface |
 | `net/Bifrost.MessageBus.ZeroMq` | ZeroMQ bus sidecar deployable (`IMessageBusProvider`) |
 | `net/Bifrost.Tests` | All tests in one project (`Api/`, `MessageBus/`, `Rpc/`, `Support/`) |
@@ -20,7 +19,7 @@ Thanks for contributing to Bifrost.
 
 RPC protocol: [docs/rpc.md](docs/rpc.md).
 
-Control and data planes share a message bus sidecar over a unix-socket volume; the two sidecars bridge over ZeroMQ. Plane images never reference NetMQ.
+The Work Item host shares a message bus sidecar over a unix-socket volume. The host image never references NetMQ.
 
 Domain work is organized by **aggregate root**. How to structure and extend an aggregate is documented in [docs/ddd-aggregate-roots.md](docs/ddd-aggregate-roots.md).
 
@@ -36,7 +35,7 @@ dotnet build bifrost-server/bifrost-server.slnx
 dotnet test bifrost-server/bifrost-server.slnx
 ```
 
-Integration tests start a Postgres container; Docker must be available. API tests substitute an in-process `IBifrostBus` via the test host (see `Support/LoopbackBifrostBus`) — ControlPlane always uses RPC in production.
+Integration tests start a Postgres container; Docker must be available. API tests drop the RPC bus host so they do not need a sidecar (see `BifrostApiFactory`). The host uses RPC in production. HTTP is served by Wolverine on the work-item process.
 
 ## Full Docker topology
 
@@ -46,9 +45,9 @@ docker compose -f bifrost-server/docker-compose.yml up --build
 
 ## Domain conventions (short)
 
-- **API contracts** live in `Bifrost.DataPlane.Contracts` as `static class {Operation}Api` with nested `Command` / `Query` / `Response`.
-- **Handlers** live under `{Aggregate}/Commands` or `{Aggregate}/Queries` in the data plane — named `{Operation}Handler`, taking the shared Api types. No HTTP attributes.
-- Fail validation with `CommandValidationException` (data plane) or `ContractValidationException` (value objects). Both map to bus error code `validation` → HTTP 400.
+- **API contracts** live in `Bifrost.WorkItems.Contracts` as `static class {Operation}Api` with nested `Command` / `Query` / `Response`.
+- **Handlers** live under `{Aggregate}/Commands` or `{Aggregate}/Queries` in the work-item host — named `{Operation}Handler`, taking the shared Api types. Writes carry `[WolverinePost]` / `EmptyResponse`. Reads carry `[WolverineQuery]`.
+- Fail validation with `CommandValidationException` (work-item host) or `ContractValidationException` (value objects). Both map to HTTP 400. Inbound bus failures use error code `validation`.
 - Register new Marten projections / document identities in `MartenConfiguration`.
 
 Prefer matching an existing aggregate’s shape over inventing a parallel style. Details: [docs/ddd-aggregate-roots.md](docs/ddd-aggregate-roots.md).

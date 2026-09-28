@@ -3,11 +3,8 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Bifrost;
-using Bifrost.DataPlane.Contracts;
-using Bifrost.MessageBus;
+using Bifrost.WorkItems.Contracts;
 using Bifrost.Rpc;
-using Marten;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -16,8 +13,6 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Shouldly;
 using Testcontainers.PostgreSql;
-using Wolverine;
-using Wolverine.Marten;
 
 namespace Bifrost.Tests.Api;
 
@@ -50,32 +45,12 @@ public sealed class BifrostApiFactory : WebApplicationFactory<Program>, IAsyncLi
 
         builder.ConfigureTestServices(services =>
         {
-            // Drop ControlPlane's RPC bus host — tests use an in-process loopback IBifrostBus.
-            services.RemoveAll<IBifrostBus>();
             services.RemoveAll<IRpcHost>();
             services.RemoveAll<RpcHost>();
             foreach (var descriptor in services.Where(IsRpcHostedService).ToList())
             {
                 services.Remove(descriptor);
             }
-
-            services
-                .AddMarten(opts =>
-                {
-                    opts.Connection(_connectionString);
-                    MartenConfiguration.Configure(opts);
-                })
-                .IntegrateWithWolverine()
-                .ApplyAllDatabaseChangesOnStartup();
-
-            services.AddWolverine(opts =>
-            {
-                opts.Discovery.IncludeAssembly(typeof(MartenConfiguration).Assembly);
-                opts.Policies.AutoApplyTransactions();
-            });
-
-            DataPlaneBusRegistration.AddHandlers(services);
-            services.AddLoopbackBifrostBus();
         });
     }
 

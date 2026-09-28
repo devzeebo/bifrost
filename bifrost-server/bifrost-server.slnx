@@ -1,7 +1,6 @@
 <Solution>
-  <Project Path="../net/Bifrost.DataPlane.Contracts/Bifrost.DataPlane.Contracts.csproj" />
-  <Project Path="../net/Bifrost.DataPlane/Bifrost.DataPlane.csproj" />
-  <Project Path="../net/Bifrost.ControlPlane/Bifrost.ControlPlane.csproj" />
+  <Project Path="../net/Bifrost.WorkItems.Contracts/Bifrost.WorkItems.Contracts.csproj" />
+  <Project Path="../net/Bifrost.WorkItems/Bifrost.WorkItems.csproj" />
   <Project Path="../net/Bifrost.Tests/Bifrost.Tests.csproj" />
   <Project Path="../net/Bifrost.MessageBus.Abstractions/Bifrost.MessageBus.Abstractions.csproj" />
   <Project Path="../net/Bifrost.MessageBus.ZeroMq/Bifrost.MessageBus.ZeroMq.csproj" />

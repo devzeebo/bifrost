@@ -15,20 +15,23 @@ services:
       timeout: 5s
       retries: 10
 
-  data-plane:
+  work-items:
     build:
       context: ..
-      dockerfile: net/Bifrost.DataPlane/Dockerfile
+      dockerfile: net/Bifrost.WorkItems/Dockerfile
     environment:
       ConnectionStrings__Marten: Host=postgres;Port=5432;Database=bifrost;Username=bifrost;Password=bifrost
       BIFROST_BUS_SOCKET: /run/bifrost/bus.sock
+      ASPNETCORE_URLS: http://+:8080
+    ports:
+      - "8080:8080"
     volumes:
-      - data_bus_sock:/run/bifrost
+      - bus_sock:/run/bifrost
     depends_on:
       postgres:
         condition: service_healthy
 
-  data-bus:
+  bus:
     build:
       context: ..
       dockerfile: net/Bifrost.MessageBus.ZeroMq/Dockerfile
@@ -39,39 +42,10 @@ services:
       BUS_MODE: server
       BUS_ROUTER_ENDPOINT: tcp://*:5555
     volumes:
-      - data_bus_sock:/run/bifrost
+      - bus_sock:/run/bifrost
     depends_on:
-      - data-plane
-
-  control-plane:
-    build:
-      context: ..
-      dockerfile: net/Bifrost.ControlPlane/Dockerfile
-    environment:
-      BIFROST_BUS_SOCKET: /run/bifrost/bus.sock
-    ports:
-      - "8080:8080"
-    volumes:
-      - control_bus_sock:/run/bifrost
-    depends_on:
-      - control-bus
-
-  control-bus:
-    build:
-      context: ..
-      dockerfile: net/Bifrost.MessageBus.ZeroMq/Dockerfile
-    environment:
-      BIFROST_BUS_SOCKET: /run/bifrost/bus.sock
-      BIFROST_INSTANCE_ID: bus
-      BIFROST_ROLE: primary
-      BUS_MODE: client
-      BUS_ROUTER_ENDPOINT: tcp://data-bus:5555
-    volumes:
-      - control_bus_sock:/run/bifrost
-    depends_on:
-      - data-bus
+      - work-items
 
 volumes:
   bifrost_pgdata:
-  data_bus_sock:
-  control_bus_sock:
+  bus_sock:

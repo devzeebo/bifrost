@@ -58,7 +58,7 @@ sealed class ZeroMqMessageBusProvider : IMessageBusProvider, IHostedService, IDi
     {
         if (_mode == BusMode.Server)
         {
-            // Server-side Send means deliver into the local plane (we are the data plane's sidecar).
+            // Server-side Send means deliver into the local host (we are this host's sidecar).
             return await _inbound.Handle(message, cancellationToken).ConfigureAwait(false);
         }
 

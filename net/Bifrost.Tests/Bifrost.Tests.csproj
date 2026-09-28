@@ -29,16 +29,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Bifrost.ControlPlane\Bifrost.ControlPlane.csproj" />
-    <ProjectReference Include="..\Bifrost.DataPlane\Bifrost.DataPlane.csproj" />
+    <ProjectReference Include="..\Bifrost.WorkItems\Bifrost.WorkItems.csproj" />
     <ProjectReference Include="..\Bifrost.MessageBus.Abstractions\Bifrost.MessageBus.Abstractions.csproj" />
     <ProjectReference Include="..\Bifrost.MessageBus.ZeroMq\Bifrost.MessageBus.ZeroMq.csproj" />
     <ProjectReference Include="..\Bifrost.Rpc\Bifrost.Rpc.csproj" />
     <ProjectReference Include="..\Bifrost.Rpc.TestPeer\Bifrost.Rpc.TestPeer.csproj" />
-    <ProjectReference
-      Include="..\Bifrost.Rpc.Generators\Bifrost.Rpc.Generators.csproj"
-      OutputItemType="Analyzer"
-      ReferenceOutputAssembly="false"
-    />
+    <ProjectReference Include="..\Bifrost.Rpc.Generators\Bifrost.Rpc.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 </Project>
