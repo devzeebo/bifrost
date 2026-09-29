@@ -1,3 +1,4 @@
+using System.Reflection;
 using Bifrost.Rpc;
 
 namespace Bifrost.MessageBus;
@@ -18,6 +19,7 @@ sealed class RpcBifrostBus(IRpc<IBusTransport> transport) : IBifrostBus
                 {
                     MessageType = BusJson.MessageTypeOf(typeof(TRequest)),
                     Payload = BusJson.Serialize(request),
+                    Address = AddressOf(request),
                     CorrelationId = Guid.NewGuid().ToString("N"),
                 },
                 cancellationToken
@@ -59,6 +61,33 @@ sealed class RpcBifrostBus(IRpc<IBusTransport> transport) : IBifrostBus
                 CorrelationId = Guid.NewGuid().ToString("N"),
             }
         );
+    }
+
+    static string AddressOf<TRequest>(TRequest request)
+    {
+        var container = ContainerOf(typeof(TRequest));
+        if (request is INodeAffinity { Node: { } node } && !string.IsNullOrWhiteSpace(node))
+        {
+            return $"{container}:{node}";
+        }
+
+        return container;
+    }
+
+    static string ContainerOf(Type type)
+    {
+        var marked = type.DeclaringType ?? type;
+        var attribute =
+            marked.GetCustomAttribute<BusAddressAttribute>()
+            ?? type.GetCustomAttribute<BusAddressAttribute>();
+        if (attribute is null)
+        {
+            throw new InvalidOperationException(
+                $"'{type.Name}' has no {nameof(BusAddressAttribute)}."
+            );
+        }
+
+        return attribute.Container;
     }
 }
 

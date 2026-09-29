@@ -1,7 +1,9 @@
 using System.Text.Json.Nodes;
+using Bifrost.MessageBus;
 
 namespace Bifrost.WorkItems.Contracts;
 
+[BusAddress("work-items")]
 public static class GetWorkItemApi
 {
     public sealed record Query

@@ -2,6 +2,7 @@ using Bifrost.MessageBus;
 
 namespace Bifrost.Tests.MessageBus;
 
+[BusAddress("echo")]
 public static class EchoApi
 {
     public sealed record Command

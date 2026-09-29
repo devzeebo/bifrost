@@ -9,8 +9,9 @@ namespace Bifrost.MessageBus.RabbitMq;
 
 /// <summary>
 /// RabbitMQ client. Events are persistent publishes to <see cref="RabbitMqBusOptions.EventsExchange"/>
-/// and sit in each subscriber's durable queue until that sidecar acks. Commands sit in
-/// <see cref="RabbitMqBusOptions.CommandsQueue"/> until the command worker replies.
+/// and sit in each subscriber's durable queue until that sidecar acks. A command sits in
+/// <c>bifrost.commands.{container}</c> until one replica replies, or in
+/// <c>bifrost.commands.{container}:{node}</c> until that node replies.
 /// </summary>
 sealed class RabbitMqMessageBusProvider : IMessageBusProvider, IHostedService, IAsyncDisposable
 {
@@ -37,15 +38,13 @@ sealed class RabbitMqMessageBusProvider : IMessageBusProvider, IHostedService, I
                 cancellationToken
             )
             .ConfigureAwait(false);
-        _consume = await _connection.CreateChannelAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        _consume = await _connection
+            .CreateChannelAsync(cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
         await _consume.BasicQosAsync(0, 1, false, cancellationToken).ConfigureAwait(false);
 
         await DeclareTopology(cancellationToken).ConfigureAwait(false);
-        await Consume(
-                _options.Address == _options.CommandAddress ? RabbitMqBusOptions.CommandsQueue : null,
-                cancellationToken
-            )
-            .ConfigureAwait(false);
+        await Consume(cancellationToken).ConfigureAwait(false);
 
         _logger.LogInformation(
             "RabbitMQ bus client {Address} connected to {Endpoint}",
@@ -56,27 +55,52 @@ sealed class RabbitMqMessageBusProvider : IMessageBusProvider, IHostedService, I
 
     public Task StopAsync(CancellationToken cancellationToken) => DisposeAsync().AsTask();
 
-    public async Task<BusReply> Send(BusMessage message, CancellationToken cancellationToken = default)
+    public async Task<BusReply> Send(
+        BusMessage message,
+        CancellationToken cancellationToken = default
+    )
     {
+        var address = message.Address;
+        if (string.IsNullOrWhiteSpace(address))
+        {
+            throw new InvalidOperationException("Bus command has no address.");
+        }
+
+        var container = RabbitMqBusOptions.ContainerOf(address);
+        if (!_options.Subscribers.Contains(container))
+        {
+            throw new InvalidOperationException($"Unknown command container '{container}'.");
+        }
+
         var correlationId = message.CorrelationId ?? Guid.NewGuid().ToString("N");
-        var pending = new TaskCompletionSource<BusReply>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var pending = new TaskCompletionSource<BusReply>(
+            TaskCreationOptions.RunContinuationsAsynchronously
+        );
         if (!_pending.TryAdd(correlationId, pending))
         {
             throw new InvalidOperationException($"Duplicate correlation id '{correlationId}'.");
         }
 
-        await using var registration = cancellationToken.Register(() => pending.TrySetCanceled(cancellationToken));
+        await using var registration = cancellationToken.Register(() =>
+            pending.TrySetCanceled(cancellationToken)
+        );
 
         try
         {
-            var replyTo = _replyQueue ?? throw new InvalidOperationException("RabbitMQ bus client is not connected.");
+            var replyTo =
+                _replyQueue
+                ?? throw new InvalidOperationException("RabbitMQ bus client is not connected.");
+            var queue = RabbitMqBusOptions.CommandQueue(address);
             var body = JsonSerializer.SerializeToUtf8Bytes(
-                message with { CorrelationId = correlationId },
+                message with
+                {
+                    CorrelationId = correlationId,
+                },
                 BusJson.Options
             );
             await Publish(
                     exchange: "",
-                    routingKey: RabbitMqBusOptions.CommandsQueue,
+                    routingKey: queue,
                     properties: new BasicProperties
                     {
                         Persistent = true,
@@ -85,7 +109,8 @@ sealed class RabbitMqMessageBusProvider : IMessageBusProvider, IHostedService, I
                         ContentType = "application/json",
                     },
                     body,
-                    cancellationToken
+                    cancellationToken,
+                    declareQueue: address.Contains(':') ? queue : null
                 )
                 .ConfigureAwait(false);
             return await pending.Task.ConfigureAwait(false);
@@ -158,28 +183,11 @@ sealed class RabbitMqMessageBusProvider : IMessageBusProvider, IHostedService, I
                 cancellationToken: cancellationToken
             )
             .ConfigureAwait(false);
-        await publish
-            .QueueDeclareAsync(
-                RabbitMqBusOptions.CommandsQueue,
-                durable: true,
-                exclusive: false,
-                autoDelete: false,
-                cancellationToken: cancellationToken
-            )
-            .ConfigureAwait(false);
 
         foreach (var address in _options.Subscribers)
         {
             var queue = RabbitMqBusOptions.EventQueue(address);
-            await publish
-                .QueueDeclareAsync(
-                    queue,
-                    durable: true,
-                    exclusive: false,
-                    autoDelete: false,
-                    cancellationToken: cancellationToken
-                )
-                .ConfigureAwait(false);
+            await DeclareQueue(publish, queue, cancellationToken).ConfigureAwait(false);
             await publish
                 .QueueBindAsync(
                     queue,
@@ -188,10 +196,22 @@ sealed class RabbitMqMessageBusProvider : IMessageBusProvider, IHostedService, I
                     cancellationToken: cancellationToken
                 )
                 .ConfigureAwait(false);
+            await DeclareQueue(publish, RabbitMqBusOptions.CommandQueue(address), cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        if (_options.NodeId is not null)
+        {
+            await DeclareQueue(
+                    publish,
+                    RabbitMqBusOptions.CommandQueue($"{_options.Address}:{_options.NodeId}"),
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
         }
     }
 
-    async Task Consume(string? commandsQueue, CancellationToken cancellationToken)
+    async Task Consume(CancellationToken cancellationToken)
     {
         var consume = Channel(_consume);
         var reply = await consume
@@ -213,9 +233,22 @@ sealed class RabbitMqMessageBusProvider : IMessageBusProvider, IHostedService, I
             )
             .ConfigureAwait(false);
         await Listen(_replyQueue!, autoAck: true, OnReply, cancellationToken).ConfigureAwait(false);
-        if (commandsQueue is not null)
+        await Listen(
+                RabbitMqBusOptions.CommandQueue(_options.Address),
+                autoAck: false,
+                OnCommand,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        if (_options.NodeId is not null)
         {
-            await Listen(commandsQueue, autoAck: false, OnCommand, cancellationToken).ConfigureAwait(false);
+            await Listen(
+                    RabbitMqBusOptions.CommandQueue($"{_options.Address}:{_options.NodeId}"),
+                    autoAck: false,
+                    OnCommand,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
         }
 
         async Task Listen(
@@ -235,13 +268,18 @@ sealed class RabbitMqMessageBusProvider : IMessageBusProvider, IHostedService, I
     {
         try
         {
-            var message = JsonSerializer.Deserialize<BusMessage>(delivery.Body.Span, BusJson.Options);
+            var message = JsonSerializer.Deserialize<BusMessage>(
+                delivery.Body.Span,
+                BusJson.Options
+            );
             if (message is not null)
             {
                 await _inbound.Deliver(message).ConfigureAwait(false);
             }
 
-            await Channel(_consume).BasicAckAsync(delivery.DeliveryTag, multiple: false).ConfigureAwait(false);
+            await Channel(_consume)
+                .BasicAckAsync(delivery.DeliveryTag, multiple: false)
+                .ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -270,7 +308,9 @@ sealed class RabbitMqMessageBusProvider : IMessageBusProvider, IHostedService, I
         var reply = JsonSerializer.Deserialize<BusReply>(delivery.Body.Span, BusJson.Options);
         if (reply is null)
         {
-            pending.TrySetException(new InvalidOperationException("Failed to deserialize BusReply."));
+            pending.TrySetException(
+                new InvalidOperationException("Failed to deserialize BusReply.")
+            );
             return Task.CompletedTask;
         }
 
@@ -283,7 +323,8 @@ sealed class RabbitMqMessageBusProvider : IMessageBusProvider, IHostedService, I
         BusReply reply;
         try
         {
-            var message = JsonSerializer.Deserialize<BusMessage>(delivery.Body.Span, BusJson.Options)
+            var message =
+                JsonSerializer.Deserialize<BusMessage>(delivery.Body.Span, BusJson.Options)
                 ?? throw new InvalidOperationException("null BusMessage");
             reply = await _inbound.Handle(message).ConfigureAwait(false);
         }
@@ -315,7 +356,9 @@ sealed class RabbitMqMessageBusProvider : IMessageBusProvider, IHostedService, I
                     .ConfigureAwait(false);
             }
 
-            await Channel(_consume).BasicAckAsync(delivery.DeliveryTag, multiple: false).ConfigureAwait(false);
+            await Channel(_consume)
+                .BasicAckAsync(delivery.DeliveryTag, multiple: false)
+                .ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -338,15 +381,28 @@ sealed class RabbitMqMessageBusProvider : IMessageBusProvider, IHostedService, I
         string routingKey,
         BasicProperties properties,
         byte[] body,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        string? declareQueue = null
     )
     {
         var publish = Channel(_publish);
         await _publishGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            if (declareQueue is not null)
+            {
+                await DeclareQueue(publish, declareQueue, cancellationToken).ConfigureAwait(false);
+            }
+
             await publish
-                .BasicPublishAsync(exchange, routingKey, mandatory: false, properties, body, cancellationToken)
+                .BasicPublishAsync(
+                    exchange,
+                    routingKey,
+                    mandatory: false,
+                    properties,
+                    body,
+                    cancellationToken
+                )
                 .ConfigureAwait(false);
         }
         finally
@@ -354,6 +410,15 @@ sealed class RabbitMqMessageBusProvider : IMessageBusProvider, IHostedService, I
             _publishGate.Release();
         }
     }
+
+    static Task DeclareQueue(IChannel channel, string queue, CancellationToken cancellationToken) =>
+        channel.QueueDeclareAsync(
+            queue,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            cancellationToken: cancellationToken
+        );
 
     static IChannel Channel(IChannel? channel) =>
         channel ?? throw new InvalidOperationException("RabbitMQ bus client is not connected.");
@@ -382,5 +447,9 @@ sealed class RabbitMqMessageBusProvider : IMessageBusProvider, IHostedService, I
         ArgumentException.ThrowIfNullOrWhiteSpace(options.Endpoint);
         ArgumentException.ThrowIfNullOrWhiteSpace(options.Address);
         ArgumentNullException.ThrowIfNull(options.Subscribers);
+        if (options.NodeId is not null)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(options.NodeId);
+        }
     }
 }

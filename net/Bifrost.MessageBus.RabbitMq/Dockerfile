@@ -15,5 +15,4 @@ ENV BIFROST_INSTANCE_ID=work-items
 ENV BIFROST_ROLE=primary
 ENV BUS_ENDPOINT=amqp://bifrost:bifrost@rabbitmq:5672/
 ENV BUS_SUBSCRIBERS=work-items,orchestrator,worker
-ENV BUS_COMMAND_ADDRESS=work-items
 ENTRYPOINT ["dotnet", "Bifrost.MessageBus.RabbitMq.dll"]

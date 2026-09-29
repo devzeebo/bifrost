@@ -57,7 +57,6 @@ services:
       BIFROST_ROLE: primary
       BUS_ENDPOINT: amqp://bifrost:bifrost@rabbitmq:5672/
       BUS_SUBSCRIBERS: work-items,orchestrator,worker
-      BUS_COMMAND_ADDRESS: work-items
     volumes:
       - bus_sock:/run/bifrost
     depends_on:
@@ -92,7 +91,6 @@ services:
       BIFROST_ROLE: primary
       BUS_ENDPOINT: amqp://bifrost:bifrost@rabbitmq:5672/
       BUS_SUBSCRIBERS: work-items,orchestrator,worker
-      BUS_COMMAND_ADDRESS: work-items
     volumes:
       - orchestrator_bus_sock:/run/bifrost
     depends_on:
@@ -106,6 +104,7 @@ services:
     environment:
       BIFROST_SOCKET: /run/bifrost/bus.sock
       BIFROST_OUTBOX_PATH: /var/lib/bifrost/worker-node.db
+      BIFROST_WORKER_NODE_ID: 11111111-1111-1111-1111-111111111111
     volumes:
       - worker_bus_sock:/run/bifrost
       - worker_outbox:/var/lib/bifrost
@@ -119,10 +118,10 @@ services:
     environment:
       BIFROST_SOCKET: /run/bifrost/bus.sock
       BIFROST_INSTANCE_ID: worker
+      BIFROST_NODE_ID: 11111111-1111-1111-1111-111111111111
       BIFROST_ROLE: primary
       BUS_ENDPOINT: amqp://bifrost:bifrost@rabbitmq:5672/
       BUS_SUBSCRIBERS: work-items,orchestrator,worker
-      BUS_COMMAND_ADDRESS: work-items
     volumes:
       - worker_bus_sock:/run/bifrost
     depends_on:

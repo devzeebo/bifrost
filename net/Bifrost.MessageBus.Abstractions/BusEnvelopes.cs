@@ -10,6 +10,12 @@ public sealed record BusMessage
 
     public required JsonNode Payload { get; init; }
 
+    /// <summary>
+    /// Request destination. <c>work-items</c> is the shared container queue.
+    /// <c>worker:123</c> is the queue only that node consumes. Unused on publishes.
+    /// </summary>
+    public string? Address { get; init; }
+
     public string? CorrelationId { get; init; }
 }
 

@@ -6,4 +6,8 @@
     <RootNamespace>Bifrost.WorkItems.Contracts</RootNamespace>
     <Description>Work item API contracts: nested Command/Query/Response per operation.</Description>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Bifrost.MessageBus.Abstractions\Bifrost.MessageBus.Abstractions.csproj" />
+  </ItemGroup>
 </Project>

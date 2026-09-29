@@ -7,7 +7,6 @@
   <Project Path="../net/Bifrost.Tests/Bifrost.Tests.csproj" />
   <Project Path="../net/Bifrost.MessageBus.Abstractions/Bifrost.MessageBus.Abstractions.csproj" />
   <Project Path="../net/Bifrost.MessageBus.Wolverine/Bifrost.MessageBus.Wolverine.csproj" />
-  <Project Path="../net/Bifrost.MessageBus.ZeroMq/Bifrost.MessageBus.ZeroMq.csproj" />
   <Project Path="../net/Bifrost.MessageBus.RabbitMq/Bifrost.MessageBus.RabbitMq.csproj" />
   <Project Path="../net/Bifrost.Rpc/Bifrost.Rpc.csproj" />
   <Project Path="../net/Bifrost.Rpc.Abstractions/Bifrost.Rpc.Abstractions.csproj" />
