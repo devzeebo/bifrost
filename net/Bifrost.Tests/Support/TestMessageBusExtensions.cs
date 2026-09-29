@@ -7,21 +7,24 @@ namespace Bifrost.Tests;
 
 static class TestMessageBusExtensions
 {
-    /// <summary>
-    /// Registers a test-local <see cref="LoopbackBifrostBus"/> as <see cref="IBifrostBus"/>.
-    /// Prefer registering handlers via <c>AddMessageBusHandler</c> first so the Abstractions
-    /// router factory can wire them; if none are present, installs an empty router.
-    /// </summary>
-    public static IServiceCollection AddLoopbackBifrostBus(this IServiceCollection services)
+    extension(IServiceCollection services)
     {
-        ArgumentNullException.ThrowIfNull(services);
-
-        if (!services.Any(d => d.ServiceType == typeof(MessageBusRouter)))
+        /// <summary>
+        /// Registers a test-local <see cref="LoopbackBifrostBus"/> as <see cref="IBifrostBus"/>.
+        /// Prefer registering handlers via <c>AddMessageBusHandler</c> first so the Abstractions
+        /// router factory can wire them; if none are present, installs an empty router.
+        /// </summary>
+        public IServiceCollection AddLoopbackBifrostBus()
         {
-            services.AddSingleton(new MessageBusRouter());
-        }
+            ArgumentNullException.ThrowIfNull(services);
 
-        services.TryAddSingleton<IBifrostBus, LoopbackBifrostBus>();
-        return services;
+            if (!services.Any(d => d.ServiceType == typeof(MessageBusRouter)))
+            {
+                services.AddSingleton(new MessageBusRouter());
+            }
+
+            services.TryAddSingleton<IBifrostBus, LoopbackBifrostBus>();
+            return services;
+        }
     }
 }

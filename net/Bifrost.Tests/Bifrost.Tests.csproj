@@ -18,6 +18,7 @@
     <PackageReference Include="Shouldly" Version="4.3.0" />
     <PackageReference Include="Testcontainers.PostgreSql" Version="4.15.0" />
     <PackageReference Include="WolverineFx" Version="6.36.0" />
+    <PackageReference Include="WolverineFx.Sqlite" Version="6.36.0" />
     <PackageReference Include="WolverineFx.Marten" Version="6.36.0" />
     <PackageReference Include="WolverineFx.RuntimeCompilation" Version="6.36.0" />
     <PackageReference Include="xunit" Version="2.9.3" />
@@ -30,7 +31,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Bifrost.WorkItems\Bifrost.WorkItems.csproj" />
+    <ProjectReference Include="..\Bifrost.WorkerNode\Bifrost.WorkerNode.csproj" />
+    <ProjectReference Include="..\Bifrost.Orchestrator\Bifrost.Orchestrator.csproj">
+      <Aliases>Orchestrator</Aliases>
+    </ProjectReference>
     <ProjectReference Include="..\Bifrost.MessageBus.Abstractions\Bifrost.MessageBus.Abstractions.csproj" />
+    <ProjectReference Include="..\Bifrost.MessageBus.Wolverine\Bifrost.MessageBus.Wolverine.csproj" />
     <ProjectReference Include="..\Bifrost.MessageBus.ZeroMq\Bifrost.MessageBus.ZeroMq.csproj" />
     <ProjectReference Include="..\Bifrost.Rpc\Bifrost.Rpc.csproj" />
     <ProjectReference Include="..\Bifrost.Rpc.TestPeer\Bifrost.Rpc.TestPeer.csproj" />

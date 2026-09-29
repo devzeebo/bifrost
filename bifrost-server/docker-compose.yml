@@ -46,6 +46,68 @@ services:
     depends_on:
       - work-items
 
+  orchestrator:
+    build:
+      context: ..
+      dockerfile: net/Bifrost.Orchestrator/Dockerfile
+    environment:
+      ConnectionStrings__Marten: Host=postgres;Port=5432;Database=bifrost;Username=bifrost;Password=bifrost
+      BIFROST_BUS_SOCKET: /run/bifrost/bus.sock
+      ASPNETCORE_URLS: http://+:8080
+    ports:
+      - "8081:8080"
+    volumes:
+      - orchestrator_bus_sock:/run/bifrost
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  orchestrator-bus:
+    build:
+      context: ..
+      dockerfile: net/Bifrost.MessageBus.ZeroMq/Dockerfile
+    environment:
+      BIFROST_BUS_SOCKET: /run/bifrost/bus.sock
+      BIFROST_INSTANCE_ID: orchestrator
+      BIFROST_ROLE: primary
+      BUS_MODE: client
+      BUS_ROUTER_ENDPOINT: tcp://bus:5555
+    volumes:
+      - orchestrator_bus_sock:/run/bifrost
+    depends_on:
+      - bus
+
+  worker-node:
+    build:
+      context: ..
+      dockerfile: net/Bifrost.WorkerNode/Dockerfile
+    environment:
+      BIFROST_BUS_SOCKET: /run/bifrost/bus.sock
+      BIFROST_OUTBOX_PATH: /var/lib/bifrost/worker-node.db
+    volumes:
+      - worker_bus_sock:/run/bifrost
+      - worker_outbox:/var/lib/bifrost
+    depends_on:
+      - worker-bus
+
+  worker-bus:
+    build:
+      context: ..
+      dockerfile: net/Bifrost.MessageBus.ZeroMq/Dockerfile
+    environment:
+      BIFROST_BUS_SOCKET: /run/bifrost/bus.sock
+      BIFROST_INSTANCE_ID: worker
+      BIFROST_ROLE: primary
+      BUS_MODE: client
+      BUS_ROUTER_ENDPOINT: tcp://bus:5555
+    volumes:
+      - worker_bus_sock:/run/bifrost
+    depends_on:
+      - bus
+
 volumes:
   bifrost_pgdata:
   bus_sock:
+  orchestrator_bus_sock:
+  worker_bus_sock:
+  worker_outbox:

@@ -9,6 +9,8 @@ public static class MartenConfiguration
 {
     public static void Configure(StoreOptions opts)
     {
+        opts.DatabaseSchemaName = "work_items";
+
         opts.Projections.Add<RelationshipTypeView>(ProjectionLifecycle.Inline);
         opts.Projections.Add<RelationshipTypeByWord>(ProjectionLifecycle.Inline);
         opts.Projections.Add<WorkItemView>(ProjectionLifecycle.Inline);

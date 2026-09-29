@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Bifrost.WorkerNode</RootNamespace>
+    <AllowMissingPrunePackageData>true</AllowMissingPrunePackageData>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
+    <PackageReference Include="WolverineFx" Version="6.36.0" />
+    <PackageReference Include="WolverineFx.Sqlite" Version="6.36.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Bifrost.Orchestrator.Contracts\Bifrost.Orchestrator.Contracts.csproj" />
+    <ProjectReference Include="..\Bifrost.MessageBus.Abstractions\Bifrost.MessageBus.Abstractions.csproj" />
+    <ProjectReference Include="..\Bifrost.MessageBus.Wolverine\Bifrost.MessageBus.Wolverine.csproj" />
+    <ProjectReference Include="..\Bifrost.Rpc\Bifrost.Rpc.csproj" />
+  </ItemGroup>
+</Project>

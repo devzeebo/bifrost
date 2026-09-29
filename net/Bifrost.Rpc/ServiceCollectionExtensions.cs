@@ -8,52 +8,51 @@ namespace Bifrost.Rpc;
 
 public static class ServiceCollectionExtensions
 {
-    /// <summary>
-    /// Registers the listening side: a socket the configured instances connect back to, plus the
-    /// processes to launch. Pair with <c>AddRpc&lt;T&gt;</c> to call peers and
-    /// <c>AddRpcHandler&lt;T&gt;</c> to serve them.
-    /// </summary>
-    public static IServiceCollection AddRpcHost(
-        this IServiceCollection services,
-        Action<RpcHostOptions> configure
-    )
+    extension(IServiceCollection services)
     {
-        ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(configure);
+        /// <summary>
+        /// Registers the listening side: a socket the configured instances connect back to, plus the
+        /// processes to launch. Pair with <c>AddRpc&lt;T&gt;</c> to call peers and
+        /// <c>AddRpcHandler&lt;T&gt;</c> to serve them.
+        /// </summary>
+        public IServiceCollection AddRpcHost(Action<RpcHostOptions> configure)
+        {
+            ArgumentNullException.ThrowIfNull(services);
+            ArgumentNullException.ThrowIfNull(configure);
 
-        services.AddOptions<RpcHostOptions>().Configure(configure);
-        services.TryAddSingleton(sp => new RpcHost(
-            sp.GetRequiredService<IOptions<RpcHostOptions>>(),
-            sp.GetService<ILogger<RpcHost>>()
-        ));
-        services.TryAddSingleton<IRpcHost>(sp => sp.GetRequiredService<RpcHost>());
-        services.TryAddSingleton<IRpcEndpoint>(sp => sp.GetRequiredService<RpcHost>());
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, RpcHostedService>());
-        return services;
-    }
+            services.AddOptions<RpcHostOptions>().Configure(configure);
+            services.TryAddSingleton(sp => new RpcHost(
+                sp.GetRequiredService<IOptions<RpcHostOptions>>(),
+                sp.GetService<ILogger<RpcHost>>()
+            ));
+            services.TryAddSingleton<IRpcHost>(sp => sp.GetRequiredService<RpcHost>());
+            services.TryAddSingleton<IRpcEndpoint>(sp => sp.GetRequiredService<RpcHost>());
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, RpcHostedService>());
+            return services;
+        }
 
-    /// <summary>
-    /// Registers the connecting side, reading the socket path, instance id, and role the host
-    /// passed on the command line or in the environment.
-    /// </summary>
-    public static IServiceCollection AddRpcPeer(this IServiceCollection services) =>
-        services.AddRpcPeer(_ => RpcPeerOptions.FromEnvironment(Environment.GetCommandLineArgs()));
+        /// <summary>
+        /// Registers the connecting side, reading the socket path, instance id, and role the host
+        /// passed on the command line or in the environment.
+        /// </summary>
+        public IServiceCollection AddRpcPeer() =>
+            services.AddRpcPeer(_ =>
+                RpcPeerOptions.FromEnvironment(Environment.GetCommandLineArgs())
+            );
 
-    /// <summary>Registers the connecting side with explicit options.</summary>
-    public static IServiceCollection AddRpcPeer(
-        this IServiceCollection services,
-        Func<IServiceProvider, RpcPeerOptions> configure
-    )
-    {
-        ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(configure);
+        /// <summary>Registers the connecting side with explicit options.</summary>
+        public IServiceCollection AddRpcPeer(Func<IServiceProvider, RpcPeerOptions> configure)
+        {
+            ArgumentNullException.ThrowIfNull(services);
+            ArgumentNullException.ThrowIfNull(configure);
 
-        services.TryAddSingleton(sp => new RpcPeer(configure(sp)));
-        services.TryAddSingleton<IRpcEndpoint>(sp => sp.GetRequiredService<RpcPeer>());
-        services.TryAddEnumerable(
-            ServiceDescriptor.Singleton<IHostedService, RpcPeerHostedService>()
-        );
-        return services;
+            services.TryAddSingleton(sp => new RpcPeer(configure(sp)));
+            services.TryAddSingleton<IRpcEndpoint>(sp => sp.GetRequiredService<RpcPeer>());
+            services.TryAddEnumerable(
+                ServiceDescriptor.Singleton<IHostedService, RpcPeerHostedService>()
+            );
+            return services;
+        }
     }
 }
 

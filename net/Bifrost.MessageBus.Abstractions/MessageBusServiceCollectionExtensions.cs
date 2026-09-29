@@ -6,105 +6,103 @@ namespace Bifrost.MessageBus;
 
 public static class MessageBusServiceCollectionExtensions
 {
-    /// <summary>
-    /// Registers the plane-side bus over RPC. The deployable must also call
-    /// <c>AddRpcHost</c> so an <see cref="IRpcEndpoint"/> is available.
-    /// </summary>
-    public static IServiceCollection AddMessageBus(this IServiceCollection services)
+    extension(IServiceCollection services)
     {
-        ArgumentNullException.ThrowIfNull(services);
-
-        EnsureRouter(services);
-        services.AddRpc<IBusTransport>();
-        services.AddRpcHandler<IBusDispatch, RouterBusDispatch>();
-        services.TryAddSingleton<IBifrostBus, RpcBifrostBus>();
-        return services;
-    }
-
-    /// <summary>
-    /// Registers a typed request handler on the plane. The payload is deserialized to
-    /// <typeparamref name="TRequest"/> and the result serialized back into a <see cref="BusReply"/>.
-    /// </summary>
-    public static IServiceCollection AddMessageBusHandler<TRequest, TResponse>(
-        this IServiceCollection services,
-        Func<IServiceProvider, TRequest, CancellationToken, Task<TResponse>> handler
-    )
-    {
-        ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(handler);
-
-        EnsureRouter(services);
-        services.AddSingleton<IMessageBusHandlerRegistration>(
-            sp => new TypedHandlerRegistration<TRequest, TResponse>(sp, handler)
-        );
-        return services;
-    }
-
-    /// <summary>
-    /// Registers a typed request handler that returns no payload (empty reply).
-    /// </summary>
-    public static IServiceCollection AddMessageBusHandler<TRequest>(
-        this IServiceCollection services,
-        Func<IServiceProvider, TRequest, CancellationToken, Task> handler
-    )
-    {
-        ArgumentNullException.ThrowIfNull(handler);
-        return services.AddMessageBusHandler<TRequest, Unit>(
-            async (sp, request, ct) =>
-            {
-                await handler(sp, request, ct).ConfigureAwait(false);
-                return Unit.Value;
-            }
-        );
-    }
-
-    /// <summary>Registers a typed event subscriber on the plane.</summary>
-    public static IServiceCollection AddMessageBusSubscriber<TEvent>(
-        this IServiceCollection services,
-        Func<IServiceProvider, TEvent, CancellationToken, Task> handler
-    )
-    {
-        ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(handler);
-
-        EnsureRouter(services);
-        services.AddSingleton<IMessageBusHandlerRegistration>(
-            sp => new TypedSubscriberRegistration<TEvent>(sp, handler)
-        );
-        return services;
-    }
-
-    /// <summary>
-    /// Registers a broker provider. The deployable must also call <c>AddRpcPeer</c>.
-    /// Wires <see cref="IBusTransport"/> → provider and <see cref="IMessageBusInbound"/> → plane.
-    /// </summary>
-    public static IServiceCollection AddMessageBusProvider<TProvider>(
-        this IServiceCollection services
-    )
-        where TProvider : class, IMessageBusProvider
-    {
-        ArgumentNullException.ThrowIfNull(services);
-
-        services.TryAddSingleton<TProvider>();
-        services.TryAddSingleton<IMessageBusProvider>(sp => sp.GetRequiredService<TProvider>());
-        services.AddRpcHandler<IBusTransport, ProviderTransportAdapter>();
-        services.AddRpc<IBusDispatch>();
-        services.TryAddSingleton<IMessageBusInbound, RpcMessageBusInbound>();
-        return services;
-    }
-
-    static void EnsureRouter(IServiceCollection services)
-    {
-        services.TryAddSingleton(sp =>
+        /// <summary>
+        /// Registers the plane-side bus over RPC. The deployable must also call
+        /// <c>AddRpcHost</c> so an <see cref="IRpcEndpoint"/> is available.
+        /// </summary>
+        public IServiceCollection AddMessageBus()
         {
-            var router = new MessageBusRouter();
-            foreach (var registration in sp.GetServices<IMessageBusHandlerRegistration>())
-            {
-                registration.Apply(router);
-            }
+            ArgumentNullException.ThrowIfNull(services);
 
-            return router;
-        });
+            services.EnsureRouter();
+            services.AddRpc<IBusTransport>();
+            services.AddRpcHandler<IBusDispatch, RouterBusDispatch>();
+            services.TryAddSingleton<IBifrostBus, RpcBifrostBus>();
+            return services;
+        }
+
+        /// <summary>
+        /// Registers a typed request handler on the plane. The payload is deserialized to
+        /// <typeparamref name="TRequest"/> and the result serialized back into a <see cref="BusReply"/>.
+        /// </summary>
+        public IServiceCollection AddMessageBusHandler<TRequest, TResponse>(
+            Func<IServiceProvider, TRequest, CancellationToken, Task<TResponse>> handler
+        )
+        {
+            ArgumentNullException.ThrowIfNull(services);
+            ArgumentNullException.ThrowIfNull(handler);
+
+            services.EnsureRouter();
+            services.AddSingleton<IMessageBusHandlerRegistration>(
+                sp => new TypedHandlerRegistration<TRequest, TResponse>(sp, handler)
+            );
+            return services;
+        }
+
+        /// <summary>
+        /// Registers a typed request handler that returns no payload (empty reply).
+        /// </summary>
+        public IServiceCollection AddMessageBusHandler<TRequest>(
+            Func<IServiceProvider, TRequest, CancellationToken, Task> handler
+        )
+        {
+            ArgumentNullException.ThrowIfNull(handler);
+            return services.AddMessageBusHandler<TRequest, Unit>(
+                async (sp, request, ct) =>
+                {
+                    await handler(sp, request, ct).ConfigureAwait(false);
+                    return Unit.Value;
+                }
+            );
+        }
+
+        /// <summary>Registers a typed event subscriber on the plane.</summary>
+        public IServiceCollection AddMessageBusSubscriber<TEvent>(
+            Func<IServiceProvider, TEvent, CancellationToken, Task> handler
+        )
+        {
+            ArgumentNullException.ThrowIfNull(services);
+            ArgumentNullException.ThrowIfNull(handler);
+
+            services.EnsureRouter();
+            services.AddSingleton<IMessageBusHandlerRegistration>(
+                sp => new TypedSubscriberRegistration<TEvent>(sp, handler)
+            );
+            return services;
+        }
+
+        /// <summary>
+        /// Registers a broker provider. The deployable must also call <c>AddRpcPeer</c>.
+        /// Wires <see cref="IBusTransport"/> → provider and <see cref="IMessageBusInbound"/> → plane.
+        /// </summary>
+        public IServiceCollection AddMessageBusProvider<TProvider>()
+            where TProvider : class, IMessageBusProvider
+        {
+            ArgumentNullException.ThrowIfNull(services);
+
+            services.TryAddSingleton<TProvider>();
+            services.TryAddSingleton<IMessageBusProvider>(sp => sp.GetRequiredService<TProvider>());
+            services.AddRpcHandler<IBusTransport, ProviderTransportAdapter>();
+            services.AddRpc<IBusDispatch>();
+            services.TryAddSingleton<IMessageBusInbound, RpcMessageBusInbound>();
+            return services;
+        }
+
+        void EnsureRouter()
+        {
+            services.TryAddSingleton(sp =>
+            {
+                var router = new MessageBusRouter();
+                foreach (var registration in sp.GetServices<IMessageBusHandlerRegistration>())
+                {
+                    registration.Apply(router);
+                }
+
+                return router;
+            });
+        }
     }
 }
 
