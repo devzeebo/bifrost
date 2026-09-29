@@ -9,41 +9,32 @@ using NetMQ.Sockets;
 namespace Bifrost.MessageBus.ZeroMq;
 
 /// <summary>
-/// ZeroMQ-backed <see cref="IMessageBusProvider"/>. Server mode binds a ROUTER; client mode
-/// connects a DEALER. Frames:
-/// <list type="bullet">
-///   <item><c>req</c> / <c>corrId</c> / json <see cref="BusMessage"/> — request/reply</item>
-///   <item><c>rep</c> / <c>corrId</c> / json <see cref="BusReply"/></item>
-///   <item><c>pub</c> / json <see cref="BusMessage"/> — fire-and-forget event</item>
-/// </list>
+/// DEALER client of the central broker. Frames:
+/// <c>req</c> / correlation id / json <see cref="BusMessage"/>,
+/// <c>rep</c> / correlation id / json <see cref="BusReply"/>,
+/// <c>pub</c> / json <see cref="BusMessage"/>.
 /// </summary>
 sealed class ZeroMqMessageBusProvider : IMessageBusProvider, IHostedService, IDisposable
 {
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        if (_mode == BusMode.Server)
+        if (_dealer is not null)
         {
-            _router = new RouterSocket();
-            _router.Bind(_options.RouterEndpoint);
-            _router.ReceiveReady += OnRouterReceiveReady;
-            _poller = new NetMQPoller { _router };
-        }
-        else
-        {
-            _dealer = new DealerSocket();
-            _dealer.Options.Identity = Encoding.UTF8.GetBytes(
-                Environment.GetEnvironmentVariable("BIFROST_INSTANCE_ID") ?? Guid.NewGuid().ToString("N")
-            );
-            _dealer.Connect(_options.RouterEndpoint);
-            _dealer.ReceiveReady += OnDealerReceiveReady;
-            _poller = new NetMQPoller { _dealer };
+            return Task.CompletedTask;
         }
 
+        _dealer = new DealerSocket();
+        _dealer.Options.Identity = Encoding.UTF8.GetBytes(_options.Address);
+        _dealer.Connect(_options.Endpoint);
+        _dealer.ReceiveReady += OnReceive;
+        _poller = new NetMQPoller { _dealer };
         _poller.RunAsync();
+        // The broker learns this identity from the first frame.
+        Announce();
         _logger.LogInformation(
-            "ZeroMQ bus {Mode} listening on {Endpoint}",
-            _mode,
-            _options.RouterEndpoint
+            "ZeroMQ bus client {Address} connected to {Endpoint}",
+            _options.Address,
+            _options.Endpoint
         );
         return Task.CompletedTask;
     }
@@ -56,53 +47,39 @@ sealed class ZeroMqMessageBusProvider : IMessageBusProvider, IHostedService, IDi
 
     public async Task<BusReply> Send(BusMessage message, CancellationToken cancellationToken = default)
     {
-        if (_mode == BusMode.Server)
-        {
-            // Server-side Send means deliver into the local host (we are this host's sidecar).
-            return await _inbound.Handle(message, cancellationToken).ConfigureAwait(false);
-        }
-
-        var corr = message.CorrelationId ?? Guid.NewGuid().ToString("N");
-        var tcs = new TaskCompletionSource<BusReply>(
+        var correlationId = message.CorrelationId ?? Guid.NewGuid().ToString("N");
+        var pending = new TaskCompletionSource<BusReply>(
             TaskCreationOptions.RunContinuationsAsynchronously
         );
-        if (!_pending.TryAdd(corr, tcs))
+        if (!_pending.TryAdd(correlationId, pending))
         {
-            throw new InvalidOperationException($"Duplicate correlation id '{corr}'.");
+            throw new InvalidOperationException($"Duplicate correlation id '{correlationId}'.");
         }
 
-        await using var reg = cancellationToken.Register(() => tcs.TrySetCanceled(cancellationToken));
+        await using var registration = cancellationToken.Register(() =>
+            pending.TrySetCanceled(cancellationToken)
+        );
 
         try
         {
             var payload = JsonSerializer.Serialize(message, BusJson.Options);
-            _dealer!.SendMoreFrame("req").SendMoreFrame(corr).SendFrame(payload);
-            return await tcs.Task.ConfigureAwait(false);
+            Send("req", correlationId, payload);
+            return await pending.Task.ConfigureAwait(false);
         }
         finally
         {
-            _pending.TryRemove(corr, out _);
+            _pending.TryRemove(correlationId, out _);
         }
     }
 
     public Task Publish(BusMessage message, CancellationToken cancellationToken = default)
     {
-        var payload = JsonSerializer.Serialize(message, BusJson.Options);
-
-        if (_mode == BusMode.Client)
-        {
-            _dealer!.SendMoreFrame("pub").SendFrame(payload);
-            return Task.CompletedTask;
-        }
-
-        // Server: fan out to every known dealer. The publishing plane already has the event.
-        BroadcastPub(payload);
+        Send("pub", JsonSerializer.Serialize(message, BusJson.Options));
         return Task.CompletedTask;
     }
 
     public Task Subscribe(string topic, CancellationToken cancellationToken = default)
     {
-        // Topic filtering is by MessageType at the plane; ZMQ carries every pub.
         _ = topic;
         return Task.CompletedTask;
     }
@@ -118,95 +95,97 @@ sealed class ZeroMqMessageBusProvider : IMessageBusProvider, IHostedService, IDi
         {
             _poller?.Stop();
         }
-        catch { }
+        catch
+        {
+            // already stopped
+        }
 
         _poller?.Dispose();
-        _router?.Dispose();
         _dealer?.Dispose();
     }
 
-    void OnRouterReceiveReady(object? sender, NetMQSocketEventArgs e)
+    void OnReceive(object? sender, NetMQSocketEventArgs args)
     {
-        while (_router!.TryReceiveMultipartMessage(ref _routerMsg!))
+        var message = new NetMQMessage();
+        while (_dealer!.TryReceiveMultipartMessage(ref message))
         {
-            if (_routerMsg.FrameCount < 3)
+            try
             {
-                continue;
+                Dispatch(message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Ignoring malformed bus frame");
             }
 
-            var identity = _routerMsg[0].ToByteArray();
-            _knownClients.TryAdd(Convert.ToHexString(identity), identity);
-
-            // [identity][empty?][type]... — DEALER may or may not include empty delimiter.
-            var offset = _routerMsg[1].MessageSize == 0 ? 2 : 1;
-            if (_routerMsg.FrameCount < offset + 2)
-            {
-                continue;
-            }
-
-            var type = _routerMsg[offset].ConvertToString();
-            if (type == "req" && _routerMsg.FrameCount >= offset + 3)
-            {
-                var corr = _routerMsg[offset + 1].ConvertToString();
-                var json = _routerMsg[offset + 2].ConvertToString();
-                _ = HandleIncomingRequest(identity, corr, json);
-            }
-            else if (type == "pub")
-            {
-                var json = _routerMsg[offset + 1].ConvertToString();
-                _ = HandleIncomingPub(json, identity);
-            }
-
-            _routerMsg = new NetMQMessage();
+            message = new NetMQMessage();
         }
     }
 
-    void OnDealerReceiveReady(object? sender, NetMQSocketEventArgs e)
+    void Dispatch(NetMQMessage message)
     {
-        while (_dealer!.TryReceiveMultipartMessage(ref _dealerMsg!))
+        if (message.FrameCount < 2)
         {
-            if (_dealerMsg.FrameCount < 2)
-            {
-                continue;
-            }
+            return;
+        }
 
-            var offset = _dealerMsg[0].MessageSize == 0 ? 1 : 0;
-            if (_dealerMsg.FrameCount < offset + 2)
-            {
-                continue;
-            }
+        var offset = message[0].MessageSize == 0 ? 1 : 0;
+        if (message.FrameCount < offset + 2)
+        {
+            return;
+        }
 
-            var type = _dealerMsg[offset].ConvertToString();
-            if (type == "rep" && _dealerMsg.FrameCount >= offset + 3)
-            {
-                var corr = _dealerMsg[offset + 1].ConvertToString();
-                var json = _dealerMsg[offset + 2].ConvertToString();
-                if (_pending.TryRemove(corr, out var tcs))
-                {
-                    var reply = JsonSerializer.Deserialize<BusReply>(json, BusJson.Options);
-                    if (reply is not null)
-                    {
-                        tcs.TrySetResult(reply);
-                    }
-                    else
-                    {
-                        tcs.TrySetException(
-                            new InvalidOperationException("Failed to deserialize BusReply.")
-                        );
-                    }
-                }
-            }
-            else if (type == "pub")
-            {
-                var json = _dealerMsg[offset + 1].ConvertToString();
-                _ = HandleIncomingPub(json, senderIdentity: null);
-            }
-
-            _dealerMsg = new NetMQMessage();
+        var type = message[offset].ConvertToString();
+        if (type == "rep" && message.FrameCount >= offset + 3)
+        {
+            CompleteReply(message[offset + 1].ConvertToString(), message[offset + 2].ConvertToString());
+        }
+        else if (type == "pub" && message.FrameCount >= offset + 2)
+        {
+            _ = Deliver(message[offset + 1].ConvertToString());
+        }
+        else if (type == "req" && message.FrameCount >= offset + 3)
+        {
+            _ = Answer(message[offset + 1].ConvertToString(), message[offset + 2].ConvertToString());
         }
     }
 
-    async Task HandleIncomingRequest(byte[] identity, string corr, string json)
+    void CompleteReply(string correlationId, string json)
+    {
+        if (!_pending.TryRemove(correlationId, out var pending))
+        {
+            return;
+        }
+
+        var reply = JsonSerializer.Deserialize<BusReply>(json, BusJson.Options);
+        if (reply is null)
+        {
+            pending.TrySetException(new InvalidOperationException("Failed to deserialize BusReply."));
+            return;
+        }
+
+        pending.TrySetResult(reply);
+    }
+
+    async Task Deliver(string json)
+    {
+        try
+        {
+            var message = JsonSerializer.Deserialize<BusMessage>(json, BusJson.Options);
+            if (message is null)
+            {
+                return;
+            }
+
+            await Task.Run(() => _inbound.Deliver(message)).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deliver published bus message");
+        }
+    }
+
+    async Task Answer(string correlationId, string json)
     {
         BusReply reply;
         try
@@ -214,7 +193,6 @@ sealed class ZeroMqMessageBusProvider : IMessageBusProvider, IHostedService, IDi
             var message =
                 JsonSerializer.Deserialize<BusMessage>(json, BusJson.Options)
                 ?? throw new InvalidOperationException("null BusMessage");
-            // Leave the NetMQ poller thread before calling back into the plane over RPC.
             reply = await Task.Run(() => _inbound.Handle(message)).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -225,59 +203,32 @@ sealed class ZeroMqMessageBusProvider : IMessageBusProvider, IHostedService, IDi
             };
         }
 
-        var replyJson = JsonSerializer.Serialize(reply, BusJson.Options);
+        Send("rep", correlationId, JsonSerializer.Serialize(reply, BusJson.Options));
+    }
+
+    void Announce()
+    {
+        var dealer =
+            _dealer ?? throw new InvalidOperationException("ZeroMQ bus client is not connected.");
         lock (_sendGate)
         {
-            _router!
-                .SendMoreFrame(identity)
-                .SendMoreFrameEmpty()
-                .SendMoreFrame("rep")
-                .SendMoreFrame(corr)
-                .SendFrame(replyJson);
+            dealer.SendFrame("hello");
         }
     }
 
-    async Task HandleIncomingPub(string json, byte[]? senderIdentity)
+    void Send(string type, string second, string? third = null)
     {
-        try
+        var dealer =
+            _dealer ?? throw new InvalidOperationException("ZeroMQ bus client is not connected.");
+        lock (_sendGate)
         {
-            var message =
-                JsonSerializer.Deserialize<BusMessage>(json, BusJson.Options)
-                ?? throw new InvalidOperationException("null BusMessage");
-            await Task.Run(() => _inbound.Deliver(message)).ConfigureAwait(false);
-
-            if (_mode == BusMode.Server)
+            if (third is null)
             {
-                // Fan out to every client except the sender.
-                BroadcastPub(json, except: senderIdentity);
+                dealer.SendMoreFrame(type).SendFrame(second);
             }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deliver published bus message");
-        }
-    }
-
-    void BroadcastPub(string payloadJson, byte[]? except = null)
-    {
-        foreach (var (_, identity) in _knownClients)
-        {
-            if (
-                except is not null
-                && identity.Length == except.Length
-                && identity.AsSpan().SequenceEqual(except)
-            )
+            else
             {
-                continue;
-            }
-
-            lock (_sendGate)
-            {
-                _router!
-                    .SendMoreFrame(identity)
-                    .SendMoreFrameEmpty()
-                    .SendMoreFrame("pub")
-                    .SendFrame(payloadJson);
+                dealer.SendMoreFrame(type).SendMoreFrame(second).SendFrame(third);
             }
         }
     }
@@ -285,16 +236,11 @@ sealed class ZeroMqMessageBusProvider : IMessageBusProvider, IHostedService, IDi
     readonly ZeroMqBusOptions _options;
     readonly IMessageBusInbound _inbound;
     readonly ILogger<ZeroMqMessageBusProvider> _logger;
-    readonly BusMode _mode;
     readonly ConcurrentDictionary<string, TaskCompletionSource<BusReply>> _pending = new();
-    readonly ConcurrentDictionary<string, byte[]> _knownClients = new();
     readonly object _sendGate = new();
 
-    RouterSocket? _router;
     DealerSocket? _dealer;
     NetMQPoller? _poller;
-    NetMQMessage? _routerMsg = new();
-    NetMQMessage? _dealerMsg = new();
     int _disposed;
 
     public ZeroMqMessageBusProvider(
@@ -306,6 +252,7 @@ sealed class ZeroMqMessageBusProvider : IMessageBusProvider, IHostedService, IDi
         _options = options;
         _inbound = inbound;
         _logger = logger;
-        _mode = options.Mode;
+        ArgumentException.ThrowIfNullOrWhiteSpace(options.Endpoint);
+        ArgumentException.ThrowIfNullOrWhiteSpace(options.Address);
     }
 }

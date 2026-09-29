@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Bifrost.MessageBus.ZeroMq</RootNamespace>
-    <Description>Bifrost message bus sidecar bound to ZeroMQ (DEALER/ROUTER + pub frames).</Description>
+    <Description>Bifrost message bus sidecar and the central ZeroMQ ROUTER broker.</Description>
   </PropertyGroup>
 
   <ItemGroup>

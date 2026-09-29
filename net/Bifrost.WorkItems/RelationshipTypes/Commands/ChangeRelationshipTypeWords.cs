@@ -38,14 +38,13 @@ public static class ChangeRelationshipTypeWordsHandler
     [AggregateHandler]
     public static MartenEvents Handle(ChangeRelationshipTypeWordsApi.Command command, RelationshipType type) =>
         [
-            new RelationshipTypeWordsChanged
-            {
-                RelationshipTypeId = type.Id,
-                PreviousForwardWord = type.ForwardWord,
-                PreviousInverseWord = type.InverseWord,
-                ForwardWord = command.ForwardWord,
-                InverseWord = command.InverseWord,
-            },
+            new RelationshipTypeWordsChanged(
+                type.Id,
+                type.ForwardWord,
+                type.InverseWord,
+                command.ForwardWord,
+                command.InverseWord
+            ),
         ];
 
     static async Task<bool> WordTakenByOther(

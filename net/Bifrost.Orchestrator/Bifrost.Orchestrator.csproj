@@ -12,7 +12,6 @@
     <PackageReference Include="WolverineFx" Version="6.36.0" />
     <PackageReference Include="WolverineFx.Http" Version="6.36.0" />
     <PackageReference Include="WolverineFx.Marten" Version="6.36.0" />
-    <PackageReference Include="WolverineFx.RuntimeCompilation" Version="6.36.0" />
   </ItemGroup>
 
   <ItemGroup>

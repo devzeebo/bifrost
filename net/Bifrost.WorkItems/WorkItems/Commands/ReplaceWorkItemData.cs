@@ -20,5 +20,5 @@ public static class ReplaceWorkItemDataHandler
     public static WorkItemDataReplaced Handle(
         ReplaceWorkItemDataApi.Command command,
         WorkItem workItem
-    ) => new() { Data = command.Data };
+    ) => new(command.Data);
 }

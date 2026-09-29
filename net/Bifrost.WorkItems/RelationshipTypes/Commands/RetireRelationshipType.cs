@@ -18,11 +18,6 @@ public static class RetireRelationshipTypeHandler
     [AggregateHandler]
     public static MartenEvents Handle(RetireRelationshipTypeApi.Command command, RelationshipType type) =>
         [
-            new RelationshipTypeRetired
-            {
-                RelationshipTypeId = type.Id,
-                ForwardWord = type.ForwardWord,
-                InverseWord = type.InverseWord,
-            },
+            new RelationshipTypeRetired(type.Id, type.ForwardWord, type.InverseWord),
         ];
 }

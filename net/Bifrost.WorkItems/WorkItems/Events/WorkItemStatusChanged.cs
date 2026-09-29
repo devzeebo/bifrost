@@ -1,6 +1,11 @@
+using System.Text.Json.Serialization;
+
 namespace Bifrost.WorkItems.Events;
 
 public sealed record WorkItemStatusChanged
 {
-    public required WorkItemStatus Status { get; init; }
+    [JsonConstructor]
+    internal WorkItemStatusChanged(WorkItemStatus status) => Status = status;
+
+    public WorkItemStatus Status { get; init; }
 }

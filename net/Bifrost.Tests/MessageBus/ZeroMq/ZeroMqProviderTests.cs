@@ -8,12 +8,12 @@ namespace Bifrost.Tests.MessageBus.ZeroMq;
 public class ZeroMqProviderTests
 {
     [Fact]
-    public async Task Client_Send_round_trips_through_server_inbound()
+    public async Task Client_Send_round_trips_through_command_worker()
     {
         var port = FreeTcpPort();
         var endpoint = $"tcp://127.0.0.1:{port}";
 
-        var serverInbound = new RecordingInbound
+        var workerInbound = new RecordingInbound
         {
             OnHandle = message =>
                 Task.FromResult(
@@ -26,14 +26,9 @@ public class ZeroMqProviderTests
                 ),
         };
 
-        using var server = CreateProvider(BusMode.Server, endpoint, serverInbound);
-        using var client = CreateProvider(BusMode.Client, endpoint, new RecordingInbound());
+        await using var bus = await Start(endpoint, workerInbound, new RecordingInbound());
 
-        await server.StartAsync(CancellationToken.None);
-        await client.StartAsync(CancellationToken.None);
-        await Task.Delay(100);
-
-        var reply = await client.Send(
+        var reply = await bus.Client.Send(
             new BusMessage
             {
                 MessageType = "EchoApi",
@@ -44,35 +39,18 @@ public class ZeroMqProviderTests
 
         reply.Error.ShouldBeNull();
         BusJson.Deserialize<EchoResult>(reply.Payload!).Echo.ShouldBe("hello");
-        serverInbound.Handled.Count.ShouldBe(1);
+        workerInbound.Handled.Count.ShouldBe(1);
     }
 
     [Fact]
-    public async Task Client_Publish_is_delivered_to_server_inbound()
+    public async Task Client_Publish_is_delivered_to_command_worker()
     {
         var port = FreeTcpPort();
         var endpoint = $"tcp://127.0.0.1:{port}";
+        var workerInbound = new RecordingInbound();
+        await using var bus = await Start(endpoint, workerInbound, new RecordingInbound());
 
-        var serverInbound = new RecordingInbound();
-        using var server = CreateProvider(BusMode.Server, endpoint, serverInbound);
-        using var client = CreateProvider(BusMode.Client, endpoint, new RecordingInbound());
-
-        await server.StartAsync(CancellationToken.None);
-        await client.StartAsync(CancellationToken.None);
-        await Task.Delay(100);
-
-        // First request establishes the client identity on the ROUTER.
-        serverInbound.OnHandle = _ => Task.FromResult(new BusReply());
-        await client.Send(
-            new BusMessage
-            {
-                MessageType = "PingApi",
-                Payload = BusJson.Serialize(new EchoBody("ping")),
-                CorrelationId = Guid.NewGuid().ToString("N"),
-            }
-        );
-
-        await client.Publish(
+        await bus.Client.Publish(
             new BusMessage
             {
                 MessageType = "StatusChangedEvent",
@@ -80,45 +58,19 @@ public class ZeroMqProviderTests
             }
         );
 
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(2);
-        while (serverInbound.Delivered.Count == 0 && DateTime.UtcNow < deadline)
-        {
-            await Task.Delay(25);
-        }
-
-        serverInbound.Delivered.ShouldHaveSingleItem().MessageType.ShouldBe("StatusChangedEvent");
+        await WaitUntil(() => workerInbound.Delivered.Count > 0);
+        workerInbound.Delivered.ShouldHaveSingleItem().MessageType.ShouldBe("StatusChangedEvent");
     }
 
     [Fact]
-    public async Task Server_Publish_reaches_client_inbound()
+    public async Task Command_worker_Publish_reaches_client()
     {
         var port = FreeTcpPort();
         var endpoint = $"tcp://127.0.0.1:{port}";
-
         var clientInbound = new RecordingInbound();
-        var serverInbound = new RecordingInbound
-        {
-            OnHandle = _ => Task.FromResult(new BusReply()),
-        };
+        await using var bus = await Start(endpoint, new RecordingInbound(), clientInbound);
 
-        using var server = CreateProvider(BusMode.Server, endpoint, serverInbound);
-        using var client = CreateProvider(BusMode.Client, endpoint, clientInbound);
-
-        await server.StartAsync(CancellationToken.None);
-        await client.StartAsync(CancellationToken.None);
-        await Task.Delay(100);
-
-        // Establish identity so the server can address this dealer.
-        await client.Send(
-            new BusMessage
-            {
-                MessageType = "PingApi",
-                Payload = BusJson.Serialize(new EchoBody("ping")),
-                CorrelationId = Guid.NewGuid().ToString("N"),
-            }
-        );
-
-        await server.Publish(
+        await bus.Worker.Publish(
             new BusMessage
             {
                 MessageType = "StatusChangedEvent",
@@ -126,25 +78,44 @@ public class ZeroMqProviderTests
             }
         );
 
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(2);
-        while (clientInbound.Delivered.Count == 0 && DateTime.UtcNow < deadline)
-        {
-            await Task.Delay(25);
-        }
-
+        await WaitUntil(() => clientInbound.Delivered.Count > 0);
         clientInbound.Delivered.ShouldHaveSingleItem().MessageType.ShouldBe("StatusChangedEvent");
     }
 
-    static ZeroMqMessageBusProvider CreateProvider(
-        BusMode mode,
+    static async Task<Bus> Start(
         string endpoint,
-        IMessageBusInbound inbound
-    ) =>
+        RecordingInbound workerInbound,
+        RecordingInbound clientInbound
+    )
+    {
+        var broker = new ZeroMqBroker(
+            new ZeroMqBrokerOptions { BindEndpoint = endpoint, CommandAddress = "work-items" },
+            NullLogger<ZeroMqBroker>.Instance
+        );
+        var worker = Client(endpoint, "work-items", workerInbound);
+        var client = Client(endpoint, "orchestrator", clientInbound);
+        await broker.StartAsync(CancellationToken.None);
+        await worker.StartAsync(CancellationToken.None);
+        await client.StartAsync(CancellationToken.None);
+        await Task.Delay(100);
+        return new Bus(broker, worker, client);
+    }
+
+    static ZeroMqMessageBusProvider Client(string endpoint, string address, IMessageBusInbound inbound) =>
         new(
-            new ZeroMqBusOptions { Mode = mode, RouterEndpoint = endpoint },
+            new ZeroMqBusOptions { Endpoint = endpoint, Address = address },
             inbound,
             NullLogger<ZeroMqMessageBusProvider>.Instance
         );
+
+    static async Task WaitUntil(Func<bool> ready)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(2);
+        while (!ready() && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(25);
+        }
+    }
 
     static int FreeTcpPort()
     {
@@ -158,6 +129,32 @@ public class ZeroMqProviderTests
     sealed record EchoBody(string Text);
 
     sealed record EchoResult(string Echo);
+
+    sealed class Bus : IAsyncDisposable
+    {
+        public ZeroMqMessageBusProvider Worker { get; }
+        public ZeroMqMessageBusProvider Client { get; }
+        readonly ZeroMqBroker _broker;
+
+        public Bus(
+            ZeroMqBroker broker,
+            ZeroMqMessageBusProvider worker,
+            ZeroMqMessageBusProvider client
+        )
+        {
+            _broker = broker;
+            Worker = worker;
+            Client = client;
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            Client.Dispose();
+            Worker.Dispose();
+            _broker.Dispose();
+            return ValueTask.CompletedTask;
+        }
+    }
 
     sealed class RecordingInbound : IMessageBusInbound
     {

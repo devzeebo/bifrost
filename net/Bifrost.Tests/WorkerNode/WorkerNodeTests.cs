@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Shouldly;
 using Wolverine;
+using Wolverine.Runtime.Heartbeat;
 
 namespace Bifrost.Tests.WorkerNode;
 
@@ -22,7 +23,7 @@ public class WorkerNodeTests
         builder.Services.AddSingleton<IBifrostBus>(bus);
         builder.Services.AddSingleton(new WorkerNodeIdentity { Id = nodeId });
         builder.Services.AddResourceSetupOnStartup();
-        builder.UseWolverine(opts => WorkerNodeWolverine.Configure(opts, outboxPath));
+        builder.UseWolverine(opts => WorkerNodeWolverine.Configure(opts, outboxPath, nodeId));
         builder.Services.AddHostedService<WorkerRegistrationService>();
 
         using var host = builder.Build();
@@ -30,13 +31,13 @@ public class WorkerNodeTests
         try
         {
             var deadline = DateTime.UtcNow.AddSeconds(10);
-            while (DateTime.UtcNow < deadline && !bus.Published.OfType<WorkerNodeHeartbeat.Event>().Any())
+            while (DateTime.UtcNow < deadline && !bus.Published.OfType<WolverineHeartbeat>().Any())
             {
                 await Task.Delay(50);
             }
 
-            bus.Published.OfType<WorkerNodeRegistered.Event>().ShouldHaveSingleItem().Id.ShouldBe(nodeId);
-            bus.Published.OfType<WorkerNodeHeartbeat.Event>().ShouldContain(x => x.Id == nodeId);
+            bus.Published.OfType<WorkerNodeRegistered.Command>().ShouldHaveSingleItem().Id.ShouldBe(nodeId);
+            bus.Published.OfType<WolverineHeartbeat>().ShouldContain(x => x.ServiceName == nodeId.ToString());
         }
         finally
         {

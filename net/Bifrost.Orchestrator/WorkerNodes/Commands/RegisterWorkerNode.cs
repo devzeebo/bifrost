@@ -7,7 +7,7 @@ namespace Bifrost.WorkerNodes.Commands;
 
 public static class RegisterWorkerNodeHandler
 {
-    public static async Task Handle(Contract.Event message, IDocumentSession session)
+    public static async Task Handle(Contract.Command message, IDocumentSession session)
     {
         if (await session.Events.FetchStreamStateAsync(message.Id) is not null)
         {
@@ -16,7 +16,7 @@ public static class RegisterWorkerNodeHandler
 
         session.Events.StartStream<WorkerNode>(
             message.Id,
-            new WorkerNodeRegistered { Id = message.Id }
+            new WorkerNodeRegistered(message.Id)
         );
     }
 }

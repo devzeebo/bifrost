@@ -1,4 +1,5 @@
 using Bifrost.MessageBus;
+using JasperFx;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Wolverine;
@@ -10,7 +11,7 @@ var builder = Host.CreateApplicationBuilder(args);
 
 var socketPath =
     builder.Configuration["Bifrost:BusSocket"]
-    ?? Environment.GetEnvironmentVariable("BIFROST_BUS_SOCKET")
+    ?? Environment.GetEnvironmentVariable(RpcConnectionKeys.SocketEnv)
     ?? "/run/bifrost/bus.sock";
 
 var outboxPath =
@@ -29,14 +30,14 @@ builder.Services.AddRpcHost(options =>
     options.SocketPath = socketPath;
     options.LaunchProcesses = false;
     options.WaitForReadyOnStart = true;
-    options.Instances = [new RpcInstanceOptions { Id = "bus", Role = RpcRole.Primary }];
+    options.Instances = [new RpcInstanceOptions { Id = "worker", Role = RpcRole.Primary }];
 });
 
 builder.Services.AddMessageBus();
 builder.Services.AddResourceSetupOnStartup();
 
-builder.UseWolverine(opts => WorkerNodeWolverine.Configure(opts, outboxPath));
+builder.UseWolverine(opts => WorkerNodeWolverine.Configure(opts, outboxPath, nodeId));
 builder.Services.AddHostedService<WorkerRegistrationService>();
 
 var host = builder.Build();
-await host.RunAsync();
+return await host.RunJasperFxCommands(args);

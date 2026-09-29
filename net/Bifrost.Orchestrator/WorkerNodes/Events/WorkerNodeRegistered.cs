@@ -1,6 +1,11 @@
+using System.Text.Json.Serialization;
+
 namespace Bifrost.WorkerNodes.Events;
 
 public sealed record WorkerNodeRegistered
 {
-    public required Guid Id { get; init; }
+    [JsonConstructor]
+    internal WorkerNodeRegistered(Guid id) => Id = id;
+
+    public Guid Id { get; init; }
 }

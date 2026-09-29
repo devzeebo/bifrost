@@ -2,6 +2,9 @@ using Bifrost;
 using Bifrost.MessageBus;
 using Bifrost.Orchestrator.Contracts;
 using Bifrost.Rpc;
+using JasperFx;
+using JasperFx.CodeGeneration;
+using Wolverine.Runtime.Heartbeat;
 using Marten;
 using Wolverine;
 using Wolverine.Marten;
@@ -14,7 +17,7 @@ var connectionString =
 
 var socketPath =
     builder.Configuration["Bifrost:BusSocket"]
-    ?? Environment.GetEnvironmentVariable("BIFROST_BUS_SOCKET")
+    ?? Environment.GetEnvironmentVariable(RpcConnectionKeys.SocketEnv)
     ?? "/run/bifrost/bus.sock";
 
 builder
@@ -28,11 +31,16 @@ builder
 
 builder.Host.UseWolverine(opts =>
 {
+    opts.ApplicationAssembly = typeof(MartenConfiguration).Assembly;
+    opts.CodeGeneration.TypeLoadMode = TypeLoadMode.Static;
+    opts.CodeGeneration.GeneratedCodeOutputPath = Path.GetFullPath(
+        Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Internal", "Generated")
+    );
     opts.Discovery.IncludeAssembly(typeof(MartenConfiguration).Assembly);
     opts.Policies.AutoApplyTransactions();
     opts.UseBifrostBus()
-        .ListenFor<WorkerNodeRegistered.Event>()
-        .ListenFor<WorkerNodeHeartbeat.Event>();
+        .ListenFor<WorkerNodeRegistered.Command>()
+        .ListenFor<WolverineHeartbeat>();
 });
 
 builder.Services.AddRpcHost(options =>
@@ -40,7 +48,7 @@ builder.Services.AddRpcHost(options =>
     options.SocketPath = socketPath;
     options.LaunchProcesses = false;
     options.WaitForReadyOnStart = false;
-    options.Instances = [new RpcInstanceOptions { Id = "bus", Role = RpcRole.Primary }];
+    options.Instances = [new RpcInstanceOptions { Id = "orchestrator", Role = RpcRole.Primary }];
 });
 
 builder.Services.AddMessageBus();
@@ -50,6 +58,12 @@ var app = builder.Build();
 
 app.MapWolverineEndpoints();
 
+if (args is ["codegen", ..])
+{
+    return await app.RunJasperFxCommands(args);
+}
+
 app.Run();
+return 0;
 
 public partial class Program;

@@ -21,7 +21,7 @@ services:
       dockerfile: net/Bifrost.WorkItems/Dockerfile
     environment:
       ConnectionStrings__Marten: Host=postgres;Port=5432;Database=bifrost;Username=bifrost;Password=bifrost
-      BIFROST_BUS_SOCKET: /run/bifrost/bus.sock
+      BIFROST_SOCKET: /run/bifrost/bus.sock
       ASPNETCORE_URLS: http://+:8080
     ports:
       - "8080:8080"
@@ -31,20 +31,40 @@ services:
       postgres:
         condition: service_healthy
 
-  bus:
+  rabbitmq:
+    image: rabbitmq:3-management
+    environment:
+      RABBITMQ_DEFAULT_USER: bifrost
+      RABBITMQ_DEFAULT_PASS: bifrost
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  work-items-bus:
     build:
       context: ..
-      dockerfile: net/Bifrost.MessageBus.ZeroMq/Dockerfile
+      dockerfile: net/Bifrost.MessageBus.RabbitMq/Dockerfile
     environment:
-      BIFROST_BUS_SOCKET: /run/bifrost/bus.sock
-      BIFROST_INSTANCE_ID: bus
+      BIFROST_SOCKET: /run/bifrost/bus.sock
+      BIFROST_INSTANCE_ID: work-items
       BIFROST_ROLE: primary
-      BUS_MODE: server
-      BUS_ROUTER_ENDPOINT: tcp://*:5555
+      BUS_ENDPOINT: amqp://bifrost:bifrost@rabbitmq:5672/
+      BUS_SUBSCRIBERS: work-items,orchestrator,worker
+      BUS_COMMAND_ADDRESS: work-items
     volumes:
       - bus_sock:/run/bifrost
     depends_on:
-      - work-items
+      work-items:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
 
   orchestrator:
     build:
@@ -52,7 +72,7 @@ services:
       dockerfile: net/Bifrost.Orchestrator/Dockerfile
     environment:
       ConnectionStrings__Marten: Host=postgres;Port=5432;Database=bifrost;Username=bifrost;Password=bifrost
-      BIFROST_BUS_SOCKET: /run/bifrost/bus.sock
+      BIFROST_SOCKET: /run/bifrost/bus.sock
       ASPNETCORE_URLS: http://+:8080
     ports:
       - "8081:8080"
@@ -65,24 +85,26 @@ services:
   orchestrator-bus:
     build:
       context: ..
-      dockerfile: net/Bifrost.MessageBus.ZeroMq/Dockerfile
+      dockerfile: net/Bifrost.MessageBus.RabbitMq/Dockerfile
     environment:
-      BIFROST_BUS_SOCKET: /run/bifrost/bus.sock
+      BIFROST_SOCKET: /run/bifrost/bus.sock
       BIFROST_INSTANCE_ID: orchestrator
       BIFROST_ROLE: primary
-      BUS_MODE: client
-      BUS_ROUTER_ENDPOINT: tcp://bus:5555
+      BUS_ENDPOINT: amqp://bifrost:bifrost@rabbitmq:5672/
+      BUS_SUBSCRIBERS: work-items,orchestrator,worker
+      BUS_COMMAND_ADDRESS: work-items
     volumes:
       - orchestrator_bus_sock:/run/bifrost
     depends_on:
-      - bus
+      rabbitmq:
+        condition: service_healthy
 
   worker-node:
     build:
       context: ..
       dockerfile: net/Bifrost.WorkerNode/Dockerfile
     environment:
-      BIFROST_BUS_SOCKET: /run/bifrost/bus.sock
+      BIFROST_SOCKET: /run/bifrost/bus.sock
       BIFROST_OUTBOX_PATH: /var/lib/bifrost/worker-node.db
     volumes:
       - worker_bus_sock:/run/bifrost
@@ -93,20 +115,23 @@ services:
   worker-bus:
     build:
       context: ..
-      dockerfile: net/Bifrost.MessageBus.ZeroMq/Dockerfile
+      dockerfile: net/Bifrost.MessageBus.RabbitMq/Dockerfile
     environment:
-      BIFROST_BUS_SOCKET: /run/bifrost/bus.sock
+      BIFROST_SOCKET: /run/bifrost/bus.sock
       BIFROST_INSTANCE_ID: worker
       BIFROST_ROLE: primary
-      BUS_MODE: client
-      BUS_ROUTER_ENDPOINT: tcp://bus:5555
+      BUS_ENDPOINT: amqp://bifrost:bifrost@rabbitmq:5672/
+      BUS_SUBSCRIBERS: work-items,orchestrator,worker
+      BUS_COMMAND_ADDRESS: work-items
     volumes:
       - worker_bus_sock:/run/bifrost
     depends_on:
-      - bus
+      rabbitmq:
+        condition: service_healthy
 
 volumes:
   bifrost_pgdata:
+  rabbitmq_data:
   bus_sock:
   orchestrator_bus_sock:
   worker_bus_sock:

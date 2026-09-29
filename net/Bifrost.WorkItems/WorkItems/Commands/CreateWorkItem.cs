@@ -20,11 +20,6 @@ public static class CreateWorkItemHandler
     public static IStartStream Handle(CreateWorkItemApi.Command command) =>
         MartenOps.StartStream<WorkItem>(
             command.Id,
-            new WorkItemCreated
-            {
-                Id = command.Id,
-                Data = command.Data,
-                Status = command.Status,
-            }
+            new WorkItemCreated(command.Id, command.Data, command.Status)
         );
 }

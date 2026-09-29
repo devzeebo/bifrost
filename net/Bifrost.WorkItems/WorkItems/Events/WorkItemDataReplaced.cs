@@ -1,8 +1,12 @@
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 
 namespace Bifrost.WorkItems.Events;
 
 public sealed record WorkItemDataReplaced
 {
-    public required JsonNode Data { get; init; }
+    [JsonConstructor]
+    internal WorkItemDataReplaced(JsonNode data) => Data = data;
+
+    public JsonNode Data { get; init; }
 }

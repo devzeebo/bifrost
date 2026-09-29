@@ -1,8 +1,22 @@
+using System.Text.Json.Serialization;
+
 namespace Bifrost.RelationshipTypes.Events;
 
 public sealed record RelationshipTypeRetired
 {
-    public required Guid RelationshipTypeId { get; init; }
-    public required RelationshipTypeWord ForwardWord { get; init; }
-    public required RelationshipTypeWord InverseWord { get; init; }
+    [JsonConstructor]
+    internal RelationshipTypeRetired(
+        Guid relationshipTypeId,
+        RelationshipTypeWord forwardWord,
+        RelationshipTypeWord inverseWord
+    )
+    {
+        RelationshipTypeId = relationshipTypeId;
+        ForwardWord = forwardWord;
+        InverseWord = inverseWord;
+    }
+
+    public Guid RelationshipTypeId { get; init; }
+    public RelationshipTypeWord ForwardWord { get; init; }
+    public RelationshipTypeWord InverseWord { get; init; }
 }

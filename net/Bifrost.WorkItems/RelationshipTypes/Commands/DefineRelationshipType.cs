@@ -32,12 +32,7 @@ public static class DefineRelationshipTypeHandler
     public static IStartStream Handle(DefineRelationshipTypeApi.Command command) =>
         MartenOps.StartStream<RelationshipType>(
             command.Id,
-            new RelationshipTypeDefined
-            {
-                Id = command.Id,
-                ForwardWord = command.ForwardWord,
-                InverseWord = command.InverseWord,
-            }
+            new RelationshipTypeDefined(command.Id, command.ForwardWord, command.InverseWord)
         );
 
     static async Task<bool> WordTaken(IQuerySession session, RelationshipTypeWord word)

@@ -19,5 +19,5 @@ public static class ChangeWorkItemStatusHandler
     public static WorkItemStatusChanged Handle(
         ChangeWorkItemStatusApi.Command command,
         WorkItem workItem
-    ) => new() { Status = command.Status };
+    ) => new(command.Status);
 }

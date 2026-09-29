@@ -28,12 +28,11 @@ public static class DeleteWorkItemHandler
         foreach (var edge in workItem.Relationships.ToArray())
         {
             events.Add(
-                new RelationshipRemoved
-                {
-                    RelationshipTypeId = edge.RelationshipTypeId,
-                    Direction = edge.Direction,
-                    RelatedWorkItemId = edge.RelatedWorkItemId,
-                }
+                new RelationshipRemoved(
+                    edge.RelationshipTypeId,
+                    edge.Direction,
+                    edge.RelatedWorkItemId
+                )
             );
 
             var inverseDirection = Flip(edge.Direction);
@@ -44,12 +43,11 @@ public static class DeleteWorkItemHandler
             )
             {
                 related.AppendOne(
-                    new RelationshipRemoved
-                    {
-                        RelationshipTypeId = edge.RelationshipTypeId,
-                        Direction = inverseDirection,
-                        RelatedWorkItemId = workItem.Id,
-                    }
+                    new RelationshipRemoved(
+                        edge.RelationshipTypeId,
+                        inverseDirection,
+                        workItem.Id
+                    )
                 );
             }
         }

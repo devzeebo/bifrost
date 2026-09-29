@@ -72,25 +72,23 @@ public static class AddRelationshipHandler
         )
         {
             related.AppendOne(
-                new RelationshipAdded
-                {
-                    RelationshipTypeId = byWord.RelationshipTypeId,
-                    Word = inverseWord,
-                    Direction = inverseDirection,
-                    RelatedWorkItemId = command.WorkItemId,
-                }
+                new RelationshipAdded(
+                    byWord.RelationshipTypeId,
+                    inverseWord,
+                    inverseDirection,
+                    command.WorkItemId
+                )
             );
         }
 
         return
         [
-            new RelationshipAdded
-            {
-                RelationshipTypeId = byWord.RelationshipTypeId,
-                Word = thisWord,
-                Direction = byWord.Direction,
-                RelatedWorkItemId = command.RelatedWorkItemId,
-            },
+            new RelationshipAdded(
+                byWord.RelationshipTypeId,
+                thisWord,
+                byWord.Direction,
+                command.RelatedWorkItemId
+            ),
         ];
     }
 

@@ -1,21 +1,23 @@
 using Bifrost.WorkerNodes.Events;
 using Marten;
-using Contract = Bifrost.Orchestrator.Contracts.WorkerNodeHeartbeat;
+using Wolverine.Runtime.Heartbeat;
 
 namespace Bifrost.WorkerNodes.Commands;
 
 public static class RecordWorkerHeartbeatHandler
 {
-    public static async Task Handle(Contract.Event message, IDocumentSession session)
+    public static async Task Handle(WolverineHeartbeat heartbeat, IDocumentSession session)
     {
-        if (await session.Events.FetchStreamStateAsync(message.Id) is null)
+        if (!Guid.TryParse(heartbeat.ServiceName, out var id))
         {
             return;
         }
 
-        session.Events.Append(
-            message.Id,
-            new WorkerNodeHeartbeatRecorded { At = DateTimeOffset.UtcNow }
-        );
+        if (await session.Events.FetchStreamStateAsync(id) is null)
+        {
+            return;
+        }
+
+        session.Events.Append(id, new WorkerNodeHeartbeatRecorded(heartbeat.SentAt));
     }
 }

@@ -14,6 +14,7 @@ Thanks for contributing to Bifrost.
 | `net/Bifrost.MessageBus.Abstractions` | `IBifrostBus`, envelopes, RPC wire contracts, provider surface |
 | `net/Bifrost.MessageBus.Wolverine` | Wolverine transport over `IBifrostBus`. Hosts publish through the outbox and listen with `Handle` methods |
 | `net/Bifrost.MessageBus.ZeroMq` | ZeroMQ bus sidecar deployable (`IMessageBusProvider`) |
+| `net/Bifrost.MessageBus.RabbitMq` | RabbitMQ bus sidecar deployable (`IMessageBusProvider`). Compose runs this against a RabbitMQ container |
 | `net/Bifrost.Tests` | All tests in one project (`Api/`, `MessageBus/`, `Rpc/`, `Support/`) |
 | `net/Bifrost.Rpc` | `RpcHost` / `RpcPeer`, options, hosted services |
 | `net/Bifrost.Rpc.Abstractions` | `IRpcContract`, `IRpc<T>`, `RpcSession`, `AddRpc` / `AddRpcHandler` |
@@ -23,7 +24,7 @@ Thanks for contributing to Bifrost.
 
 RPC protocol: [docs/rpc.md](docs/rpc.md).
 
-Each context uses its own Marten schema (`work_items`, `orchestrator`) in the shared Postgres database. The worker node does not use that database; its durable outbox is a local SQLite file. The Work Item host shares a message bus sidecar over a unix-socket volume. The orchestrator and the worker each have their own sidecar, connected to that bus as clients. Host images never reference NetMQ.
+Each context uses its own Marten schema (`work_items`, `orchestrator`) in the shared Postgres database. The worker node does not use that database; its durable outbox is a local SQLite file. The Work Item host shares a message bus sidecar over a unix-socket volume. The orchestrator and the worker each have their own sidecar. Compose connects those sidecars to RabbitMQ, which keeps a durable queue per service until the sidecar acks. Host images never reference NetMQ or RabbitMQ.Client. The ZeroMQ sidecar remains in the repo.
 
 Domain work is organized by **aggregate root**. How to structure and extend an aggregate is documented in [docs/ddd-aggregate-roots.md](docs/ddd-aggregate-roots.md).
 

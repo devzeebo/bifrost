@@ -12,6 +12,6 @@ RUN dotnet publish net/Bifrost.WorkerNode/Bifrost.WorkerNode.csproj -c Release -
 FROM mcr.microsoft.com/dotnet/runtime:10.0
 WORKDIR /app
 COPY --from=build /app .
-ENV BIFROST_BUS_SOCKET=/run/bifrost/bus.sock
+ENV BIFROST_SOCKET=/run/bifrost/bus.sock
 ENV BIFROST_OUTBOX_PATH=/var/lib/bifrost/worker-node.db
 ENTRYPOINT ["dotnet", "Bifrost.WorkerNode.dll"]

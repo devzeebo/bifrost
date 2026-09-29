@@ -5,8 +5,10 @@ using System.Text;
 using System.Text.Json;
 using Bifrost.MessageBus;
 using Bifrost.Orchestrator.Contracts;
+using Marten;
 using Bifrost.Rpc;
 using Bifrost.Tests;
+using Wolverine.Runtime.Heartbeat;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -87,13 +89,17 @@ public class OrchestratorTests
         var client = _factory.CreateClient();
         var id = Guid.NewGuid();
 
-        await Publish(new WorkerNodeRegistered.Event { Id = id });
-        await Publish(new WorkerNodeHeartbeat.Event { Id = id });
+        await Publish(new WorkerNodeRegistered.Command { Id = id });
+        await Publish(Heartbeat(id));
 
         var node = (await List(client)).Where(x => x.Id == id).ShouldHaveSingleItem();
         node.IsAvailable.ShouldBeTrue();
         node.IsOnline.ShouldBeTrue();
         node.LastHeartbeatAt.ShouldNotBeNull();
+
+        await using var session = _factory.Services.GetRequiredService<IDocumentStore>().LightweightSession();
+        var events = await session.Events.FetchStreamAsync(id);
+        events.Count.ShouldBe(2);
     }
 
     [Fact]
@@ -102,7 +108,7 @@ public class OrchestratorTests
         var client = _factory.CreateClient();
         var id = Guid.NewGuid();
 
-        await Publish(new WorkerNodeHeartbeat.Event { Id = id });
+        await Publish(Heartbeat(id));
 
         (await List(client)).ShouldNotContain(x => x.Id == id);
     }
@@ -113,13 +119,16 @@ public class OrchestratorTests
         var client = _factory.CreateClient();
         var id = Guid.NewGuid();
 
-        await Publish(new WorkerNodeRegistered.Event { Id = id });
-        await Publish(new WorkerNodeRegistered.Event { Id = id });
+        await Publish(new WorkerNodeRegistered.Command { Id = id });
+        await Publish(new WorkerNodeRegistered.Command { Id = id });
 
         var node = (await List(client)).Where(x => x.Id == id).ShouldHaveSingleItem();
         node.IsAvailable.ShouldBeTrue();
         node.IsOnline.ShouldBeFalse();
     }
+
+    static WolverineHeartbeat Heartbeat(Guid id) =>
+        new(id.ToString(), 1, DateTimeOffset.UtcNow, TimeSpan.Zero);
 
     async Task Publish<TEvent>(TEvent message)
         where TEvent : class

@@ -57,23 +57,21 @@ public static class RemoveRelationshipHandler
         )
         {
             related.AppendOne(
-                new RelationshipRemoved
-                {
-                    RelationshipTypeId = byWord.RelationshipTypeId,
-                    Direction = inverseDirection,
-                    RelatedWorkItemId = command.WorkItemId,
-                }
+                new RelationshipRemoved(
+                    byWord.RelationshipTypeId,
+                    inverseDirection,
+                    command.WorkItemId
+                )
             );
         }
 
         return
         [
-            new RelationshipRemoved
-            {
-                RelationshipTypeId = byWord.RelationshipTypeId,
-                Direction = byWord.Direction,
-                RelatedWorkItemId = command.RelatedWorkItemId,
-            },
+            new RelationshipRemoved(
+                byWord.RelationshipTypeId,
+                byWord.Direction,
+                command.RelatedWorkItemId
+            ),
         ];
     }
 
