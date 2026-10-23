@@ -6,20 +6,20 @@ Thanks for contributing to Bifrost.
 
 | Path | Role |
 |------|------|
-| `net/Bifrost.WorkItems.Contracts` | Shared `{Operation}Api` classes with nested `Command` / `Query` / `Response` |
-| `net/Bifrost.WorkItems` | Work Item bounded context — HTTP, Marten, and Wolverine handlers. Marten schema `work_items` |
-| `net/Bifrost.Orchestrator.Contracts` | Worker registration and heartbeat messages the orchestrator subscribes to |
-| `net/Bifrost.Orchestrator` | Decides where work executes — HTTP, Marten, and Wolverine. Marten schema `orchestrator` |
-| `net/Bifrost.WorkerNode` | Registers itself and heartbeats. Wolverine with a local SQLite outbox, no Postgres or Marten. Sends through `IBifrostBus` |
-| `net/Bifrost.MessageBus.Abstractions` | `IBifrostBus`, envelopes, RPC wire contracts, provider surface |
-| `net/Bifrost.MessageBus.Wolverine` | Wolverine transport over `IBifrostBus`. Hosts publish through the outbox and listen with `Handle` methods |
-| `net/Bifrost.MessageBus.ZeroMq` | ZeroMQ bus sidecar deployable (`IMessageBusProvider`) |
-| `net/Bifrost.MessageBus.RabbitMq` | RabbitMQ bus sidecar deployable (`IMessageBusProvider`). Compose runs this against a RabbitMQ container |
-| `net/Bifrost.Tests` | All tests in one project (`Api/`, `MessageBus/`, `Rpc/`, `Support/`) |
-| `net/Bifrost.Rpc` | `RpcHost` / `RpcPeer`, options, hosted services |
-| `net/Bifrost.Rpc.Abstractions` | `IRpcContract`, `IRpc<T>`, `RpcSession`, `AddRpc` / `AddRpcHandler` |
-| `net/Bifrost.Rpc.Generators` | Source generator for contract proxies and bindings |
-| `net/Bifrost.Rpc.TestPeer` | Peer executable the host launches in process-boundary tests |
+| `net/Domains/Bifrost.WorkItems.Contracts` | Shared `{Operation}Api` classes with nested `Command` / `Query` / `Response` |
+| `net/Domains/Bifrost.WorkItems` | Work Item bounded context — HTTP, Marten, and Wolverine handlers. Marten schema `work_items` |
+| `net/Domains/Bifrost.Orchestrator.Contracts` | Worker registration and heartbeat messages the orchestrator subscribes to |
+| `net/Domains/Bifrost.Orchestrator` | Decides where work executes — HTTP, Marten, and Wolverine. Marten schema `orchestrator` |
+| `net/Domains/Bifrost.WorkerNode` | Registers itself and heartbeats. Wolverine with a local SQLite outbox, no Postgres or Marten. Sends through `IBifrostBus` |
+| `net/Infrastructure/Bifrost.MessageBus.Abstractions` | `IBifrostBus`, envelopes, RPC wire contracts, provider surface |
+| `net/Infrastructure/Bifrost.MessageBus.Wolverine` | Wolverine transport over `IBifrostBus`. Hosts publish through the outbox and listen with `Handle` methods |
+| `net/Infrastructure/Bifrost.MessageBus.ZeroMq` | ZeroMQ bus sidecar deployable (`IMessageBusProvider`) |
+| `net/Infrastructure/Bifrost.MessageBus.RabbitMq` | RabbitMQ bus sidecar deployable (`IMessageBusProvider`). Compose runs this against a RabbitMQ container |
+| `net/Tests/Bifrost.Tests` | All tests in one project (`Api/`, `MessageBus/`, `Rpc/`, `Support/`) |
+| `net/Infrastructure/Bifrost.Rpc` | `RpcHost` / `RpcPeer`, options, hosted services |
+| `net/Infrastructure/Bifrost.Rpc.Abstractions` | `IRpcContract`, `IRpc<T>`, `RpcSession`, `AddRpc` / `AddRpcHandler` |
+| `net/Infrastructure/Bifrost.Rpc.Generators` | Source generator for contract proxies and bindings |
+| `net/Tests/Bifrost.Rpc.TestPeer` | Peer executable the host launches in process-boundary tests |
 | `docs/` | Design and pattern documentation |
 
 RPC protocol: [docs/rpc.md](docs/rpc.md).

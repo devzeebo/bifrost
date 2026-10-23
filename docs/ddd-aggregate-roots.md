@@ -2,7 +2,7 @@
 
 Bifrost models the write side with **event-sourced aggregate roots**, Wolverine message handlers, and Marten for the event store and read models.
 
-This document describes **how to work inside a single aggregate root folder**. It is the pattern to follow for every aggregate under `net/Bifrost`.
+This document describes **how to work inside a single aggregate root folder**. It is the pattern to follow for every aggregate under `net/Domains`.
 
 ## Mental model
 

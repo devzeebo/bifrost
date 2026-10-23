@@ -1,15 +1,21 @@
 <Solution>
-  <Project Path="../net/Bifrost.WorkItems.Contracts/Bifrost.WorkItems.Contracts.csproj" />
-  <Project Path="../net/Bifrost.WorkItems/Bifrost.WorkItems.csproj" />
-  <Project Path="../net/Bifrost.Orchestrator.Contracts/Bifrost.Orchestrator.Contracts.csproj" />
-  <Project Path="../net/Bifrost.Orchestrator/Bifrost.Orchestrator.csproj" />
-  <Project Path="../net/Bifrost.WorkerNode/Bifrost.WorkerNode.csproj" />
-  <Project Path="../net/Bifrost.Tests/Bifrost.Tests.csproj" />
-  <Project Path="../net/Bifrost.MessageBus.Abstractions/Bifrost.MessageBus.Abstractions.csproj" />
-  <Project Path="../net/Bifrost.MessageBus.Wolverine/Bifrost.MessageBus.Wolverine.csproj" />
-  <Project Path="../net/Bifrost.MessageBus.RabbitMq/Bifrost.MessageBus.RabbitMq.csproj" />
-  <Project Path="../net/Bifrost.Rpc/Bifrost.Rpc.csproj" />
-  <Project Path="../net/Bifrost.Rpc.Abstractions/Bifrost.Rpc.Abstractions.csproj" />
-  <Project Path="../net/Bifrost.Rpc.Generators/Bifrost.Rpc.Generators.csproj" />
-  <Project Path="../net/Bifrost.Rpc.TestPeer/Bifrost.Rpc.TestPeer.csproj" />
+  <Folder Name="/Domains/">
+    <Project Path="../net/Domains/Bifrost.WorkItems.Contracts/Bifrost.WorkItems.Contracts.csproj" />
+    <Project Path="../net/Domains/Bifrost.WorkItems/Bifrost.WorkItems.csproj" />
+    <Project Path="../net/Domains/Bifrost.Orchestrator.Contracts/Bifrost.Orchestrator.Contracts.csproj" />
+    <Project Path="../net/Domains/Bifrost.Orchestrator/Bifrost.Orchestrator.csproj" />
+    <Project Path="../net/Domains/Bifrost.WorkerNode/Bifrost.WorkerNode.csproj" />
+  </Folder>
+  <Folder Name="/Infrastructure/">
+    <Project Path="../net/Infrastructure/Bifrost.MessageBus.Abstractions/Bifrost.MessageBus.Abstractions.csproj" />
+    <Project Path="../net/Infrastructure/Bifrost.MessageBus.Wolverine/Bifrost.MessageBus.Wolverine.csproj" />
+    <Project Path="../net/Infrastructure/Bifrost.MessageBus.RabbitMq/Bifrost.MessageBus.RabbitMq.csproj" />
+    <Project Path="../net/Infrastructure/Bifrost.Rpc/Bifrost.Rpc.csproj" />
+    <Project Path="../net/Infrastructure/Bifrost.Rpc.Abstractions/Bifrost.Rpc.Abstractions.csproj" />
+    <Project Path="../net/Infrastructure/Bifrost.Rpc.Generators/Bifrost.Rpc.Generators.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="../net/Tests/Bifrost.Tests/Bifrost.Tests.csproj" />
+    <Project Path="../net/Tests/Bifrost.Rpc.TestPeer/Bifrost.Rpc.TestPeer.csproj" />
+  </Folder>
 </Solution>

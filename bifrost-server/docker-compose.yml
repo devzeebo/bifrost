@@ -18,7 +18,7 @@ services:
   work-items:
     build:
       context: ..
-      dockerfile: net/Bifrost.WorkItems/Dockerfile
+      dockerfile: net/Domains/Bifrost.WorkItems/Dockerfile
     environment:
       ConnectionStrings__Marten: Host=postgres;Port=5432;Database=bifrost;Username=bifrost;Password=bifrost
       Bifrost__BusSocket: /run/bifrost/bus.sock
@@ -50,7 +50,7 @@ services:
   work-items-bus:
     build:
       context: ..
-      dockerfile: net/Bifrost.MessageBus.RabbitMq/Dockerfile
+      dockerfile: net/Infrastructure/Bifrost.MessageBus.RabbitMq/Dockerfile
     environment:
       Rpc__SocketPath: /run/bifrost/bus.sock
       Rpc__InstanceId: work-items
@@ -67,7 +67,7 @@ services:
   orchestrator:
     build:
       context: ..
-      dockerfile: net/Bifrost.Orchestrator/Dockerfile
+      dockerfile: net/Domains/Bifrost.Orchestrator/Dockerfile
     environment:
       ConnectionStrings__Marten: Host=postgres;Port=5432;Database=bifrost;Username=bifrost;Password=bifrost
       Bifrost__BusSocket: /run/bifrost/bus.sock
@@ -83,7 +83,7 @@ services:
   orchestrator-bus:
     build:
       context: ..
-      dockerfile: net/Bifrost.MessageBus.RabbitMq/Dockerfile
+      dockerfile: net/Infrastructure/Bifrost.MessageBus.RabbitMq/Dockerfile
     environment:
       Rpc__SocketPath: /run/bifrost/bus.sock
       Rpc__InstanceId: orchestrator
@@ -98,7 +98,7 @@ services:
   worker-node:
     build:
       context: ..
-      dockerfile: net/Bifrost.WorkerNode/Dockerfile
+      dockerfile: net/Domains/Bifrost.WorkerNode/Dockerfile
     environment:
       Bifrost__BusSocket: /run/bifrost/bus.sock
       Bifrost__OutboxPath: /var/lib/bifrost/worker-node.db
@@ -112,7 +112,7 @@ services:
   worker-bus:
     build:
       context: ..
-      dockerfile: net/Bifrost.MessageBus.RabbitMq/Dockerfile
+      dockerfile: net/Infrastructure/Bifrost.MessageBus.RabbitMq/Dockerfile
     environment:
       Rpc__SocketPath: /run/bifrost/bus.sock
       Rpc__InstanceId: worker
