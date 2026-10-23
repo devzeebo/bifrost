@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -32,12 +33,11 @@ public static class ServiceCollectionExtensions
         }
 
         /// <summary>
-        /// Registers the connecting side, reading the socket path, instance id, and role the host
-        /// passed on the command line or in the environment.
+        /// Registers the connecting side from the <c>Rpc</c> configuration section.
         /// </summary>
         public IServiceCollection AddRpcPeer() =>
-            services.AddRpcPeer(_ =>
-                RpcPeerOptions.FromEnvironment(Environment.GetCommandLineArgs())
+            services.AddRpcPeer(sp =>
+                RpcPeerOptions.FromConfiguration(sp.GetRequiredService<IConfiguration>())
             );
 
         /// <summary>Registers the connecting side with explicit options.</summary>

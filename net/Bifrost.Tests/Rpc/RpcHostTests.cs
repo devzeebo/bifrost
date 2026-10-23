@@ -125,7 +125,7 @@ public class RpcHostTests
             Role = role,
             Executable = "dotnet",
             Arguments = [peerDll],
-            Environment = { ["TESTPEER_ECHO"] = echoValue },
+            Environment = { ["TestPeer__Echo"] = echoValue },
         };
 
     static string NewSocketPath() =>

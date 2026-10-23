@@ -14,10 +14,7 @@ var connectionString =
     builder.Configuration["ConnectionStrings:Marten"]
     ?? throw new InvalidOperationException("Connection string 'Marten' is required.");
 
-var socketPath =
-    builder.Configuration["Bifrost:BusSocket"]
-    ?? Environment.GetEnvironmentVariable(RpcConnectionKeys.SocketEnv)
-    ?? "/run/bifrost/bus.sock";
+var socketPath = builder.Configuration["Bifrost:BusSocket"] ?? "/run/bifrost/bus.sock";
 
 builder
     .Services.AddMarten(opts =>

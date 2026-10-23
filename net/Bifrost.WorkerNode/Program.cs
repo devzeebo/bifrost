@@ -9,17 +9,9 @@ using JasperFx.Resources;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-var socketPath =
-    builder.Configuration["Bifrost:BusSocket"]
-    ?? Environment.GetEnvironmentVariable(RpcConnectionKeys.SocketEnv)
-    ?? "/run/bifrost/bus.sock";
-
-var outboxPath =
-    builder.Configuration["Bifrost:OutboxPath"]
-    ?? Environment.GetEnvironmentVariable("BIFROST_OUTBOX_PATH")
-    ?? "worker-node.db";
-
-var nodeId = Guid.TryParse(Environment.GetEnvironmentVariable("BIFROST_WORKER_NODE_ID"), out var configured)
+var socketPath = builder.Configuration["Bifrost:BusSocket"] ?? "/run/bifrost/bus.sock";
+var outboxPath = builder.Configuration["Bifrost:OutboxPath"] ?? "worker-node.db";
+var nodeId = Guid.TryParse(builder.Configuration["Bifrost:NodeId"], out var configured)
     ? configured
     : Guid.NewGuid();
 

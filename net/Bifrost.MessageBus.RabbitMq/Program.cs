@@ -12,7 +12,9 @@ static class EntryPoint
     {
         var builder = Host.CreateApplicationBuilder(args);
         builder.Services.AddLogging(logging => logging.AddConsole());
-        builder.Services.AddSingleton(RabbitMqBusOptions.FromEnvironment());
+        builder.Services.AddSingleton(
+            RabbitMqBusOptions.FromConfiguration(builder.Configuration)
+        );
         builder.Services.AddRpcPeer();
         builder.Services.AddMessageBusProvider<RabbitMqMessageBusProvider>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<RabbitMqMessageBusProvider>());

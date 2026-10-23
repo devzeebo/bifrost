@@ -7,10 +7,10 @@ public static class Program
 {
     public static async Task<int> Main(string[] args)
     {
-        var options = RpcPeerOptions.FromEnvironment(args);
-        var echoValue = Environment.GetEnvironmentVariable("TESTPEER_ECHO") ?? options.InstanceId;
-
         var builder = Host.CreateApplicationBuilder(args);
+        var options = RpcPeerOptions.FromConfiguration(builder.Configuration);
+        var echoValue = builder.Configuration["TestPeer:Echo"] ?? options.InstanceId;
+
         builder.Services.AddRpcPeer(_ => options);
         builder.Services.AddSingleton<IPeerEcho>(new PeerEcho(echoValue, options.InstanceId));
         builder.Services.AddRpcHandler<IPeerEcho>();

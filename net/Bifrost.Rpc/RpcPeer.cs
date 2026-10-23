@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Net.Sockets;
+using Microsoft.Extensions.Configuration;
 
 namespace Bifrost.Rpc;
 
@@ -10,33 +12,48 @@ public sealed class RpcPeerOptions
     public TimeSpan ConnectTimeout { get; init; } = TimeSpan.FromSeconds(10);
 
     /// <summary>
-    /// Reads the connection contract the host passes to launched processes, argv first then env.
+    /// Reads <c>Rpc:SocketPath</c>, <c>Rpc:InstanceId</c>, and <c>Rpc:Role</c>.
+    /// Role defaults to <c>shadow</c>.
     /// </summary>
-    public static RpcPeerOptions FromEnvironment(string[]? args = null)
+    public static RpcPeerOptions FromConfiguration(IConfiguration configuration)
     {
-        args ??= [];
-        var socket =
-            RpcConnectionKeys.GetArgValue(args, RpcConnectionKeys.SocketArg)
-            ?? Environment.GetEnvironmentVariable(RpcConnectionKeys.SocketEnv)
-            ?? throw new InvalidOperationException(
-                $"Missing socket path ({RpcConnectionKeys.SocketArg} / {RpcConnectionKeys.SocketEnv})."
-            );
-        var instanceId =
-            RpcConnectionKeys.GetArgValue(args, RpcConnectionKeys.InstanceIdArg)
-            ?? Environment.GetEnvironmentVariable(RpcConnectionKeys.InstanceIdEnv)
-            ?? throw new InvalidOperationException(
-                $"Missing instance id ({RpcConnectionKeys.InstanceIdArg} / {RpcConnectionKeys.InstanceIdEnv})."
-            );
-        var role =
-            RpcConnectionKeys.GetArgValue(args, RpcConnectionKeys.RoleArg)
-            ?? Environment.GetEnvironmentVariable(RpcConnectionKeys.RoleEnv)
-            ?? "shadow";
+        ArgumentNullException.ThrowIfNull(configuration);
+        var section = configuration.GetSection("Rpc");
+
+        var socket = section["SocketPath"];
+        if (string.IsNullOrWhiteSpace(socket))
+        {
+            throw new InvalidOperationException("Missing Rpc:SocketPath.");
+        }
+
+        var instanceId = section["InstanceId"];
+        if (string.IsNullOrWhiteSpace(instanceId))
+        {
+            throw new InvalidOperationException("Missing Rpc:InstanceId.");
+        }
+
+        var role = section["Role"];
+        if (string.IsNullOrWhiteSpace(role))
+        {
+            role = "shadow";
+        }
+
+        var connectTimeout = TimeSpan.FromSeconds(10);
+        var timeout = section["ConnectTimeout"];
+        if (
+            !string.IsNullOrWhiteSpace(timeout)
+            && !TimeSpan.TryParse(timeout, CultureInfo.InvariantCulture, out connectTimeout)
+        )
+        {
+            throw new InvalidOperationException($"Invalid Rpc:ConnectTimeout '{timeout}'.");
+        }
 
         return new RpcPeerOptions
         {
             SocketPath = socket,
             InstanceId = instanceId,
             Role = role,
+            ConnectTimeout = connectTimeout,
         };
     }
 }

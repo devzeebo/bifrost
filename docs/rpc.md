@@ -57,7 +57,7 @@ services.AddRpcHost(options =>
     ];
 });
 
-// Peer process — reads --bifrost-socket / BIFROST_SOCKET and friends
+// Peer process — reads the Rpc configuration section
 services.AddRpcPeer();
 ```
 
@@ -77,13 +77,13 @@ Handlers are attached to each session **before** its read loop starts, so an inb
 
 ## Launch contract
 
-The host passes connection info via argv and environment (both are set):
+The host passes connection info as configuration on the peer command line. A generic host loads the same keys from environment variables (`Section__Key`) and from `appsettings.json`. Role defaults to `shadow`.
 
-| Purpose     | Argv                             | Environment           |
-| ----------- | -------------------------------- | --------------------- |
-| Socket path | `--bifrost-socket <path>`        | `BIFROST_SOCKET`      |
-| Instance id | `--bifrost-instance-id <id>`     | `BIFROST_INSTANCE_ID` |
-| Role        | `--bifrost-role primary\|shadow` | `BIFROST_ROLE`        |
+| Purpose     | Configuration key | Command-line switch          | Environment variable |
+| ----------- | ----------------- | ---------------------------- | -------------------- |
+| Socket path | `Rpc:SocketPath`  | `--Rpc:SocketPath <path>`    | `Rpc__SocketPath`    |
+| Instance id | `Rpc:InstanceId`  | `--Rpc:InstanceId <id>`      | `Rpc__InstanceId`    |
+| Role        | `Rpc:Role`        | `--Rpc:Role primary\|shadow` | `Rpc__Role`          |
 
 ## Handshake
 
@@ -137,7 +137,7 @@ Standard JSON-RPC codes, plus:
 
 | Package                    | Role                                                                                                                                                                             |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Bifrost.Rpc.Abstractions` | `IRpcContract`, `IRpc<T>`, `IRpcBinding<T>`, `RpcBindings`, `IRpcEndpoint`, `IRpcSubscription`, `RpcSession`, `Unit`, `[RpcMethod]`, connection keys, `AddRpc` / `AddRpcHandler` |
+| `Bifrost.Rpc.Abstractions` | `IRpcContract`, `IRpc<T>`, `IRpcBinding<T>`, `RpcBindings`, `IRpcEndpoint`, `IRpcSubscription`, `RpcSession`, `Unit`, `[RpcMethod]`, `AddRpc` / `AddRpcHandler` |
 | `Bifrost.Rpc`              | `RpcHost` (listen, launch, supervise) and `RpcPeer` (connect), options, hosted services, `AddRpcHost()` / `AddRpcPeer()`                                                         |
 | `Bifrost.Rpc.Generators`   | Source generator (analyzer)                                                                                                                                                      |
 

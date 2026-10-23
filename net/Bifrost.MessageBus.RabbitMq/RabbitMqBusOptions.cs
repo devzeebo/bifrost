@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Configuration;
+
 namespace Bifrost.MessageBus.RabbitMq;
 
 sealed class RabbitMqBusOptions
@@ -36,24 +38,41 @@ sealed class RabbitMqBusOptions
         return split < 0 ? address : address[..split];
     }
 
-    public static RabbitMqBusOptions FromEnvironment()
+    public static RabbitMqBusOptions FromConfiguration(IConfiguration configuration)
     {
-        var endpoint =
-            Environment.GetEnvironmentVariable("BUS_ENDPOINT")
-            ?? "amqp://bifrost:bifrost@rabbitmq:5672/";
-        var address =
-            Environment.GetEnvironmentVariable("BIFROST_INSTANCE_ID")
-            ?? throw new InvalidOperationException("Missing instance id (BIFROST_INSTANCE_ID).");
-        var subscribers = (
-            Environment.GetEnvironmentVariable("BUS_SUBSCRIBERS")
-            ?? "work-items,orchestrator,worker"
-        ).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (subscribers.Length == 0)
+        ArgumentNullException.ThrowIfNull(configuration);
+        var section = configuration.GetSection("Bus");
+
+        var endpoint = section["Endpoint"];
+        if (string.IsNullOrWhiteSpace(endpoint))
         {
-            throw new InvalidOperationException("BUS_SUBSCRIBERS is empty.");
+            endpoint = "amqp://bifrost:bifrost@rabbitmq:5672/";
         }
 
-        var nodeId = Environment.GetEnvironmentVariable("BIFROST_NODE_ID");
+        var address = section["Address"];
+        if (string.IsNullOrWhiteSpace(address))
+        {
+            throw new InvalidOperationException("Missing Bus:Address.");
+        }
+
+        var subscribersSection = section.GetSection("Subscribers");
+        string[] subscribers;
+        if (!subscribersSection.Exists())
+        {
+            subscribers = ["work-items", "orchestrator", "worker"];
+        }
+        else
+        {
+            subscribers = (subscribersSection.Get<string[]>() ?? [])
+                .Where(subscriber => !string.IsNullOrWhiteSpace(subscriber))
+                .ToArray();
+            if (subscribers.Length == 0)
+            {
+                throw new InvalidOperationException("Bus:Subscribers is empty.");
+            }
+        }
+
+        var nodeId = section["NodeId"];
         if (string.IsNullOrWhiteSpace(nodeId))
         {
             nodeId = null;

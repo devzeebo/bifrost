@@ -40,17 +40,12 @@ internal sealed class RpcProcess : IAsyncDisposable
             startInfo.ArgumentList.Add(arg);
         }
 
-        startInfo.ArgumentList.Add(RpcConnectionKeys.SocketArg);
+        startInfo.ArgumentList.Add("--Rpc:SocketPath");
         startInfo.ArgumentList.Add(_socketPath);
-        startInfo.ArgumentList.Add(RpcConnectionKeys.InstanceIdArg);
+        startInfo.ArgumentList.Add("--Rpc:InstanceId");
         startInfo.ArgumentList.Add(_options.Id);
-        startInfo.ArgumentList.Add(RpcConnectionKeys.RoleArg);
+        startInfo.ArgumentList.Add("--Rpc:Role");
         startInfo.ArgumentList.Add(_options.Role == RpcRole.Primary ? "primary" : "shadow");
-
-        startInfo.Environment[RpcConnectionKeys.SocketEnv] = _socketPath;
-        startInfo.Environment[RpcConnectionKeys.InstanceIdEnv] = _options.Id;
-        startInfo.Environment[RpcConnectionKeys.RoleEnv] =
-            _options.Role == RpcRole.Primary ? "primary" : "shadow";
 
         foreach (var (key, value) in _options.Environment)
         {

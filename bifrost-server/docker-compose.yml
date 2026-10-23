@@ -21,7 +21,7 @@ services:
       dockerfile: net/Bifrost.WorkItems/Dockerfile
     environment:
       ConnectionStrings__Marten: Host=postgres;Port=5432;Database=bifrost;Username=bifrost;Password=bifrost
-      BIFROST_SOCKET: /run/bifrost/bus.sock
+      Bifrost__BusSocket: /run/bifrost/bus.sock
       ASPNETCORE_URLS: http://+:8080
     ports:
       - "8080:8080"
@@ -52,11 +52,10 @@ services:
       context: ..
       dockerfile: net/Bifrost.MessageBus.RabbitMq/Dockerfile
     environment:
-      BIFROST_SOCKET: /run/bifrost/bus.sock
-      BIFROST_INSTANCE_ID: work-items
-      BIFROST_ROLE: primary
-      BUS_ENDPOINT: amqp://bifrost:bifrost@rabbitmq:5672/
-      BUS_SUBSCRIBERS: work-items,orchestrator,worker
+      Rpc__SocketPath: /run/bifrost/bus.sock
+      Rpc__InstanceId: work-items
+      Rpc__Role: primary
+      Bus__Address: work-items
     volumes:
       - bus_sock:/run/bifrost
     depends_on:
@@ -71,7 +70,7 @@ services:
       dockerfile: net/Bifrost.Orchestrator/Dockerfile
     environment:
       ConnectionStrings__Marten: Host=postgres;Port=5432;Database=bifrost;Username=bifrost;Password=bifrost
-      BIFROST_SOCKET: /run/bifrost/bus.sock
+      Bifrost__BusSocket: /run/bifrost/bus.sock
       ASPNETCORE_URLS: http://+:8080
     ports:
       - "8081:8080"
@@ -86,11 +85,10 @@ services:
       context: ..
       dockerfile: net/Bifrost.MessageBus.RabbitMq/Dockerfile
     environment:
-      BIFROST_SOCKET: /run/bifrost/bus.sock
-      BIFROST_INSTANCE_ID: orchestrator
-      BIFROST_ROLE: primary
-      BUS_ENDPOINT: amqp://bifrost:bifrost@rabbitmq:5672/
-      BUS_SUBSCRIBERS: work-items,orchestrator,worker
+      Rpc__SocketPath: /run/bifrost/bus.sock
+      Rpc__InstanceId: orchestrator
+      Rpc__Role: primary
+      Bus__Address: orchestrator
     volumes:
       - orchestrator_bus_sock:/run/bifrost
     depends_on:
@@ -102,9 +100,9 @@ services:
       context: ..
       dockerfile: net/Bifrost.WorkerNode/Dockerfile
     environment:
-      BIFROST_SOCKET: /run/bifrost/bus.sock
-      BIFROST_OUTBOX_PATH: /var/lib/bifrost/worker-node.db
-      BIFROST_WORKER_NODE_ID: 11111111-1111-1111-1111-111111111111
+      Bifrost__BusSocket: /run/bifrost/bus.sock
+      Bifrost__OutboxPath: /var/lib/bifrost/worker-node.db
+      Bifrost__NodeId: 11111111-1111-1111-1111-111111111111
     volumes:
       - worker_bus_sock:/run/bifrost
       - worker_outbox:/var/lib/bifrost
@@ -116,12 +114,11 @@ services:
       context: ..
       dockerfile: net/Bifrost.MessageBus.RabbitMq/Dockerfile
     environment:
-      BIFROST_SOCKET: /run/bifrost/bus.sock
-      BIFROST_INSTANCE_ID: worker
-      BIFROST_NODE_ID: 11111111-1111-1111-1111-111111111111
-      BIFROST_ROLE: primary
-      BUS_ENDPOINT: amqp://bifrost:bifrost@rabbitmq:5672/
-      BUS_SUBSCRIBERS: work-items,orchestrator,worker
+      Rpc__SocketPath: /run/bifrost/bus.sock
+      Rpc__InstanceId: worker
+      Rpc__Role: primary
+      Bus__Address: worker
+      Bus__NodeId: 11111111-1111-1111-1111-111111111111
     volumes:
       - worker_bus_sock:/run/bifrost
     depends_on:
