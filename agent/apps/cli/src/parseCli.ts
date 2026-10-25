@@ -4,7 +4,7 @@ import { runArgs } from "./commands.ts";
 
 export type RunOptions = {
   readonly prompt?: string;
-  readonly model?: string;
+  readonly model: string;
   readonly instructions?: string;
   readonly toolPaths: readonly string[];
   readonly maxTurns?: number;
@@ -45,18 +45,12 @@ const stringList = (value: unknown): readonly string[] => {
   return [];
 };
 
-const optionalString = (value: unknown): string | undefined =>
-  typeof value === "string" && value !== "" ? value : undefined;
-
-export const resolveModel = (
-  flag: string | undefined,
-  env: NodeJS.ProcessEnv,
-): string | undefined => {
-  const value = flag ?? env["AGENT_MODEL"];
-  if (value === undefined || value.trim() === "") {
+const optionalString = (value: unknown): string | undefined => {
+  if (typeof value !== "string") {
     return undefined;
   }
-  return value;
+  const trimmed = value.trim();
+  return trimmed === "" ? undefined : trimmed;
 };
 
 const parseMaxTurns = (value: unknown): number | undefined | "invalid" => {
@@ -103,15 +97,19 @@ export const parseCli = (argv: readonly string[]): ParsedCli => {
     return { type: "error", message: "max-turns must be a positive integer" };
   }
 
-  const prompt = optionalString(readArg(args, "prompt"));
   const model = optionalString(readArg(args, "model"));
+  if (model === undefined) {
+    return { type: "error", message: "Model is required. Pass --model" };
+  }
+
+  const prompt = optionalString(readArg(args, "prompt"));
   const instructions = optionalString(readArg(args, "instructions"));
   const sessionPath = optionalString(readArg(args, "session"));
   const options: RunOptions = {
+    model,
     toolPaths: stringList(readArg(args, "tools")),
     verbose: readArg(args, "verbose") === true,
     ...(prompt === undefined ? {} : { prompt }),
-    ...(model === undefined ? {} : { model }),
     ...(instructions === undefined ? {} : { instructions }),
     ...(sessionPath === undefined ? {} : { sessionPath }),
     ...(maxTurns === undefined ? {} : { maxTurns }),

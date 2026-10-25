@@ -12,7 +12,7 @@ import { renderUsage } from "citty";
 import { mainCommand, runHelpCommand } from "./commands.ts";
 import { loadTools } from "./loadTools.ts";
 import { chooseFromMenu } from "./menu.ts";
-import { parseCli, resolveModel, type RunOptions } from "./parseCli.ts";
+import { parseCli, type RunOptions } from "./parseCli.ts";
 import { readSession, serializeSession } from "./session.ts";
 
 const errorMessage = (error: unknown): string =>
@@ -48,15 +48,9 @@ const watchTool = (tool: Tool): Tool => ({
   },
 });
 
-const executeRun = async (options: RunOptions, env: NodeJS.ProcessEnv): Promise<number> => {
+const executeRun = async (options: RunOptions): Promise<number> => {
   if (options.prompt === undefined || options.prompt.trim() === "") {
     process.stderr.write("Prompt is required\n");
-    return 1;
-  }
-
-  const model = resolveModel(options.model, env);
-  if (model === undefined) {
-    process.stderr.write("Model is required. Pass --model or set AGENT_MODEL\n");
     return 1;
   }
 
@@ -84,7 +78,7 @@ const executeRun = async (options: RunOptions, env: NodeJS.ProcessEnv): Promise<
   try {
     harness = createHarness({
       client: createOpenAIModelClient(),
-      model,
+      model: options.model,
       tools: visibleTools,
       ...(options.instructions === undefined ? {} : { instructions: options.instructions }),
       ...(options.maxTurns === undefined ? {} : { maxTurns: options.maxTurns }),
@@ -113,8 +107,8 @@ const executeRun = async (options: RunOptions, env: NodeJS.ProcessEnv): Promise<
   }
 };
 
-const runMenu = async (env: NodeJS.ProcessEnv): Promise<number> => {
-  const choice = await chooseFromMenu(env);
+const runMenu = async (): Promise<number> => {
+  const choice = await chooseFromMenu();
   if (choice.type === "quit") {
     return 0;
   }
@@ -122,16 +116,15 @@ const runMenu = async (env: NodeJS.ProcessEnv): Promise<number> => {
     await writeHelp("main");
     return 0;
   }
-  return executeRun(
-    { prompt: choice.prompt, model: choice.model, toolPaths: [], verbose: false },
-    env,
-  );
+  return executeRun({
+    prompt: choice.prompt,
+    model: choice.model,
+    toolPaths: [],
+    verbose: false,
+  });
 };
 
-export const runCli = async (
-  argv: readonly string[],
-  env: NodeJS.ProcessEnv = process.env,
-): Promise<number> => {
+export const runCli = async (argv: readonly string[]): Promise<number> => {
   const parsed = parseCli(argv);
   switch (parsed.type) {
     case "help":
@@ -145,8 +138,8 @@ export const runCli = async (
         await writeHelp("main");
         return 0;
       }
-      return runMenu(env);
+      return runMenu();
     case "run":
-      return executeRun(parsed.options, env);
+      return executeRun(parsed.options);
   }
 };

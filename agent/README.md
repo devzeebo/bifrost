@@ -9,5 +9,5 @@ Private vite-plus monorepo for an agentic loop with user-supplied tools.
 ```bash
 vp install
 vp run -r test
-vp run @agent/cli#dev -- run "Hello" --model "$AGENT_MODEL"
+vp run @agent/cli#dev -- run "Hello" --model <model-id>
 ```

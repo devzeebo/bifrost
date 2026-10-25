@@ -1,7 +1,5 @@
 import { isCancel, select, text } from "@clack/prompts";
 
-import { resolveModel } from "./parseCli.ts";
-
 export type MenuChoice =
   | { readonly type: "quit" }
   | { readonly type: "help" }
@@ -15,7 +13,7 @@ const ask = async (message: string): Promise<string | undefined> => {
   return value;
 };
 
-export const chooseFromMenu = async (env: NodeJS.ProcessEnv): Promise<MenuChoice> => {
+export const chooseFromMenu = async (): Promise<MenuChoice> => {
   const choice = await select({
     message: "Agent harness",
     options: [
@@ -37,8 +35,7 @@ export const chooseFromMenu = async (env: NodeJS.ProcessEnv): Promise<MenuChoice
     return { type: "quit" };
   }
 
-  const fromEnv = resolveModel(undefined, env);
-  const model = fromEnv ?? (await ask("Model"));
+  const model = await ask("Model");
   if (model === undefined) {
     return { type: "quit" };
   }

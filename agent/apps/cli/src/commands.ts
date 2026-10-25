@@ -8,7 +8,8 @@ export const runArgs = {
   },
   model: {
     type: "string",
-    description: "Model id. Falls back to AGENT_MODEL",
+    description: "Model id",
+    required: true,
   },
   instructions: {
     type: "string",
