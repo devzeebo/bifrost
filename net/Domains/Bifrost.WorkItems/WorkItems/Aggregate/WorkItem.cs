@@ -8,6 +8,7 @@ public class WorkItem
     public Guid Id { get; set; }
     public required JsonNode Data { get; set; }
     public WorkItemStatus Status { get; set; }
+    public JsonObject Metadata { get; set; } = new();
     public List<Edge> Relationships { get; set; } = [];
     public bool IsDeleted { get; set; }
 
@@ -23,6 +24,7 @@ public class WorkItem
         Id = e.Id;
         Data = e.Data.DeepClone()!;
         Status = e.Status;
+        Metadata = new();
         IsDeleted = false;
     }
 
@@ -34,6 +36,30 @@ public class WorkItem
     public void Apply(WorkItemStatusChanged e)
     {
         Status = e.Status;
+    }
+
+    public void Apply(WorkItemMetadataReplaced e)
+    {
+        Metadata = (JsonObject)e.Metadata.DeepClone()!;
+    }
+
+    public void EnsureExpected(JsonObject expected)
+    {
+        if (expected.Count == 0)
+        {
+            return;
+        }
+
+        var state = new JsonObject
+        {
+            ["status"] = Status.Value,
+            ["data"] = Data.DeepClone(),
+            ["metadata"] = Metadata.DeepClone(),
+        };
+        if (!state.MatchesPartial(expected))
+        {
+            throw new CommandValidationException("Work item no longer matches the expected state.");
+        }
     }
 
     public void Apply(RelationshipAdded e)

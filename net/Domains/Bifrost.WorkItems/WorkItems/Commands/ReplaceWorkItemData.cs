@@ -1,4 +1,3 @@
-using System.Text.Json.Nodes;
 using Bifrost.WorkItems.Aggregate;
 using Bifrost.WorkItems.Events;
 using Wolverine.Marten;
@@ -13,6 +12,8 @@ public static class ReplaceWorkItemDataHandler
         {
             throw new CommandValidationException("Work item is deleted.");
         }
+
+        workItem.EnsureExpected(command.Expected);
     }
 
     [WolverinePost("/replace-work-item-data"), EmptyResponse]
@@ -20,5 +21,11 @@ public static class ReplaceWorkItemDataHandler
     public static WorkItemDataReplaced Handle(
         ReplaceWorkItemDataApi.Command command,
         WorkItem workItem
-    ) => new(command.Data);
+    ) =>
+        new()
+        {
+            Data = command.Data,
+            Actor = command.Actor,
+            Reason = command.Reason,
+        };
 }

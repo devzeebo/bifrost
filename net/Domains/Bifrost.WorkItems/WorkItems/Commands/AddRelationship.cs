@@ -11,12 +11,18 @@ namespace Bifrost.WorkItems.Commands;
 
 public static class AddRelationshipHandler
 {
-    public static async Task Validate(AddRelationshipApi.Command command, WorkItem workItem, IQuerySession session)
+    public static async Task Validate(
+        AddRelationshipApi.Command command,
+        WorkItem workItem,
+        IQuerySession session
+    )
     {
         if (workItem.IsDeleted)
         {
             throw new CommandValidationException("Work item is deleted.");
         }
+
+        workItem.EnsureExpected(command.Expected);
 
         if (command.RelatedWorkItemId == command.WorkItemId)
         {
@@ -43,6 +49,7 @@ public static class AddRelationshipHandler
             throw new CommandValidationException("Relationship already exists.");
         }
     }
+
     [WolverinePost("/add-relationship"), EmptyResponse]
     [AggregateHandler]
     public static async Task<MartenEvents> Handle(
@@ -72,23 +79,29 @@ public static class AddRelationshipHandler
         )
         {
             related.AppendOne(
-                new RelationshipAdded(
-                    byWord.RelationshipTypeId,
-                    inverseWord,
-                    inverseDirection,
-                    command.WorkItemId
-                )
+                new RelationshipAdded
+                {
+                    RelationshipTypeId = byWord.RelationshipTypeId,
+                    Word = inverseWord,
+                    Direction = inverseDirection,
+                    RelatedWorkItemId = command.WorkItemId,
+                    Actor = command.Actor,
+                    Reason = command.Reason,
+                }
             );
         }
 
         return
         [
-            new RelationshipAdded(
-                byWord.RelationshipTypeId,
-                thisWord,
-                byWord.Direction,
-                command.RelatedWorkItemId
-            ),
+            new RelationshipAdded
+            {
+                RelationshipTypeId = byWord.RelationshipTypeId,
+                Word = thisWord,
+                Direction = byWord.Direction,
+                RelatedWorkItemId = command.RelatedWorkItemId,
+                Actor = command.Actor,
+                Reason = command.Reason,
+            },
         ];
     }
 

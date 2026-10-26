@@ -3,8 +3,8 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Bifrost.WorkItems.Contracts;
 using Bifrost.Rpc;
+using Bifrost.WorkItems.Contracts;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -143,6 +143,9 @@ public class WorkItemTrackerTests
                     id = workItemA,
                     data = new { title = "A" },
                     status = "open",
+                    actor = "tester",
+                    reason = "created",
+                    expected = new { },
                 }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -156,6 +159,9 @@ public class WorkItemTrackerTests
                     id = workItemB,
                     data = new { title = "B" },
                     status = "open",
+                    actor = "tester",
+                    reason = "created",
+                    expected = new { },
                 }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -169,6 +175,9 @@ public class WorkItemTrackerTests
                     workItemId = workItemA,
                     word = wordForward,
                     relatedWorkItemId = workItemB,
+                    actor = "tester",
+                    reason = "related",
+                    expected = new { },
                 }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -218,6 +227,9 @@ public class WorkItemTrackerTests
                     id = workItemA,
                     data = new { },
                     status = "open",
+                    actor = "tester",
+                    reason = "created",
+                    expected = new { },
                 }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -230,6 +242,9 @@ public class WorkItemTrackerTests
                     id = workItemB,
                     data = new { },
                     status = "open",
+                    actor = "tester",
+                    reason = "created",
+                    expected = new { },
                 }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -243,6 +258,9 @@ public class WorkItemTrackerTests
                     workItemId = workItemA,
                     word = wordForward,
                     relatedWorkItemId = workItemB,
+                    actor = "tester",
+                    reason = "related",
+                    expected = new { },
                 }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -256,6 +274,9 @@ public class WorkItemTrackerTests
                     workItemId = workItemA,
                     word = wordForward,
                     relatedWorkItemId = workItemB,
+                    actor = "tester",
+                    reason = "related",
+                    expected = new { },
                 }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -283,6 +304,9 @@ public class WorkItemTrackerTests
                     id,
                     data = new { title = "before" },
                     status = "Open",
+                    actor = "tester",
+                    reason = "created",
+                    expected = new { },
                 }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -291,7 +315,14 @@ public class WorkItemTrackerTests
             await Post(
                 client,
                 "/replace-work-item-data",
-                new { id, data = new { title = "after", tags = new[] { "x" } } }
+                new
+                {
+                    id,
+                    data = new { title = "after", tags = new[] { "x" } },
+                    actor = "tester",
+                    reason = "replaced data",
+                    expected = new { },
+                }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
@@ -300,13 +331,9 @@ public class WorkItemTrackerTests
         item.Data["title"]!.GetValue<string>().ShouldBe("after");
         item.Status.ShouldBe("open");
 
-        var list = await Query<List<ListWorkItemsApi.Response.Item>>(
-            client,
-            "/list-work-items",
-            new { }
-        );
+        var list = await Query<ListWorkItemsApi.Response>(client, "/list-work-items", new { });
         list.ShouldNotBeNull();
-        list.ShouldContain(x => x.Id == id && !x.IsDeleted && x.Status == "open");
+        list.Items.ShouldContain(x => x.Id == id && !x.IsDeleted && x.Status == "open");
     }
 
     [Fact]
@@ -325,6 +352,9 @@ public class WorkItemTrackerTests
                     id = openId,
                     data = new { },
                     status = "  OPEN  ",
+                    actor = "tester",
+                    reason = "created",
+                    expected = new { },
                 }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -338,6 +368,9 @@ public class WorkItemTrackerTests
                     id = claimedId,
                     data = new { },
                     status = "open",
+                    actor = "tester",
+                    reason = "created",
+                    expected = new { },
                 }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -346,7 +379,14 @@ public class WorkItemTrackerTests
             await Post(
                 client,
                 "/change-work-item-status",
-                new { id = claimedId, status = "Claimed" }
+                new
+                {
+                    id = claimedId,
+                    status = "Claimed",
+                    actor = "orchestrator-a",
+                    reason = "claimed for execution",
+                    expected = new { },
+                }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
@@ -354,23 +394,23 @@ public class WorkItemTrackerTests
         claimed.ShouldNotBeNull();
         claimed.Status.ShouldBe("claimed");
 
-        var openList = await Query<List<ListWorkItemsApi.Response.Item>>(
+        var openList = await Query<ListWorkItemsApi.Response>(
             client,
             "/list-work-items",
             new { status = " Open " }
         );
         openList.ShouldNotBeNull();
-        openList.ShouldContain(x => x.Id == openId);
-        openList.ShouldNotContain(x => x.Id == claimedId);
+        openList.Items.ShouldContain(x => x.Id == openId);
+        openList.Items.ShouldNotContain(x => x.Id == claimedId);
 
-        var claimedList = await Query<List<ListWorkItemsApi.Response.Item>>(
+        var claimedList = await Query<ListWorkItemsApi.Response>(
             client,
             "/list-work-items",
             new { status = "claimed" }
         );
         claimedList.ShouldNotBeNull();
-        claimedList.ShouldContain(x => x.Id == claimedId);
-        claimedList.ShouldNotContain(x => x.Id == openId);
+        claimedList.Items.ShouldContain(x => x.Id == claimedId);
+        claimedList.Items.ShouldNotContain(x => x.Id == openId);
     }
 
     [Fact]
@@ -388,6 +428,9 @@ public class WorkItemTrackerTests
                     id,
                     data = new { },
                     status = "   ",
+                    actor = "tester",
+                    reason = "created",
+                    expected = new { },
                 }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
@@ -401,12 +444,55 @@ public class WorkItemTrackerTests
                     id,
                     data = new { },
                     status = "open",
+                    actor = "tester",
+                    reason = "created",
+                    expected = new { },
                 }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
         (
-            await Post(client, "/change-work-item-status", new { id, status = "" })
+            await Post(
+                client,
+                "/change-work-item-status",
+                new
+                {
+                    id,
+                    status = "",
+                    actor = "orchestrator-a",
+                    reason = "blank",
+                    expected = new { },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        (
+            await Post(
+                client,
+                "/replace-work-item-data",
+                new
+                {
+                    id,
+                    data = new { },
+                    actor = " ",
+                    reason = "replaced data",
+                    expected = new { },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        (
+            await Post(
+                client,
+                "/delete-work-item",
+                new
+                {
+                    id,
+                    actor = "tester",
+                    reason = " ",
+                    expected = new { },
+                }
+            )
         ).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
@@ -444,6 +530,9 @@ public class WorkItemTrackerTests
                     id = workItemA,
                     data = new { },
                     status = "open",
+                    actor = "tester",
+                    reason = "created",
+                    expected = new { },
                 }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -456,6 +545,9 @@ public class WorkItemTrackerTests
                     id = workItemB,
                     data = new { },
                     status = "open",
+                    actor = "tester",
+                    reason = "created",
+                    expected = new { },
                 }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -469,6 +561,9 @@ public class WorkItemTrackerTests
                     workItemId = workItemA,
                     word = oldForward,
                     relatedWorkItemId = workItemB,
+                    actor = "tester",
+                    reason = "related",
+                    expected = new { },
                 }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -495,6 +590,9 @@ public class WorkItemTrackerTests
                     workItemId = workItemA,
                     word = oldForward,
                     relatedWorkItemId = workItemB,
+                    actor = "tester",
+                    reason = "related",
+                    expected = new { },
                 }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
@@ -548,10 +646,390 @@ public class WorkItemTrackerTests
         Guid RelatedWorkItemId
     );
 
+    [Fact]
+    public async Task status_and_metadata_are_separate_writes()
+    {
+        var client = _factory.CreateClient();
+        var id = Guid.NewGuid();
+        var heldBy = $"worker-{id:N}";
+
+        (
+            await Post(
+                client,
+                "/create-work-item",
+                new
+                {
+                    id,
+                    data = new { title = "slice" },
+                    status = "pending",
+                    actor = "orchestrator-a",
+                    reason = "opened",
+                    expected = new { },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var created = await Query<WorkItemResponseDto>(client, $"/get-work-item/{id}");
+        created.ShouldNotBeNull();
+        created.Metadata.Count.ShouldBe(0);
+
+        (
+            await Post(
+                client,
+                "/change-work-item-status",
+                new
+                {
+                    id,
+                    status = "claimed",
+                    actor = " orchestrator-a ",
+                    reason = " claimed for execution ",
+                    expected = new { status = "pending" },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var claimed = await Query<WorkItemResponseDto>(client, $"/get-work-item/{id}");
+        claimed.ShouldNotBeNull();
+        claimed.Status.ShouldBe("claimed");
+        claimed.Metadata.Count.ShouldBe(0);
+
+        (
+            await Post(
+                client,
+                "/replace-work-item-metadata",
+                new
+                {
+                    id,
+                    metadata = new { claimedBy = heldBy, activeRun = "run-a" },
+                    actor = "orchestrator-a",
+                    reason = "held",
+                    expected = new { status = "claimed" },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var held = await Query<WorkItemResponseDto>(client, $"/get-work-item/{id}");
+        held.ShouldNotBeNull();
+        held.Status.ShouldBe("claimed");
+        held.Metadata["claimedBy"]!.GetValue<string>().ShouldBe(heldBy);
+        held.Metadata["activeRun"]!.GetValue<string>().ShouldBe("run-a");
+
+        (
+            await Post(
+                client,
+                "/change-work-item-status",
+                new
+                {
+                    id,
+                    status = "pending",
+                    actor = "orchestrator-a",
+                    reason = "released",
+                    expected = new { metadata = new { claimedBy = heldBy } },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var released = await Query<WorkItemResponseDto>(client, $"/get-work-item/{id}");
+        released.ShouldNotBeNull();
+        released.Status.ShouldBe("pending");
+        released.Metadata["claimedBy"]!.GetValue<string>().ShouldBe(heldBy);
+
+        var heldItems = await Query<ListWorkItemsApi.Response>(
+            client,
+            "/list-work-items",
+            new { metadata = new { claimedBy = heldBy } }
+        );
+        heldItems.ShouldNotBeNull();
+        heldItems.Items.ShouldContain(x => x.Id == id && x.Status == "pending");
+
+        (
+            await Post(
+                client,
+                "/replace-work-item-metadata",
+                new
+                {
+                    id,
+                    metadata = new { },
+                    actor = "orchestrator-a",
+                    reason = "cleared",
+                    expected = new { },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var cleared = await Query<WorkItemResponseDto>(client, $"/get-work-item/{id}");
+        cleared.ShouldNotBeNull();
+        cleared.Status.ShouldBe("pending");
+        cleared.Metadata.Count.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task expected_state_rejects_a_stale_write_and_empty_expected_forces_it()
+    {
+        var client = _factory.CreateClient();
+        var id = Guid.NewGuid();
+        var missing = await Post(
+            client,
+            "/create-work-item",
+            new
+            {
+                id,
+                data = new { },
+                status = "open",
+                actor = "tester",
+                reason = "created",
+                expected = new { status = "open" },
+            }
+        );
+        missing.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await missing.Content.ReadAsStringAsync()).ShouldContain("expected state");
+
+        await CreateItem(client, id, "open");
+
+        var stale = await Post(
+            client,
+            "/change-work-item-status",
+            new
+            {
+                id,
+                status = "claimed",
+                actor = "orchestrator-a",
+                reason = "claimed for execution",
+                expected = new { status = "pending" },
+            }
+        );
+        stale.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await stale.Content.ReadAsStringAsync()).ShouldContain("expected state");
+
+        var unchanged = await Query<WorkItemResponseDto>(client, $"/get-work-item/{id}");
+        unchanged.ShouldNotBeNull();
+        unchanged.Status.ShouldBe("open");
+
+        var nullExpected = await Post(
+            client,
+            "/change-work-item-status",
+            new
+            {
+                id,
+                status = "claimed",
+                actor = "orchestrator-a",
+                reason = "claimed for execution",
+                expected = (object?)null,
+            }
+        );
+        nullExpected.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        (
+            await Post(
+                client,
+                "/change-work-item-status",
+                new
+                {
+                    id,
+                    status = "claimed",
+                    actor = "orchestrator-a",
+                    reason = "claimed for execution",
+                    expected = new { },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (
+            await Post(
+                client,
+                "/replace-work-item-metadata",
+                new
+                {
+                    id,
+                    metadata = new { claimedBy = "worker-1", activeRun = "run-a" },
+                    actor = "orchestrator-a",
+                    reason = "held",
+                    expected = new { },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var wrongHolder = await Post(
+            client,
+            "/change-work-item-status",
+            new
+            {
+                id,
+                status = "running",
+                actor = "orchestrator-a",
+                reason = "started",
+                expected = new { status = "claimed", metadata = new { claimedBy = "worker-2" } },
+            }
+        );
+        wrongHolder.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        var staleMetadata = await Post(
+            client,
+            "/replace-work-item-metadata",
+            new
+            {
+                id,
+                metadata = new { claimedBy = "worker-2" },
+                actor = "orchestrator-a",
+                reason = "reassigned",
+                expected = new { status = "running" },
+            }
+        );
+        staleMetadata.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        (
+            await Post(
+                client,
+                "/change-work-item-status",
+                new
+                {
+                    id,
+                    status = "running",
+                    actor = "orchestrator-a",
+                    reason = "started",
+                    expected = new
+                    {
+                        status = "claimed",
+                        metadata = new { claimedBy = "worker-1" },
+                    },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (
+            await Post(
+                client,
+                "/change-work-item-status",
+                new
+                {
+                    id,
+                    status = "pending",
+                    actor = "orchestrator-a",
+                    reason = "force released",
+                    expected = new { },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var forced = await Query<WorkItemResponseDto>(client, $"/get-work-item/{id}");
+        forced.ShouldNotBeNull();
+        forced.Status.ShouldBe("pending");
+        forced.Metadata["claimedBy"]!.GetValue<string>().ShouldBe("worker-1");
+    }
+
+    [Fact]
+    public async Task deleted_work_item_rejects_status_change()
+    {
+        var client = _factory.CreateClient();
+        var id = Guid.NewGuid();
+        await CreateItem(client, id, "open");
+
+        (
+            await Post(
+                client,
+                "/delete-work-item",
+                new
+                {
+                    id,
+                    actor = "tester",
+                    reason = "deleted",
+                    expected = new { },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (
+            await Post(
+                client,
+                "/change-work-item-status",
+                new
+                {
+                    id,
+                    status = "claimed",
+                    actor = "orchestrator-a",
+                    reason = "claimed for execution",
+                    expected = new { },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        var item = await Query<WorkItemResponseDto>(client, $"/get-work-item/{id}");
+        item.ShouldNotBeNull();
+        item.IsDeleted.ShouldBeTrue();
+        item.Status.ShouldBe("open");
+    }
+
+    [Fact]
+    public async Task relationship_write_rejects_stale_expected_status()
+    {
+        var client = _factory.CreateClient();
+        var typeId = Guid.NewGuid();
+        var wordForward = $"holds_{typeId:N}"[..20];
+        var wordInverse = $"held_by_{typeId:N}"[..20];
+
+        (
+            await Post(
+                client,
+                "/define-relationship-type",
+                new
+                {
+                    id = typeId,
+                    forwardWord = wordForward,
+                    inverseWord = wordInverse,
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var workItemA = Guid.NewGuid();
+        var workItemB = Guid.NewGuid();
+        await CreateItem(client, workItemA, "open");
+        await CreateItem(client, workItemB, "open");
+
+        var rejected = await Post(
+            client,
+            "/add-relationship",
+            new
+            {
+                workItemId = workItemA,
+                word = wordForward,
+                relatedWorkItemId = workItemB,
+                actor = "tester",
+                reason = "related",
+                expected = new { status = "claimed" },
+            }
+        );
+        rejected.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await rejected.Content.ReadAsStringAsync()).ShouldContain("expected state");
+
+        var itemA = await Query<WorkItemResponseDto>(client, $"/get-work-item/{workItemA}");
+        itemA.ShouldNotBeNull();
+        itemA.Relationships.ShouldBeEmpty();
+    }
+
+    static async Task CreateItem(HttpClient client, Guid id, string status)
+    {
+        (
+            await Post(
+                client,
+                "/create-work-item",
+                new
+                {
+                    id,
+                    data = new { },
+                    status,
+                    actor = "tester",
+                    reason = "created",
+                    expected = new { },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+    }
+
     sealed record WorkItemResponseDto(
         Guid Id,
         JsonNode Data,
         string Status,
+        JsonObject Metadata,
         List<WorkItemRelationshipDto> Relationships,
         bool IsDeleted
     );

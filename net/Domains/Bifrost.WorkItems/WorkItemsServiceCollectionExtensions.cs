@@ -1,6 +1,6 @@
-using Bifrost.WorkItems.Contracts;
 using Bifrost.MessageBus;
 using Bifrost.Rpc;
+using Bifrost.WorkItems.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 using Wolverine;
 
@@ -21,6 +21,7 @@ public static class WorkItemsServiceCollectionExtensions
             // Commands — empty reply
             services.Command<CreateWorkItemApi.Command>();
             services.Command<ReplaceWorkItemDataApi.Command>();
+            services.Command<ReplaceWorkItemMetadataApi.Command>();
             services.Command<ChangeWorkItemStatusApi.Command>();
             services.Command<DeleteWorkItemApi.Command>();
             services.Command<AddRelationshipApi.Command>();
@@ -30,12 +31,9 @@ public static class WorkItemsServiceCollectionExtensions
             services.Command<RetireRelationshipTypeApi.Command>();
 
             // Queries
-            services.Query<ListWorkItemsApi.Query, IReadOnlyList<ListWorkItemsApi.Response.Item>>();
+            services.Query<ListWorkItemsApi.Query, ListWorkItemsApi.Response>();
             services.Query<GetWorkItemApi.Query, GetWorkItemApi.Response>();
-            services.Query<
-                ListRelationshipTypesApi.Query,
-                IReadOnlyList<ListRelationshipTypesApi.Response.Item>
-            >();
+            services.Query<ListRelationshipTypesApi.Query, ListRelationshipTypesApi.Response>();
             services.Query<GetRelationshipTypeApi.Query, GetRelationshipTypeApi.Response>();
             services.Query<ListCommandsApi.Query, ListCommandsApi.Response>();
             return services;

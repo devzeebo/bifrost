@@ -6,7 +6,7 @@ namespace Bifrost.WorkItems.Queries;
 public static class ListWorkItemsHandler
 {
     [WolverineQuery("/list-work-items")]
-    public static async Task<IReadOnlyList<ListWorkItemsApi.Response.Item>> Handle(
+    public static async Task<ListWorkItemsApi.Response> Handle(
         ListWorkItemsApi.Query query,
         IQuerySession session
     )
@@ -20,14 +20,22 @@ public static class ListWorkItemsHandler
         }
 
         var list = await items.ToListAsync();
-        return
-        [
-            .. list.Select(x => new ListWorkItemsApi.Response.Item
-            {
-                Id = x.Id,
-                Status = x.Status,
-                IsDeleted = x.IsDeleted,
-            }),
-        ];
+        if (query.Metadata is { Count: > 0 } metadata)
+        {
+            list = [.. list.Where(x => x.Metadata.MatchesPartial(metadata))];
+        }
+
+        return new ListWorkItemsApi.Response
+        {
+            Items =
+            [
+                .. list.Select(x => new ListWorkItemsApi.Response.Item
+                {
+                    Id = x.Id,
+                    Status = x.Status,
+                    IsDeleted = x.IsDeleted,
+                }),
+            ],
+        };
     }
 }

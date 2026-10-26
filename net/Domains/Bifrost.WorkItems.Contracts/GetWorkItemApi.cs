@@ -16,6 +16,7 @@ public static class GetWorkItemApi
         public required Guid Id { get; init; }
         public required JsonNode Data { get; init; }
         public required string Status { get; init; }
+        public required JsonObject Metadata { get; init; }
         public required IReadOnlyList<Relationship> Relationships { get; init; }
         public bool IsDeleted { get; init; }
 

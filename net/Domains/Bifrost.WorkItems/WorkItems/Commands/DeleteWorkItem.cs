@@ -14,7 +14,10 @@ public static class DeleteWorkItemHandler
         {
             throw new CommandValidationException("Work item is already deleted.");
         }
+
+        workItem.EnsureExpected(command.Expected);
     }
+
     [WolverinePost("/delete-work-item"), EmptyResponse]
     [AggregateHandler]
     public static async Task<MartenEvents> Handle(
@@ -28,11 +31,14 @@ public static class DeleteWorkItemHandler
         foreach (var edge in workItem.Relationships.ToArray())
         {
             events.Add(
-                new RelationshipRemoved(
-                    edge.RelationshipTypeId,
-                    edge.Direction,
-                    edge.RelatedWorkItemId
-                )
+                new RelationshipRemoved
+                {
+                    RelationshipTypeId = edge.RelationshipTypeId,
+                    Direction = edge.Direction,
+                    RelatedWorkItemId = edge.RelatedWorkItemId,
+                    Actor = command.Actor,
+                    Reason = command.Reason,
+                }
             );
 
             var inverseDirection = Flip(edge.Direction);
@@ -43,16 +49,19 @@ public static class DeleteWorkItemHandler
             )
             {
                 related.AppendOne(
-                    new RelationshipRemoved(
-                        edge.RelationshipTypeId,
-                        inverseDirection,
-                        workItem.Id
-                    )
+                    new RelationshipRemoved
+                    {
+                        RelationshipTypeId = edge.RelationshipTypeId,
+                        Direction = inverseDirection,
+                        RelatedWorkItemId = workItem.Id,
+                        Actor = command.Actor,
+                        Reason = command.Reason,
+                    }
                 );
             }
         }
 
-        events.Add(new WorkItemDeleted());
+        events.Add(new WorkItemDeleted { Actor = command.Actor, Reason = command.Reason });
         return events;
     }
 

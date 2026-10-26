@@ -1,9 +1,7 @@
-using System.Text.Json.Serialization;
-
 namespace Bifrost.WorkItems.Events;
 
 public sealed record WorkItemDeleted
 {
-    [JsonConstructor]
-    internal WorkItemDeleted() { }
+    public required string Actor { get; init; }
+    public required string Reason { get; init; }
 }

@@ -13,6 +13,7 @@ public static class ListCommandsHandler
                 "POST /retire-relationship-type",
                 "POST /create-work-item",
                 "POST /replace-work-item-data",
+                "POST /replace-work-item-metadata",
                 "POST /change-work-item-status",
                 "POST /add-relationship",
                 "POST /remove-relationship",

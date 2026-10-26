@@ -37,10 +37,10 @@ namespace Internal.Generated.WolverineHandlers
             if (jsonContinue == Wolverine.HandlerContinuation.Stop) return;
             
             // The actual HTTP request handler execution
-            var itemIReadOnlyList_response = await Bifrost.RelationshipTypes.Queries.ListRelationshipTypesHandler.Handle(query, ((Marten.IQuerySession)documentSession)).ConfigureAwait(false);
+            var response_response = await Bifrost.RelationshipTypes.Queries.ListRelationshipTypesHandler.Handle(query, ((Marten.IQuerySession)documentSession)).ConfigureAwait(false);
 
             // Writing the response body to JSON because this was the first 'return variable' in the method signature
-            await WriteJsonAsync(httpContext, itemIReadOnlyList_response, 404);
+            await WriteJsonAsync(httpContext, response_response, 404);
         }
 
     }

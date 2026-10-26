@@ -5,7 +5,7 @@ namespace Bifrost.WorkItems.Contracts;
 [BusAddress("work-items")]
 public static class AddRelationshipApi
 {
-    public sealed record Command
+    public sealed record Command : WorkItemCommand
     {
         public required Guid WorkItemId { get; init; }
         public required string Word { get; init; }

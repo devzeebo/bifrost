@@ -23,6 +23,7 @@ public static class GetWorkItemHandler
             Id = item.Id,
             Data = item.Data,
             Status = item.Status,
+            Metadata = item.Metadata,
             IsDeleted = item.IsDeleted,
             Relationships =
             [

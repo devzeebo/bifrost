@@ -14,12 +14,24 @@ public static class CreateWorkItemHandler
         {
             throw new CommandValidationException($"Work item {command.Id} already exists.");
         }
+
+        if (command.Expected.Count > 0)
+        {
+            throw new CommandValidationException("Work item no longer matches the expected state.");
+        }
     }
 
     [WolverinePost("/create-work-item"), EmptyResponse]
     public static IStartStream Handle(CreateWorkItemApi.Command command) =>
         MartenOps.StartStream<WorkItem>(
             command.Id,
-            new WorkItemCreated(command.Id, command.Data, command.Status)
+            new WorkItemCreated
+            {
+                Id = command.Id,
+                Data = command.Data,
+                Status = command.Status,
+                Actor = command.Actor,
+                Reason = command.Reason,
+            }
         );
 }

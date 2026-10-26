@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Bifrost.WorkItems.Events;
 using Marten.Events.Aggregation;
 
@@ -9,6 +10,7 @@ public class WorkItemIndex : SingleStreamProjection<WorkItemIndex.Model, Guid>
     {
         public Guid Id { get; init; }
         public required string Status { get; init; }
+        public required JsonObject Metadata { get; init; }
         public bool IsDeleted { get; init; }
     }
 
@@ -17,6 +19,7 @@ public class WorkItemIndex : SingleStreamProjection<WorkItemIndex.Model, Guid>
         {
             Id = e.Id,
             Status = e.Status.Value,
+            Metadata = new JsonObject(),
             IsDeleted = false,
         };
 
@@ -24,6 +27,12 @@ public class WorkItemIndex : SingleStreamProjection<WorkItemIndex.Model, Guid>
         view with
         {
             Status = e.Status.Value,
+        };
+
+    public Model Apply(WorkItemMetadataReplaced e, Model view) =>
+        view with
+        {
+            Metadata = (JsonObject)e.Metadata.DeepClone()!,
         };
 
     public Model Apply(WorkItemDeleted _, Model view) => view with { IsDeleted = true };

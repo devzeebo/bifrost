@@ -12,6 +12,8 @@ public static class ChangeWorkItemStatusHandler
         {
             throw new CommandValidationException("Work item is deleted.");
         }
+
+        workItem.EnsureExpected(command.Expected);
     }
 
     [WolverinePost("/change-work-item-status"), EmptyResponse]
@@ -19,5 +21,11 @@ public static class ChangeWorkItemStatusHandler
     public static WorkItemStatusChanged Handle(
         ChangeWorkItemStatusApi.Command command,
         WorkItem workItem
-    ) => new(command.Status);
+    ) =>
+        new()
+        {
+            Status = command.Status,
+            Actor = command.Actor,
+            Reason = command.Reason,
+        };
 }
