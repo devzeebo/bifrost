@@ -21,6 +21,7 @@
     "@agent/tools": "*",
     "@clack/prompts": "^0.11.0",
     "citty": "^0.1.6",
+    "dotenv": "^18.0.8",
     "tsx": "^4.20.6"
   },
   "devDependencies": {

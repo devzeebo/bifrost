@@ -8,6 +8,7 @@ import {
 } from "@agent/harness";
 import type { Tool } from "@agent/tools";
 import { renderUsage } from "citty";
+import { config } from "dotenv";
 
 import { mainCommand, runHelpCommand } from "./commands.ts";
 import { loadTools } from "./loadTools.ts";
@@ -125,6 +126,8 @@ const runMenu = async (): Promise<number> => {
 };
 
 export const runCli = async (argv: readonly string[]): Promise<number> => {
+  config({ quiet: true });
+
   const parsed = parseCli(argv);
   switch (parsed.type) {
     case "help":
