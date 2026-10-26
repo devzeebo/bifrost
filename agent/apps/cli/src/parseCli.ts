@@ -8,7 +8,8 @@ export type RunOptions = {
   readonly instructions?: string;
   readonly toolPaths: readonly string[];
   readonly maxTurns?: number;
-  readonly sessionPath?: string;
+  readonly sessionId?: string;
+  readonly transcriptFolder?: string;
   readonly verbose: boolean;
 };
 
@@ -24,6 +25,7 @@ const knownFlags = [
   "--tools",
   "--max-turns",
   "--session",
+  "--transcript-folder",
   "--verbose",
   "--help",
   "-h",
@@ -104,14 +106,16 @@ export const parseCli = (argv: readonly string[]): ParsedCli => {
 
   const prompt = optionalString(readArg(args, "prompt"));
   const instructions = optionalString(readArg(args, "instructions"));
-  const sessionPath = optionalString(readArg(args, "session"));
+  const sessionId = optionalString(readArg(args, "session"));
+  const transcriptFolder = optionalString(readArg(args, "transcript-folder"));
   const options: RunOptions = {
     model,
     toolPaths: stringList(readArg(args, "tools")),
     verbose: readArg(args, "verbose") === true,
     ...(prompt === undefined ? {} : { prompt }),
     ...(instructions === undefined ? {} : { instructions }),
-    ...(sessionPath === undefined ? {} : { sessionPath }),
+    ...(sessionId === undefined ? {} : { sessionId }),
+    ...(transcriptFolder === undefined ? {} : { transcriptFolder }),
     ...(maxTurns === undefined ? {} : { maxTurns }),
   };
 

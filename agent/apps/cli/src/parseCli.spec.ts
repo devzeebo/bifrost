@@ -97,7 +97,9 @@ function a_run_command_with_flags(this: Context) {
     "--max-turns",
     "3",
     "--session",
-    "session.json",
+    "session-1",
+    "--transcript-folder",
+    "transcripts",
     "--verbose",
   ];
 }
@@ -135,7 +137,8 @@ function the_run_options_match(this: Context) {
       instructions: "Be brief",
       toolPaths: ["a.ts", "b.ts"],
       maxTurns: 3,
-      sessionPath: "session.json",
+      sessionId: "session-1",
+      transcriptFolder: "transcripts",
       verbose: true,
     },
   });

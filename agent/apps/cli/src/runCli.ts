@@ -1,11 +1,6 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 
-import {
-  createHarness,
-  createOpenAIModelClient,
-  createTranscript,
-  type TranscriptItem,
-} from "@agent/harness";
+import { createHarness, createOpenAIModelClient, type RunResult } from "@agent/harness";
 import type { Tool } from "@agent/tools";
 import { renderUsage } from "citty";
 import { config } from "dotenv";
@@ -14,29 +9,14 @@ import { mainCommand, runHelpCommand } from "./commands.ts";
 import { loadTools } from "./loadTools.ts";
 import { chooseFromMenu } from "./menu.ts";
 import { parseCli, type RunOptions } from "./parseCli.ts";
-import { readSession, serializeSession } from "./session.ts";
 
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
-
-const isNotFound = (error: unknown): boolean =>
-  typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
 
 const writeHelp = async (subject: "main" | "run"): Promise<void> => {
   const usage =
     subject === "run" ? await renderUsage(runHelpCommand) : await renderUsage(mainCommand);
   process.stdout.write(`${usage}\n`);
-};
-
-const readSessionFile = async (path: string): Promise<TranscriptItem[]> => {
-  try {
-    return readSession(await readFile(path, "utf8"));
-  } catch (error) {
-    if (isNotFound(error)) {
-      return [];
-    }
-    throw error;
-  }
 };
 
 const watchTool = (tool: Tool): Tool => ({
@@ -64,34 +44,28 @@ const executeRun = async (options: RunOptions): Promise<number> => {
   }
 
   const visibleTools = options.verbose ? tools.map(watchTool) : tools;
-
-  let items: TranscriptItem[] = [];
-  if (options.sessionPath !== undefined) {
-    try {
-      items = await readSessionFile(options.sessionPath);
-    } catch (error) {
-      process.stderr.write(`${errorMessage(error)}\n`);
-      return 1;
-    }
+  const sessionId = options.sessionId ?? randomUUID();
+  if (options.sessionId === undefined) {
+    process.stderr.write(`session ${sessionId}\n`);
   }
 
-  let harness: ReturnType<typeof createHarness>;
+  let result: RunResult;
   try {
-    harness = createHarness({
+    const harness = createHarness({
       client: createOpenAIModelClient(),
       model: options.model,
       tools: visibleTools,
+      sessionId,
       ...(options.instructions === undefined ? {} : { instructions: options.instructions }),
       ...(options.maxTurns === undefined ? {} : { maxTurns: options.maxTurns }),
+      ...(options.transcriptFolder === undefined
+        ? {}
+        : { transcriptFolder: options.transcriptFolder }),
     });
+    result = await harness.run(options.prompt);
   } catch (error) {
     process.stderr.write(`${errorMessage(error)}\n`);
     return 1;
-  }
-
-  const result = await harness.run(options.prompt, createTranscript(items));
-  if (options.sessionPath !== undefined) {
-    await writeFile(options.sessionPath, serializeSession(result.transcript.snapshot()), "utf8");
   }
 
   switch (result.status) {

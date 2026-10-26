@@ -1,4 +1,7 @@
+import { randomUUID } from "node:crypto";
+
 import type { JsonObjectSchema, Tool } from "@agent/tools";
+import { toResponseInputItems } from "openai/lib/responses/ResponseInputItems.js";
 import type {
   FunctionTool,
   ResponseFunctionToolCall,
@@ -6,9 +9,10 @@ import type {
 } from "openai/resources/responses/responses.js";
 
 import type { ModelClient } from "./modelClient.ts";
-import { createTranscript, type Transcript } from "./transcript.ts";
+import { createTranscript, type Transcript, type TranscriptItem } from "./transcript.ts";
 
 const defaultMaxTurns = 8;
+const transcriptFolderEnv = "AGENT_TRANSCRIPT_FOLDER";
 
 export type RunResult =
   | { readonly status: "completed"; readonly text: string; readonly transcript: Transcript }
@@ -22,6 +26,18 @@ export type HarnessOptions = {
   readonly tools: readonly Tool<never>[];
   readonly instructions?: string;
   readonly maxTurns?: number;
+  readonly transcriptFolder?: string;
+  readonly sessionId?: string;
+};
+
+const resolveTranscriptFolder = (folder: string | undefined): string => {
+  const value = (folder ?? process.env[transcriptFolderEnv])?.trim();
+  if (value === undefined || value === "") {
+    throw new Error(
+      "Transcript folder is required. Pass transcriptFolder or set AGENT_TRANSCRIPT_FOLDER",
+    );
+  }
+  return value;
 };
 
 const toFunctionTool = (tool: Tool<never>): FunctionTool => ({
@@ -84,12 +100,21 @@ const executeCall = async (
 const toError = (error: unknown): Error =>
   error instanceof Error ? error : new Error(String(error));
 
+const toolOutputLine = (call: ResponseFunctionToolCall, output: string): TranscriptItem => ({
+  type: "function_call_output",
+  call_id: call.call_id,
+  output,
+  ...(call.caller == null ? {} : { caller: call.caller }),
+});
+
 export const createHarness = ({
   client,
   model,
   tools,
   instructions,
   maxTurns = defaultMaxTurns,
+  transcriptFolder,
+  sessionId,
 }: HarnessOptions) => {
   const toolsByName = new Map<string, Tool<never>>();
   for (const tool of tools) {
@@ -101,42 +126,48 @@ export const createHarness = ({
 
   const functionTools = [...toolsByName.values()].map(toFunctionTool);
 
-  const run = async (
-    prompt: string,
-    transcript: Transcript = createTranscript(),
-  ): Promise<RunResult> => {
-    transcript.appendUser(prompt);
+  const run = async (prompt: string, transcript?: Transcript): Promise<RunResult> => {
+    const record =
+      transcript ??
+      (await createTranscript({
+        folder: resolveTranscriptFolder(transcriptFolder),
+        sessionId: sessionId ?? randomUUID(),
+      }));
+
+    await record.appendLine({ role: "user", content: prompt });
 
     for (let turn = 0; turn < maxTurns; turn += 1) {
       let response;
       try {
         response = await client.createResponse({
           model,
-          input: transcript.snapshot(),
+          input: record.snapshot(),
           tools: functionTools,
           store: false,
           ...(instructions === undefined ? {} : { instructions }),
         });
       } catch (error) {
-        return { status: "failed", error: toError(error), transcript };
+        return { status: "failed", error: toError(error), transcript: record };
       }
 
       if (response.status !== "completed") {
         return {
           status: "failed",
           error: new Error(`Response ended with status ${response.status}`),
-          transcript,
+          transcript: record,
         };
       }
 
-      transcript.appendModelOutput(response.output);
+      for (const item of toResponseInputItems(response.output)) {
+        await record.appendLine(item);
+      }
       const calls = response.output.filter(isFunctionCall);
       if (calls.length === 0) {
         const refusal = findRefusal(response.output);
         if (refusal !== undefined) {
-          return { status: "refused", text: refusal, transcript };
+          return { status: "refused", text: refusal, transcript: record };
         }
-        return { status: "completed", text: response.outputText, transcript };
+        return { status: "completed", text: response.outputText, transcript: record };
       }
 
       const outputs = await Promise.all(
@@ -146,11 +177,11 @@ export const createHarness = ({
         })),
       );
       for (const { call, output } of outputs) {
-        transcript.appendToolOutput(call, output);
+        await record.appendLine(toolOutputLine(call, output));
       }
     }
 
-    return { status: "max_turns", transcript };
+    return { status: "max_turns", transcript: record };
   };
 
   return { run };

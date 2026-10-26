@@ -1,7 +1,11 @@
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { defineTool, type Tool } from "@agent/tools";
 import type { ResponseOutputItem } from "openai/resources/responses/responses.js";
 import { describe, expect } from "vite-plus/test";
-import test from "vitest-gwt";
+import test, { withAspect } from "vitest-gwt";
 
 import { createHarness, type RunResult } from "./harness.ts";
 import type { ModelClient, ModelRequest, ModelResponse } from "./modelClient.ts";
@@ -73,7 +77,25 @@ const echoTool = (
     execute,
   });
 
+const parseJsonl = (contents: string): unknown[] =>
+  contents
+    .slice(0, contents.endsWith("\n") ? -1 : undefined)
+    .split("\n")
+    .map((line) => JSON.parse(line) as unknown);
+
 describe("createHarness", () => {
+  withAspect(
+    async function (this: Context) {
+      this.transcriptFolder = await mkdtemp(join(tmpdir(), "agent-transcript-"));
+    },
+    async function (this: Context) {
+      await rm(this.transcriptFolder, { recursive: true, force: true });
+      if (this.envFolder !== undefined) {
+        await rm(this.envFolder, { recursive: true, force: true });
+      }
+    },
+  );
+
   test("returns assistant text when the model does not call a tool", {
     given: {
       instructions_and_a_text_response,
@@ -210,6 +232,45 @@ describe("createHarness", () => {
       expect_error,
     },
   });
+
+  test("writes each turn to the transcript file before the next model call", {
+    given: {
+      a_tool_call_that_records_the_file_before_the_next_turn,
+    },
+    when: {
+      the_prompt_is_run,
+    },
+    then: {
+      the_run_completes_with_the_text,
+      the_file_was_written_before_the_next_turn,
+      the_transcript_file_matches_the_snapshot,
+    },
+  });
+
+  test("reads the transcript folder from the environment", {
+    given: {
+      instructions_and_a_text_response,
+    },
+    when: {
+      the_prompt_is_run_with_the_folder_env,
+    },
+    then: {
+      the_run_completes_with_the_text,
+      the_env_folder_contains_the_session_file,
+    },
+  });
+
+  test("requires a transcript folder", {
+    given: {
+      no_folder_is_configured,
+    },
+    when: {
+      the_prompt_is_run_without_a_folder,
+    },
+    then: {
+      expect_error,
+    },
+  });
 });
 
 type Context = {
@@ -223,6 +284,9 @@ type Context = {
   result: RunResult;
   maxInFlight: number;
   errorMessage: string;
+  transcriptFolder: string;
+  envFolder?: string;
+  persistedBeforeSecondTurn: string;
 };
 
 function scripted(this: Context, responses: readonly ModelResponse[]) {
@@ -374,10 +438,110 @@ async function the_prompt_is_run(this: Context) {
     client: this.client,
     model: "test-model",
     tools: this.tools,
+    transcriptFolder: this.transcriptFolder,
+    sessionId: "session",
     ...(this.instructions === undefined ? {} : { instructions: this.instructions }),
     ...(this.maxTurns === undefined ? {} : { maxTurns: this.maxTurns }),
   });
   this.result = await harness.run(this.prompt);
+}
+
+function a_tool_call_that_records_the_file_before_the_next_turn(this: Context) {
+  this.requests = [];
+  this.tools = [echoTool(() => "pong")];
+  this.prompt = "Ping";
+  this.expectedText = "done";
+  this.client = {
+    createResponse: async (request) => {
+      this.requests.push(request);
+      if (this.requests.length === 2) {
+        this.persistedBeforeSecondTurn = await readFile(
+          join(this.transcriptFolder, "session.jsonl"),
+          "utf8",
+        );
+      }
+      if (this.requests.length === 1) {
+        return functionCalls([{ name: "echo", callId: "call_1" }]);
+      }
+      return message("done");
+    },
+  };
+}
+
+async function the_prompt_is_run_with_the_folder_env(this: Context) {
+  this.envFolder = await mkdtemp(join(tmpdir(), "agent-transcript-env-"));
+  const previous = process.env["AGENT_TRANSCRIPT_FOLDER"];
+  process.env["AGENT_TRANSCRIPT_FOLDER"] = this.envFolder;
+  try {
+    const harness = createHarness({
+      client: this.client,
+      model: "test-model",
+      tools: this.tools,
+      sessionId: "session",
+      ...(this.instructions === undefined ? {} : { instructions: this.instructions }),
+    });
+    this.result = await harness.run(this.prompt);
+  } finally {
+    if (previous === undefined) {
+      delete process.env["AGENT_TRANSCRIPT_FOLDER"];
+    } else {
+      process.env["AGENT_TRANSCRIPT_FOLDER"] = previous;
+    }
+  }
+}
+
+function no_folder_is_configured(this: Context) {
+  this.errorMessage =
+    "Transcript folder is required. Pass transcriptFolder or set AGENT_TRANSCRIPT_FOLDER";
+}
+
+async function the_prompt_is_run_without_a_folder(this: Context) {
+  const previous = process.env["AGENT_TRANSCRIPT_FOLDER"];
+  delete process.env["AGENT_TRANSCRIPT_FOLDER"];
+  try {
+    const harness = createHarness({
+      client: {
+        createResponse: () => Promise.reject(new Error("unused")),
+      },
+      model: "test-model",
+      tools: [],
+    });
+    await harness.run("Hello");
+  } finally {
+    if (previous === undefined) {
+      delete process.env["AGENT_TRANSCRIPT_FOLDER"];
+    } else {
+      process.env["AGENT_TRANSCRIPT_FOLDER"] = previous;
+    }
+  }
+}
+
+function the_file_was_written_before_the_next_turn(this: Context) {
+  const second = this.requests[1];
+  if (second === undefined) {
+    throw new Error("expected a second model call");
+  }
+  expect(parseJsonl(this.persistedBeforeSecondTurn)).toEqual(
+    JSON.parse(JSON.stringify(second.input)) as unknown,
+  );
+}
+
+async function the_transcript_file_matches_the_snapshot(this: Context) {
+  const contents = await readFile(join(this.transcriptFolder, "session.jsonl"), "utf8");
+  expect(parseJsonl(contents)).toEqual(
+    JSON.parse(JSON.stringify(this.result.transcript.snapshot())) as unknown,
+  );
+}
+
+async function the_env_folder_contains_the_session_file(this: Context) {
+  const folder = this.envFolder;
+  if (folder === undefined) {
+    throw new Error("expected an environment transcript folder");
+  }
+  const contents = await readFile(join(folder, "session.jsonl"), "utf8");
+  expect(parseJsonl(contents)).toEqual(
+    JSON.parse(JSON.stringify(this.result.transcript.snapshot())) as unknown,
+  );
 }
 
 function the_harness_is_created(this: Context) {

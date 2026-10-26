@@ -25,7 +25,11 @@ export const runArgs = {
   },
   session: {
     type: "string",
-    description: "Session JSON file to read and write",
+    description: "Session id. The transcript is stored as <id>.jsonl",
+  },
+  "transcript-folder": {
+    type: "string",
+    description: "Folder for transcript files. Falls back to AGENT_TRANSCRIPT_FOLDER",
   },
   verbose: {
     type: "boolean",
