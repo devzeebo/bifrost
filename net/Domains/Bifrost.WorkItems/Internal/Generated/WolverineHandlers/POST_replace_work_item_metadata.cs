@@ -28,13 +28,13 @@ namespace Internal.Generated.WolverineHandlers
 
         public override async System.Threading.Tasks.Task Handle(Microsoft.AspNetCore.Http.HttpContext httpContext)
         {
-            var messageContext = new Wolverine.Runtime.MessageContext(_wolverineRuntime);
-            // Building the Marten session
-            await using var documentSession = _outboxedSessionFactory.OpenSession(messageContext);
             // Reading the request body via JSON deserialization
             var (command, jsonContinue) = await ReadJsonAsync<Bifrost.WorkItems.Contracts.ReplaceWorkItemMetadataApi.Command>(httpContext);
             if (jsonContinue == Wolverine.HandlerContinuation.Stop) return;
             var workItem_Id = command.Id;
+            var messageContext = new Wolverine.Runtime.MessageContext(_wolverineRuntime);
+            // Building the Marten session
+            await using var documentSession = _outboxedSessionFactory.OpenSession(messageContext);
             // Application-specific Open Telemetry auditing
             System.Diagnostics.Activity.Current?.SetTag("id", command.Id);
             System.Diagnostics.Activity.Current?.SetTag("handler.type", "Bifrost.WorkItems.Commands.ReplaceWorkItemMetadataHandler");

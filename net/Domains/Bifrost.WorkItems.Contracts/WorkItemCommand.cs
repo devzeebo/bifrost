@@ -32,17 +32,5 @@ public abstract record WorkItemCommand
         }
     }
 
-    public required JsonObject Expected
-    {
-        get;
-        init
-        {
-            if (value is null)
-            {
-                throw new ContractValidationException("Expected state is required.");
-            }
-
-            field = value;
-        }
-    }
+    public JsonObject? Expected { get; init; }
 }

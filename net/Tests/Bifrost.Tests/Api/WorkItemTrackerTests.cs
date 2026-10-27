@@ -805,20 +805,6 @@ public class WorkItemTrackerTests
         unchanged.ShouldNotBeNull();
         unchanged.Status.ShouldBe("open");
 
-        var nullExpected = await Post(
-            client,
-            "/change-work-item-status",
-            new
-            {
-                id,
-                status = "claimed",
-                actor = "orchestrator-a",
-                reason = "claimed for execution",
-                expected = (object?)null,
-            }
-        );
-        nullExpected.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-
         (
             await Post(
                 client,
@@ -829,7 +815,7 @@ public class WorkItemTrackerTests
                     status = "claimed",
                     actor = "orchestrator-a",
                     reason = "claimed for execution",
-                    expected = new { },
+                    expected = (object?)null,
                 }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -915,6 +901,63 @@ public class WorkItemTrackerTests
         forced.ShouldNotBeNull();
         forced.Status.ShouldBe("pending");
         forced.Metadata["claimedBy"]!.GetValue<string>().ShouldBe("worker-1");
+    }
+
+    [Fact]
+    public async Task work_item_history_includes_actor_and_reason_per_change()
+    {
+        var client = _factory.CreateClient();
+        var id = Guid.NewGuid();
+        await CreateItem(client, id, "open");
+
+        (
+            await Post(
+                client,
+                "/change-work-item-status",
+                new
+                {
+                    id,
+                    status = "claimed",
+                    actor = "orchestrator-a",
+                    reason = "claimed for execution",
+                    expected = new { status = "open" },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (
+            await Post(
+                client,
+                "/replace-work-item-metadata",
+                new
+                {
+                    id,
+                    metadata = new { claimedBy = "worker-1" },
+                    actor = "orchestrator-a",
+                    reason = "held by worker",
+                    expected = new { status = "claimed" },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var history = await Query<GetWorkItemHistoryApi.Response>(
+            client,
+            $"/get-work-item-history/{id}"
+        );
+        history.ShouldNotBeNull();
+        history.Changes.Count.ShouldBe(3);
+        history.Changes[0].Type.ShouldBe("WorkItemCreated");
+        history.Changes[0].Actor.ShouldBe("tester");
+        history.Changes[0].Reason.ShouldBe("created");
+        history.Changes[0].Status.ShouldBe("open");
+        history.Changes[1].Type.ShouldBe("WorkItemStatusChanged");
+        history.Changes[1].Actor.ShouldBe("orchestrator-a");
+        history.Changes[1].Reason.ShouldBe("claimed for execution");
+        history.Changes[1].Status.ShouldBe("claimed");
+        history.Changes[2].Type.ShouldBe("WorkItemMetadataReplaced");
+        history.Changes[2].Actor.ShouldBe("orchestrator-a");
+        history.Changes[2].Reason.ShouldBe("held by worker");
+        history.Changes[2].Status.ShouldBeNull();
     }
 
     [Fact]

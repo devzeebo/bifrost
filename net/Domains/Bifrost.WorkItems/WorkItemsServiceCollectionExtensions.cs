@@ -33,6 +33,7 @@ public static class WorkItemsServiceCollectionExtensions
             // Queries
             services.Query<ListWorkItemsApi.Query, ListWorkItemsApi.Response>();
             services.Query<GetWorkItemApi.Query, GetWorkItemApi.Response>();
+            services.Query<GetWorkItemHistoryApi.Query, GetWorkItemHistoryApi.Response>();
             services.Query<ListRelationshipTypesApi.Query, ListRelationshipTypesApi.Response>();
             services.Query<GetRelationshipTypeApi.Query, GetRelationshipTypeApi.Response>();
             services.Query<ListCommandsApi.Query, ListCommandsApi.Response>();

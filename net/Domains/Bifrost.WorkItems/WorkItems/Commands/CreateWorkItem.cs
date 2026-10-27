@@ -15,7 +15,7 @@ public static class CreateWorkItemHandler
             throw new CommandValidationException($"Work item {command.Id} already exists.");
         }
 
-        if (command.Expected.Count > 0)
+        if (command.Expected is { Count: > 0 })
         {
             throw new CommandValidationException("Work item no longer matches the expected state.");
         }

@@ -43,9 +43,9 @@ public class WorkItem
         Metadata = (JsonObject)e.Metadata.DeepClone()!;
     }
 
-    public void EnsureExpected(JsonObject expected)
+    public void EnsureExpected(JsonObject? expected)
     {
-        if (expected.Count == 0)
+        if (expected is null || expected.Count == 0)
         {
             return;
         }
