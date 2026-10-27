@@ -1,4 +1,4 @@
-import { defineEngine } from "@agent/engines";
+import { defineEngine } from "@bifrost-ai/engines";
 
 const affinity = defineEngine({
   name: "affinity",

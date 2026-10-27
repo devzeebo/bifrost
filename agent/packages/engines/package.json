@@ -1,5 +1,5 @@
 {
-  "name": "@agent/engines",
+  "name": "@bifrost-ai/engines",
   "version": "0.0.0",
   "private": true,
   "type": "module",

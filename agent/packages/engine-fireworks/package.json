@@ -1,5 +1,5 @@
 {
-  "name": "@agent/engine-fireworks",
+  "name": "@bifrost-ai/engine-fireworks",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -14,7 +14,7 @@
     "check": "vp check"
   },
   "dependencies": {
-    "@agent/engines": "*"
+    "@bifrost-ai/engines": "*"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

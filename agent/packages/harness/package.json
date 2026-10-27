@@ -1,5 +1,5 @@
 {
-  "name": "@agent/harness",
+  "name": "@bifrost-ai/harness",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -14,8 +14,8 @@
     "check": "vp check"
   },
   "dependencies": {
-    "@agent/engines": "*",
-    "@agent/tools": "*",
+    "@bifrost-ai/engines": "*",
+    "@bifrost-ai/tools": "*",
     "openai": "^6.8.0"
   },
   "devDependencies": {

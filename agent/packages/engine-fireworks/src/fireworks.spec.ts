@@ -1,4 +1,4 @@
-import type { EngineCall, EngineContext } from "@agent/engines";
+import type { EngineCall, EngineContext } from "@bifrost-ai/engines";
 import { describe, expect } from "vite-plus/test";
 import test from "vitest-gwt";
 

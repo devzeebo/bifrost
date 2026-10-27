@@ -10,7 +10,7 @@
   "type": "module",
   "scripts": {
     "ready": "vp check && vp run -r test && vp run -r build",
-    "dev": "vp run @agent/cli#dev"
+    "dev": "vp run @bifrost-ai/cli#dev"
   },
   "devDependencies": {
     "vite-plus": "0.3.0"

@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 
-import type { Engine } from "@agent/engines";
+import type { Engine } from "@bifrost-ai/engines";
 import {
   createHarness,
   createOpenAIModelClient,
   type RunResult,
-} from "@agent/harness";
-import type { Tool } from "@agent/tools";
+} from "@bifrost-ai/harness";
+import type { Tool } from "@bifrost-ai/tools";
 import { renderUsage } from "citty";
 import { config } from "dotenv";
 import util from "util";

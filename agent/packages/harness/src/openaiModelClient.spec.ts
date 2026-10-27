@@ -1,4 +1,4 @@
-import { defineEngine, type Engine } from "@agent/engines";
+import { defineEngine, type Engine } from "@bifrost-ai/engines";
 import { describe, expect, vi } from "vite-plus/test";
 import test from "vitest-gwt";
 

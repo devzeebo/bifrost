@@ -1,7 +1,7 @@
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 
-import type { Engine } from "@agent/engines";
+import type { Engine } from "@bifrost-ai/engines";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);

@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { defineTool, type Tool } from "@agent/tools";
+import { defineTool, type Tool } from "@bifrost-ai/tools";
 import type { ResponseOutputItem } from "openai/resources/responses/responses.js";
 import { describe, expect } from "vite-plus/test";
 import test, { withAspect } from "vitest-gwt";

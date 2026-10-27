@@ -1,4 +1,4 @@
-import { prepareEngines, receiveEngines, type Engine, type EngineCall } from "@agent/engines";
+import { prepareEngines, receiveEngines, type Engine, type EngineCall } from "@bifrost-ai/engines";
 import OpenAI from "openai";
 
 import type { ModelClient } from "./modelClient.ts";

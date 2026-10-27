@@ -1,7 +1,7 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { Tool } from "@agent/tools";
+import type { Tool } from "@bifrost-ai/tools";
 import { describe, expect } from "vite-plus/test";
 import test from "vitest-gwt";
 

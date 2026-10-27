@@ -1,7 +1,7 @@
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 
-import type { Tool } from "@agent/tools";
+import type { Tool } from "@bifrost-ai/tools";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);

@@ -11,7 +11,7 @@ Private vite-plus monorepo for an agentic loop with user-supplied tools.
 ```bash
 vp install
 vp run -r test
-vp run @agent/cli#dev -- run "Hello" --model <model-id> --engine packages/engine-fireworks/src/index.ts
+vp run @bifrost-ai/cli#dev -- run "Hello" --model <model-id> --engine packages/engine-fireworks/src/index.ts
 
 # Prompt-cache A/B (fetch vs SDK vs affinity / prompt_cache_key / multi-turn)
 node scripts/fireworks-cache-test.mjs

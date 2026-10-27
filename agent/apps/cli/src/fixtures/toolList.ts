@@ -1,4 +1,4 @@
-import { defineTool } from "@agent/tools";
+import { defineTool } from "@bifrost-ai/tools";
 
 const echo = defineTool({
   name: "echo",

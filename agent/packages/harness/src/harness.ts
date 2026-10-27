@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import type { JsonObjectSchema, Tool } from "@agent/tools";
+import type { JsonObjectSchema, Tool } from "@bifrost-ai/tools";
 import { toResponseInputItems } from "openai/lib/responses/ResponseInputItems.js";
 import type {
   FunctionTool,

@@ -1,4 +1,4 @@
-import { defineEngine, type Engine, type EngineCall, type EngineContext } from "@agent/engines";
+import { defineEngine, type Engine, type EngineCall, type EngineContext } from "@bifrost-ai/engines";
 
 const sessionAffinityHeader = "x-session-affinity";
 

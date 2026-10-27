@@ -1,5 +1,5 @@
 {
-  "name": "@agent/cli",
+  "name": "@bifrost-ai/cli",
   "version": "0.0.0",
   "private": true,
   "bin": {
@@ -17,9 +17,9 @@
     "start": "tsx src/main.ts"
   },
   "dependencies": {
-    "@agent/engines": "*",
-    "@agent/harness": "*",
-    "@agent/tools": "*",
+    "@bifrost-ai/engines": "*",
+    "@bifrost-ai/harness": "*",
+    "@bifrost-ai/tools": "*",
     "@clack/prompts": "^0.11.0",
     "citty": "^0.1.6",
     "dotenv": "^18.0.8",

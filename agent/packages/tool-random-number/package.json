@@ -1,5 +1,5 @@
 {
-  "name": "@agent/tool-random-number",
+  "name": "@bifrost-ai/tool-random-number",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -14,7 +14,7 @@
     "check": "vp check"
   },
   "dependencies": {
-    "@agent/tools": "*"
+    "@bifrost-ai/tools": "*"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
