@@ -19,6 +19,10 @@ export const runArgs = {
     type: "string",
     description: "Path to a tools module. Repeat to load more than one",
   },
+  engine: {
+    type: "string",
+    description: "Path to an engine module. Repeat to load more than one",
+  },
   "max-turns": {
     type: "string",
     description: "Maximum model responses",

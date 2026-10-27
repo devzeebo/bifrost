@@ -8,7 +8,9 @@ import { describe, expect } from "vite-plus/test";
 import test, { withAspect } from "vitest-gwt";
 
 import { createHarness, type RunResult } from "./harness.ts";
+import type { SessionMetrics } from "./transcript.ts";
 import type { ModelClient, ModelRequest, ModelResponse } from "./modelClient.ts";
+import type { LineUsage } from "./usage.ts";
 
 const emptyParameters = {
   type: "object",
@@ -106,6 +108,20 @@ describe("createHarness", () => {
     then: {
       the_run_completes_with_the_text,
       the_request_includes_the_prompt_and_instructions,
+    },
+  });
+
+  test("records response usage on each model line and leaves it out of the next request", {
+    given: {
+      tool_calls_with_usage_followed_by_text,
+    },
+    when: {
+      the_prompt_is_run,
+    },
+    then: {
+      each_model_line_keeps_its_response_usage,
+      the_follow_up_request_omits_usage,
+      the_metrics_file_sums_each_response_once,
     },
   });
 
@@ -287,6 +303,8 @@ type Context = {
   transcriptFolder: string;
   envFolder?: string;
   persistedBeforeSecondTurn: string;
+  usage: LineUsage;
+  followUpUsage: LineUsage;
 };
 
 function scripted(this: Context, responses: readonly ModelResponse[]) {
@@ -310,6 +328,49 @@ function instructions_and_a_text_response(this: Context) {
   this.instructions = "Be brief";
   this.prompt = "Hello";
   this.expectedText = "hello back";
+}
+
+function tool_calls_with_usage_followed_by_text(this: Context) {
+  this.usage = {
+    inputTokens: 11,
+    outputTokens: 4,
+    totalTokens: 15,
+    cachedTokens: 7,
+    cacheWriteTokens: 2,
+    reasoningTokens: 1,
+    cost: 0.02,
+  };
+  this.followUpUsage = {
+    inputTokens: 20,
+    outputTokens: 3,
+    totalTokens: 23,
+    cost: 0.03,
+  };
+  scripted.call(this, [
+    {
+      ...functionCalls([
+        { name: "one", callId: "call_one" },
+        { name: "two", callId: "call_two" },
+      ]),
+      usage: this.usage,
+    },
+    { ...message("both"), usage: this.followUpUsage },
+  ]);
+  this.tools = [
+    defineTool({
+      name: "one",
+      description: "First tool",
+      parameters: emptyParameters,
+      execute: () => "one",
+    }),
+    defineTool({
+      name: "two",
+      description: "Second tool",
+      parameters: emptyParameters,
+      execute: () => "two",
+    }),
+  ];
+  this.prompt = "Both";
 }
 
 function a_tool_call_followed_by_text(this: Context) {
@@ -563,6 +624,48 @@ function the_request_includes_the_prompt_and_instructions(this: Context) {
   expect(request?.instructions).toBe("Be brief");
   expect(request?.input[0]).toEqual({ role: "user", content: "Hello" });
   expect(request?.tools).toEqual([]);
+}
+
+function each_model_line_keeps_its_response_usage(this: Context) {
+  if (this.result.status !== "completed") {
+    throw new Error("expected a completed run");
+  }
+  const snapshot = this.result.transcript.snapshot();
+  const done = message("both").output[0];
+  expect(snapshot).toEqual([
+    { role: "user", content: "Both" },
+    { ...functionCall("one", "call_one"), usage: this.usage },
+    { ...functionCall("two", "call_two"), usage: this.usage },
+    { type: "function_call_output", call_id: "call_one", output: "one" },
+    { type: "function_call_output", call_id: "call_two", output: "two" },
+    { ...done, usage: this.followUpUsage },
+  ]);
+}
+
+async function the_metrics_file_sums_each_response_once(this: Context) {
+  const contents = await readFile(join(this.transcriptFolder, "session_metrics.json"), "utf8");
+  const metrics = JSON.parse(contents) as SessionMetrics;
+  expect(metrics).toEqual({
+    turns: 2,
+    inputTokens: this.usage.inputTokens + this.followUpUsage.inputTokens,
+    outputTokens: this.usage.outputTokens + this.followUpUsage.outputTokens,
+    totalTokens: this.usage.totalTokens + this.followUpUsage.totalTokens,
+    cachedTokens: (this.usage.cachedTokens ?? 0) + (this.followUpUsage.cachedTokens ?? 0),
+    cacheWriteTokens:
+      (this.usage.cacheWriteTokens ?? 0) + (this.followUpUsage.cacheWriteTokens ?? 0),
+    reasoningTokens: (this.usage.reasoningTokens ?? 0) + (this.followUpUsage.reasoningTokens ?? 0),
+    cost: (this.usage.cost ?? 0) + (this.followUpUsage.cost ?? 0),
+  });
+}
+
+function the_follow_up_request_omits_usage(this: Context) {
+  expect(this.requests[1]?.input).toEqual([
+    { role: "user", content: "Both" },
+    functionCall("one", "call_one"),
+    functionCall("two", "call_two"),
+    { type: "function_call_output", call_id: "call_one", output: "one" },
+    { type: "function_call_output", call_id: "call_two", output: "two" },
+  ]);
 }
 
 function the_transcript_keeps_the_call_id(this: Context) {

@@ -14,6 +14,7 @@
     "check": "vp check"
   },
   "dependencies": {
+    "@agent/engines": "*",
     "@agent/tools": "*",
     "openai": "^6.8.0"
   },

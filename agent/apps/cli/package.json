@@ -17,6 +17,7 @@
     "start": "tsx src/main.ts"
   },
   "dependencies": {
+    "@agent/engines": "*",
     "@agent/harness": "*",
     "@agent/tools": "*",
     "@clack/prompts": "^0.11.0",

@@ -1,21 +1,32 @@
 import { randomUUID } from "node:crypto";
 
-import { createHarness, createOpenAIModelClient, type RunResult } from "@agent/harness";
+import type { Engine } from "@agent/engines";
+import {
+  createHarness,
+  createOpenAIModelClient,
+  type RunResult,
+} from "@agent/harness";
 import type { Tool } from "@agent/tools";
 import { renderUsage } from "citty";
 import { config } from "dotenv";
+import util from "util";
 
 import { mainCommand, runHelpCommand } from "./commands.ts";
+import { loadEngines } from "./loadEngines.ts";
 import { loadTools } from "./loadTools.ts";
 import { chooseFromMenu } from "./menu.ts";
 import { parseCli, type RunOptions } from "./parseCli.ts";
+
+util.inspect.defaultOptions.depth = null;
 
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
 const writeHelp = async (subject: "main" | "run"): Promise<void> => {
   const usage =
-    subject === "run" ? await renderUsage(runHelpCommand) : await renderUsage(mainCommand);
+    subject === "run"
+      ? await renderUsage(runHelpCommand)
+      : await renderUsage(mainCommand);
   process.stdout.write(`${usage}\n`);
 };
 
@@ -43,6 +54,14 @@ const executeRun = async (options: RunOptions): Promise<number> => {
     return 1;
   }
 
+  let engines: Engine[];
+  try {
+    engines = await loadEngines(options.enginePaths);
+  } catch (error) {
+    process.stderr.write(`${errorMessage(error)}\n`);
+    return 1;
+  }
+
   const visibleTools = options.verbose ? tools.map(watchTool) : tools;
   const sessionId = options.sessionId ?? randomUUID();
   if (options.sessionId === undefined) {
@@ -52,11 +71,13 @@ const executeRun = async (options: RunOptions): Promise<number> => {
   let result: RunResult;
   try {
     const harness = createHarness({
-      client: createOpenAIModelClient(),
+      client: createOpenAIModelClient({ engines }),
       model: options.model,
       tools: visibleTools,
       sessionId,
-      ...(options.instructions === undefined ? {} : { instructions: options.instructions }),
+      ...(options.instructions === undefined
+        ? {}
+        : { instructions: options.instructions }),
       ...(options.maxTurns === undefined ? {} : { maxTurns: options.maxTurns }),
       ...(options.transcriptFolder === undefined
         ? {}
@@ -95,6 +116,7 @@ const runMenu = async (): Promise<number> => {
     prompt: choice.prompt,
     model: choice.model,
     toolPaths: [],
+    enginePaths: [],
     verbose: false,
   });
 };

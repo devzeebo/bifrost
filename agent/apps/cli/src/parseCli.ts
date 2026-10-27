@@ -7,6 +7,7 @@ export type RunOptions = {
   readonly model: string;
   readonly instructions?: string;
   readonly toolPaths: readonly string[];
+  readonly enginePaths: readonly string[];
   readonly maxTurns?: number;
   readonly sessionId?: string;
   readonly transcriptFolder?: string;
@@ -23,6 +24,7 @@ const knownFlags = [
   "--model",
   "--instructions",
   "--tools",
+  "--engine",
   "--max-turns",
   "--session",
   "--transcript-folder",
@@ -111,6 +113,7 @@ export const parseCli = (argv: readonly string[]): ParsedCli => {
   const options: RunOptions = {
     model,
     toolPaths: stringList(readArg(args, "tools")),
+    enginePaths: stringList(readArg(args, "engine")),
     verbose: readArg(args, "verbose") === true,
     ...(prompt === undefined ? {} : { prompt }),
     ...(instructions === undefined ? {} : { instructions }),

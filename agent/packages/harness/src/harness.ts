@@ -5,11 +5,13 @@ import { toResponseInputItems } from "openai/lib/responses/ResponseInputItems.js
 import type {
   FunctionTool,
   ResponseFunctionToolCall,
+  ResponseInputItem,
   ResponseOutputItem,
 } from "openai/resources/responses/responses.js";
 
 import type { ModelClient } from "./modelClient.ts";
-import { createTranscript, type Transcript, type TranscriptItem } from "./transcript.ts";
+import { createTranscript, type Transcript, type TranscriptLine } from "./transcript.ts";
+import type { LineUsage } from "./usage.ts";
 
 const defaultMaxTurns = 8;
 const transcriptFolderEnv = "AGENT_TRANSCRIPT_FOLDER";
@@ -100,7 +102,18 @@ const executeCall = async (
 const toError = (error: unknown): Error =>
   error instanceof Error ? error : new Error(String(error));
 
-const toolOutputLine = (call: ResponseFunctionToolCall, output: string): TranscriptItem => ({
+const lineWithUsage = (item: ResponseInputItem, usage: LineUsage | undefined): TranscriptLine =>
+  usage === undefined ? item : { ...item, usage };
+
+const toModelInput = (line: TranscriptLine): ResponseInputItem => {
+  if (!("usage" in line)) {
+    return line;
+  }
+  const { usage: _usage, ...item } = line;
+  return item;
+};
+
+const toolOutputLine = (call: ResponseFunctionToolCall, output: string): TranscriptLine => ({
   type: "function_call_output",
   call_id: call.call_id,
   output,
@@ -127,11 +140,12 @@ export const createHarness = ({
   const functionTools = [...toolsByName.values()].map(toFunctionTool);
 
   const run = async (prompt: string, transcript?: Transcript): Promise<RunResult> => {
+    const resolvedSessionId = sessionId ?? randomUUID();
     const record =
       transcript ??
       (await createTranscript({
         folder: resolveTranscriptFolder(transcriptFolder),
-        sessionId: sessionId ?? randomUUID(),
+        sessionId: resolvedSessionId,
       }));
 
     await record.appendLine({ role: "user", content: prompt });
@@ -139,11 +153,40 @@ export const createHarness = ({
     for (let turn = 0; turn < maxTurns; turn += 1) {
       let response;
       try {
+        const modelInput = record.snapshot().map(toModelInput);
+        // #region agent log
+        fetch("http://127.0.0.1:7731/ingest/0bcf0e04-b5a1-4e54-a3e3-9542ca6ec229", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "876c11" },
+          body: JSON.stringify({
+            sessionId: "876c11",
+            runId: "pre-fix",
+            hypothesisId: "A-C-E",
+            location: "harness.ts:createResponse",
+            message: "model input for turn",
+            data: {
+              turn,
+              sessionId: resolvedSessionId,
+              itemCount: modelInput.length,
+              items: modelInput.map((item) => ({
+                type: "type" in item ? item.type : "role" in item ? item.role : "unknown",
+                keys: Object.keys(item),
+                hasUsage: "usage" in item,
+              })),
+              toolNames: functionTools.map((tool) => tool.name),
+              toolsJson: JSON.stringify(functionTools),
+              firstItemJson: JSON.stringify(modelInput[0] ?? null),
+            },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
         response = await client.createResponse({
           model,
-          input: record.snapshot(),
+          input: modelInput,
           tools: functionTools,
           store: false,
+          sessionId: resolvedSessionId,
           ...(instructions === undefined ? {} : { instructions }),
         });
       } catch (error) {
@@ -159,8 +202,9 @@ export const createHarness = ({
       }
 
       for (const item of toResponseInputItems(response.output)) {
-        await record.appendLine(item);
+        await record.appendLine(lineWithUsage(item, response.usage));
       }
+      await record.recordTurn(response.usage);
       const calls = response.output.filter(isFunctionCall);
       if (calls.length === 0) {
         const refusal = findRefusal(response.output);
