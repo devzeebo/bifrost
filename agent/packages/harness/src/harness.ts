@@ -154,33 +154,6 @@ export const createHarness = ({
       let response;
       try {
         const modelInput = record.snapshot().map(toModelInput);
-        // #region agent log
-        fetch("http://127.0.0.1:7731/ingest/0bcf0e04-b5a1-4e54-a3e3-9542ca6ec229", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "876c11" },
-          body: JSON.stringify({
-            sessionId: "876c11",
-            runId: "pre-fix",
-            hypothesisId: "A-C-E",
-            location: "harness.ts:createResponse",
-            message: "model input for turn",
-            data: {
-              turn,
-              sessionId: resolvedSessionId,
-              itemCount: modelInput.length,
-              items: modelInput.map((item) => ({
-                type: "type" in item ? item.type : "role" in item ? item.role : "unknown",
-                keys: Object.keys(item),
-                hasUsage: "usage" in item,
-              })),
-              toolNames: functionTools.map((tool) => tool.name),
-              toolsJson: JSON.stringify(functionTools),
-              firstItemJson: JSON.stringify(modelInput[0] ?? null),
-            },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
         response = await client.createResponse({
           model,
           input: modelInput,

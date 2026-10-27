@@ -7,7 +7,10 @@ const withSessionAffinity = (call: EngineCall, context: EngineContext): EngineCa
     return call;
   }
   return {
-    body: call.body,
+    body: {
+      ...call.body,
+      prompt_cache_key: context.sessionId,
+    },
     headers: {
       ...call.headers,
       [sessionAffinityHeader]: context.sessionId,

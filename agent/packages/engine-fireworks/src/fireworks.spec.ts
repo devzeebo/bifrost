@@ -24,7 +24,7 @@ describe("fireworksEngine", () => {
     },
     then: {
       the_affinity_header_is_the_session_id,
-      the_body_is_unchanged,
+      the_body_sets_prompt_cache_key,
       receive_is_absent,
     },
   });
@@ -69,8 +69,11 @@ function the_affinity_header_is_the_session_id(this: Context) {
   });
 }
 
-function the_body_is_unchanged(this: Context) {
-  expect(this.prepared.body).toBe(call.body);
+function the_body_sets_prompt_cache_key(this: Context) {
+  expect(this.prepared.body).toEqual({
+    ...call.body,
+    prompt_cache_key: "session-1",
+  });
 }
 
 function the_call_is_unchanged(this: Context) {

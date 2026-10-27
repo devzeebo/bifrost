@@ -33,27 +33,6 @@ export const createOpenAIModelClient = (options: OpenAIModelClientOptions = {}):
       const { data, response } = await client.responses
         .create(prepared.body, { headers: prepared.headers })
         .withResponse();
-      // #region agent log
-      fetch("http://127.0.0.1:7731/ingest/0bcf0e04-b5a1-4e54-a3e3-9542ca6ec229", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "876c11" },
-        body: JSON.stringify({
-          sessionId: "876c11",
-          runId: "pre-fix",
-          hypothesisId: "B-D-E",
-          location: "openaiModelClient.ts:createResponse",
-          message: "fireworks response usage",
-          data: {
-            requestSessionId: request.sessionId,
-            affinity: prepared.headers["x-session-affinity"] ?? null,
-            headerNames: Object.keys(headerRecord(response.headers)),
-            usage: data.usage ?? null,
-            inputItems: Array.isArray(prepared.body.input) ? prepared.body.input.length : null,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
       const received = await receiveEngines(
         { body: data, headers: headerRecord(response.headers) },
         engines,
