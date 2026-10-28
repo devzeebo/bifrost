@@ -805,20 +805,6 @@ public class WorkItemTrackerTests
         unchanged.ShouldNotBeNull();
         unchanged.Status.ShouldBe("open");
 
-        var nullExpected = await Post(
-            client,
-            "/change-work-item-status",
-            new
-            {
-                id,
-                status = "claimed",
-                actor = "orchestrator-a",
-                reason = "claimed for execution",
-                expected = (object?)null,
-            }
-        );
-        nullExpected.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-
         (
             await Post(
                 client,
@@ -829,7 +815,7 @@ public class WorkItemTrackerTests
                     status = "claimed",
                     actor = "orchestrator-a",
                     reason = "claimed for execution",
-                    expected = new { },
+                    expected = (object?)null,
                 }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -915,6 +901,168 @@ public class WorkItemTrackerTests
         forced.ShouldNotBeNull();
         forced.Status.ShouldBe("pending");
         forced.Metadata["claimedBy"]!.GetValue<string>().ShouldBe("worker-1");
+    }
+
+    [Fact]
+    public async Task work_item_history_includes_actor_and_reason_per_change()
+    {
+        var client = _factory.CreateClient();
+        var id = Guid.NewGuid();
+        var relatedId = Guid.NewGuid();
+        var typeId = Guid.NewGuid();
+        var wordForward = $"relates_{typeId:N}"[..20];
+
+        (
+            await Post(
+                client,
+                "/define-relationship-type",
+                new
+                {
+                    id = typeId,
+                    forwardWord = wordForward,
+                    inverseWord = wordForward,
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        await CreateItem(client, id, "open");
+        await CreateItem(client, relatedId, "open");
+
+        (
+            await Post(
+                client,
+                "/change-work-item-status",
+                new
+                {
+                    id,
+                    status = "claimed",
+                    actor = "orchestrator-a",
+                    reason = "claimed for execution",
+                    expected = new { status = "open" },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (
+            await Post(
+                client,
+                "/replace-work-item-metadata",
+                new
+                {
+                    id,
+                    metadata = new { claimedBy = "worker-1" },
+                    actor = "orchestrator-a",
+                    reason = "held by worker",
+                    expected = new { status = "claimed" },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (
+            await Post(
+                client,
+                "/replace-work-item-data",
+                new
+                {
+                    id,
+                    data = new { title = "updated" },
+                    actor = "orchestrator-a",
+                    reason = "replaced data",
+                    expected = new { status = "claimed" },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (
+            await Post(
+                client,
+                "/add-relationship",
+                new
+                {
+                    workItemId = id,
+                    word = wordForward,
+                    relatedWorkItemId = relatedId,
+                    actor = "orchestrator-a",
+                    reason = "linked related",
+                    expected = new { status = "claimed" },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (
+            await Post(
+                client,
+                "/remove-relationship",
+                new
+                {
+                    workItemId = id,
+                    word = wordForward,
+                    relatedWorkItemId = relatedId,
+                    actor = "orchestrator-a",
+                    reason = "unlinked related",
+                    expected = new { status = "claimed" },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (
+            await Post(
+                client,
+                "/delete-work-item",
+                new
+                {
+                    id,
+                    actor = "orchestrator-a",
+                    reason = "no longer needed",
+                    expected = new { status = "claimed" },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var history = await Query<GetWorkItemHistoryApi.Response>(
+            client,
+            $"/get-work-item-history/{id}"
+        );
+        history.ShouldNotBeNull();
+        history.Changes.Count.ShouldBe(7);
+        history.Changes[0].Type.ShouldBe("WorkItemCreated");
+        history.Changes[0].Actor.ShouldBe("tester");
+        history.Changes[0].Reason.ShouldBe("created");
+        history.Changes[0].Status.ShouldBe("open");
+        history.Changes[1].Type.ShouldBe("WorkItemStatusChanged");
+        history.Changes[1].Actor.ShouldBe("orchestrator-a");
+        history.Changes[1].Reason.ShouldBe("claimed for execution");
+        history.Changes[1].Status.ShouldBe("claimed");
+        history.Changes[2].Type.ShouldBe("WorkItemMetadataReplaced");
+        history.Changes[2].Actor.ShouldBe("orchestrator-a");
+        history.Changes[2].Reason.ShouldBe("held by worker");
+        history.Changes[2].Status.ShouldBeNull();
+        history.Changes[3].Type.ShouldBe("WorkItemDataReplaced");
+        history.Changes[3].Actor.ShouldBe("orchestrator-a");
+        history.Changes[3].Reason.ShouldBe("replaced data");
+        history.Changes[3].Status.ShouldBeNull();
+        history.Changes[4].Type.ShouldBe("RelationshipAdded");
+        history.Changes[4].Actor.ShouldBe("orchestrator-a");
+        history.Changes[4].Reason.ShouldBe("linked related");
+        history.Changes[4].Status.ShouldBeNull();
+        history.Changes[5].Type.ShouldBe("RelationshipRemoved");
+        history.Changes[5].Actor.ShouldBe("orchestrator-a");
+        history.Changes[5].Reason.ShouldBe("unlinked related");
+        history.Changes[5].Status.ShouldBeNull();
+        history.Changes[6].Type.ShouldBe("WorkItemDeleted");
+        history.Changes[6].Actor.ShouldBe("orchestrator-a");
+        history.Changes[6].Reason.ShouldBe("no longer needed");
+        history.Changes[6].Status.ShouldBeNull();
+
+        foreach (var change in history.Changes)
+        {
+            change.At.ShouldNotBe(default);
+        }
+
+        for (var i = 1; i < history.Changes.Count; i++)
+        {
+            history.Changes[i].At.ShouldBeGreaterThanOrEqualTo(history.Changes[i - 1].At);
+        }
     }
 
     [Fact]

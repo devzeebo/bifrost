@@ -25,6 +25,7 @@ public static class ListCommandsHandler
                 "QUERY /get-relationship-type/{id}",
                 "QUERY /list-work-items",
                 "QUERY /get-work-item/{id}",
+                "QUERY /get-work-item-history/{id}",
                 "QUERY /commands",
             ],
         };
