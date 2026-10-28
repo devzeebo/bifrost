@@ -15,7 +15,7 @@ public static class GetWorkItemHistoryHandler
     )
     {
         var events = await session.Events.FetchStreamAsync(query.Id);
-        if (events.Count == 0)
+        if (events.Count == 0 || !events.Any(e => e.Data is WorkItemCreated))
         {
             throw new CommandValidationException($"Work item {query.Id} not found.");
         }

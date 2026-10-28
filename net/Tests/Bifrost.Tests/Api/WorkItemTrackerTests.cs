@@ -908,7 +908,25 @@ public class WorkItemTrackerTests
     {
         var client = _factory.CreateClient();
         var id = Guid.NewGuid();
+        var relatedId = Guid.NewGuid();
+        var typeId = Guid.NewGuid();
+        var wordForward = $"relates_{typeId:N}"[..20];
+
+        (
+            await Post(
+                client,
+                "/define-relationship-type",
+                new
+                {
+                    id = typeId,
+                    forwardWord = wordForward,
+                    inverseWord = wordForward,
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
         await CreateItem(client, id, "open");
+        await CreateItem(client, relatedId, "open");
 
         (
             await Post(
@@ -940,12 +958,73 @@ public class WorkItemTrackerTests
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
+        (
+            await Post(
+                client,
+                "/replace-work-item-data",
+                new
+                {
+                    id,
+                    data = new { title = "updated" },
+                    actor = "orchestrator-a",
+                    reason = "replaced data",
+                    expected = new { status = "claimed" },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (
+            await Post(
+                client,
+                "/add-relationship",
+                new
+                {
+                    workItemId = id,
+                    word = wordForward,
+                    relatedWorkItemId = relatedId,
+                    actor = "orchestrator-a",
+                    reason = "linked related",
+                    expected = new { status = "claimed" },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (
+            await Post(
+                client,
+                "/remove-relationship",
+                new
+                {
+                    workItemId = id,
+                    word = wordForward,
+                    relatedWorkItemId = relatedId,
+                    actor = "orchestrator-a",
+                    reason = "unlinked related",
+                    expected = new { status = "claimed" },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (
+            await Post(
+                client,
+                "/delete-work-item",
+                new
+                {
+                    id,
+                    actor = "orchestrator-a",
+                    reason = "no longer needed",
+                    expected = new { status = "claimed" },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
         var history = await Query<GetWorkItemHistoryApi.Response>(
             client,
             $"/get-work-item-history/{id}"
         );
         history.ShouldNotBeNull();
-        history.Changes.Count.ShouldBe(3);
+        history.Changes.Count.ShouldBe(7);
         history.Changes[0].Type.ShouldBe("WorkItemCreated");
         history.Changes[0].Actor.ShouldBe("tester");
         history.Changes[0].Reason.ShouldBe("created");
@@ -958,6 +1037,32 @@ public class WorkItemTrackerTests
         history.Changes[2].Actor.ShouldBe("orchestrator-a");
         history.Changes[2].Reason.ShouldBe("held by worker");
         history.Changes[2].Status.ShouldBeNull();
+        history.Changes[3].Type.ShouldBe("WorkItemDataReplaced");
+        history.Changes[3].Actor.ShouldBe("orchestrator-a");
+        history.Changes[3].Reason.ShouldBe("replaced data");
+        history.Changes[3].Status.ShouldBeNull();
+        history.Changes[4].Type.ShouldBe("RelationshipAdded");
+        history.Changes[4].Actor.ShouldBe("orchestrator-a");
+        history.Changes[4].Reason.ShouldBe("linked related");
+        history.Changes[4].Status.ShouldBeNull();
+        history.Changes[5].Type.ShouldBe("RelationshipRemoved");
+        history.Changes[5].Actor.ShouldBe("orchestrator-a");
+        history.Changes[5].Reason.ShouldBe("unlinked related");
+        history.Changes[5].Status.ShouldBeNull();
+        history.Changes[6].Type.ShouldBe("WorkItemDeleted");
+        history.Changes[6].Actor.ShouldBe("orchestrator-a");
+        history.Changes[6].Reason.ShouldBe("no longer needed");
+        history.Changes[6].Status.ShouldBeNull();
+
+        foreach (var change in history.Changes)
+        {
+            change.At.ShouldNotBe(default);
+        }
+
+        for (var i = 1; i < history.Changes.Count; i++)
+        {
+            history.Changes[i].At.ShouldBeGreaterThanOrEqualTo(history.Changes[i - 1].At);
+        }
     }
 
     [Fact]
