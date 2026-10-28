@@ -4,10 +4,11 @@ using Bifrost.Orchestrator.Contracts;
 using Bifrost.Rpc;
 using JasperFx;
 using JasperFx.CodeGeneration;
-using Wolverine.Runtime.Heartbeat;
 using Marten;
+using Microsoft.AspNetCore.Mvc;
 using Wolverine;
 using Wolverine.Marten;
+using Wolverine.Runtime.Heartbeat;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -52,6 +53,40 @@ builder.Services.AddMessageBus();
 builder.Services.AddWolverineHttp();
 
 var app = builder.Build();
+
+app.Use(
+    async (context, next) =>
+    {
+        try
+        {
+            await next();
+        }
+        catch (CommandValidationException ex)
+        {
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await context.Response.WriteAsJsonAsync(
+                new ProblemDetails
+                {
+                    Status = StatusCodes.Status400BadRequest,
+                    Title = "Invalid command",
+                    Detail = ex.Message,
+                }
+            );
+        }
+        catch (ContractValidationException ex)
+        {
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await context.Response.WriteAsJsonAsync(
+                new ProblemDetails
+                {
+                    Status = StatusCodes.Status400BadRequest,
+                    Title = "Invalid command",
+                    Detail = ex.Message,
+                }
+            );
+        }
+    }
+);
 
 app.MapWolverineEndpoints();
 
