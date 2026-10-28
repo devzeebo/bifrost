@@ -8,8 +8,15 @@ namespace Bifrost.Runs.Commands;
 
 public static class ReplaceRunMetadataHandler
 {
-    public static void Validate(ReplaceRunMetadataApi.Command command, Run run) =>
+    public static void Validate(ReplaceRunMetadataApi.Command command, Run run)
+    {
+        if (command.Metadata is null)
+        {
+            throw new CommandValidationException("Metadata is required.");
+        }
+
         run.EnsureExpected(command.Expected);
+    }
 
     [WolverinePost("/replace-run-metadata"), EmptyResponse]
     [AggregateHandler]

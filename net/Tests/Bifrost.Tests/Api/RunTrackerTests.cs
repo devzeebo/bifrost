@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Bifrost.Orchestrator.Contracts;
 using Shouldly;
@@ -14,7 +15,10 @@ public class RunTrackerTests
     static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
-        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
+        Converters =
+        {
+            new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false),
+        },
     };
 
     public RunTrackerTests(OrchestratorApiFactory factory)
@@ -48,8 +52,8 @@ public class RunTrackerTests
         run.Id.ShouldBe(runId);
         run.WorkItemId.ShouldBe(workItemId);
         run.Outcome.ShouldBeNull();
-        run.Data.ShouldNotBeNull();
-        run.Metadata.ShouldNotBeNull();
+        run.Data.ShouldBeOfType<JsonObject>().Count.ShouldBe(0);
+        run.Metadata.ShouldBeOfType<JsonObject>().Count.ShouldBe(0);
     }
 
     [Fact]
@@ -83,6 +87,27 @@ public class RunTrackerTests
                     workItemId = Guid.NewGuid(),
                     actor = "orchestrator-a",
                     reason = "duplicate",
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task create_run_rejects_nonempty_expected()
+    {
+        var client = _factory.CreateClient();
+
+        (
+            await Post(
+                client,
+                "/create-run",
+                new
+                {
+                    id = Guid.NewGuid(),
+                    workItemId = Guid.NewGuid(),
+                    actor = "orchestrator-a",
+                    reason = "create",
+                    expected = new { outcome = (string?)null },
                 }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
@@ -312,6 +337,86 @@ public class RunTrackerTests
         run.Outcome.ShouldBeNull();
         run.Data!["turns"]!.GetValue<int>().ShouldBe(3);
         run.Metadata["workerId"]!.GetValue<string>().ShouldBe("worker-1");
+    }
+
+    [Fact]
+    public async Task replace_run_data_rejects_stale_expected_data()
+    {
+        var client = _factory.CreateClient();
+        var runId = await CreateRun(client, Guid.NewGuid());
+
+        (
+            await Post(
+                client,
+                "/replace-run-data",
+                new
+                {
+                    id = runId,
+                    data = new { turns = 1 },
+                    actor = "orchestrator-a",
+                    reason = "initial",
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (
+            await Post(
+                client,
+                "/replace-run-data",
+                new
+                {
+                    id = runId,
+                    data = new { turns = 99 },
+                    actor = "orchestrator-b",
+                    reason = "stale",
+                    expected = new { data = new { turns = 0 } },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        (await Query<GetRunApi.Response>(client, $"/get-run/{runId}"))!
+            .Data!["turns"]!.GetValue<int>()
+            .ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task replace_run_metadata_rejects_stale_expected_metadata()
+    {
+        var client = _factory.CreateClient();
+        var runId = await CreateRun(client, Guid.NewGuid());
+
+        (
+            await Post(
+                client,
+                "/replace-run-metadata",
+                new
+                {
+                    id = runId,
+                    metadata = new { workerId = "worker-1" },
+                    actor = "orchestrator-a",
+                    reason = "initial",
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (
+            await Post(
+                client,
+                "/replace-run-metadata",
+                new
+                {
+                    id = runId,
+                    metadata = new { workerId = "worker-2" },
+                    actor = "orchestrator-b",
+                    reason = "stale",
+                    expected = new { metadata = new { workerId = "other" } },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        (await Query<GetRunApi.Response>(client, $"/get-run/{runId}"))!
+            .Metadata["workerId"]!.GetValue<string>()
+            .ShouldBe("worker-1");
     }
 
     async Task<Guid> CreateRun(HttpClient client, Guid workItemId)

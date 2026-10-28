@@ -7,8 +7,15 @@ namespace Bifrost.Runs.Commands;
 
 public static class ReplaceRunDataHandler
 {
-    public static void Validate(ReplaceRunDataApi.Command command, Run run) =>
+    public static void Validate(ReplaceRunDataApi.Command command, Run run)
+    {
+        if (command.Data is null)
+        {
+            throw new CommandValidationException("Data is required.");
+        }
+
         run.EnsureExpected(command.Expected);
+    }
 
     [WolverinePost("/replace-run-data"), EmptyResponse]
     [AggregateHandler]
