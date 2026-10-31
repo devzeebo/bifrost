@@ -4,6 +4,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Bifrost.Orchestrator.Contracts</RootNamespace>
-    <Description>Orchestrator inbound messages published by a worker: registration and heartbeat.</Description>
+    <Description>Orchestrator API contracts: worker registration/heartbeat and run attempt tracking.</Description>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Infrastructure\Bifrost.MessageBus.Abstractions\Bifrost.MessageBus.Abstractions.csproj" />
+  </ItemGroup>
 </Project>
