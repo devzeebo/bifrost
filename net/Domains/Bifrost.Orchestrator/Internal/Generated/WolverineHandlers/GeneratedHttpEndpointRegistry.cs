@@ -11,7 +11,7 @@ namespace Internal.Generated.WolverineHandlers
 
         public override System.Type[] EndpointTypes()
         {
-            return new System.Type[] { typeof(Bifrost.Runs.Commands.AbandonRunHandler), typeof(Bifrost.Runs.Commands.CreateRunHandler), typeof(Bifrost.Runs.Commands.FailRunHandler), typeof(Bifrost.Runs.Commands.ReplaceRunDataHandler), typeof(Bifrost.Runs.Commands.ReplaceRunMetadataHandler), typeof(Bifrost.Runs.Commands.SucceedRunHandler), typeof(Bifrost.Runs.Queries.GetRunHandler), typeof(Bifrost.Runs.Queries.ListRunsForWorkItemHandler), typeof(Bifrost.WorkerNodes.Queries.ListWorkerNodesHandler) };
+            return new System.Type[] { typeof(Bifrost.Runs.Commands.AbandonRunHandler), typeof(Bifrost.Runs.Commands.CreateRunHandler), typeof(Bifrost.Runs.Commands.FailRunHandler), typeof(Bifrost.Runs.Commands.ReplaceRunDataHandler), typeof(Bifrost.Runs.Commands.ReplaceRunMetadataHandler), typeof(Bifrost.Runs.Commands.SucceedRunHandler), typeof(Bifrost.Runs.Queries.GetRunHandler), typeof(Bifrost.Runs.Queries.ListRunsForWorkItemHandler), typeof(Bifrost.TrackedWorkItems.Commands.CancelTrackedWorkItemHandler), typeof(Bifrost.TrackedWorkItems.Commands.ClaimTrackedWorkItemHandler), typeof(Bifrost.TrackedWorkItems.Commands.CreateTrackedWorkItemHandler), typeof(Bifrost.TrackedWorkItems.Commands.FailTrackedWorkItemHandler), typeof(Bifrost.TrackedWorkItems.Commands.ReleaseTrackedWorkItemHandler), typeof(Bifrost.TrackedWorkItems.Commands.StartTrackedWorkItemHandler), typeof(Bifrost.TrackedWorkItems.Commands.SucceedTrackedWorkItemHandler), typeof(Bifrost.TrackedWorkItems.Queries.GetTrackedWorkItemHandler), typeof(Bifrost.WorkerNodes.Queries.ListWorkerNodesHandler) };
         }
 
     }

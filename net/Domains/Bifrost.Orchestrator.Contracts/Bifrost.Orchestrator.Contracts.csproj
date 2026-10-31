@@ -4,7 +4,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Bifrost.Orchestrator.Contracts</RootNamespace>
-    <Description>Orchestrator API contracts: worker registration/heartbeat and run attempt tracking.</Description>
+    <Description>Orchestrator API contracts: worker registration/heartbeat, run attempt tracking, and tracked work-item lifecycle.</Description>
   </PropertyGroup>
 
   <ItemGroup>
