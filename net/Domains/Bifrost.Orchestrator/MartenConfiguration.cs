@@ -1,4 +1,5 @@
 using Bifrost.Runs.Projections;
+using Bifrost.TrackedWorkItems.Projections;
 using Bifrost.WorkerNodes.Projections;
 using JasperFx.Events.Projections;
 using Marten;
@@ -12,6 +13,7 @@ public static class MartenConfiguration
         opts.DatabaseSchemaName = "orchestrator";
         opts.Projections.Add<WorkerNodeView>(ProjectionLifecycle.Inline);
         opts.Projections.Add<RunView>(ProjectionLifecycle.Inline);
+        opts.Projections.Add<TrackedWorkItemView>(ProjectionLifecycle.Inline);
     }
 }
 
