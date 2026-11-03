@@ -14,6 +14,7 @@ public static class MirrorWorkItemStatusHandler
         public required string Actor { get; init; }
         public required string Reason { get; init; }
         public string? ExpectedStatus { get; init; }
+        public string? RequestKey { get; init; }
     }
 
     public static async Task Handle(Message message, IBifrostBus bus)
@@ -30,6 +31,7 @@ public static class MirrorWorkItemStatusHandler
                     Status = message.Status,
                     Actor = message.Actor,
                     Reason = message.Reason,
+                    RequestKey = message.RequestKey,
                     Expected = message.ExpectedStatus is null
                         ? null
                         : new JsonObject { ["status"] = message.ExpectedStatus },

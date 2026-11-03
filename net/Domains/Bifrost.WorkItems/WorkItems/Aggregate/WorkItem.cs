@@ -10,6 +10,7 @@ public class WorkItem
     public WorkItemStatus Status { get; set; }
     public JsonObject Metadata { get; set; } = new();
     public List<Edge> Relationships { get; set; } = [];
+    public HashSet<string> AppliedRequestKeys { get; set; } = new(StringComparer.Ordinal);
     public bool IsDeleted { get; set; }
 
     public sealed record Edge
@@ -36,7 +37,14 @@ public class WorkItem
     public void Apply(WorkItemStatusChanged e)
     {
         Status = e.Status;
+        if (e.RequestKey is { Length: > 0 } key)
+        {
+            AppliedRequestKeys.Add(key);
+        }
     }
+
+    public bool HasAppliedRequestKey(string requestKey) =>
+        AppliedRequestKeys.Contains(requestKey);
 
     public void Apply(WorkItemMetadataReplaced e)
     {
@@ -58,7 +66,12 @@ public class WorkItem
         };
         if (!state.MatchesPartial(expected))
         {
-            throw new CommandValidationException("Work item no longer matches the expected state.");
+            var expectedStatus = expected["status"]?.GetValue<string>();
+            throw new CommandValidationException(
+                expectedStatus is null
+                    ? "Work item no longer matches the expected state."
+                    : $"Work item no longer matches the expected state (expected status '{expectedStatus}', actual '{Status.Value}')."
+            );
         }
     }
 

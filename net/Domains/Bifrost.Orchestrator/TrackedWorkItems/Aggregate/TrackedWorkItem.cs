@@ -37,8 +37,11 @@ public class TrackedWorkItem
         var state = new JsonObject { ["status"] = Status };
         if (!state.MatchesPartial(expected))
         {
+            var expectedStatus = expected["status"]?.GetValue<string>();
             throw new CommandValidationException(
-                "Tracked work item no longer matches the expected state."
+                expectedStatus is null
+                    ? "Tracked work item no longer matches the expected state."
+                    : $"Tracked work item no longer matches the expected state (expected status '{expectedStatus}', actual '{Status}')."
             );
         }
     }

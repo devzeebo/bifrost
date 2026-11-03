@@ -41,7 +41,7 @@ namespace Internal.Generated.WolverineHandlers
             await Bifrost.TrackedWorkItems.Commands.CreateTrackedWorkItemHandler.Validate(command, ((Marten.IQuerySession)documentSession)).ConfigureAwait(false);
             
             // The actual HTTP request handler execution
-            var startStream = await Bifrost.TrackedWorkItems.Commands.CreateTrackedWorkItemHandler.Handle(command, _bifrostBus).ConfigureAwait(false);
+            var startStream = await Bifrost.TrackedWorkItems.Commands.CreateTrackedWorkItemHandler.Handle(command, _bifrostBus, ((Marten.IQuerySession)documentSession)).ConfigureAwait(false);
 
             if (startStream != null)
             {

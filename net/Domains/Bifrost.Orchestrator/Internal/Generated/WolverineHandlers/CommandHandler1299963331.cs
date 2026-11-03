@@ -32,7 +32,7 @@ namespace Internal.Generated.WolverineHandlers
             System.Diagnostics.Activity.Current?.SetTag("handler.type", "Bifrost.TrackedWorkItems.Commands.CreateTrackedWorkItemHandler");
             
             // The actual message execution
-            var outgoing1 = await Bifrost.TrackedWorkItems.Commands.CreateTrackedWorkItemHandler.Handle(command, _bifrostBus).ConfigureAwait(false);
+            var outgoing1 = await Bifrost.TrackedWorkItems.Commands.CreateTrackedWorkItemHandler.Handle(command, _bifrostBus, ((Marten.IQuerySession)documentSession)).ConfigureAwait(false);
 
             if (outgoing1 != null)
             {

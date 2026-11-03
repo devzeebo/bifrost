@@ -28,9 +28,10 @@ public static class CancelTrackedWorkItemHandler
     )
     {
         var actor = WorkItemLifecycleActors.ForRequester(command.Actor);
+        var from = item.Status;
         var next = WorkItemLifecycle.Decide(
             DefaultWorkItemLifecycle.Definition,
-            item.Status,
+            from,
             WorkItemLifecycleAction.Cancel
         );
 
@@ -41,7 +42,12 @@ public static class CancelTrackedWorkItemHandler
                 Status = next,
                 Actor = actor,
                 Reason = command.Reason,
-                ExpectedStatus = item.Status,
+                ExpectedStatus = from,
+                RequestKey = MirrorRequestKeys.For(
+                    command.Id,
+                    WorkItemLifecycleAction.Cancel,
+                    from
+                ),
             },
             bus
         );

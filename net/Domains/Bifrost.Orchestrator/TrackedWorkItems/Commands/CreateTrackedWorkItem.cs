@@ -11,30 +11,33 @@ namespace Bifrost.TrackedWorkItems.Commands;
 
 public static class CreateTrackedWorkItemHandler
 {
-    public static async Task Validate(
+    public static Task Validate(
         CreateTrackedWorkItemApi.Command command,
+        IQuerySession _session
+    )
+    {
+        if (command.Expected is { Count: > 0 })
+        {
+            throw new CommandValidationException(
+                "Create tracked work item does not accept an expected state."
+            );
+        }
+
+        return Task.CompletedTask;
+    }
+
+    [WolverinePost("/create-tracked-work-item"), EmptyResponse]
+    public static async Task<IStartStream?> Handle(
+        CreateTrackedWorkItemApi.Command command,
+        IBifrostBus bus,
         IQuerySession session
     )
     {
         if (await session.LoadAsync<TrackedWorkItemView.Model>(command.Id) is not null)
         {
-            throw new CommandValidationException($"Tracked work item {command.Id} already exists.");
+            return null;
         }
 
-        if (command.Expected is { Count: > 0 })
-        {
-            throw new CommandValidationException(
-                "Tracked work item no longer matches the expected state."
-            );
-        }
-    }
-
-    [WolverinePost("/create-tracked-work-item"), EmptyResponse]
-    public static async Task<IStartStream> Handle(
-        CreateTrackedWorkItemApi.Command command,
-        IBifrostBus bus
-    )
-    {
         var actor = WorkItemLifecycleActors.ForSystem();
         var status = DefaultWorkItemLifecycle.Definition.InitialStatus;
 
@@ -46,6 +49,7 @@ public static class CreateTrackedWorkItemHandler
                 Actor = actor,
                 Reason = command.Reason,
                 ExpectedStatus = status,
+                RequestKey = MirrorRequestKeys.ForCreate(command.Id, status),
             },
             bus
         );

@@ -28,9 +28,10 @@ public static class ReleaseTrackedWorkItemHandler
     )
     {
         var actor = WorkItemLifecycleActors.ForSystem();
+        var from = item.Status;
         var next = WorkItemLifecycle.Decide(
             DefaultWorkItemLifecycle.Definition,
-            item.Status,
+            from,
             WorkItemLifecycleAction.Release
         );
 
@@ -41,7 +42,12 @@ public static class ReleaseTrackedWorkItemHandler
                 Status = next,
                 Actor = actor,
                 Reason = command.Reason,
-                ExpectedStatus = item.Status,
+                ExpectedStatus = from,
+                RequestKey = MirrorRequestKeys.For(
+                    command.Id,
+                    WorkItemLifecycleAction.Release,
+                    from
+                ),
             },
             bus
         );

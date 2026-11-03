@@ -75,12 +75,14 @@ public class TrackedWorkItemLifecycleTests
             await Post(client, "/release-tracked-work-item", Body(claimed, "dead-worker"))
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
         (await Get(client, claimed)).Status.ShouldBe(TrackedWorkItemStatuses.Pending);
+        _factory.WorkItemLedger.StatusOf(claimed).ShouldBe(TrackedWorkItemStatuses.Pending);
 
         var running = await CreateAt(client, TrackedWorkItemStatuses.Running);
         (
             await Post(client, "/release-tracked-work-item", Body(running, "dead-worker"))
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
         (await Get(client, running)).Status.ShouldBe(TrackedWorkItemStatuses.Pending);
+        _factory.WorkItemLedger.StatusOf(running).ShouldBe(TrackedWorkItemStatuses.Pending);
     }
 
     [Fact]
@@ -126,21 +128,79 @@ public class TrackedWorkItemLifecycleTests
         var client = _factory.CreateClient();
         var id = await CreateAt(client, TrackedWorkItemStatuses.Pending);
 
-        (
-            await Post(
-                client,
-                "/claim-tracked-work-item",
-                new
-                {
-                    id,
-                    actor = "orchestrator",
-                    reason = "race",
-                    expected = new { status = TrackedWorkItemStatuses.Running },
-                }
-            )
-        ).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        var response = await Post(
+            client,
+            "/claim-tracked-work-item",
+            new
+            {
+                id,
+                actor = "orchestrator",
+                reason = "race",
+                expected = new { status = TrackedWorkItemStatuses.Running },
+            }
+        );
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        var body = await response.Content.ReadAsStringAsync();
+        body.ShouldContain(TrackedWorkItemStatuses.Running);
+        body.ShouldContain(TrackedWorkItemStatuses.Pending);
 
         (await Get(client, id)).Status.ShouldBe(TrackedWorkItemStatuses.Pending);
+    }
+
+    [Fact]
+    public async Task create_rejects_expected_with_a_create_specific_message()
+    {
+        var client = _factory.CreateClient();
+        var id = Guid.NewGuid();
+        _factory.WorkItemLedger.Seed(id);
+
+        var response = await Post(
+            client,
+            "/create-tracked-work-item",
+            new
+            {
+                id,
+                actor = "orchestrator",
+                reason = "accept",
+                expected = new { status = TrackedWorkItemStatuses.Pending },
+            }
+        );
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await response.Content.ReadAsStringAsync()).ShouldContain(
+            "does not accept an expected state"
+        );
+    }
+
+    [Fact]
+    public async Task mirror_request_key_makes_ledger_write_replay_safe()
+    {
+        var client = _factory.CreateClient();
+        var id = await CreateAt(client, TrackedWorkItemStatuses.Pending);
+        var historyBefore = _factory.WorkItemLedger.HistoryOf(id).Count;
+
+        (
+            await Post(client, "/claim-tracked-work-item", Body(id, "dispatch"))
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        _factory.WorkItemLedger.HistoryOf(id).Count.ShouldBe(historyBefore + 1);
+
+        // Same logical transition key + stale expected status: treated as success, no new event.
+        var claimKey = $"{id:D}:claim:{TrackedWorkItemStatuses.Pending}";
+        _factory.WorkItemLedger.Apply(
+            new Bifrost.WorkItems.Contracts.ChangeWorkItemStatusApi.Command
+            {
+                Id = id,
+                Status = TrackedWorkItemStatuses.Claimed,
+                Actor = WorkItemLifecycleActors.Orchestrator,
+                Reason = "dispatch-retry",
+                RequestKey = claimKey,
+                Expected = new System.Text.Json.Nodes.JsonObject
+                {
+                    ["status"] = TrackedWorkItemStatuses.Pending,
+                },
+            }
+        );
+        _factory.WorkItemLedger.HistoryOf(id).Count.ShouldBe(historyBefore + 1);
+        _factory.WorkItemLedger.StatusOf(id).ShouldBe(TrackedWorkItemStatuses.Claimed);
     }
 
     [Fact]
