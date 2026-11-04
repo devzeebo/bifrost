@@ -23,6 +23,8 @@ public static class GetRunHandler
         {
             Id = run.Id,
             WorkItemId = run.WorkItemId,
+            Position = run.Position,
+            CreatedAt = run.CreatedAt,
             Outcome = run.Outcome,
             Data = run.Data,
             Metadata = run.Metadata,

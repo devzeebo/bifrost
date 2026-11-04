@@ -16,6 +16,8 @@ public static class ListRunsForWorkItemApi
         {
             public required Guid Id { get; init; }
             public required Guid WorkItemId { get; init; }
+            public required int Position { get; init; }
+            public required DateTimeOffset CreatedAt { get; init; }
             public RunOutcome? Outcome { get; init; }
         }
 

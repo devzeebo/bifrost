@@ -9,6 +9,8 @@ public class Run
 {
     public Guid Id { get; set; }
     public Guid WorkItemId { get; set; }
+    public int Position { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
     public RunOutcome? Outcome { get; set; }
     public required JsonNode Data { get; set; }
     public JsonObject Metadata { get; set; } = new();
@@ -17,6 +19,8 @@ public class Run
     {
         Id = e.Id;
         WorkItemId = e.WorkItemId;
+        Position = e.Position;
+        CreatedAt = e.CreatedAt;
         Outcome = null;
         Data = e.Data.DeepClone()!;
         Metadata = (JsonObject)e.Metadata.DeepClone()!;

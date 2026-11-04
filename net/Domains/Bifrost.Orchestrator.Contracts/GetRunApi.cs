@@ -15,6 +15,8 @@ public static class GetRunApi
     {
         public required Guid Id { get; init; }
         public required Guid WorkItemId { get; init; }
+        public required int Position { get; init; }
+        public required DateTimeOffset CreatedAt { get; init; }
         public RunOutcome? Outcome { get; init; }
         public required JsonNode Data { get; init; }
         public required JsonObject Metadata { get; init; }

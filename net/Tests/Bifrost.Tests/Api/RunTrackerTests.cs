@@ -51,6 +51,8 @@ public class RunTrackerTests
         run.ShouldNotBeNull();
         run.Id.ShouldBe(runId);
         run.WorkItemId.ShouldBe(workItemId);
+        run.Position.ShouldBe(1);
+        run.CreatedAt.ShouldNotBe(default);
         run.Outcome.ShouldBeNull();
         run.Data.ShouldBeOfType<JsonObject>().Count.ShouldBe(0);
         run.Metadata.ShouldBeOfType<JsonObject>().Count.ShouldBe(0);
@@ -257,6 +259,13 @@ public class RunTrackerTests
         var second = await CreateRun(client, workItemId);
         await CreateRun(client, otherWorkItemId);
 
+        var firstRun = (await Query<GetRunApi.Response>(client, $"/get-run/{first}"))!;
+        var secondRun = (await Query<GetRunApi.Response>(client, $"/get-run/{second}"))!;
+        firstRun.Position.ShouldBe(1);
+        secondRun.Position.ShouldBe(2);
+        firstRun.CreatedAt.ShouldNotBe(default);
+        secondRun.CreatedAt.ShouldNotBe(default);
+
         (
             await Post(
                 client,
@@ -292,9 +301,83 @@ public class RunTrackerTests
         );
         listed.ShouldNotBeNull();
         listed.Items.Count.ShouldBe(2);
-        listed.Items.ShouldContain(x => x.Id == first && x.Outcome == RunOutcome.Failed);
-        listed.Items.ShouldContain(x => x.Id == second && x.Outcome == RunOutcome.Succeeded);
+        listed.Items[0].Id.ShouldBe(first);
+        listed.Items[0].Position.ShouldBe(1);
+        listed.Items[0].CreatedAt.ShouldBe(firstRun.CreatedAt);
+        listed.Items[0].Outcome.ShouldBe(RunOutcome.Failed);
+        listed.Items[1].Id.ShouldBe(second);
+        listed.Items[1].Position.ShouldBe(2);
+        listed.Items[1].CreatedAt.ShouldBe(secondRun.CreatedAt);
+        listed.Items[1].Outcome.ShouldBe(RunOutcome.Succeeded);
         listed.Items.ShouldAllBe(x => x.WorkItemId == workItemId);
+    }
+
+    [Fact]
+    public async Task list_runs_for_work_item_keeps_bounce_chain_in_execution_order()
+    {
+        var client = _factory.CreateClient();
+        var workItemId = Guid.NewGuid();
+
+        var first = await CreateRun(client, workItemId);
+        var abandoned = await CreateRun(client, workItemId);
+        var third = await CreateRun(client, workItemId);
+
+        (
+            await Post(
+                client,
+                "/succeed-run",
+                new
+                {
+                    id = first,
+                    actor = "orchestrator-a",
+                    reason = "attempt 1",
+                    expected = new { outcome = (string?)null },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (
+            await Post(
+                client,
+                "/abandon-run",
+                new
+                {
+                    id = abandoned,
+                    actor = "orchestrator-a",
+                    reason = "worker died",
+                    expected = new { outcome = (string?)null },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (
+            await Post(
+                client,
+                "/succeed-run",
+                new
+                {
+                    id = third,
+                    actor = "orchestrator-a",
+                    reason = "attempt 3",
+                    expected = new { outcome = (string?)null },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var listed = await Query<ListRunsForWorkItemApi.Response>(
+            client,
+            "/list-runs-for-work-item",
+            new { workItemId }
+        );
+        listed.ShouldNotBeNull();
+        listed.Items.Select(x => (x.Id, x.Position, x.Outcome)).ShouldBe(
+            [
+                (first, 1, RunOutcome.Succeeded),
+                (abandoned, 2, RunOutcome.Abandoned),
+                (third, 3, RunOutcome.Succeeded),
+            ]
+        );
+        listed.Items.ShouldAllBe(x => x.CreatedAt != default);
     }
 
     [Fact]

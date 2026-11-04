@@ -29,7 +29,7 @@ namespace Internal.Generated.WolverineHandlers
             System.Diagnostics.Activity.Current?.SetTag("handler.type", "Bifrost.Runs.Commands.CreateRunHandler");
             
             // The actual message execution
-            var outgoing1 = Bifrost.Runs.Commands.CreateRunHandler.Handle(command);
+            var outgoing1 = await Bifrost.Runs.Commands.CreateRunHandler.Handle(command, ((Marten.IQuerySession)documentSession)).ConfigureAwait(false);
 
             if (outgoing1 != null)
             {

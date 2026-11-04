@@ -38,7 +38,7 @@ namespace Internal.Generated.WolverineHandlers
             await Bifrost.Runs.Commands.CreateRunHandler.Validate(command, ((Marten.IQuerySession)documentSession)).ConfigureAwait(false);
             
             // The actual HTTP request handler execution
-            var startStream = Bifrost.Runs.Commands.CreateRunHandler.Handle(command);
+            var startStream = await Bifrost.Runs.Commands.CreateRunHandler.Handle(command, ((Marten.IQuerySession)documentSession)).ConfigureAwait(false);
 
             if (startStream != null)
             {

@@ -24,13 +24,26 @@ public static class CreateRunHandler
     }
 
     [WolverinePost("/create-run"), EmptyResponse]
-    public static IStartStream Handle(CreateRunApi.Command command) =>
-        MartenOps.StartStream<Run>(
+    public static async Task<IStartStream?> Handle(
+        CreateRunApi.Command command,
+        IQuerySession session
+    )
+    {
+        var positions = await session
+            .Query<RunView.Model>()
+            .Where(x => x.WorkItemId == command.WorkItemId)
+            .Select(x => x.Position)
+            .ToListAsync();
+        var position = positions.Count == 0 ? 1 : positions.Max() + 1;
+
+        return MartenOps.StartStream<Run>(
             command.Id,
             new RunCreated
             {
                 Id = command.Id,
                 WorkItemId = command.WorkItemId,
+                Position = position,
+                CreatedAt = DateTimeOffset.UtcNow,
                 Data = command.Data?.DeepClone() ?? new JsonObject(),
                 Metadata = command.Metadata is null
                     ? new JsonObject()
@@ -39,4 +52,5 @@ public static class CreateRunHandler
                 Reason = command.Reason,
             }
         );
+    }
 }
