@@ -904,6 +904,58 @@ public class WorkItemTrackerTests
     }
 
     [Fact]
+    public async Task change_work_item_status_request_key_is_replay_safe()
+    {
+        var client = _factory.CreateClient();
+        var id = Guid.NewGuid();
+        await CreateItem(client, id, "pending");
+
+        (
+            await Post(
+                client,
+                "/change-work-item-status",
+                new
+                {
+                    id,
+                    status = "claimed",
+                    actor = "orchestrator-a",
+                    reason = "claim",
+                    requestKey = $"{id:D}:claim:pending",
+                    expected = new { status = "pending" },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        // Retry with the same key and a stale expected status must succeed without appending again.
+        (
+            await Post(
+                client,
+                "/change-work-item-status",
+                new
+                {
+                    id,
+                    status = "claimed",
+                    actor = "orchestrator-a",
+                    reason = "claim-retry",
+                    requestKey = $"{id:D}:claim:pending",
+                    expected = new { status = "pending" },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var history = await Query<GetWorkItemHistoryApi.Response>(
+            client,
+            $"/get-work-item-history/{id}"
+        );
+        history.ShouldNotBeNull();
+        history.Changes.Count(c => c.Type == "WorkItemStatusChanged").ShouldBe(1);
+        history.Changes.ShouldContain(c =>
+            c.Type == "WorkItemStatusChanged" && c.Reason == "claim"
+        );
+        history.Changes.ShouldNotContain(c => c.Reason == "claim-retry");
+    }
+
+    [Fact]
     public async Task work_item_history_includes_actor_and_reason_per_change()
     {
         var client = _factory.CreateClient();

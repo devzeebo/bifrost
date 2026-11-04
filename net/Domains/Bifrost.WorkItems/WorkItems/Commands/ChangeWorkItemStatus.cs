@@ -13,19 +13,32 @@ public static class ChangeWorkItemStatusHandler
             throw new CommandValidationException("Work item is deleted.");
         }
 
+        if (command.RequestKey is { Length: > 0 } key && workItem.HasAppliedRequestKey(key))
+        {
+            return;
+        }
+
         workItem.EnsureExpected(command.Expected);
     }
 
     [WolverinePost("/change-work-item-status"), EmptyResponse]
     [AggregateHandler]
-    public static WorkItemStatusChanged Handle(
+    public static WorkItemStatusChanged? Handle(
         ChangeWorkItemStatusApi.Command command,
         WorkItem workItem
-    ) =>
-        new()
+    )
+    {
+        if (command.RequestKey is { Length: > 0 } key && workItem.HasAppliedRequestKey(key))
+        {
+            return null;
+        }
+
+        return new WorkItemStatusChanged
         {
             Status = command.Status,
             Actor = command.Actor,
             Reason = command.Reason,
+            RequestKey = command.RequestKey,
         };
+    }
 }

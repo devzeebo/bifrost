@@ -5,6 +5,8 @@ using System.Text;
 using System.Text.Json;
 using Bifrost.MessageBus;
 using Bifrost.Orchestrator.Contracts;
+using Bifrost.Tests.Support;
+using Bifrost.WorkItems.Contracts;
 using Marten;
 using Bifrost.Rpc;
 using Bifrost.Tests;
@@ -29,6 +31,8 @@ public sealed class OrchestratorApiFactory : WebApplicationFactory<Orchestrator:
         .Build();
 
     string _connectionString = string.Empty;
+
+    public InMemoryWorkItemLedger WorkItemLedger { get; } = new();
 
     async Task IAsyncLifetime.InitializeAsync()
     {
@@ -57,6 +61,14 @@ public sealed class OrchestratorApiFactory : WebApplicationFactory<Orchestrator:
                 services.Remove(descriptor);
             }
 
+            services.AddSingleton(WorkItemLedger);
+            services.AddMessageBusHandler<ChangeWorkItemStatusApi.Command>(
+                (_, command, _) =>
+                {
+                    WorkItemLedger.Apply(command);
+                    return Task.CompletedTask;
+                }
+            );
             services.AddLoopbackBifrostBus();
         });
     }
