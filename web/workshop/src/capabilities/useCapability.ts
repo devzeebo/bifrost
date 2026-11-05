@@ -11,7 +11,6 @@ export const useCapability = (id: string) => {
   const [state, setState] = useState<CapabilityState>({ status: 'loading' })
 
   const reload = useCallback(async () => {
-    setState({ status: 'loading' })
     try {
       const capability = await getCapability(id)
       setState({ status: 'ready', capability })
@@ -24,6 +23,7 @@ export const useCapability = (id: string) => {
   }, [id])
 
   useEffect(() => {
+    setState({ status: 'loading' })
     void reload()
   }, [reload])
 

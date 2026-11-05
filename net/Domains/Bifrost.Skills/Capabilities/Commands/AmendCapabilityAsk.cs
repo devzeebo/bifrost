@@ -6,8 +6,13 @@ namespace Bifrost.Capabilities.Commands;
 
 public static class AmendCapabilityAskHandler
 {
-    public static void Validate(AmendCapabilityAskApi.Command command, Capability capability)
+    public static void Validate(AmendCapabilityAskApi.Command command, Capability? capability)
     {
+        if (capability is null)
+        {
+            throw new CommandValidationException($"Capability {command.Id} not found.");
+        }
+
         if (string.IsNullOrWhiteSpace(command.Ask))
         {
             throw new CommandValidationException("Ask is required.");

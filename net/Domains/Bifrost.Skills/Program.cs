@@ -5,6 +5,7 @@ using Bifrost.Skills.Contracts;
 using JasperFx;
 using JasperFx.CodeGeneration;
 using Marten;
+using Marten.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 using Wolverine;
 using Wolverine.Marten;
@@ -79,6 +80,18 @@ app.Use(
                     Status = StatusCodes.Status400BadRequest,
                     Title = "Invalid command",
                     Detail = ex.Message,
+                }
+            );
+        }
+        catch (ExistingStreamIdCollisionException ex)
+        {
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await context.Response.WriteAsJsonAsync(
+                new ProblemDetails
+                {
+                    Status = StatusCodes.Status400BadRequest,
+                    Title = "Invalid command",
+                    Detail = $"Capability {ex.Id} already exists.",
                 }
             );
         }

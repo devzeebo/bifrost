@@ -6,8 +6,13 @@ namespace Bifrost.Capabilities.Commands;
 
 public static class RenameCapabilityHandler
 {
-    public static void Validate(RenameCapabilityApi.Command command, Capability capability)
+    public static void Validate(RenameCapabilityApi.Command command, Capability? capability)
     {
+        if (capability is null)
+        {
+            throw new CommandValidationException($"Capability {command.Id} not found.");
+        }
+
         if (string.IsNullOrWhiteSpace(command.Name))
         {
             throw new CommandValidationException("Name is required.");

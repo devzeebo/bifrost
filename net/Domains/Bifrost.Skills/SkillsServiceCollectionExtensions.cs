@@ -1,6 +1,7 @@
 using Bifrost.MessageBus;
 using Bifrost.Rpc;
 using Bifrost.Skills.Contracts;
+using Marten.Exceptions;
 using Microsoft.Extensions.DependencyInjection;
 using Wolverine;
 
@@ -50,6 +51,16 @@ public static class SkillsServiceCollectionExtensions
                     {
                         throw new BusException(
                             new BusError { Code = BusErrorCodes.Validation, Message = ex.Message }
+                        );
+                    }
+                    catch (ExistingStreamIdCollisionException ex)
+                    {
+                        throw new BusException(
+                            new BusError
+                            {
+                                Code = BusErrorCodes.Validation,
+                                Message = $"Capability {ex.Id} already exists.",
+                            }
                         );
                     }
                 }
