@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { changeCapabilityAsk, getCapability, renameCapability } from './api'
+import { amendCapabilityAsk, getCapability, renameCapability } from './api'
 import type { CapabilityDetail } from './types'
 
 export type CapabilityState =
@@ -29,7 +29,7 @@ export const useCapability = (id: string) => {
 
   const saveAsk = useCallback(
     async (ask: string) => {
-      await changeCapabilityAsk({ id, ask })
+      await amendCapabilityAsk({ id, ask })
       await reload()
     },
     [id, reload],

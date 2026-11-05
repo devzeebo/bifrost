@@ -19,7 +19,7 @@ public static class SkillsServiceCollectionExtensions
             ArgumentNullException.ThrowIfNull(services);
 
             services.Command<CreateCapabilityApi.Command>();
-            services.Command<ChangeCapabilityAskApi.Command>();
+            services.Command<AmendCapabilityAskApi.Command>();
             services.Command<RenameCapabilityApi.Command>();
 
             services.Query<GetCapabilityApi.Query, GetCapabilityApi.Response>();

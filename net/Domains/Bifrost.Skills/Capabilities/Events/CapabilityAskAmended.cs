@@ -1,6 +1,6 @@
 namespace Bifrost.Capabilities.Events;
 
-public sealed record CapabilityAskChanged
+public sealed record CapabilityAskAmended
 {
     public required string Ask { get; init; }
 }

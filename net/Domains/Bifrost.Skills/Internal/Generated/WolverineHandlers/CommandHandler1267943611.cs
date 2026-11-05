@@ -4,13 +4,13 @@ using Wolverine.Marten.Publishing;
 
 namespace Internal.Generated.WolverineHandlers
 {
-    // START: CommandHandler832076668
+    // START: CommandHandler1267943611
     [global::System.CodeDom.Compiler.GeneratedCode("JasperFx", "1.0.0")]
-    public sealed class CommandHandler832076668 : Wolverine.Runtime.Handlers.MessageHandler
+    public sealed class CommandHandler1267943611 : Wolverine.Runtime.Handlers.MessageHandler
     {
         private readonly Wolverine.Marten.Publishing.OutboxedSessionFactory _outboxedSessionFactory;
 
-        public CommandHandler832076668(Wolverine.Marten.Publishing.OutboxedSessionFactory outboxedSessionFactory)
+        public CommandHandler1267943611(Wolverine.Marten.Publishing.OutboxedSessionFactory outboxedSessionFactory)
         {
             _outboxedSessionFactory = outboxedSessionFactory;
         }
@@ -20,7 +20,7 @@ namespace Internal.Generated.WolverineHandlers
         public override async System.Threading.Tasks.Task HandleAsync(Wolverine.Runtime.MessageContext context, System.Threading.CancellationToken cancellation)
         {
             // The actual message body
-            var command = (Bifrost.Skills.Contracts.ChangeCapabilityAskApi.Command)context.Envelope.Message;
+            var command = (Bifrost.Skills.Contracts.AmendCapabilityAskApi.Command)context.Envelope.Message;
 
             var capability_Id = command.Id;
             // Building the Marten session
@@ -29,14 +29,14 @@ namespace Internal.Generated.WolverineHandlers
             System.Diagnostics.Activity.Current?.SetTag("id", command.Id);
             // Loading Marten aggregate as part of the aggregate handler workflow
             var eventStreamOfCapability = await documentSession.Events.FetchForWriting<Bifrost.Capabilities.Aggregate.Capability>(capability_Id, cancellation);
-            Bifrost.Capabilities.Commands.ChangeCapabilityAskHandler.Validate(command, eventStreamOfCapability.Aggregate);
-            System.Diagnostics.Activity.Current?.SetTag("message.handler", "Bifrost.Capabilities.Commands.ChangeCapabilityAskHandler");
-            System.Diagnostics.Activity.Current?.SetTag("handler.type", "Bifrost.Capabilities.Commands.ChangeCapabilityAskHandler");
+            Bifrost.Capabilities.Commands.AmendCapabilityAskHandler.Validate(command, eventStreamOfCapability.Aggregate);
+            System.Diagnostics.Activity.Current?.SetTag("message.handler", "Bifrost.Capabilities.Commands.AmendCapabilityAskHandler");
+            System.Diagnostics.Activity.Current?.SetTag("handler.type", "Bifrost.Capabilities.Commands.AmendCapabilityAskHandler");
             System.Diagnostics.Activity.Current?.SetTag("wolverine.stream.id", capability_Id);
             System.Diagnostics.Activity.Current?.SetTag("wolverine.stream.type", "Bifrost.Capabilities.Aggregate.Capability");
             
             // The actual message execution
-            var outgoing1 = Bifrost.Capabilities.Commands.ChangeCapabilityAskHandler.Handle(command, eventStreamOfCapability.Aggregate);
+            var outgoing1 = Bifrost.Capabilities.Commands.AmendCapabilityAskHandler.Handle(command, eventStreamOfCapability.Aggregate);
 
             if (outgoing1 != null)
             {
@@ -55,7 +55,7 @@ namespace Internal.Generated.WolverineHandlers
 
     }
 
-    // END: CommandHandler832076668
+    // END: CommandHandler1267943611
     
     
 }

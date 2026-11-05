@@ -21,7 +21,7 @@ export default defineConfig({
         target: 'http://127.0.0.1:8082',
         changeOrigin: true,
       },
-      '/change-capability-ask': {
+      '/amend-capability-ask': {
         target: 'http://127.0.0.1:8082',
         changeOrigin: true,
       },

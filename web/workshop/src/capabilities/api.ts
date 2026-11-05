@@ -45,11 +45,11 @@ export const createCapability = async (input: {
   await postEmpty('/create-capability', input)
 }
 
-export const changeCapabilityAsk = async (input: {
+export const amendCapabilityAsk = async (input: {
   readonly id: string
   readonly ask: string
 }): Promise<void> => {
-  await postEmpty('/change-capability-ask', input)
+  await postEmpty('/amend-capability-ask', input)
 }
 
 export const renameCapability = async (input: {

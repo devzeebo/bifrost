@@ -9,15 +9,15 @@ using Wolverine.Runtime;
 
 namespace Internal.Generated.WolverineHandlers
 {
-    // START: POST_change_capability_ask
+    // START: POST_amend_capability_ask
     [global::System.CodeDom.Compiler.GeneratedCode("JasperFx", "1.0.0")]
-    public sealed class POST_change_capability_ask : Wolverine.Http.HttpHandler
+    public sealed class POST_amend_capability_ask : Wolverine.Http.HttpHandler
     {
         private readonly Wolverine.Http.WolverineHttpOptions _wolverineHttpOptions;
         private readonly Wolverine.Marten.Publishing.OutboxedSessionFactory _outboxedSessionFactory;
         private readonly Wolverine.Runtime.IWolverineRuntime _wolverineRuntime;
 
-        public POST_change_capability_ask(Wolverine.Http.WolverineHttpOptions wolverineHttpOptions, Wolverine.Marten.Publishing.OutboxedSessionFactory outboxedSessionFactory, Wolverine.Runtime.IWolverineRuntime wolverineRuntime) : base(wolverineHttpOptions)
+        public POST_amend_capability_ask(Wolverine.Http.WolverineHttpOptions wolverineHttpOptions, Wolverine.Marten.Publishing.OutboxedSessionFactory outboxedSessionFactory, Wolverine.Runtime.IWolverineRuntime wolverineRuntime) : base(wolverineHttpOptions)
         {
             _wolverineHttpOptions = wolverineHttpOptions;
             _outboxedSessionFactory = outboxedSessionFactory;
@@ -32,24 +32,24 @@ namespace Internal.Generated.WolverineHandlers
             // Building the Marten session
             await using var documentSession = _outboxedSessionFactory.OpenSession(messageContext);
             // Reading the request body via JSON deserialization
-            var (command, jsonContinue) = await ReadJsonAsync<Bifrost.Skills.Contracts.ChangeCapabilityAskApi.Command>(httpContext);
+            var (command, jsonContinue) = await ReadJsonAsync<Bifrost.Skills.Contracts.AmendCapabilityAskApi.Command>(httpContext);
             if (jsonContinue == Wolverine.HandlerContinuation.Stop) return;
             var capability_Id = command.Id;
             // Application-specific Open Telemetry auditing
             System.Diagnostics.Activity.Current?.SetTag("id", command.Id);
-            System.Diagnostics.Activity.Current?.SetTag("handler.type", "Bifrost.Capabilities.Commands.ChangeCapabilityAskHandler");
+            System.Diagnostics.Activity.Current?.SetTag("handler.type", "Bifrost.Capabilities.Commands.AmendCapabilityAskHandler");
             // Loading Marten aggregate as part of the aggregate handler workflow
             var eventStreamOfCapability = await documentSession.Events.FetchForWriting<Bifrost.Capabilities.Aggregate.Capability>(capability_Id, httpContext.RequestAborted);
             System.Diagnostics.Activity.Current?.SetTag("wolverine.stream.id", capability_Id);
             System.Diagnostics.Activity.Current?.SetTag("wolverine.stream.type", "Bifrost.Capabilities.Aggregate.Capability");
-            Bifrost.Capabilities.Commands.ChangeCapabilityAskHandler.Validate(command, eventStreamOfCapability.Aggregate);
+            Bifrost.Capabilities.Commands.AmendCapabilityAskHandler.Validate(command, eventStreamOfCapability.Aggregate);
             
             // The actual HTTP request handler execution
-            var capabilityAskChanged = Bifrost.Capabilities.Commands.ChangeCapabilityAskHandler.Handle(command, eventStreamOfCapability.Aggregate);
+            var capabilityAskAmended = Bifrost.Capabilities.Commands.AmendCapabilityAskHandler.Handle(command, eventStreamOfCapability.Aggregate);
 
-            if (capabilityAskChanged != null)
+            if (capabilityAskAmended != null)
             {
-                eventStreamOfCapability.AppendOne(capabilityAskChanged);
+                eventStreamOfCapability.AppendOne(capabilityAskAmended);
             }
 
             
@@ -66,7 +66,7 @@ namespace Internal.Generated.WolverineHandlers
 
     }
 
-    // END: POST_change_capability_ask
+    // END: POST_amend_capability_ask
     
     
 }

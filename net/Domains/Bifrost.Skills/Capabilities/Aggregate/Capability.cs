@@ -15,7 +15,7 @@ public class Capability
         Ask = e.Ask;
     }
 
-    public void Apply(CapabilityAskChanged e)
+    public void Apply(CapabilityAskAmended e)
     {
         Ask = e.Ask;
     }

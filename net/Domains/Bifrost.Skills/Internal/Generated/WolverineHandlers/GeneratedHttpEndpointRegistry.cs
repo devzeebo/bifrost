@@ -11,7 +11,7 @@ namespace Internal.Generated.WolverineHandlers
 
         public override System.Type[] EndpointTypes()
         {
-            return new System.Type[] { typeof(Bifrost.Capabilities.Commands.ChangeCapabilityAskHandler), typeof(Bifrost.Capabilities.Commands.CreateCapabilityHandler), typeof(Bifrost.Capabilities.Commands.RenameCapabilityHandler), typeof(Bifrost.Capabilities.Queries.GetCapabilityHandler), typeof(Bifrost.Capabilities.Queries.ListCapabilitiesHandler) };
+            return new System.Type[] { typeof(Bifrost.Capabilities.Commands.AmendCapabilityAskHandler), typeof(Bifrost.Capabilities.Commands.CreateCapabilityHandler), typeof(Bifrost.Capabilities.Commands.RenameCapabilityHandler), typeof(Bifrost.Capabilities.Queries.GetCapabilityHandler), typeof(Bifrost.Capabilities.Queries.ListCapabilitiesHandler) };
         }
 
     }

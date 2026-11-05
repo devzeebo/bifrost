@@ -4,9 +4,9 @@ using Wolverine.Marten;
 
 namespace Bifrost.Capabilities.Commands;
 
-public static class ChangeCapabilityAskHandler
+public static class AmendCapabilityAskHandler
 {
-    public static void Validate(ChangeCapabilityAskApi.Command command, Capability capability)
+    public static void Validate(AmendCapabilityAskApi.Command command, Capability capability)
     {
         if (string.IsNullOrWhiteSpace(command.Ask))
         {
@@ -14,10 +14,10 @@ public static class ChangeCapabilityAskHandler
         }
     }
 
-    [WolverinePost("/change-capability-ask"), EmptyResponse]
+    [WolverinePost("/amend-capability-ask"), EmptyResponse]
     [AggregateHandler]
-    public static CapabilityAskChanged Handle(
-        ChangeCapabilityAskApi.Command command,
+    public static CapabilityAskAmended Handle(
+        AmendCapabilityAskApi.Command command,
         Capability capability
     ) => new() { Ask = command.Ask.Trim() };
 }

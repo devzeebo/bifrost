@@ -3,7 +3,7 @@ using Bifrost.MessageBus;
 namespace Bifrost.Skills.Contracts;
 
 [BusAddress("skills")]
-public static class ChangeCapabilityAskApi
+public static class AmendCapabilityAskApi
 {
     public sealed record Command
     {

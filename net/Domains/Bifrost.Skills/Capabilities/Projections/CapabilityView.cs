@@ -20,7 +20,7 @@ public class CapabilityView : SingleStreamProjection<CapabilityView.Model, Guid>
             Ask = e.Ask,
         };
 
-    public Model Apply(CapabilityAskChanged e, Model view) => view with { Ask = e.Ask };
+    public Model Apply(CapabilityAskAmended e, Model view) => view with { Ask = e.Ask };
 
     public Model Apply(CapabilityRenamed e, Model view) => view with { Name = e.Name };
 }

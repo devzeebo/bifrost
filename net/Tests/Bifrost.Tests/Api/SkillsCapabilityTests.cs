@@ -115,7 +115,7 @@ public class SkillsCapabilityTests
     }
 
     [Fact]
-    public async Task change_ask_and_rename_capability()
+    public async Task amend_ask_and_rename_capability()
     {
         var client = _factory.CreateClient();
         var id = Guid.NewGuid();
@@ -136,7 +136,7 @@ public class SkillsCapabilityTests
         (
             await Post(
                 client,
-                "/change-capability-ask",
+                "/amend-capability-ask",
                 new { id, ask = "  Amended ask for the capability.  " }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
