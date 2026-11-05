@@ -11,6 +11,8 @@ public class RunView : SingleStreamProjection<RunView.Model, Guid>
     {
         public Guid Id { get; init; }
         public Guid WorkItemId { get; init; }
+        public int Position { get; init; }
+        public DateTimeOffset CreatedAt { get; init; }
         public RunOutcome? Outcome { get; init; }
         public required JsonNode Data { get; init; }
         public required JsonObject Metadata { get; init; }
@@ -21,6 +23,8 @@ public class RunView : SingleStreamProjection<RunView.Model, Guid>
         {
             Id = e.Id,
             WorkItemId = e.WorkItemId,
+            Position = e.Position,
+            CreatedAt = e.CreatedAt,
             Outcome = null,
             Data = e.Data.DeepClone()!,
             Metadata = (JsonObject)e.Metadata.DeepClone()!,

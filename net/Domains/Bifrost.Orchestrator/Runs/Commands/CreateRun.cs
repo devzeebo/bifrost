@@ -4,6 +4,7 @@ using Bifrost.Runs.Aggregate;
 using Bifrost.Runs.Events;
 using Bifrost.Runs.Projections;
 using Marten;
+using Npgsql;
 using Wolverine.Marten;
 
 namespace Bifrost.Runs.Commands;
@@ -24,13 +25,29 @@ public static class CreateRunHandler
     }
 
     [WolverinePost("/create-run"), EmptyResponse]
-    public static IStartStream Handle(CreateRunApi.Command command) =>
-        MartenOps.StartStream<Run>(
+    public static async Task<IStartStream?> Handle(
+        CreateRunApi.Command command,
+        IDocumentSession session
+    )
+    {
+        await session.BeginTransactionAsync(CancellationToken.None);
+        await AcquireWorkItemLock(session, command.WorkItemId);
+
+        var positions = await session
+            .Query<RunView.Model>()
+            .Where(x => x.WorkItemId == command.WorkItemId)
+            .Select(x => x.Position)
+            .ToListAsync();
+        var position = positions.Count == 0 ? 1 : positions.Max() + 1;
+
+        return MartenOps.StartStream<Run>(
             command.Id,
             new RunCreated
             {
                 Id = command.Id,
                 WorkItemId = command.WorkItemId,
+                Position = position,
+                CreatedAt = DateTimeOffset.UtcNow,
                 Data = command.Data?.DeepClone() ?? new JsonObject(),
                 Metadata = command.Metadata is null
                     ? new JsonObject()
@@ -39,4 +56,14 @@ public static class CreateRunHandler
                 Reason = command.Reason,
             }
         );
+    }
+
+    static async Task AcquireWorkItemLock(IDocumentSession session, Guid workItemId)
+    {
+        await using var command = new NpgsqlCommand(
+            "select pg_advisory_xact_lock(hashtextextended($1::text, 0))"
+        );
+        command.Parameters.AddWithValue(workItemId);
+        await session.ExecuteAsync(command, CancellationToken.None);
+    }
 }
