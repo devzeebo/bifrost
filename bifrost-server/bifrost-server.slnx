@@ -5,6 +5,8 @@
     <Project Path="../net/Domains/Bifrost.Orchestrator.Contracts/Bifrost.Orchestrator.Contracts.csproj" />
     <Project Path="../net/Domains/Bifrost.Orchestrator/Bifrost.Orchestrator.csproj" />
     <Project Path="../net/Domains/Bifrost.WorkerNode/Bifrost.WorkerNode.csproj" />
+    <Project Path="../net/Domains/Bifrost.Skills.Contracts/Bifrost.Skills.Contracts.csproj" />
+    <Project Path="../net/Domains/Bifrost.Skills/Bifrost.Skills.csproj" />
   </Folder>
   <Folder Name="/Infrastructure/">
     <Project Path="../net/Infrastructure/Bifrost.MessageBus.Abstractions/Bifrost.MessageBus.Abstractions.csproj" />

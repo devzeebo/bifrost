@@ -1,0 +1,27 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Schibsted Grotesk', 'Avenir Next', 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --color-ink: oklch(0.16 0.02 250);
+  --color-surface: oklch(0.22 0.02 250);
+  --color-line: oklch(0.38 0.02 250);
+  --color-muted: oklch(0.72 0.02 250);
+  --color-fg: oklch(0.96 0.015 250);
+  --color-signal: oklch(0.82 0.12 175);
+  --color-signal-dim: oklch(0.62 0.07 175);
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-ink);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+}
