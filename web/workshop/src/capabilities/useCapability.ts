@@ -43,5 +43,5 @@ export const useCapability = (id: string) => {
     [id, reload],
   )
 
-  return { state, saveAsk, saveName }
+  return { state, saveAsk, saveName, reload }
 }

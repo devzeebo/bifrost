@@ -3,11 +3,18 @@ import { useEffect, useState, type FormEvent } from 'react'
 type AskDocumentProps = {
   readonly ask: string
   readonly name: string
+  readonly hasUnsavedDraft: boolean
   readonly onSaveAsk: (ask: string) => Promise<void>
   readonly onSaveName: (name: string) => Promise<void>
 }
 
-export const AskDocument = ({ ask, name, onSaveAsk, onSaveName }: AskDocumentProps) => {
+export const AskDocument = ({
+  ask,
+  name,
+  hasUnsavedDraft,
+  onSaveAsk,
+  onSaveName,
+}: AskDocumentProps) => {
   const [draftAsk, setDraftAsk] = useState(ask)
   const [draftName, setDraftName] = useState(name)
   const [error, setError] = useState<string | null>(null)
@@ -29,7 +36,7 @@ export const AskDocument = ({ ask, name, onSaveAsk, onSaveName }: AskDocumentPro
       if (draftName.trim() !== name) {
         await onSaveName(draftName)
       }
-      if (draftAsk.trim() !== ask) {
+      if (draftAsk.trim() !== ask || hasUnsavedDraft) {
         await onSaveAsk(draftAsk)
       }
     } catch (err) {
@@ -39,7 +46,8 @@ export const AskDocument = ({ ask, name, onSaveAsk, onSaveName }: AskDocumentPro
     }
   }
 
-  const dirty = draftAsk.trim() !== ask || draftName.trim() !== name
+  const dirty =
+    draftAsk.trim() !== ask || draftName.trim() !== name || hasUnsavedDraft
 
   return (
     <section className="flex flex-col gap-3">
@@ -62,6 +70,9 @@ export const AskDocument = ({ ask, name, onSaveAsk, onSaveName }: AskDocumentPro
             className="border border-line bg-ink px-3 py-2 font-sans text-fg outline-none focus:border-signal-dim"
           />
         </label>
+        {hasUnsavedDraft ? (
+          <p className="text-sm text-muted">Draft restored from history — save to record a new version.</p>
+        ) : null}
         {error ? <p className="text-sm text-signal">{error}</p> : null}
         <button
           type="submit"

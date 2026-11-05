@@ -40,7 +40,10 @@ namespace Internal.Generated.WolverineHandlers
 
             if (outgoing1 != null)
             {
-                eventStreamOfCapability.AppendOne(outgoing1);
+                
+                // Capturing any possible events returned from the command handlers
+                eventStreamOfCapability.AppendMany(outgoing1);
+
             }
 
             

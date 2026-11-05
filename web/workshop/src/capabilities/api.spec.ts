@@ -101,6 +101,12 @@ function a_capability_detail_response(this: Context) {
         criteria: [],
         evals: [],
         hasPublishedSkill: false,
+        skillMarkdown: '',
+        currentCapabilityVersionId: '22222222-2222-2222-2222-222222222222',
+        currentSkillVersionId: null,
+        derivedAgainstCapabilityVersionId: null,
+        hasUnsavedCapabilityDraft: false,
+        hasUnsavedSkillDraft: false,
       }),
       { status: 200, headers: { 'content-type': 'application/json' } },
     ),
@@ -162,6 +168,12 @@ function the_detail_is_returned(this: Context) {
     criteria: [],
     evals: [],
     hasPublishedSkill: false,
+    skillMarkdown: '',
+    currentCapabilityVersionId: '22222222-2222-2222-2222-222222222222',
+    currentSkillVersionId: null,
+    derivedAgainstCapabilityVersionId: null,
+    hasUnsavedCapabilityDraft: false,
+    hasUnsavedSkillDraft: false,
   })
 }
 

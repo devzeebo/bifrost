@@ -22,9 +22,21 @@ public static class SkillsServiceCollectionExtensions
             services.Command<CreateCapabilityApi.Command>();
             services.Command<AmendCapabilityAskApi.Command>();
             services.Command<RenameCapabilityApi.Command>();
+            services.Command<SaveDerivedSkillApi.Command>();
+            services.Command<RestoreCapabilityVersionApi.Command>();
+            services.Command<RestoreSkillVersionApi.Command>();
 
             services.Query<GetCapabilityApi.Query, GetCapabilityApi.Response>();
             services.Query<ListCapabilitiesApi.Query, ListCapabilitiesApi.Response>();
+            services.Query<ListCapabilityVersionsApi.Query, ListCapabilityVersionsApi.Response>();
+            services.Query<GetCapabilityVersionApi.Query, GetCapabilityVersionApi.Response>();
+            services.Query<
+                CompareCapabilityVersionsApi.Query,
+                CompareCapabilityVersionsApi.Response
+            >();
+            services.Query<ListSkillVersionsApi.Query, ListSkillVersionsApi.Response>();
+            services.Query<GetSkillVersionApi.Query, GetSkillVersionApi.Response>();
+            services.Query<CompareSkillVersionsApi.Query, CompareSkillVersionsApi.Response>();
             return services;
         }
 

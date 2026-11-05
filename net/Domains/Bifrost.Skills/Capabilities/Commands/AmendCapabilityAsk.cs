@@ -1,6 +1,7 @@
 using Bifrost.Capabilities.Aggregate;
 using Bifrost.Capabilities.Events;
 using Wolverine.Marten;
+using MartenEvents = Wolverine.Marten.Events;
 
 namespace Bifrost.Capabilities.Commands;
 
@@ -21,8 +22,31 @@ public static class AmendCapabilityAskHandler
 
     [WolverinePost("/amend-capability-ask"), EmptyResponse]
     [AggregateHandler]
-    public static CapabilityAskAmended Handle(
-        AmendCapabilityAskApi.Command command,
-        Capability capability
-    ) => new() { Ask = command.Ask.Trim() };
+    public static MartenEvents Handle(AmendCapabilityAskApi.Command command, Capability capability)
+    {
+        var ask = command.Ask.Trim();
+        var snapshot = new CapabilityVersionSnapshot
+        {
+            Ask = ask,
+            Criteria = capability.Criteria.ToArray(),
+            Evals = capability.Evals.ToArray(),
+        };
+
+        if (capability.CapabilityContentEquals(snapshot))
+        {
+            return [];
+        }
+
+        return
+        [
+            new CapabilityAskAmended { Ask = ask },
+            new CapabilityVersionRecorded
+            {
+                VersionId = Guid.NewGuid(),
+                CapabilityId = capability.Id,
+                RecordedAt = DateTimeOffset.UtcNow,
+                Snapshot = snapshot,
+            },
+        ];
+    }
 }
