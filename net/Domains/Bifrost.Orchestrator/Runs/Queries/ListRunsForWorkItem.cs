@@ -16,6 +16,8 @@ public static class ListRunsForWorkItemHandler
             .Query<RunView.Model>()
             .Where(x => x.WorkItemId == query.WorkItemId)
             .OrderBy(x => x.Position)
+            .ThenBy(x => x.CreatedAt)
+            .ThenBy(x => x.Id)
             .ToListAsync();
 
         return new ListRunsForWorkItemApi.Response

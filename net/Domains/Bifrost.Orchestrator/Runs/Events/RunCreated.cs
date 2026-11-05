@@ -6,8 +6,8 @@ public sealed record RunCreated
 {
     public required Guid Id { get; init; }
     public required Guid WorkItemId { get; init; }
-    public required int Position { get; init; }
-    public required DateTimeOffset CreatedAt { get; init; }
+    public int Position { get; init; }
+    public DateTimeOffset CreatedAt { get; init; }
     public required JsonNode Data { get; init; }
     public required JsonObject Metadata { get; init; }
     public required string Actor { get; init; }

@@ -4,6 +4,7 @@ using Bifrost.Runs.Aggregate;
 using Bifrost.Runs.Events;
 using Bifrost.Runs.Projections;
 using Marten;
+using Npgsql;
 using Wolverine.Marten;
 
 namespace Bifrost.Runs.Commands;
@@ -26,9 +27,12 @@ public static class CreateRunHandler
     [WolverinePost("/create-run"), EmptyResponse]
     public static async Task<IStartStream?> Handle(
         CreateRunApi.Command command,
-        IQuerySession session
+        IDocumentSession session
     )
     {
+        await session.BeginTransactionAsync(CancellationToken.None);
+        await AcquireWorkItemLock(session, command.WorkItemId);
+
         var positions = await session
             .Query<RunView.Model>()
             .Where(x => x.WorkItemId == command.WorkItemId)
@@ -52,5 +56,14 @@ public static class CreateRunHandler
                 Reason = command.Reason,
             }
         );
+    }
+
+    static async Task AcquireWorkItemLock(IDocumentSession session, Guid workItemId)
+    {
+        await using var command = new NpgsqlCommand(
+            "select pg_advisory_xact_lock(hashtextextended($1::text, 0))"
+        );
+        command.Parameters.AddWithValue(workItemId);
+        await session.ExecuteAsync(command, CancellationToken.None);
     }
 }
