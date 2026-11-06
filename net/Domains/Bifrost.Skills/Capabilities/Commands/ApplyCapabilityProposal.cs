@@ -62,6 +62,13 @@ public static class ApplyCapabilityProposalHandler
         var (nextCapability, skillMarkdown, capabilityChanged, skillChanged) =
             ProposalApplicator.Apply(currentSnapshot, capability.SkillMarkdown, proposal);
 
+        var uncoveredCriteria = ProposalApplicator.CriteriaLeftUncoveredByRetire(
+            currentSnapshot.Evals,
+            nextCapability.Evals,
+            nextCapability.Criteria,
+            proposal.Effects
+        );
+
         var capabilityVersionId = capability.CurrentCapabilityVersionId;
 
         if (capabilityChanged)
@@ -141,19 +148,21 @@ public static class ApplyCapabilityProposalHandler
                 ),
             ];
         }
-        chat.Messages.Add(
-            CapabilityChatStore.Message(
-                "system",
-                $"Applied proposal: {proposal.Summary}",
-                proposal.Id
-            )
-        );
+        var appliedNote = $"Applied proposal: {proposal.Summary}";
+        if (uncoveredCriteria.Count > 0)
+        {
+            var names = string.Join("; ", uncoveredCriteria.Select(c => c.Statement));
+            appliedNote +=
+                $" Warning: retiring eval(s) left criterion(s) uncovered: {names}.";
+        }
+
+        chat.Messages.Add(CapabilityChatStore.Message("system", appliedNote, proposal.Id));
         session.Store(chat);
 
         return new ApplyCapabilityProposalApi.Response
         {
             Outcome = "Applied",
-            Note = proposal.Summary,
+            Note = appliedNote,
             Messages = chat.Messages,
             PendingProposals = chat.PendingProposals,
         };

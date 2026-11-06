@@ -6,6 +6,7 @@ import type {
   CapabilityVersionDetail,
   CapabilityVersionSnapshot,
   ChatMessage,
+  CheckSnapshot,
   CriterionSnapshot,
   EvalSnapshot,
   Proposal,
@@ -66,6 +67,37 @@ export const amendCapabilityAsk = async (input: {
   readonly ask: string
 }): Promise<void> => {
   await postEmpty('/amend-capability-ask', input)
+}
+
+export const amendCapabilityEval = async (input: {
+  readonly id: string
+  readonly evalId: string
+  readonly scenario: string
+  readonly prompt: string
+  readonly context: string
+  readonly checks: readonly CheckSnapshot[]
+}): Promise<void> => {
+  await postEmpty('/amend-capability-eval', input)
+}
+
+export const duplicateCapabilityEval = async (input: {
+  readonly id: string
+  readonly sourceEvalId: string
+  readonly newEvalId: string
+}): Promise<void> => {
+  await postEmpty('/duplicate-capability-eval', input)
+}
+
+export const retireCapabilityEval = async (input: {
+  readonly id: string
+  readonly evalId: string
+}): Promise<{
+  readonly leftCriterionUncovered: boolean
+  readonly uncoveredCriterionId: string | null
+  readonly note: string | null
+}> => {
+  const response = await postJson('/retire-capability-eval', input)
+  return parseRetireEvalResult(response)
 }
 
 export const renameCapability = async (input: {
@@ -454,6 +486,13 @@ const parseCriterionSnapshot = (value: unknown): CriterionSnapshot => {
   return { id: value['id'], statement: value['statement'] }
 }
 
+const parseCheckSnapshot = (value: unknown): CheckSnapshot => {
+  if (!isRecord(value) || typeof value['id'] !== 'string' || typeof value['statement'] !== 'string') {
+    throw new CapabilityApiError('Check snapshot was invalid')
+  }
+  return { id: value['id'], statement: value['statement'] }
+}
+
 const parseEvalSnapshot = (value: unknown): EvalSnapshot => {
   if (
     !isRecord(value) ||
@@ -463,10 +502,16 @@ const parseEvalSnapshot = (value: unknown): EvalSnapshot => {
   ) {
     throw new CapabilityApiError('Eval snapshot was invalid')
   }
+  const prompt = value['prompt']
+  const context = value['context']
+  const checks = value['checks']
   return {
     id: value['id'],
     criterionId: value['criterionId'],
     scenario: value['scenario'],
+    prompt: typeof prompt === 'string' ? prompt : '',
+    context: typeof context === 'string' ? context : '',
+    checks: Array.isArray(checks) ? checks.map(parseCheckSnapshot) : [],
   }
 }
 
@@ -617,12 +662,40 @@ const parseProposalEffect = (value: unknown): ProposalEffect => {
     statement: optionalString(value['statement']),
     newCriteria: value['newCriteria'] == null ? null : parseCriterionList(value['newCriteria']),
     evalId: optionalGuid(value['evalId']),
+    sourceEvalId: optionalGuid(value['sourceEvalId']),
     scenario: optionalString(value['scenario']),
+    prompt: optionalString(value['prompt']),
+    context: optionalString(value['context']),
+    checks: value['checks'] == null ? null : parseCheckList(value['checks']),
     markdown: optionalString(value['markdown']),
     servedCriterionIds:
       value['servedCriterionIds'] == null
         ? null
         : parseGuidList(value['servedCriterionIds']),
+  }
+}
+
+const parseCheckList = (value: unknown): readonly CheckSnapshot[] => {
+  if (!Array.isArray(value)) {
+    throw new CapabilityApiError('Check list was invalid')
+  }
+  return value.map(parseCheckSnapshot)
+}
+
+const parseRetireEvalResult = (
+  value: unknown,
+): {
+  readonly leftCriterionUncovered: boolean
+  readonly uncoveredCriterionId: string | null
+  readonly note: string | null
+} => {
+  if (!isRecord(value) || typeof value['leftCriterionUncovered'] !== 'boolean') {
+    throw new CapabilityApiError('Retire eval response was invalid')
+  }
+  return {
+    leftCriterionUncovered: value['leftCriterionUncovered'],
+    uncoveredCriterionId: optionalGuid(value['uncoveredCriterionId']),
+    note: optionalString(value['note']),
   }
 }
 

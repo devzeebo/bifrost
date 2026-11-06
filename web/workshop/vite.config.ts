@@ -25,7 +25,39 @@ export default defineConfig({
         target: 'http://127.0.0.1:8082',
         changeOrigin: true,
       },
+      '/amend-capability-eval': {
+        target: 'http://127.0.0.1:8082',
+        changeOrigin: true,
+      },
+      '/duplicate-capability-eval': {
+        target: 'http://127.0.0.1:8082',
+        changeOrigin: true,
+      },
+      '/retire-capability-eval': {
+        target: 'http://127.0.0.1:8082',
+        changeOrigin: true,
+      },
       '/rename-capability': {
+        target: 'http://127.0.0.1:8082',
+        changeOrigin: true,
+      },
+      '/post-capability-chat-message': {
+        target: 'http://127.0.0.1:8082',
+        changeOrigin: true,
+      },
+      '/apply-capability-proposal': {
+        target: 'http://127.0.0.1:8082',
+        changeOrigin: true,
+      },
+      '/dismiss-capability-proposal': {
+        target: 'http://127.0.0.1:8082',
+        changeOrigin: true,
+      },
+      '/reread-capability-proposal': {
+        target: 'http://127.0.0.1:8082',
+        changeOrigin: true,
+      },
+      '/get-capability-chat': {
         target: 'http://127.0.0.1:8082',
         changeOrigin: true,
       },

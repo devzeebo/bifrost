@@ -196,13 +196,16 @@ public sealed class HttpCapabilityEditor(
             "Respond with JSON: {\"assistantText\":string,\"proposalSummary\":string|null,\"effects\":[effect]|null,\"withdrawNote\":string|null}."
         );
         sb.AppendLine(
-            "Effect kinds: AmendAsk, AddCriterion, SharpenCriterion, SplitCriterion, RetireCriterion, AddEval, AmendEval, RetireEval, ReplaceSkill."
+            "Effect kinds: AmendAsk, AddCriterion, SharpenCriterion, SplitCriterion, RetireCriterion, AddEval, AmendEval, DuplicateEval, RetireEval, ReplaceSkill."
         );
         sb.AppendLine(
-            "Sharpen keeps criterion identity. Split and Retire change the set. AmendEval keeps eval identity. ReplaceSkill must name servedCriterionIds."
+            "Sharpen keeps criterion identity. Split and Retire change the set. AmendEval keeps eval identity — never retire-and-recreate. DuplicateEval copies SourceEvalId onto a new EvalId with new check ids. ReplaceSkill must name servedCriterionIds."
         );
         sb.AppendLine(
-            "When SplitCriterion or RetireCriterion would leave evals behind, include RetireEval effects for each affected eval in the same proposal."
+            "AddEval and AmendEval carry Scenario (plain-language face), Prompt, Context, and Checks (each Check has Id and Statement). AddEval requires at least one check. Checks are pass/fail only — no scores."
+        );
+        sb.AppendLine(
+            "When SplitCriterion or RetireCriterion would leave evals behind, include RetireEval effects for each affected eval in the same proposal. Retiring the last eval behind a criterion must say so in the proposal summary."
         );
         sb.AppendLine("List every layer an edit touches in effects before the person applies.");
         sb.AppendLine($"Capability id: {context.CapabilityId}");

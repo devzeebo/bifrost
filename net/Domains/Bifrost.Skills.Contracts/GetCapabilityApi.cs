@@ -10,19 +10,26 @@ public static class GetCapabilityApi
         public required Guid Id { get; init; }
     }
 
-    /// <summary>Placeholder until criteria land in a later story.</summary>
     public sealed record CriterionSummary
     {
         public required Guid Id { get; init; }
         public required string Statement { get; init; }
     }
 
-    /// <summary>Placeholder until evals land in a later story.</summary>
+    public sealed record CheckSummary
+    {
+        public required Guid Id { get; init; }
+        public required string Statement { get; init; }
+    }
+
     public sealed record EvalSummary
     {
         public required Guid Id { get; init; }
         public required Guid CriterionId { get; init; }
         public required string Scenario { get; init; }
+        public string Prompt { get; init; } = "";
+        public string Context { get; init; } = "";
+        public IReadOnlyList<CheckSummary> Checks { get; init; } = [];
     }
 
     public sealed record Response

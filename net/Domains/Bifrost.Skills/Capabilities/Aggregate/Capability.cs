@@ -146,7 +146,28 @@ public class Capability
                 left[i].Id != right[i].Id
                 || left[i].CriterionId != right[i].CriterionId
                 || left[i].Scenario != right[i].Scenario
+                || left[i].Prompt != right[i].Prompt
+                || left[i].Context != right[i].Context
+                || !ChecksEqual(left[i].Checks, right[i].Checks)
             )
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    static bool ChecksEqual(IReadOnlyList<CheckSnapshot> left, IReadOnlyList<CheckSnapshot> right)
+    {
+        if (left.Count != right.Count)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < left.Count; i++)
+        {
+            if (left[i].Id != right[i].Id || left[i].Statement != right[i].Statement)
             {
                 return false;
             }

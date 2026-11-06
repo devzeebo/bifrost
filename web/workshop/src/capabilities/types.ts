@@ -9,10 +9,26 @@ export type CriterionSnapshot = {
   readonly statement: string
 }
 
+export type CheckSnapshot = {
+  readonly id: string
+  readonly statement: string
+}
+
+export type EvalOutcomeStatus = 'passed' | 'failed' | 'unsettled' | 'never_run'
+
+export type EvalLatestOutcome = {
+  readonly status: EvalOutcomeStatus
+  readonly capabilityVersionId: string | null
+  readonly skillVersionId: string | null
+}
+
 export type EvalSnapshot = {
   readonly id: string
   readonly criterionId: string
   readonly scenario: string
+  readonly prompt: string
+  readonly context: string
+  readonly checks: readonly CheckSnapshot[]
 }
 
 export type CapabilityVersionSnapshot = {
@@ -72,7 +88,11 @@ export type ProposalEffect = {
   readonly statement?: string | null
   readonly newCriteria?: readonly CriterionSnapshot[] | null
   readonly evalId?: string | null
+  readonly sourceEvalId?: string | null
   readonly scenario?: string | null
+  readonly prompt?: string | null
+  readonly context?: string | null
+  readonly checks?: readonly CheckSnapshot[] | null
   readonly markdown?: string | null
   readonly servedCriterionIds?: readonly string[] | null
 }

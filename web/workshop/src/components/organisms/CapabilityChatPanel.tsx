@@ -207,6 +207,10 @@ const describeEffect = (effect: ProposalEffect): string => {
       return effect.scenario?.trim()
         ? `Eval — ${label}: ${effect.scenario.trim()}`
         : `Eval — ${label}`
+    case 'DuplicateEval':
+      return effect.sourceEvalId
+        ? `Eval — ${label} (from ${effect.sourceEvalId})`
+        : `Eval — ${label}`
     case 'RetireEval':
       return effect.evalId ? `Eval — ${label} (${effect.evalId})` : `Eval — ${label}`
     case 'ReplaceSkill':

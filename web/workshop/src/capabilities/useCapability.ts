@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
-import { amendCapabilityAsk, getCapability, renameCapability } from './api'
-import type { CapabilityDetail } from './types'
+import {
+  amendCapabilityAsk,
+  amendCapabilityEval,
+  duplicateCapabilityEval,
+  getCapability,
+  renameCapability,
+  retireCapabilityEval,
+} from './api'
+import type { CapabilityDetail, CheckSnapshot } from './types'
 
 export type CapabilityState =
   | { readonly status: 'loading' }
@@ -43,5 +50,39 @@ export const useCapability = (id: string) => {
     [id, reload],
   )
 
-  return { state, saveAsk, saveName, reload }
+  const saveEval = useCallback(
+    async (input: {
+      readonly evalId: string
+      readonly scenario: string
+      readonly prompt: string
+      readonly context: string
+      readonly checks: readonly CheckSnapshot[]
+    }) => {
+      await amendCapabilityEval({ id, ...input })
+      await reload()
+    },
+    [id, reload],
+  )
+
+  const duplicateEval = useCallback(
+    async (sourceEvalId: string) => {
+      await duplicateCapabilityEval({
+        id,
+        sourceEvalId,
+        newEvalId: crypto.randomUUID(),
+      })
+      await reload()
+    },
+    [id, reload],
+  )
+
+  const retireEval = useCallback(
+    async (evalId: string) => {
+      await retireCapabilityEval({ id, evalId })
+      await reload()
+    },
+    [id, reload],
+  )
+
+  return { state, saveAsk, saveName, saveEval, duplicateEval, retireEval, reload }
 }
