@@ -88,19 +88,6 @@ public static class ApplyCapabilityProposalHandler
                     }
                 );
             }
-            else if (capability.CurrentCapabilityVersionId is { } existingCapabilityVersionId)
-            {
-                // Draft reverted to the recorded snapshot — clear the unsaved flag.
-                stream.AppendMany(
-                    new CapabilityVersionRecorded
-                    {
-                        VersionId = existingCapabilityVersionId,
-                        CapabilityId = capability.Id,
-                        RecordedAt = DateTimeOffset.UtcNow,
-                        Snapshot = nextCapability,
-                    }
-                );
-            }
         }
 
         if (skillChanged && skillMarkdown is not null)
@@ -117,39 +104,20 @@ public static class ApplyCapabilityProposalHandler
                 DerivedAgainstCapabilityVersionId = against,
             };
 
+            stream.AppendMany(
+                new DerivedSkillSaved
+                {
+                    Markdown = skillMarkdown,
+                    DerivedAgainstCapabilityVersionId = against,
+                }
+            );
+
             if (!capability.SkillContentEquals(skillSnapshot))
             {
                 stream.AppendMany(
-                    new DerivedSkillSaved
-                    {
-                        Markdown = skillMarkdown,
-                        DerivedAgainstCapabilityVersionId = against,
-                    },
                     new SkillVersionRecorded
                     {
                         VersionId = Guid.NewGuid(),
-                        CapabilityId = capability.Id,
-                        RecordedAt = DateTimeOffset.UtcNow,
-                        Snapshot = skillSnapshot,
-                    }
-                );
-            }
-            else
-            {
-                var versionId =
-                    capability.CurrentSkillVersionId
-                    ?? throw new CommandValidationException(
-                        "A skill version is required before clearing a matching skill draft."
-                    );
-                stream.AppendMany(
-                    new DerivedSkillSaved
-                    {
-                        Markdown = skillMarkdown,
-                        DerivedAgainstCapabilityVersionId = against,
-                    },
-                    new SkillVersionRecorded
-                    {
-                        VersionId = versionId,
                         CapabilityId = capability.Id,
                         RecordedAt = DateTimeOffset.UtcNow,
                         Snapshot = skillSnapshot,

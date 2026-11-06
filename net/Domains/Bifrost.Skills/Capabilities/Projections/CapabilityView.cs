@@ -18,6 +18,8 @@ public class CapabilityView : SingleStreamProjection<CapabilityView.Model, Guid>
         public IReadOnlyList<EvalSnapshot> Evals { get; init; } = [];
         public bool HasUnsavedCapabilityDraft { get; init; }
         public bool HasUnsavedSkillDraft { get; init; }
+        public CapabilityVersionSnapshot? LastRecordedCapabilitySnapshot { get; init; }
+        public SkillVersionSnapshot? LastRecordedSkillSnapshot { get; init; }
     }
 
     public Model Create(CapabilityCreated e) =>
@@ -32,7 +34,12 @@ public class CapabilityView : SingleStreamProjection<CapabilityView.Model, Guid>
         view with
         {
             Ask = e.Ask,
-            HasUnsavedCapabilityDraft = true,
+            HasUnsavedCapabilityDraft = !CapabilityMatches(
+                view.LastRecordedCapabilitySnapshot,
+                e.Ask,
+                view.Criteria,
+                view.Evals
+            ),
         };
 
     public Model Apply(CapabilityLayersAmended e, Model view) =>
@@ -41,7 +48,12 @@ public class CapabilityView : SingleStreamProjection<CapabilityView.Model, Guid>
             Ask = e.Ask,
             Criteria = e.Criteria,
             Evals = e.Evals,
-            HasUnsavedCapabilityDraft = true,
+            HasUnsavedCapabilityDraft = !CapabilityMatches(
+                view.LastRecordedCapabilitySnapshot,
+                e.Ask,
+                e.Criteria,
+                e.Evals
+            ),
         };
 
     public Model Apply(CapabilityRenamed e, Model view) => view with { Name = e.Name };
@@ -53,6 +65,7 @@ public class CapabilityView : SingleStreamProjection<CapabilityView.Model, Guid>
             Criteria = e.Snapshot.Criteria,
             Evals = e.Snapshot.Evals,
             CurrentCapabilityVersionId = e.VersionId,
+            LastRecordedCapabilitySnapshot = e.Snapshot,
             HasUnsavedCapabilityDraft = false,
         };
 
@@ -61,7 +74,11 @@ public class CapabilityView : SingleStreamProjection<CapabilityView.Model, Guid>
         {
             SkillMarkdown = e.Markdown,
             DerivedAgainstCapabilityVersionId = e.DerivedAgainstCapabilityVersionId,
-            HasUnsavedSkillDraft = true,
+            HasUnsavedSkillDraft = !SkillMatches(
+                view.LastRecordedSkillSnapshot,
+                e.Markdown,
+                e.DerivedAgainstCapabilityVersionId
+            ),
         };
 
     public Model Apply(SkillVersionRecorded e, Model view) =>
@@ -70,6 +87,7 @@ public class CapabilityView : SingleStreamProjection<CapabilityView.Model, Guid>
             SkillMarkdown = e.Snapshot.Markdown,
             DerivedAgainstCapabilityVersionId = e.Snapshot.DerivedAgainstCapabilityVersionId,
             CurrentSkillVersionId = e.VersionId,
+            LastRecordedSkillSnapshot = e.Snapshot,
             HasUnsavedSkillDraft = false,
         };
 
@@ -79,7 +97,12 @@ public class CapabilityView : SingleStreamProjection<CapabilityView.Model, Guid>
             Ask = e.Snapshot.Ask,
             Criteria = e.Snapshot.Criteria,
             Evals = e.Snapshot.Evals,
-            HasUnsavedCapabilityDraft = true,
+            HasUnsavedCapabilityDraft = !CapabilityMatches(
+                view.LastRecordedCapabilitySnapshot,
+                e.Snapshot.Ask,
+                e.Snapshot.Criteria,
+                e.Snapshot.Evals
+            ),
         };
 
     public Model Apply(SkillRestored e, Model view) =>
@@ -87,6 +110,55 @@ public class CapabilityView : SingleStreamProjection<CapabilityView.Model, Guid>
         {
             SkillMarkdown = e.Snapshot.Markdown,
             DerivedAgainstCapabilityVersionId = e.Snapshot.DerivedAgainstCapabilityVersionId,
-            HasUnsavedSkillDraft = true,
+            HasUnsavedSkillDraft = !SkillMatches(
+                view.LastRecordedSkillSnapshot,
+                e.Snapshot.Markdown,
+                e.Snapshot.DerivedAgainstCapabilityVersionId
+            ),
         };
+
+    static bool CapabilityMatches(
+        CapabilityVersionSnapshot? last,
+        string ask,
+        IReadOnlyList<CriterionSnapshot> criteria,
+        IReadOnlyList<EvalSnapshot> evals
+    )
+    {
+        if (last is null || last.Ask != ask)
+        {
+            return false;
+        }
+
+        if (last.Criteria.Count != criteria.Count || last.Evals.Count != evals.Count)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < criteria.Count; i++)
+        {
+            if (last.Criteria[i] != criteria[i])
+            {
+                return false;
+            }
+        }
+
+        for (var i = 0; i < evals.Count; i++)
+        {
+            if (last.Evals[i] != evals[i])
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    static bool SkillMatches(
+        SkillVersionSnapshot? last,
+        string markdown,
+        Guid derivedAgainstCapabilityVersionId
+    ) =>
+        last is not null
+        && last.Markdown == markdown
+        && last.DerivedAgainstCapabilityVersionId == derivedAgainstCapabilityVersionId;
 }
