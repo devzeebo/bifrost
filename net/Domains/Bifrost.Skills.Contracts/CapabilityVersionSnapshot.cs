@@ -10,6 +10,12 @@ public sealed record CheckSnapshot
 {
     public required Guid Id { get; init; }
     public required string Statement { get; init; }
+
+    /// <summary>Script | HumanReview. Defaults to Script for legacy snapshots.</summary>
+    public string Kind { get; init; } = CheckKinds.Script;
+
+    /// <summary>TypeScript source when Kind is Script; null/empty for HumanReview.</summary>
+    public string? Script { get; init; }
 }
 
 public sealed record EvalSnapshot

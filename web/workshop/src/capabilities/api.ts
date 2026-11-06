@@ -75,7 +75,7 @@ export const amendCapabilityEval = async (input: {
   readonly scenario: string
   readonly prompt: string
   readonly context: string
-  readonly checks: readonly CheckSnapshot[]
+  readonly checks?: readonly CheckSnapshot[] | null
 }): Promise<void> => {
   await postEmpty('/amend-capability-eval', input)
 }
@@ -486,11 +486,24 @@ const parseCriterionSnapshot = (value: unknown): CriterionSnapshot => {
   return { id: value['id'], statement: value['statement'] }
 }
 
+const parseCheckKind = (value: unknown): CheckSnapshot['kind'] => {
+  if (value === 'HumanReview') {
+    return 'HumanReview'
+  }
+  return 'Script'
+}
+
 const parseCheckSnapshot = (value: unknown): CheckSnapshot => {
   if (!isRecord(value) || typeof value['id'] !== 'string' || typeof value['statement'] !== 'string') {
     throw new CapabilityApiError('Check snapshot was invalid')
   }
-  return { id: value['id'], statement: value['statement'] }
+  const script = value['script']
+  return {
+    id: value['id'],
+    statement: value['statement'],
+    kind: parseCheckKind(value['kind']),
+    script: typeof script === 'string' ? script : null,
+  }
 }
 
 const parseEvalSnapshot = (value: unknown): EvalSnapshot => {

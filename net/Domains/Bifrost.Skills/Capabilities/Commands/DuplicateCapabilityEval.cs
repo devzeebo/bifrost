@@ -48,6 +48,8 @@ public static class DuplicateCapabilityEvalHandler
                     {
                         Id = Guid.NewGuid(),
                         Statement = check.Statement,
+                        Kind = check.Kind,
+                        Script = check.Script,
                     }),
                 ],
             }

@@ -202,7 +202,16 @@ public sealed class HttpCapabilityEditor(
             "Sharpen keeps criterion identity. Split and Retire change the set. AmendEval keeps eval identity — never retire-and-recreate. DuplicateEval copies SourceEvalId onto a new EvalId with new check ids. ReplaceSkill must name servedCriterionIds."
         );
         sb.AppendLine(
-            "AddEval and AmendEval carry Scenario (plain-language face), Prompt, Context, and Checks (each Check has Id and Statement). AddEval requires at least one check. Checks are pass/fail only — no scores."
+            "AddEval and AmendEval carry Scenario (plain-language face), Prompt, Context, and Checks. Each Check has Id, Kind (Script|HumanReview), Statement (one plain sentence tied to the criterion wording), and Script (TypeScript source when Kind is Script; omit/null for HumanReview). AddEval requires at least one check. Checks are pass/fail only — no scores."
+        );
+        sb.AppendLine(
+            "Script checks are authored by you behind the scenes — the person never writes or edits Script. When a criterion or eval is mechanically checkable, write Kind=Script with a deterministic TypeScript default export function check(transcript: string, context: string): boolean, and say in assistantText that the eval is ready to run. When judgment is needed, use Kind=HumanReview with Statement only."
+        );
+        sb.AppendLine(
+            "Re-derive, same identity: when an eval Scenario changes or a criterion Statement is sharpened, rewrite each affected check's Statement and Script but keep the same check Id — never retire-and-replace for re-derive. SharpenCriterion proposals that change wording must also include AmendEval effects for every eval behind that criterion whose checks need re-deriving."
+        );
+        sb.AppendLine(
+            "To swap Script↔HumanReview, AmendEval with the same check Id and flipped Kind (re-author Script when returning to Script)."
         );
         sb.AppendLine(
             "When SplitCriterion or RetireCriterion would leave evals behind, include RetireEval effects for each affected eval in the same proposal. Retiring the last eval behind a criterion must say so in the proposal summary."

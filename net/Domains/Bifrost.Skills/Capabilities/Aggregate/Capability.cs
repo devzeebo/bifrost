@@ -167,7 +167,12 @@ public class Capability
 
         for (var i = 0; i < left.Count; i++)
         {
-            if (left[i].Id != right[i].Id || left[i].Statement != right[i].Statement)
+            if (
+                left[i].Id != right[i].Id
+                || left[i].Statement != right[i].Statement
+                || !string.Equals(left[i].Kind, right[i].Kind, StringComparison.Ordinal)
+                || !string.Equals(left[i].Script, right[i].Script, StringComparison.Ordinal)
+            )
             {
                 return false;
             }

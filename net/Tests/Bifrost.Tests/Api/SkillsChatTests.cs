@@ -81,6 +81,9 @@ public class SkillsChatTests
         detail.Evals.Count.ShouldBe(1);
         detail.Evals[0].Prompt.ShouldNotBeNullOrWhiteSpace();
         detail.Evals[0].Checks.Count.ShouldBe(1);
+        detail.Evals[0].Checks[0].Kind.ShouldBe(CheckKinds.Script);
+        var seededScript = detail.Evals[0].Checks[0].Script.ShouldNotBeNull();
+        seededScript.ShouldContain("export default function check");
         detail.SkillMarkdown.ShouldContain("Bundled ask");
         detail.HasUnsavedCapabilityDraft.ShouldBeFalse();
         detail.HasUnsavedSkillDraft.ShouldBeFalse();
@@ -165,6 +168,45 @@ public class SkillsChatTests
         compare.Right.Snapshot.Criteria[0].Statement.ShouldBe(
             "Sharpened wording of the criterion"
         );
+    }
+
+    [Fact]
+    public async Task sharpen_rederives_script_checks_keeping_check_identity()
+    {
+        var client = _factory.CreateClient();
+        var id = await SeedCriterionAndEval(client, "Sharpen rederive ask");
+
+        var before = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
+        before.ShouldNotBeNull();
+        var criterionId = before.Criteria[0].Id;
+        var checkId = before.Evals[0].Checks[0].Id;
+        var priorScript = before.Evals[0].Checks[0].Script.ShouldNotBeNull();
+
+        var sharpened = await PostJson<PostCapabilityChatMessageApi.Response>(
+            client,
+            "/post-capability-chat-message",
+            new { id, message = $"sharpen {criterionId}: Sharpened criterion for checks" }
+        );
+        sharpened.ShouldNotBeNull();
+        (
+            await PostJson<ApplyCapabilityProposalApi.Response>(
+                client,
+                "/apply-capability-proposal",
+                new { id, proposalId = sharpened.Proposal!.Id }
+            )
+        )
+            .ShouldNotBeNull()
+            .Outcome.ShouldBe("Applied");
+
+        var after = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
+        after.ShouldNotBeNull();
+        after.Criteria[0].Statement.ShouldBe("Sharpened criterion for checks");
+        after.Evals[0].Checks[0].Id.ShouldBe(checkId);
+        after.Evals[0].Checks[0].Kind.ShouldBe(CheckKinds.Script);
+        after.Evals[0].Checks[0].Statement.ShouldContain("Sharpened criterion for checks");
+        var script = after.Evals[0].Checks[0].Script.ShouldNotBeNull();
+        script.ShouldContain("export default function check");
+        script.ShouldNotBe(priorScript);
     }
 
     [Fact]
@@ -311,7 +353,8 @@ public class SkillsChatTests
                         new
                         {
                             id = detail.Evals[0].Checks[0].Id,
-                            statement = "Amended check statement",
+                            kind = detail.Evals[0].Checks[0].Kind,
+                            statement = detail.Evals[0].Checks[0].Statement,
                         },
                     },
                 }
@@ -325,7 +368,11 @@ public class SkillsChatTests
         after.Evals[0].Scenario.ShouldBe("Amended scenario statement");
         after.Evals[0].Prompt.ShouldBe("Amended prompt");
         after.Evals[0].Context.ShouldBe("Amended context");
-        after.Evals[0].Checks[0].Statement.ShouldBe("Amended check statement");
+        after.Evals[0].Checks[0].Id.ShouldBe(detail.Evals[0].Checks[0].Id);
+        after.Evals[0].Checks[0].Kind.ShouldBe(CheckKinds.Script);
+        after.Evals[0].Checks[0].Statement.ShouldContain(detail.Criteria[0].Statement);
+        var amendedScript = after.Evals[0].Checks[0].Script.ShouldNotBeNull();
+        amendedScript.ShouldContain("export default function check");
 
         var versionsAfter = await Query<ListCapabilityVersionsApi.Response>(
             client,

@@ -286,6 +286,8 @@ public static class ProposalApplicator
                                 {
                                     Id = Guid.NewGuid(),
                                     Statement = check.Statement,
+                                    Kind = check.Kind,
+                                    Script = check.Script,
                                 }),
                             ],
                         }
@@ -486,8 +488,39 @@ public static class ProposalApplicator
                 throw new CommandValidationException($"Check {check.Id} is duplicated.");
             }
 
+            string kind;
+            try
+            {
+                kind = CheckDerivation.RequireKind(check.Kind);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new CommandValidationException(ex.Message);
+            }
+
+            var statement = check.Statement.Trim();
+            var script = string.IsNullOrWhiteSpace(check.Script) ? null : check.Script.Trim();
+            if (kind == CheckKinds.Script && script is null)
+            {
+                // Legacy statement-only checks (and incomplete proposals): hydrate a body, keep id.
+                script = CheckDerivation.HydrateScript(check.Id, statement);
+            }
+
+            if (kind == CheckKinds.HumanReview && script is not null)
+            {
+                throw new CommandValidationException(
+                    "HumanReview checks must not carry a Script body."
+                );
+            }
+
             normalized.Add(
-                new CheckSnapshot { Id = check.Id, Statement = check.Statement.Trim() }
+                new CheckSnapshot
+                {
+                    Id = check.Id,
+                    Statement = statement,
+                    Kind = kind,
+                    Script = script,
+                }
             );
         }
 
@@ -536,7 +569,12 @@ public static class ProposalApplicator
 
         for (var i = 0; i < left.Count; i++)
         {
-            if (left[i].Id != right[i].Id || left[i].Statement != right[i].Statement)
+            if (
+                left[i].Id != right[i].Id
+                || left[i].Statement != right[i].Statement
+                || !string.Equals(left[i].Kind, right[i].Kind, StringComparison.Ordinal)
+                || !string.Equals(left[i].Script, right[i].Script, StringComparison.Ordinal)
+            )
             {
                 return false;
             }

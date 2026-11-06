@@ -9,9 +9,13 @@ export type CriterionSnapshot = {
   readonly statement: string
 }
 
+export type CheckKind = 'Script' | 'HumanReview'
+
 export type CheckSnapshot = {
   readonly id: string
   readonly statement: string
+  readonly kind: CheckKind
+  readonly script: string | null
 }
 
 export type EvalOutcomeStatus = 'passed' | 'failed' | 'unsettled' | 'never_run'
