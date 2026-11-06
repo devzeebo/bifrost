@@ -17,12 +17,12 @@ public sealed class CapabilityEditorOptions
 
     public string? BaseUrl { get; set; }
     public string? ApiKey { get; set; }
-    public string Model { get; set; } = "accounts/fireworks/models/llama-v3p1-70b-instruct";
+    public string? Model { get; set; }
 }
 
 /// <summary>
-/// OpenAI-compatible chat completions editor. Falls back to <see cref="ScriptedCapabilityEditor"/>
-/// when BaseUrl/ApiKey are not configured.
+/// OpenAI-compatible chat completions editor. Uses <see cref="ScriptedCapabilityEditor"/>
+/// only when BaseUrl/ApiKey are not configured (tests/dev). Failures never fall back to the stub.
 /// </summary>
 public sealed class HttpCapabilityEditor(
     IHttpClientFactory httpClientFactory,
@@ -44,7 +44,7 @@ public sealed class HttpCapabilityEditor(
         string userMessage,
         CancellationToken ct
     ) =>
-        IsConfigured
+        HasCredentials
             ? ComposeHttp(context, userMessage, stale: null, ct)
             : scripted.Compose(context, userMessage, ct);
 
@@ -53,11 +53,11 @@ public sealed class HttpCapabilityEditor(
         Proposal stale,
         CancellationToken ct
     ) =>
-        IsConfigured
+        HasCredentials
             ? ComposeHttp(context, "Re-read and update or withdraw this stale proposal.", stale, ct)
             : scripted.Reread(context, stale, ct);
 
-    bool IsConfigured =>
+    bool HasCredentials =>
         !string.IsNullOrWhiteSpace(_options.BaseUrl)
         && !string.IsNullOrWhiteSpace(_options.ApiKey);
 
@@ -68,6 +68,13 @@ public sealed class HttpCapabilityEditor(
         CancellationToken ct
     )
     {
+        if (string.IsNullOrWhiteSpace(_options.Model))
+        {
+            throw new CapabilityEditorException(
+                "CapabilityEditor:Model is required when BaseUrl and ApiKey are configured."
+            );
+        }
+
         try
         {
             var client = httpClientFactory.CreateClient("capability-editor");
@@ -95,7 +102,14 @@ public sealed class HttpCapabilityEditor(
                 JsonOptions,
                 ct
             );
-            response.EnsureSuccessStatusCode();
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(ct);
+                throw new CapabilityEditorException(
+                    $"Capability editor returned {(int)response.StatusCode}: {Truncate(body)}"
+                );
+            }
+
             await using var stream = await response.Content.ReadAsStreamAsync(ct);
             var completion = await JsonSerializer.DeserializeAsync<ChatCompletionResponse>(
                 stream,
@@ -104,11 +118,13 @@ public sealed class HttpCapabilityEditor(
             );
             var content =
                 completion?.Choices?.FirstOrDefault()?.Message?.Content
-                ?? throw new InvalidOperationException("Editor returned no content.");
+                ?? throw new CapabilityEditorException("Capability editor returned no content.");
 
             var parsed =
                 JsonSerializer.Deserialize<EditorJsonTurn>(content, JsonOptions)
-                ?? throw new InvalidOperationException("Editor returned invalid JSON.");
+                ?? throw new CapabilityEditorException(
+                    "Capability editor returned invalid JSON."
+                );
 
             return new EditorTurn
             {
@@ -118,14 +134,26 @@ public sealed class HttpCapabilityEditor(
                 WithdrawNote = parsed.WithdrawNote,
             };
         }
+        catch (CapabilityEditorException)
+        {
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "HTTP capability editor failed; falling back to scripted editor.");
-            return stale is null
-                ? await scripted.Compose(context, userMessage, ct)
-                : await scripted.Reread(context, stale, ct);
+            logger.LogError(ex, "HTTP capability editor failed.");
+            throw new CapabilityEditorException(
+                "The capability editor could not respond. Try again.",
+                ex
+            );
         }
     }
+
+    static string Truncate(string value) =>
+        value.Length <= 240 ? value : value[..240] + "…";
 
     static string SystemPrompt(EditorContext context)
     {

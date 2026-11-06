@@ -57,6 +57,18 @@ describe('capability api', () => {
       a_capability_api_error_is_thrown,
     },
   })
+
+  test('listCapabilities surfaces ProblemDetails detail', {
+    given: {
+      a_problem_details_error_response,
+    },
+    when: {
+      listing_capabilities_fails,
+    },
+    then: {
+      the_problem_detail_is_thrown,
+    },
+  })
 })
 
 type Context = {
@@ -123,6 +135,19 @@ function an_invalid_list_response(this: Context) {
       status: 200,
       headers: { 'content-type': 'application/json' },
     }),
+  )
+}
+
+function a_problem_details_error_response(this: Context) {
+  this.fetchMock.mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        status: 502,
+        title: 'Capability editor unavailable',
+        detail: 'The capability editor could not respond. Try again.',
+      }),
+      { status: 502, headers: { 'content-type': 'application/json' } },
+    ),
   )
 }
 
@@ -193,4 +218,11 @@ function create_was_posted(this: Context) {
 
 function a_capability_api_error_is_thrown(this: Context) {
   expect(this.error).toBeInstanceOf(CapabilityApiError)
+}
+
+function the_problem_detail_is_thrown(this: Context) {
+  expect(this.error).toBeInstanceOf(CapabilityApiError)
+  expect((this.error as CapabilityApiError).message).toBe(
+    'The capability editor could not respond. Try again.',
+  )
 }

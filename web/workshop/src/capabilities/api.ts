@@ -34,7 +34,7 @@ export const listCapabilities = async (): Promise<readonly CapabilitySummary[]> 
     body: '{}',
   })
   if (!response.ok) {
-    throw new CapabilityApiError(`Skills returned ${response.status}`)
+    throw new CapabilityApiError(await readErrorDetail(response))
   }
   return parseCapabilityList(await response.json())
 }
@@ -48,7 +48,7 @@ export const getCapability = async (id: string): Promise<CapabilityDetail> => {
     body: '{}',
   })
   if (!response.ok) {
-    throw new CapabilityApiError(`Skills returned ${response.status}`)
+    throw new CapabilityApiError(await readErrorDetail(response))
   }
   return parseCapabilityDetail(await response.json())
 }
@@ -205,7 +205,7 @@ const queryJson = async (path: string): Promise<unknown> => {
     body: '{}',
   })
   if (!response.ok) {
-    throw new CapabilityApiError(`Skills returned ${response.status}`)
+    throw new CapabilityApiError(await readErrorDetail(response))
   }
   return response.json()
 }
@@ -220,7 +220,7 @@ const postEmpty = async (path: string, body: unknown): Promise<void> => {
     body: JSON.stringify(body),
   })
   if (!response.ok) {
-    throw new CapabilityApiError(`Skills returned ${response.status}`)
+    throw new CapabilityApiError(await readErrorDetail(response))
   }
 }
 
@@ -234,12 +234,24 @@ const postJson = async (path: string, body: unknown): Promise<unknown> => {
     body: JSON.stringify(body),
   })
   if (!response.ok) {
-    throw new CapabilityApiError(`Skills returned ${response.status}`)
+    throw new CapabilityApiError(await readErrorDetail(response))
   }
   if (response.status === 204) {
     return null
   }
   return response.json()
+}
+
+const readErrorDetail = async (response: Response): Promise<string> => {
+  try {
+    const body: unknown = await response.json()
+    if (isRecord(body) && typeof body['detail'] === 'string' && body['detail'].trim() !== '') {
+      return body['detail']
+    }
+  } catch {
+    // Fall through to status text when the body is not ProblemDetails JSON.
+  }
+  return `Skills returned ${response.status}`
 }
 
 const parseCapabilityList = (value: unknown): readonly CapabilitySummary[] => {

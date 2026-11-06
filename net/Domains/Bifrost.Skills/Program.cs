@@ -97,6 +97,18 @@ app.Use(
                 }
             );
         }
+        catch (CapabilityEditorException ex)
+        {
+            context.Response.StatusCode = StatusCodes.Status502BadGateway;
+            await context.Response.WriteAsJsonAsync(
+                new ProblemDetails
+                {
+                    Status = StatusCodes.Status502BadGateway,
+                    Title = "Capability editor unavailable",
+                    Detail = ex.Message,
+                }
+            );
+        }
     }
 );
 
