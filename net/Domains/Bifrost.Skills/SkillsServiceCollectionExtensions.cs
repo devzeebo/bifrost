@@ -25,6 +25,10 @@ public static class SkillsServiceCollectionExtensions
             services.Command<SaveDerivedSkillApi.Command>();
             services.Command<RestoreCapabilityVersionApi.Command>();
             services.Command<RestoreSkillVersionApi.Command>();
+            services.Command<PostCapabilityChatMessageApi.Command>();
+            services.Command<ApplyCapabilityProposalApi.Command>();
+            services.Command<DismissCapabilityProposalApi.Command>();
+            services.Command<RereadCapabilityProposalApi.Command>();
 
             services.Query<GetCapabilityApi.Query, GetCapabilityApi.Response>();
             services.Query<ListCapabilitiesApi.Query, ListCapabilitiesApi.Response>();
@@ -37,6 +41,7 @@ public static class SkillsServiceCollectionExtensions
             services.Query<ListSkillVersionsApi.Query, ListSkillVersionsApi.Response>();
             services.Query<GetSkillVersionApi.Query, GetSkillVersionApi.Response>();
             services.Query<CompareSkillVersionsApi.Query, CompareSkillVersionsApi.Response>();
+            services.Query<GetCapabilityChatApi.Query, GetCapabilityChatApi.Response>();
             return services;
         }
 

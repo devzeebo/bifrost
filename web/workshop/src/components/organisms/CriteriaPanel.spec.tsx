@@ -17,23 +17,48 @@ describe('CriteriaPanel', () => {
       decomposition_invitation_is_shown,
     },
   })
+
+  test('lists criterion statements', {
+    given: {
+      one_criterion,
+    },
+    when: {
+      the_panel_renders,
+    },
+    then: {
+      the_statement_is_shown,
+    },
+  })
 })
 
 type Context = {
-  count: number
+  criteria: Parameters<typeof CriteriaPanel>[0]['criteria']
 }
 
 function reset_page(this: Context) {
   cleanup()
-  this.count = 0
+  this.criteria = []
 }
 
 function no_criteria(this: Context) {
-  this.count = 0
+  this.criteria = []
+}
+
+function one_criterion(this: Context) {
+  this.criteria = [
+    {
+      id: '11111111-1111-1111-1111-111111111111',
+      statement: 'Replies stay in plain language',
+    },
+  ]
 }
 
 function the_panel_renders(this: Context) {
-  render(<CriteriaPanel count={this.count} />)
+  render(<CriteriaPanel criteria={this.criteria} />)
+}
+
+function the_statement_is_shown() {
+  expect(screen.getByText('Replies stay in plain language')).toBeInTheDocument()
 }
 
 function decomposition_invitation_is_shown() {

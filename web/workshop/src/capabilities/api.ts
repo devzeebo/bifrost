@@ -1,10 +1,16 @@
 import type {
+  ApplyProposalResult,
+  CapabilityChat,
   CapabilityDetail,
   CapabilitySummary,
   CapabilityVersionDetail,
   CapabilityVersionSnapshot,
+  ChatMessage,
   CriterionSnapshot,
   EvalSnapshot,
+  Proposal,
+  ProposalEffect,
+  RereadProposalResult,
   SkillVersionDetail,
   SkillVersionSnapshot,
   SkillVersionSummary,
@@ -28,7 +34,7 @@ export const listCapabilities = async (): Promise<readonly CapabilitySummary[]> 
     body: '{}',
   })
   if (!response.ok) {
-    throw new CapabilityApiError(`Skills returned ${response.status}`)
+    throw new CapabilityApiError(await readErrorDetail(response))
   }
   return parseCapabilityList(await response.json())
 }
@@ -42,7 +48,7 @@ export const getCapability = async (id: string): Promise<CapabilityDetail> => {
     body: '{}',
   })
   if (!response.ok) {
-    throw new CapabilityApiError(`Skills returned ${response.status}`)
+    throw new CapabilityApiError(await readErrorDetail(response))
   }
   return parseCapabilityDetail(await response.json())
 }
@@ -140,6 +146,55 @@ export const compareSkillVersions = async (
   return parseSkillCompare(response)
 }
 
+export const getCapabilityChat = async (id: string): Promise<CapabilityChat> => {
+  const response = await queryJson(`/get-capability-chat/${id}`)
+  return parseCapabilityChat(response)
+}
+
+export const postCapabilityChatMessage = async (input: {
+  readonly id: string
+  readonly message: string
+}): Promise<{
+  readonly assistantMessage: ChatMessage
+  readonly proposal: Proposal | null
+  readonly messages: readonly ChatMessage[]
+  readonly pendingProposals: readonly Proposal[]
+}> => {
+  const response = await postJson('/post-capability-chat-message', input)
+  return parsePostChatResponse(response)
+}
+
+export const applyCapabilityProposal = async (input: {
+  readonly id: string
+  readonly proposalId: string
+}): Promise<ApplyProposalResult> => {
+  const response = await postJson('/apply-capability-proposal', input)
+  return parseApplyResult(response)
+}
+
+export const dismissCapabilityProposal = async (input: {
+  readonly id: string
+  readonly proposalId: string
+}): Promise<CapabilityChat> => {
+  const response = await postJson('/dismiss-capability-proposal', input)
+  if (!isRecord(response)) {
+    throw new CapabilityApiError('Dismiss response was invalid')
+  }
+  return {
+    capabilityId: input.id,
+    messages: parseMessages(response['messages']),
+    pendingProposals: parseProposals(response['pendingProposals']),
+  }
+}
+
+export const rereadCapabilityProposal = async (input: {
+  readonly id: string
+  readonly proposalId: string
+}): Promise<RereadProposalResult> => {
+  const response = await postJson('/reread-capability-proposal', input)
+  return parseRereadResult(response)
+}
+
 const queryJson = async (path: string): Promise<unknown> => {
   const response = await fetch(path, {
     method: 'QUERY',
@@ -150,7 +205,7 @@ const queryJson = async (path: string): Promise<unknown> => {
     body: '{}',
   })
   if (!response.ok) {
-    throw new CapabilityApiError(`Skills returned ${response.status}`)
+    throw new CapabilityApiError(await readErrorDetail(response))
   }
   return response.json()
 }
@@ -165,8 +220,38 @@ const postEmpty = async (path: string, body: unknown): Promise<void> => {
     body: JSON.stringify(body),
   })
   if (!response.ok) {
-    throw new CapabilityApiError(`Skills returned ${response.status}`)
+    throw new CapabilityApiError(await readErrorDetail(response))
   }
+}
+
+const postJson = async (path: string, body: unknown): Promise<unknown> => {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    throw new CapabilityApiError(await readErrorDetail(response))
+  }
+  if (response.status === 204) {
+    return null
+  }
+  return response.json()
+}
+
+const readErrorDetail = async (response: Response): Promise<string> => {
+  try {
+    const body: unknown = await response.json()
+    if (isRecord(body) && typeof body['detail'] === 'string' && body['detail'].trim() !== '') {
+      return body['detail']
+    }
+  } catch {
+    // Fall through to status text when the body is not ProblemDetails JSON.
+  }
+  return `Skills returned ${response.status}`
 }
 
 const parseCapabilityList = (value: unknown): readonly CapabilitySummary[] => {
@@ -391,6 +476,181 @@ const optionalGuid = (value: unknown): string | null => {
   }
   if (typeof value !== 'string') {
     throw new CapabilityApiError('Expected a guid or null')
+  }
+  return value
+}
+
+const parseCapabilityChat = (value: unknown): CapabilityChat => {
+  if (!isRecord(value) || typeof value['capabilityId'] !== 'string') {
+    throw new CapabilityApiError('Capability chat response was invalid')
+  }
+  return {
+    capabilityId: value['capabilityId'],
+    messages: parseMessages(value['messages']),
+    pendingProposals: parseProposals(value['pendingProposals']),
+  }
+}
+
+const parsePostChatResponse = (
+  value: unknown,
+): {
+  readonly assistantMessage: ChatMessage
+  readonly proposal: Proposal | null
+  readonly messages: readonly ChatMessage[]
+  readonly pendingProposals: readonly Proposal[]
+} => {
+  if (!isRecord(value)) {
+    throw new CapabilityApiError('Chat message response was invalid')
+  }
+  return {
+    assistantMessage: parseChatMessage(value['assistantMessage']),
+    proposal: value['proposal'] == null ? null : parseProposal(value['proposal']),
+    messages: parseMessages(value['messages']),
+    pendingProposals: parseProposals(value['pendingProposals']),
+  }
+}
+
+const parseApplyResult = (value: unknown): ApplyProposalResult => {
+  if (!isRecord(value) || typeof value['outcome'] !== 'string') {
+    throw new CapabilityApiError('Apply proposal response was invalid')
+  }
+  const outcome = value['outcome']
+  if (outcome !== 'Applied' && outcome !== 'Reoffered' && outcome !== 'Withdrawn') {
+    throw new CapabilityApiError('Apply proposal response was invalid')
+  }
+  return {
+    outcome,
+    note: optionalString(value['note']),
+    proposal: value['proposal'] == null ? null : parseProposal(value['proposal']),
+    messages: parseMessages(value['messages']),
+    pendingProposals: parseProposals(value['pendingProposals']),
+  }
+}
+
+const parseRereadResult = (value: unknown): RereadProposalResult => {
+  if (!isRecord(value) || typeof value['outcome'] !== 'string') {
+    throw new CapabilityApiError('Reread proposal response was invalid')
+  }
+  const outcome = value['outcome']
+  if (outcome !== 'Reoffered' && outcome !== 'Withdrawn') {
+    throw new CapabilityApiError('Reread proposal response was invalid')
+  }
+  return {
+    outcome,
+    note: optionalString(value['note']),
+    proposal: value['proposal'] == null ? null : parseProposal(value['proposal']),
+    messages: parseMessages(value['messages']),
+    pendingProposals: parseProposals(value['pendingProposals']),
+  }
+}
+
+const parseMessages = (value: unknown): readonly ChatMessage[] => {
+  if (!Array.isArray(value)) {
+    throw new CapabilityApiError('Chat messages were invalid')
+  }
+  return value.map(parseChatMessage)
+}
+
+const parseProposals = (value: unknown): readonly Proposal[] => {
+  if (!Array.isArray(value)) {
+    throw new CapabilityApiError('Proposals were invalid')
+  }
+  return value.map(parseProposal)
+}
+
+const parseChatMessage = (value: unknown): ChatMessage => {
+  if (
+    !isRecord(value) ||
+    typeof value['id'] !== 'string' ||
+    typeof value['at'] !== 'string' ||
+    typeof value['role'] !== 'string' ||
+    typeof value['text'] !== 'string'
+  ) {
+    throw new CapabilityApiError('Chat message was invalid')
+  }
+  return {
+    id: value['id'],
+    at: value['at'],
+    role: value['role'],
+    text: value['text'],
+    proposalId: optionalGuid(value['proposalId']),
+  }
+}
+
+const parseProposal = (value: unknown): Proposal => {
+  if (
+    !isRecord(value) ||
+    typeof value['id'] !== 'string' ||
+    typeof value['createdAt'] !== 'string' ||
+    typeof value['summary'] !== 'string' ||
+    typeof value['expectedSkillMarkdown'] !== 'string' ||
+    !Array.isArray(value['effects']) ||
+    typeof value['isStale'] !== 'boolean'
+  ) {
+    throw new CapabilityApiError('Proposal was invalid')
+  }
+  return {
+    id: value['id'],
+    createdAt: value['createdAt'],
+    summary: value['summary'],
+    expectedCapabilityVersionId: optionalGuid(value['expectedCapabilityVersionId']),
+    expectedCapabilitySnapshot:
+      value['expectedCapabilitySnapshot'] == null
+        ? null
+        : parseCapabilityVersionSnapshot(value['expectedCapabilitySnapshot']),
+    expectedSkillMarkdown: value['expectedSkillMarkdown'],
+    effects: value['effects'].map(parseProposalEffect),
+    isStale: value['isStale'],
+    staleNote: optionalString(value['staleNote']),
+  }
+}
+
+const parseProposalEffect = (value: unknown): ProposalEffect => {
+  if (!isRecord(value) || typeof value['kind'] !== 'string') {
+    throw new CapabilityApiError('Proposal effect was invalid')
+  }
+  return {
+    kind: value['kind'],
+    description: optionalString(value['description']),
+    ask: optionalString(value['ask']),
+    criterionId: optionalGuid(value['criterionId']),
+    statement: optionalString(value['statement']),
+    newCriteria: value['newCriteria'] == null ? null : parseCriterionList(value['newCriteria']),
+    evalId: optionalGuid(value['evalId']),
+    scenario: optionalString(value['scenario']),
+    markdown: optionalString(value['markdown']),
+    servedCriterionIds:
+      value['servedCriterionIds'] == null
+        ? null
+        : parseGuidList(value['servedCriterionIds']),
+  }
+}
+
+const parseCriterionList = (value: unknown): readonly CriterionSnapshot[] => {
+  if (!Array.isArray(value)) {
+    throw new CapabilityApiError('Criterion list was invalid')
+  }
+  return value.map(parseCriterionSnapshot)
+}
+
+const parseGuidList = (value: unknown): readonly string[] => {
+  if (!Array.isArray(value)) {
+    throw new CapabilityApiError('Guid list was invalid')
+  }
+  return value.map((item) => {
+    if (typeof item !== 'string') {
+      throw new CapabilityApiError('Guid list was invalid')
+    }
+    return item
+  })
+}
+
+const optionalString = (value: unknown): string | null => {
+  if (value === null || value === undefined) {
+    return null
+  }
+  if (typeof value !== 'string') {
+    throw new CapabilityApiError('Expected a string or null')
   }
   return value
 }

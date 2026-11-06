@@ -1,6 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useCapability } from '../../capabilities/useCapability'
+import { useCapabilityChat } from '../../capabilities/useCapabilityChat'
 import { AskDocument } from '../../components/organisms/AskDocument'
+import { CapabilityChatPanel } from '../../components/organisms/CapabilityChatPanel'
 import { CapabilityVersionPanel } from '../../components/organisms/CapabilityVersionPanel'
 import { CriteriaPanel } from '../../components/organisms/CriteriaPanel'
 import { DerivedSkillPanel } from '../../components/organisms/DerivedSkillPanel'
@@ -10,6 +12,7 @@ import { WorkshopLayout } from '../../components/templates/WorkshopLayout'
 const CapabilityPage = () => {
   const { capabilityId } = Route.useParams()
   const { state, saveAsk, saveName, reload } = useCapability(capabilityId)
+  const chat = useCapabilityChat(capabilityId, reload)
 
   if (state.status === 'loading') {
     return (
@@ -36,6 +39,18 @@ const CapabilityPage = () => {
         capability.hasPublishedSkill ? 'Published skill available' : 'Never published'
       }
     >
+      <CapabilityChatPanel
+        messages={chat.state.status === 'ready' ? chat.state.messages : []}
+        pendingProposals={chat.state.status === 'ready' ? chat.state.pendingProposals : []}
+        busy={chat.busy || chat.state.status === 'loading'}
+        onSend={chat.sendMessage}
+        onApply={chat.applyProposal}
+        onDismiss={chat.dismissProposal}
+        onReread={chat.rereadProposal}
+      />
+      {chat.state.status === 'error' ? (
+        <p className="border border-line bg-surface px-5 py-4 text-sm text-signal">{chat.state.message}</p>
+      ) : null}
       <AskDocument
         ask={capability.ask}
         name={capability.name}
@@ -43,8 +58,8 @@ const CapabilityPage = () => {
         onSaveAsk={saveAsk}
         onSaveName={saveName}
       />
-      <CriteriaPanel count={capability.criteria.length} />
-      <EvalsPanel count={capability.evals.length} />
+      <CriteriaPanel criteria={capability.criteria} />
+      <EvalsPanel evals={capability.evals} />
       <DerivedSkillPanel
         capabilityId={capability.id}
         hasPublishedSkill={capability.hasPublishedSkill}

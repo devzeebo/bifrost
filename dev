@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+COMPOSE=(docker compose -f "$ROOT/bifrost-server/docker-compose.yml")
+PIDS=()
+STARTED_STACK=0
+
+cleanup() {
+  trap - EXIT INT TERM
+  echo
+  echo "Stopping frontends…"
+  for pid in "${PIDS[@]:-}"; do
+    # Signal the process group even if the npm leader has already exited.
+    kill -- "-$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+  done
+  if (( STARTED_STACK )); then
+    echo "Stopping Docker stack…"
+    "${COMPOSE[@]}" stop
+  fi
+}
+
+need() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "Missing required command: $1" >&2
+    exit 1
+  fi
+}
+
+need docker
+need npm
+need bash
+
+if ! docker info >/dev/null 2>&1; then
+  echo "Docker is not running." >&2
+  exit 1
+fi
+
+if ! command -v setsid >/dev/null 2>&1; then
+  echo "Missing required command: setsid" >&2
+  exit 1
+fi
+
+if ! bash -c 'sleep 0 & wait -n' >/dev/null 2>&1; then
+  echo "This launcher requires Bash with 'wait -n' support." >&2
+  exit 1
+fi
+
+trap cleanup EXIT INT TERM
+
+echo "Starting Bifrost Docker stack…"
+"${COMPOSE[@]}" up --build -d --wait
+STARTED_STACK=1
+
+ensure_npm() {
+  local app="$1"
+  local dir="$ROOT/web/$app"
+  local lock="$dir/package-lock.json"
+  local installed="$dir/node_modules/.package-lock.json"
+  if [[ ! -d "$dir/node_modules" ]] || [[ ! -f "$installed" ]] || ! cmp -s "$lock" "$installed"; then
+    echo "Installing $app dependencies…"
+    (cd "$dir" && npm ci)
+  fi
+}
+
+ensure_npm workshop
+ensure_npm orchestrator
+
+echo "Starting workshop UI on http://127.0.0.1:5173 …"
+setsid npm run dev --prefix "$ROOT/web/workshop" -- --host 127.0.0.1 --port 5173 --strictPort </dev/null &
+PIDS+=($!)
+
+echo "Starting orchestrator UI on http://127.0.0.1:5174 …"
+setsid npm run dev --prefix "$ROOT/web/orchestrator" -- --host 127.0.0.1 --port 5174 --strictPort </dev/null &
+PIDS+=($!)
+
+cat <<EOF
+
+Bifrost local stack is up.
+
+  Workshop UI      http://127.0.0.1:5173
+  Orchestrator UI  http://127.0.0.1:5174
+  Work items API   http://127.0.0.1:8080
+  Orchestrator API http://127.0.0.1:8081
+  Skills API       http://127.0.0.1:8082
+  RabbitMQ mgmt    http://127.0.0.1:15672  (bifrost / bifrost)
+
+Ctrl+C stops the frontends and the Docker stack (volumes are kept).
+
+EOF
+
+wait -n "${PIDS[@]}"
+exit 1

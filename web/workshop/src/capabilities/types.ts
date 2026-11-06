@@ -63,3 +63,58 @@ export type SkillVersionDetail = {
   readonly recordedAt: string
   readonly snapshot: SkillVersionSnapshot
 }
+
+export type ProposalEffect = {
+  readonly kind: string
+  readonly description?: string | null
+  readonly ask?: string | null
+  readonly criterionId?: string | null
+  readonly statement?: string | null
+  readonly newCriteria?: readonly CriterionSnapshot[] | null
+  readonly evalId?: string | null
+  readonly scenario?: string | null
+  readonly markdown?: string | null
+  readonly servedCriterionIds?: readonly string[] | null
+}
+
+export type Proposal = {
+  readonly id: string
+  readonly createdAt: string
+  readonly summary: string
+  readonly expectedCapabilityVersionId: string | null
+  readonly expectedCapabilitySnapshot?: CapabilityVersionSnapshot | null
+  readonly expectedSkillMarkdown: string
+  readonly effects: readonly ProposalEffect[]
+  readonly isStale: boolean
+  readonly staleNote?: string | null
+}
+
+export type ChatMessage = {
+  readonly id: string
+  readonly at: string
+  readonly role: string
+  readonly text: string
+  readonly proposalId?: string | null
+}
+
+export type CapabilityChat = {
+  readonly capabilityId: string
+  readonly messages: readonly ChatMessage[]
+  readonly pendingProposals: readonly Proposal[]
+}
+
+export type ApplyProposalResult = {
+  readonly outcome: 'Applied' | 'Reoffered' | 'Withdrawn'
+  readonly note?: string | null
+  readonly proposal?: Proposal | null
+  readonly messages: readonly ChatMessage[]
+  readonly pendingProposals: readonly Proposal[]
+}
+
+export type RereadProposalResult = {
+  readonly outcome: 'Reoffered' | 'Withdrawn'
+  readonly note?: string | null
+  readonly proposal?: Proposal | null
+  readonly messages: readonly ChatMessage[]
+  readonly pendingProposals: readonly Proposal[]
+}

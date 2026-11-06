@@ -1,8 +1,8 @@
 using Bifrost;
+using Bifrost.Capabilities.Editor;
 using Bifrost.Configuration;
 using Bifrost.MessageBus;
 using Bifrost.Rpc;
-using Bifrost.Skills.Contracts;
 using JasperFx;
 using JasperFx.CodeGeneration;
 using Marten;
@@ -50,6 +50,7 @@ builder.Services.AddRpcHost(options =>
 
 builder.Services.AddMessageBus();
 builder.Services.AddWolverineHttp();
+builder.Services.AddCapabilityEditor(builder.Configuration);
 builder.Services.AddSkillsHandlers();
 
 var app = builder.Build();
@@ -94,6 +95,18 @@ app.Use(
                     Status = StatusCodes.Status400BadRequest,
                     Title = "Invalid command",
                     Detail = $"Capability {ex.Id} already exists.",
+                }
+            );
+        }
+        catch (CapabilityEditorException ex)
+        {
+            context.Response.StatusCode = StatusCodes.Status502BadGateway;
+            await context.Response.WriteAsJsonAsync(
+                new ProblemDetails
+                {
+                    Status = StatusCodes.Status502BadGateway,
+                    Title = "Capability editor unavailable",
+                    Detail = ex.Message,
                 }
             );
         }
