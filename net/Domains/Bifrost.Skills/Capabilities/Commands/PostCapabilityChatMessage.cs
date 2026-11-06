@@ -45,14 +45,33 @@ public static class PostCapabilityChatMessageHandler
         );
 
         Proposal? proposal = null;
+        string? validationNote = null;
         if (turn.Effects is { Count: > 0 } && !string.IsNullOrWhiteSpace(turn.ProposalSummary))
         {
-            proposal = CapabilityChatStore.OfferProposal(
-                capability,
-                turn.ProposalSummary,
-                turn.Effects
-            );
-            chat.PendingProposals.Add(proposal);
+            try
+            {
+                ProposalApplicator.ValidateEffects(
+                    new CapabilityVersionSnapshot
+                    {
+                        Ask = capability.Ask,
+                        Criteria = capability.Criteria,
+                        Evals = capability.Evals,
+                    },
+                    capability.SkillMarkdown,
+                    turn.Effects
+                );
+                proposal = CapabilityChatStore.OfferProposal(
+                    capability,
+                    turn.ProposalSummary,
+                    turn.Effects
+                );
+                chat.PendingProposals.Add(proposal);
+            }
+            catch (CommandValidationException ex)
+            {
+                validationNote =
+                    $"The collaborator offered an invalid proposal and it was not queued: {ex.Message}";
+            }
         }
 
         var assistant = CapabilityChatStore.Message(
@@ -61,6 +80,10 @@ public static class PostCapabilityChatMessageHandler
             proposal?.Id
         );
         chat.Messages.Add(assistant);
+        if (validationNote is not null)
+        {
+            chat.Messages.Add(CapabilityChatStore.Message("system", validationNote));
+        }
         session.Store(chat);
 
         return new PostCapabilityChatMessageApi.Response

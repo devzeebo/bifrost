@@ -594,6 +594,10 @@ const parseProposal = (value: unknown): Proposal => {
     createdAt: value['createdAt'],
     summary: value['summary'],
     expectedCapabilityVersionId: optionalGuid(value['expectedCapabilityVersionId']),
+    expectedCapabilitySnapshot:
+      value['expectedCapabilitySnapshot'] == null
+        ? null
+        : parseCapabilityVersionSnapshot(value['expectedCapabilitySnapshot']),
     expectedSkillMarkdown: value['expectedSkillMarkdown'],
     effects: value['effects'].map(parseProposalEffect),
     isStale: value['isStale'],

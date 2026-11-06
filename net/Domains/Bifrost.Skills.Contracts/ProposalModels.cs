@@ -23,6 +23,7 @@ public sealed record Proposal
     public required DateTimeOffset CreatedAt { get; init; }
     public required string Summary { get; init; }
     public Guid? ExpectedCapabilityVersionId { get; init; }
+    public CapabilityVersionSnapshot? ExpectedCapabilitySnapshot { get; init; }
     public required string ExpectedSkillMarkdown { get; init; }
     public required IReadOnlyList<ProposalEffect> Effects { get; init; }
     public bool IsStale { get; init; }

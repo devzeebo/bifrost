@@ -207,32 +207,33 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
 
         var leftId = Guid.NewGuid();
         var rightId = Guid.NewGuid();
+        var effects = RetireEvalsForCriterion(context, criterionId);
+        effects.Add(
+            new ProposalEffect
+            {
+                Kind = ProposalEffectKinds.SplitCriterion,
+                Description = $"Split criterion {criterionId}",
+                CriterionId = criterionId,
+                NewCriteria =
+                [
+                    new CriterionSnapshot
+                    {
+                        Id = leftId,
+                        Statement = source.Statement + " (part A)",
+                    },
+                    new CriterionSnapshot
+                    {
+                        Id = rightId,
+                        Statement = source.Statement + " (part B)",
+                    },
+                ],
+            }
+        );
         return new EditorTurn
         {
             AssistantText = "Proposed splitting a criterion into two.",
             ProposalSummary = "Split criterion",
-            Effects =
-            [
-                new ProposalEffect
-                {
-                    Kind = ProposalEffectKinds.SplitCriterion,
-                    Description = $"Split criterion {criterionId}",
-                    CriterionId = criterionId,
-                    NewCriteria =
-                    [
-                        new CriterionSnapshot
-                        {
-                            Id = leftId,
-                            Statement = source.Statement + " (part A)",
-                        },
-                        new CriterionSnapshot
-                        {
-                            Id = rightId,
-                            Statement = source.Statement + " (part B)",
-                        },
-                    ],
-                },
-            ],
+            Effects = effects,
         };
     }
 
@@ -249,21 +250,36 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
             };
         }
 
+        var effects = RetireEvalsForCriterion(context, criterionId);
+        effects.Add(
+            new ProposalEffect
+            {
+                Kind = ProposalEffectKinds.RetireCriterion,
+                Description = $"Retire criterion {criterionId}",
+                CriterionId = criterionId,
+            }
+        );
         return new EditorTurn
         {
             AssistantText = "Proposed retiring a criterion.",
             ProposalSummary = "Retire criterion",
-            Effects =
-            [
-                new ProposalEffect
-                {
-                    Kind = ProposalEffectKinds.RetireCriterion,
-                    Description = $"Retire criterion {criterionId}",
-                    CriterionId = criterionId,
-                },
-            ],
+            Effects = effects,
         };
     }
+
+    static List<ProposalEffect> RetireEvalsForCriterion(EditorContext context, Guid criterionId) =>
+        [
+            .. context
+                .Evals.Where(e => e.CriterionId == criterionId)
+                .Select(e => new ProposalEffect
+                {
+                    Kind = ProposalEffectKinds.RetireEval,
+                    Description = $"Retire eval for criterion {criterionId}",
+                    EvalId = e.Id,
+                    CriterionId = e.CriterionId,
+                    Scenario = e.Scenario,
+                }),
+        ];
 
     static EditorTurn AddEval(EditorContext context, string rest)
     {
@@ -346,23 +362,62 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
         IReadOnlyList<ProposalEffect> effects
     )
     {
+        var criteria = context.Criteria.Select(c => c.Id).ToHashSet();
+        var evals = context.Evals.Select(e => e.Id).ToHashSet();
         var rebuilt = new List<ProposalEffect>();
         foreach (var effect in effects)
         {
             switch (effect.Kind)
             {
                 case ProposalEffectKinds.AmendAsk:
+                    if (
+                        string.IsNullOrWhiteSpace(effect.Ask)
+                        || string.Equals(effect.Ask.Trim(), context.Ask, StringComparison.Ordinal)
+                    )
+                    {
+                        return null;
+                    }
+
+                    rebuilt.Add(effect);
+                    break;
                 case ProposalEffectKinds.ReplaceSkill:
                 case ProposalEffectKinds.AddCriterion:
-                case ProposalEffectKinds.AmendEval:
-                case ProposalEffectKinds.RetireEval:
                     rebuilt.Add(effect);
+                    if (
+                        effect.Kind == ProposalEffectKinds.AddCriterion
+                        && effect.CriterionId is { } addedCriterionId
+                    )
+                    {
+                        criteria.Add(addedCriterionId);
+                    }
+
+                    break;
+                case ProposalEffectKinds.AmendEval:
+                    if (
+                        effect.EvalId is not { } amendEvalId
+                        || !evals.Contains(amendEvalId)
+                        || string.IsNullOrWhiteSpace(effect.Scenario)
+                    )
+                    {
+                        return null;
+                    }
+
+                    rebuilt.Add(effect);
+                    break;
+                case ProposalEffectKinds.RetireEval:
+                    if (effect.EvalId is not { } retireEvalId || !evals.Contains(retireEvalId))
+                    {
+                        return null;
+                    }
+
+                    rebuilt.Add(effect);
+                    evals.Remove(retireEvalId);
                     break;
                 case ProposalEffectKinds.AddEval:
                     if (
                         effect.CriterionId is { } evalCriterionId
                         && (
-                            context.Criteria.Any(c => c.Id == evalCriterionId)
+                            criteria.Contains(evalCriterionId)
                             || effects.Any(e =>
                                 e.Kind == ProposalEffectKinds.AddCriterion
                                 && e.CriterionId == evalCriterionId
@@ -371,6 +426,11 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
                     )
                     {
                         rebuilt.Add(effect);
+                        if (effect.EvalId is { } addedEvalId)
+                        {
+                            evals.Add(addedEvalId);
+                        }
+
                         break;
                     }
 
@@ -380,10 +440,24 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
                 case ProposalEffectKinds.RetireCriterion:
                     if (
                         effect.CriterionId is { } criterionId
-                        && context.Criteria.Any(c => c.Id == criterionId)
+                        && criteria.Contains(criterionId)
                     )
                     {
                         rebuilt.Add(effect);
+                        if (effect.Kind == ProposalEffectKinds.RetireCriterion)
+                        {
+                            criteria.Remove(criterionId);
+                        }
+
+                        if (effect.Kind == ProposalEffectKinds.SplitCriterion)
+                        {
+                            criteria.Remove(criterionId);
+                            foreach (var created in effect.NewCriteria ?? [])
+                            {
+                                criteria.Add(created.Id);
+                            }
+                        }
+
                         break;
                     }
 

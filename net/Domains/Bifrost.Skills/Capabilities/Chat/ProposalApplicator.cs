@@ -101,10 +101,30 @@ public static class ProposalApplicator
                         );
                     }
 
+                    EnsureEvalsRetired(
+                        proposal.Effects,
+                        evals,
+                        effect.CriterionId.Value,
+                        "SplitCriterion"
+                    );
+
                     criteria.RemoveAll(c => c.Id == effect.CriterionId);
-                    evals.RemoveAll(e => e.CriterionId == effect.CriterionId);
                     foreach (var created in effect.NewCriteria)
                     {
+                        if (string.IsNullOrWhiteSpace(created.Statement))
+                        {
+                            throw new CommandValidationException(
+                                "SplitCriterion replacements require a Statement."
+                            );
+                        }
+
+                        if (created.Id == effect.CriterionId)
+                        {
+                            throw new CommandValidationException(
+                                "SplitCriterion replacements cannot reuse the source CriterionId."
+                            );
+                        }
+
                         if (criteria.Any(c => c.Id == created.Id))
                         {
                             throw new CommandValidationException(
@@ -112,7 +132,13 @@ public static class ProposalApplicator
                             );
                         }
 
-                        criteria.Add(created);
+                        criteria.Add(
+                            new CriterionSnapshot
+                            {
+                                Id = created.Id,
+                                Statement = created.Statement.Trim(),
+                            }
+                        );
                     }
 
                     capabilityTouched = true;
@@ -131,8 +157,14 @@ public static class ProposalApplicator
                         );
                     }
 
+                    EnsureEvalsRetired(
+                        proposal.Effects,
+                        evals,
+                        effect.CriterionId.Value,
+                        "RetireCriterion"
+                    );
+
                     criteria.RemoveAll(c => c.Id == effect.CriterionId);
-                    evals.RemoveAll(e => e.CriterionId == effect.CriterionId);
                     capabilityTouched = true;
                     break;
 
@@ -252,9 +284,70 @@ public static class ProposalApplicator
         return (capabilitySnapshot, skillMarkdown, capabilityChanged, skillChanged);
     }
 
-    public static bool IsFresh(Proposal proposal, Guid? currentCapabilityVersionId, string skillMarkdown) =>
+    public static bool IsFresh(
+        Proposal proposal,
+        Guid? currentCapabilityVersionId,
+        CapabilityVersionSnapshot currentCapability,
+        string skillMarkdown
+    ) =>
         proposal.ExpectedCapabilityVersionId == currentCapabilityVersionId
-        && proposal.ExpectedSkillMarkdown == skillMarkdown;
+        && proposal.ExpectedSkillMarkdown == skillMarkdown
+        && (
+            proposal.ExpectedCapabilitySnapshot is null
+            || SameCapability(proposal.ExpectedCapabilitySnapshot, currentCapability)
+        );
+
+    public static void ValidateEffects(
+        CapabilityVersionSnapshot current,
+        string currentSkillMarkdown,
+        IReadOnlyList<ProposalEffect> effects
+    )
+    {
+        var probe = new Proposal
+        {
+            Id = Guid.Empty,
+            CreatedAt = DateTimeOffset.UnixEpoch,
+            Summary = "validation",
+            ExpectedSkillMarkdown = currentSkillMarkdown,
+            Effects = effects,
+        };
+        _ = Apply(current, currentSkillMarkdown, probe);
+    }
+
+    static void EnsureEvalsRetired(
+        IReadOnlyList<ProposalEffect> effects,
+        IReadOnlyList<EvalSnapshot> evals,
+        Guid criterionId,
+        string kind
+    )
+    {
+        var remaining = evals.Where(e => e.CriterionId == criterionId).ToList();
+        if (remaining.Count == 0)
+        {
+            return;
+        }
+
+        var retired = effects
+            .Where(e => e.Kind == ProposalEffectKinds.RetireEval && e.EvalId is not null)
+            .Select(e => e.EvalId!.Value)
+            .ToHashSet();
+
+        var missing = remaining.Where(e => !retired.Contains(e.Id)).Select(e => e.Id).ToList();
+        if (missing.Count > 0)
+        {
+            throw new CommandValidationException(
+                $"{kind} requires RetireEval effects for evals {string.Join(", ", missing)} before removing criterion {criterionId}."
+            );
+        }
+    }
+
+    static bool SameCapability(
+        CapabilityVersionSnapshot left,
+        CapabilityVersionSnapshot right
+    ) =>
+        left.Ask == right.Ask
+        && SameCriteria(left.Criteria, right.Criteria)
+        && SameEvals(left.Evals, right.Evals);
 
     static bool SameCriteria(
         IReadOnlyList<CriterionSnapshot> left,

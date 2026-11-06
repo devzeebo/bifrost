@@ -82,6 +82,7 @@ export type Proposal = {
   readonly createdAt: string
   readonly summary: string
   readonly expectedCapabilityVersionId: string | null
+  readonly expectedCapabilitySnapshot?: CapabilityVersionSnapshot | null
   readonly expectedSkillMarkdown: string
   readonly effects: readonly ProposalEffect[]
   readonly isStale: boolean

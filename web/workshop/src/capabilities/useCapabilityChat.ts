@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   applyCapabilityProposal,
   dismissCapabilityProposal,
@@ -20,6 +20,7 @@ export type CapabilityChatState =
 export const useCapabilityChat = (capabilityId: string, onCapabilityChanged: () => Promise<void>) => {
   const [state, setState] = useState<CapabilityChatState>({ status: 'loading' })
   const [busy, setBusy] = useState(false)
+  const loadGeneration = useRef(0)
 
   const applyChat = useCallback((chat: CapabilityChat) => {
     setState({
@@ -30,9 +31,17 @@ export const useCapabilityChat = (capabilityId: string, onCapabilityChanged: () 
   }, [])
 
   const reload = useCallback(async () => {
+    const generation = ++loadGeneration.current
     try {
-      applyChat(await getCapabilityChat(capabilityId))
+      const chat = await getCapabilityChat(capabilityId)
+      if (generation !== loadGeneration.current) {
+        return
+      }
+      applyChat(chat)
     } catch (error) {
+      if (generation !== loadGeneration.current) {
+        return
+      }
       setState({
         status: 'error',
         message: error instanceof Error ? error.message : 'Failed to load chat',

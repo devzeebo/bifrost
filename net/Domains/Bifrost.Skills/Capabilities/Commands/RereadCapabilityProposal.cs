@@ -45,6 +45,35 @@ public static class RereadCapabilityProposalHandler
 
         if (turn.Effects is { Count: > 0 } && !string.IsNullOrWhiteSpace(turn.ProposalSummary))
         {
+            try
+            {
+                ProposalApplicator.ValidateEffects(
+                    new CapabilityVersionSnapshot
+                    {
+                        Ask = capability.Ask,
+                        Criteria = capability.Criteria,
+                        Evals = capability.Evals,
+                    },
+                    capability.SkillMarkdown,
+                    turn.Effects
+                );
+            }
+            catch (CommandValidationException ex)
+            {
+                var invalidNote =
+                    turn.WithdrawNote
+                    ?? $"Withdrawn after re-read: updated proposal was invalid ({ex.Message}).";
+                chat.Messages.Add(CapabilityChatStore.Message("system", invalidNote, stale.Id));
+                session.Store(chat);
+                return new RereadCapabilityProposalApi.Response
+                {
+                    Outcome = "Withdrawn",
+                    Note = invalidNote,
+                    Messages = chat.Messages,
+                    PendingProposals = chat.PendingProposals,
+                };
+            }
+
             var reoffered = CapabilityChatStore.OfferProposal(
                 capability,
                 turn.ProposalSummary,

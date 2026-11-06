@@ -4,22 +4,22 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE=(docker compose -f "$ROOT/bifrost-server/docker-compose.yml")
 PIDS=()
+STARTED_STACK=0
 
 cleanup() {
   trap - EXIT INT TERM
   echo
   echo "Stopping frontends…"
   for pid in "${PIDS[@]:-}"; do
-    if kill -0 "$pid" 2>/dev/null; then
-      kill -- "-$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
-      wait "$pid" 2>/dev/null || true
-    fi
+    # Signal the process group even if the npm leader has already exited.
+    kill -- "-$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
   done
-  echo "Stopping Docker stack…"
-  "${COMPOSE[@]}" stop
+  if (( STARTED_STACK )); then
+    echo "Stopping Docker stack…"
+    "${COMPOSE[@]}" stop
+  fi
 }
-
-trap cleanup EXIT INT TERM
 
 need() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -30,19 +30,35 @@ need() {
 
 need docker
 need npm
+need bash
 
 if ! docker info >/dev/null 2>&1; then
   echo "Docker is not running." >&2
   exit 1
 fi
 
+if ! command -v setsid >/dev/null 2>&1; then
+  echo "Missing required command: setsid" >&2
+  exit 1
+fi
+
+if ! bash -c 'sleep 0 & wait -n' >/dev/null 2>&1; then
+  echo "This launcher requires Bash with 'wait -n' support." >&2
+  exit 1
+fi
+
+trap cleanup EXIT INT TERM
+
 echo "Starting Bifrost Docker stack…"
 "${COMPOSE[@]}" up --build -d --wait
+STARTED_STACK=1
 
 ensure_npm() {
   local app="$1"
   local dir="$ROOT/web/$app"
-  if [[ ! -d "$dir/node_modules" ]]; then
+  local lock="$dir/package-lock.json"
+  local installed="$dir/node_modules/.package-lock.json"
+  if [[ ! -d "$dir/node_modules" ]] || [[ ! -f "$installed" ]] || ! cmp -s "$lock" "$installed"; then
     echo "Installing $app dependencies…"
     (cd "$dir" && npm ci)
   fi

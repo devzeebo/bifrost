@@ -45,11 +45,13 @@ public static class ApplyCapabilityProposalHandler
             chat.PendingProposals.FirstOrDefault(p => p.Id == command.ProposalId)
             ?? throw new CommandValidationException($"Proposal {command.ProposalId} not found.");
 
+        var currentSnapshot = capability.DraftCapabilitySnapshot();
         if (
             proposal.IsStale
             || !ProposalApplicator.IsFresh(
                 proposal,
                 capability.CurrentCapabilityVersionId,
+                currentSnapshot,
                 capability.SkillMarkdown
             )
         )
@@ -57,7 +59,6 @@ public static class ApplyCapabilityProposalHandler
             return await StalePath(capability, chat, proposal, session, editor, ct);
         }
 
-        var currentSnapshot = capability.DraftCapabilitySnapshot();
         var (nextCapability, skillMarkdown, capabilityChanged, skillChanged) =
             ProposalApplicator.Apply(currentSnapshot, capability.SkillMarkdown, proposal);
 
@@ -81,6 +82,19 @@ public static class ApplyCapabilityProposalHandler
                     new CapabilityVersionRecorded
                     {
                         VersionId = capabilityVersionId.Value,
+                        CapabilityId = capability.Id,
+                        RecordedAt = DateTimeOffset.UtcNow,
+                        Snapshot = nextCapability,
+                    }
+                );
+            }
+            else if (capability.CurrentCapabilityVersionId is { } existingCapabilityVersionId)
+            {
+                // Draft reverted to the recorded snapshot — clear the unsaved flag.
+                stream.AppendMany(
+                    new CapabilityVersionRecorded
+                    {
+                        VersionId = existingCapabilityVersionId,
                         CapabilityId = capability.Id,
                         RecordedAt = DateTimeOffset.UtcNow,
                         Snapshot = nextCapability,
@@ -120,20 +134,45 @@ public static class ApplyCapabilityProposalHandler
                     }
                 );
             }
+            else
+            {
+                var versionId =
+                    capability.CurrentSkillVersionId
+                    ?? throw new CommandValidationException(
+                        "A skill version is required before clearing a matching skill draft."
+                    );
+                stream.AppendMany(
+                    new DerivedSkillSaved
+                    {
+                        Markdown = skillMarkdown,
+                        DerivedAgainstCapabilityVersionId = against,
+                    },
+                    new SkillVersionRecorded
+                    {
+                        VersionId = versionId,
+                        CapabilityId = capability.Id,
+                        RecordedAt = DateTimeOffset.UtcNow,
+                        Snapshot = skillSnapshot,
+                    }
+                );
+            }
         }
 
         chat.PendingProposals.RemoveAll(p => p.Id == proposal.Id);
-        chat.PendingProposals =
-        [
-            .. chat.PendingProposals.Select(p =>
-                p with
-                {
-                    IsStale = true,
-                    StaleNote =
-                        "Another proposal was applied; re-read before applying this one.",
-                }
-            ),
-        ];
+        if (capabilityChanged || skillChanged)
+        {
+            chat.PendingProposals =
+            [
+                .. chat.PendingProposals.Select(p =>
+                    p with
+                    {
+                        IsStale = true,
+                        StaleNote =
+                            "Another proposal was applied; re-read before applying this one.",
+                    }
+                ),
+            ];
+        }
         chat.Messages.Add(
             CapabilityChatStore.Message(
                 "system",
@@ -188,6 +227,30 @@ public static class ApplyCapabilityProposalHandler
 
         if (turn.Effects is { Count: > 0 } && !string.IsNullOrWhiteSpace(turn.ProposalSummary))
         {
+            try
+            {
+                ProposalApplicator.ValidateEffects(
+                    capability.DraftCapabilitySnapshot(),
+                    capability.SkillMarkdown,
+                    turn.Effects
+                );
+            }
+            catch (CommandValidationException ex)
+            {
+                var invalidNote =
+                    turn.WithdrawNote
+                    ?? $"Withdrawn: re-offered proposal was invalid ({ex.Message}).";
+                chat.Messages.Add(CapabilityChatStore.Message("system", invalidNote, proposal.Id));
+                session.Store(chat);
+                return new ApplyCapabilityProposalApi.Response
+                {
+                    Outcome = "Withdrawn",
+                    Note = invalidNote,
+                    Messages = chat.Messages,
+                    PendingProposals = chat.PendingProposals,
+                };
+            }
+
             var reoffered = CapabilityChatStore.OfferProposal(
                 view,
                 turn.ProposalSummary,

@@ -78,22 +78,28 @@ public sealed class HttpCapabilityEditor(
         try
         {
             var client = httpClientFactory.CreateClient("capability-editor");
+            var messages = new List<object> { new { role = "system", content = SystemPrompt(context) } };
+            foreach (var prior in PriorConversation(context.Messages, userMessage))
+            {
+                messages.Add(new { role = MapRole(prior.Role), content = prior.Text });
+            }
+
+            messages.Add(
+                new
+                {
+                    role = "user",
+                    content = stale is null
+                        ? userMessage
+                        : $"Stale proposal JSON:\n{JsonSerializer.Serialize(stale, JsonOptions)}\n\nUser request:\n{userMessage}",
+                }
+            );
+
             var payload = new
             {
                 model = _options.Model,
                 temperature = 0.2,
                 response_format = new { type = "json_object" },
-                messages = new object[]
-                {
-                    new { role = "system", content = SystemPrompt(context) },
-                    new
-                    {
-                        role = "user",
-                        content = stale is null
-                            ? userMessage
-                            : $"Stale proposal JSON:\n{JsonSerializer.Serialize(stale, JsonOptions)}\n\nUser request:\n{userMessage}",
-                    },
-                },
+                messages,
             };
 
             using var response = await client.PostAsJsonAsync(
@@ -155,6 +161,31 @@ public sealed class HttpCapabilityEditor(
     static string Truncate(string value) =>
         value.Length <= 240 ? value : value[..240] + "…";
 
+    static IEnumerable<ChatMessage> PriorConversation(
+        IReadOnlyList<ChatMessage> messages,
+        string currentUserMessage
+    )
+    {
+        // Drop the current user turn if the handler already appended it, and skip system notes.
+        var prior = messages
+            .Where(m => m.Role is "user" or "assistant")
+            .ToList();
+        if (
+            prior.Count > 0
+            && prior[^1].Role == "user"
+            && string.Equals(prior[^1].Text, currentUserMessage, StringComparison.Ordinal)
+        )
+        {
+            prior.RemoveAt(prior.Count - 1);
+        }
+
+        const int maxMessages = 20;
+        return prior.Count <= maxMessages ? prior : prior.TakeLast(maxMessages);
+    }
+
+    static string MapRole(string role) =>
+        role == "assistant" ? "assistant" : "user";
+
     static string SystemPrompt(EditorContext context)
     {
         var sb = new StringBuilder();
@@ -169,6 +200,9 @@ public sealed class HttpCapabilityEditor(
         );
         sb.AppendLine(
             "Sharpen keeps criterion identity. Split and Retire change the set. AmendEval keeps eval identity. ReplaceSkill must name servedCriterionIds."
+        );
+        sb.AppendLine(
+            "When SplitCriterion or RetireCriterion would leave evals behind, include RetireEval effects for each affected eval in the same proposal."
         );
         sb.AppendLine("List every layer an edit touches in effects before the person applies.");
         sb.AppendLine($"Capability id: {context.CapabilityId}");

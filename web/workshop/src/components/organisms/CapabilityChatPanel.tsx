@@ -182,19 +182,43 @@ const describeEffect = (effect: ProposalEffect): string => {
   const label = effect.description?.trim() || effect.kind
   switch (effect.kind) {
     case 'AmendAsk':
-      return `Ask — ${label}`
+      return effect.ask?.trim()
+        ? `Ask — ${label}: ${effect.ask.trim()}`
+        : `Ask — ${label}`
     case 'AddCriterion':
     case 'SharpenCriterion':
-    case 'SplitCriterion':
+      return effect.statement?.trim()
+        ? `Criterion — ${label}: ${effect.statement.trim()}`
+        : `Criterion — ${label}`
+    case 'SplitCriterion': {
+      const parts = (effect.newCriteria ?? [])
+        .map((criterion) => criterion.statement.trim())
+        .filter((statement) => statement.length > 0)
+      return parts.length > 0
+        ? `Criterion — ${label}: ${parts.join(' / ')}`
+        : `Criterion — ${label}`
+    }
     case 'RetireCriterion':
-      return `Criterion — ${label}`
+      return effect.criterionId
+        ? `Criterion — ${label} (${effect.criterionId})`
+        : `Criterion — ${label}`
     case 'AddEval':
     case 'AmendEval':
+      return effect.scenario?.trim()
+        ? `Eval — ${label}: ${effect.scenario.trim()}`
+        : `Eval — ${label}`
     case 'RetireEval':
-      return `Eval — ${label}`
+      return effect.evalId ? `Eval — ${label} (${effect.evalId})` : `Eval — ${label}`
     case 'ReplaceSkill':
-      return `Skill — ${label}`
+      return effect.markdown?.trim()
+        ? `Skill — ${label}: ${summarizeMarkdown(effect.markdown)}`
+        : `Skill — ${label}`
     default:
       return label
   }
+}
+
+const summarizeMarkdown = (markdown: string): string => {
+  const compact = markdown.trim().replace(/\s+/g, ' ')
+  return compact.length <= 120 ? compact : `${compact.slice(0, 117)}…`
 }

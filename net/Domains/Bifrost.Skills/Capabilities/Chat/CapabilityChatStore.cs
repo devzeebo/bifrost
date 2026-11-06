@@ -48,6 +48,12 @@ public static class CapabilityChatStore
             CreatedAt = DateTimeOffset.UtcNow,
             Summary = summary,
             ExpectedCapabilityVersionId = capability.CurrentCapabilityVersionId,
+            ExpectedCapabilitySnapshot = new CapabilityVersionSnapshot
+            {
+                Ask = capability.Ask,
+                Criteria = capability.Criteria,
+                Evals = capability.Evals,
+            },
             ExpectedSkillMarkdown = capability.SkillMarkdown,
             Effects = effects,
         };
