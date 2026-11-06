@@ -27,14 +27,32 @@ public static class CreateCapabilityHandler
     }
 
     [WolverinePost("/create-capability"), EmptyResponse]
-    public static IStartStream Handle(CreateCapabilityApi.Command command) =>
-        MartenOps.StartStream<Capability>(
+    public static IStartStream Handle(CreateCapabilityApi.Command command)
+    {
+        var ask = command.Ask.Trim();
+        var versionId = Guid.NewGuid();
+        var snapshot = new CapabilityVersionSnapshot
+        {
+            Ask = ask,
+            Criteria = [],
+            Evals = [],
+        };
+
+        return MartenOps.StartStream<Capability>(
             command.Id,
             new CapabilityCreated
             {
                 Id = command.Id,
                 Name = command.Name.Trim(),
-                Ask = command.Ask.Trim(),
+                Ask = ask,
+            },
+            new CapabilityVersionRecorded
+            {
+                VersionId = versionId,
+                CapabilityId = command.Id,
+                RecordedAt = DateTimeOffset.UtcNow,
+                Snapshot = snapshot,
             }
         );
+    }
 }

@@ -25,9 +25,30 @@ public static class GetCapabilityHandler
             Id = item.Id,
             Name = item.Name,
             Ask = item.Ask,
-            Criteria = [],
-            Evals = [],
+            Criteria =
+            [
+                .. item.Criteria.Select(c => new GetCapabilityApi.CriterionSummary
+                {
+                    Id = c.Id,
+                    Statement = c.Statement,
+                }),
+            ],
+            Evals =
+            [
+                .. item.Evals.Select(e => new GetCapabilityApi.EvalSummary
+                {
+                    Id = e.Id,
+                    CriterionId = e.CriterionId,
+                    Scenario = e.Scenario,
+                }),
+            ],
             HasPublishedSkill = index?.HasPublishedSkill ?? false,
+            SkillMarkdown = item.SkillMarkdown,
+            CurrentCapabilityVersionId = item.CurrentCapabilityVersionId,
+            CurrentSkillVersionId = item.CurrentSkillVersionId,
+            DerivedAgainstCapabilityVersionId = item.DerivedAgainstCapabilityVersionId,
+            HasUnsavedCapabilityDraft = item.HasUnsavedCapabilityDraft,
+            HasUnsavedSkillDraft = item.HasUnsavedSkillDraft,
         };
     }
 }

@@ -33,5 +33,11 @@ public static class GetCapabilityApi
         public required IReadOnlyList<CriterionSummary> Criteria { get; init; }
         public required IReadOnlyList<EvalSummary> Evals { get; init; }
         public bool HasPublishedSkill { get; init; }
+        public string SkillMarkdown { get; init; } = "";
+        public Guid? CurrentCapabilityVersionId { get; init; }
+        public Guid? CurrentSkillVersionId { get; init; }
+        public Guid? DerivedAgainstCapabilityVersionId { get; init; }
+        public bool HasUnsavedCapabilityDraft { get; init; }
+        public bool HasUnsavedSkillDraft { get; init; }
     }
 }

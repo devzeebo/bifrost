@@ -45,11 +45,14 @@ namespace Internal.Generated.WolverineHandlers
             Bifrost.Capabilities.Commands.AmendCapabilityAskHandler.Validate(command, eventStreamOfCapability.Aggregate);
             
             // The actual HTTP request handler execution
-            var capabilityAskAmended = Bifrost.Capabilities.Commands.AmendCapabilityAskHandler.Handle(command, eventStreamOfCapability.Aggregate);
+            var events = Bifrost.Capabilities.Commands.AmendCapabilityAskHandler.Handle(command, eventStreamOfCapability.Aggregate);
 
-            if (capabilityAskAmended != null)
+            if (events != null)
             {
-                eventStreamOfCapability.AppendOne(capabilityAskAmended);
+                
+                // Capturing any possible events returned from the command handlers
+                eventStreamOfCapability.AppendMany(events);
+
             }
 
             

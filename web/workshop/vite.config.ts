@@ -29,11 +29,47 @@ export default defineConfig({
         target: 'http://127.0.0.1:8082',
         changeOrigin: true,
       },
+      '/save-derived-skill': {
+        target: 'http://127.0.0.1:8082',
+        changeOrigin: true,
+      },
+      '/restore-capability-version': {
+        target: 'http://127.0.0.1:8082',
+        changeOrigin: true,
+      },
+      '/restore-skill-version': {
+        target: 'http://127.0.0.1:8082',
+        changeOrigin: true,
+      },
       '/get-capability': {
         target: 'http://127.0.0.1:8082',
         changeOrigin: true,
       },
       '/list-capabilities': {
+        target: 'http://127.0.0.1:8082',
+        changeOrigin: true,
+      },
+      '/list-capability-versions': {
+        target: 'http://127.0.0.1:8082',
+        changeOrigin: true,
+      },
+      '/get-capability-version': {
+        target: 'http://127.0.0.1:8082',
+        changeOrigin: true,
+      },
+      '/compare-capability-versions': {
+        target: 'http://127.0.0.1:8082',
+        changeOrigin: true,
+      },
+      '/list-skill-versions': {
+        target: 'http://127.0.0.1:8082',
+        changeOrigin: true,
+      },
+      '/get-skill-version': {
+        target: 'http://127.0.0.1:8082',
+        changeOrigin: true,
+      },
+      '/compare-skill-versions': {
         target: 'http://127.0.0.1:8082',
         changeOrigin: true,
       },

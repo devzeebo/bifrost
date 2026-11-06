@@ -12,7 +12,11 @@ public static class MartenConfiguration
 
         opts.Projections.Add<CapabilityView>(ProjectionLifecycle.Inline);
         opts.Projections.Add<CapabilityIndex>(ProjectionLifecycle.Inline);
+        opts.Projections.Add<CapabilityVersionView>(ProjectionLifecycle.Inline);
+        opts.Projections.Add<SkillVersionView>(ProjectionLifecycle.Inline);
 
         opts.Schema.For<CapabilityIndex.Model>().Identity(x => x.Id);
+        opts.Schema.For<CapabilityVersionView.Model>().Identity(x => x.Id);
+        opts.Schema.For<SkillVersionView.Model>().Identity(x => x.Id);
     }
 }
