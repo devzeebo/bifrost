@@ -40,6 +40,16 @@ public static class GetCapabilityHandler
                     Id = e.Id,
                     CriterionId = e.CriterionId,
                     Scenario = e.Scenario,
+                    Prompt = e.Prompt,
+                    Context = e.Context,
+                    Checks =
+                    [
+                        .. e.Checks.Select(c => new GetCapabilityApi.CheckSummary
+                        {
+                            Id = c.Id,
+                            Statement = c.Statement,
+                        }),
+                    ],
                 }),
             ],
             HasPublishedSkill = index?.HasPublishedSkill ?? false,

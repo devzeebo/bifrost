@@ -3,7 +3,8 @@ namespace Bifrost.Skills.Contracts;
 public sealed record ProposalEffect
 {
     /// <summary>
-    /// AmendAsk | AddCriterion | SharpenCriterion | SplitCriterion | RetireCriterion | AddEval | AmendEval | RetireEval | ReplaceSkill
+    /// AmendAsk | AddCriterion | SharpenCriterion | SplitCriterion | RetireCriterion |
+    /// AddEval | AmendEval | DuplicateEval | RetireEval | ReplaceSkill
     /// </summary>
     public required string Kind { get; init; }
     public string? Description { get; init; }
@@ -12,7 +13,11 @@ public sealed record ProposalEffect
     public string? Statement { get; init; }
     public IReadOnlyList<CriterionSnapshot>? NewCriteria { get; init; }
     public Guid? EvalId { get; init; }
+    public Guid? SourceEvalId { get; init; }
     public string? Scenario { get; init; }
+    public string? Prompt { get; init; }
+    public string? Context { get; init; }
+    public IReadOnlyList<CheckSnapshot>? Checks { get; init; }
     public string? Markdown { get; init; }
     public IReadOnlyList<Guid>? ServedCriterionIds { get; init; }
 }

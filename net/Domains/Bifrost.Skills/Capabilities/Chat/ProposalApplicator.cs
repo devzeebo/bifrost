@@ -192,12 +192,18 @@ public static class ProposalApplicator
                         throw new CommandValidationException($"Eval {effect.EvalId} already exists.");
                     }
 
+                    var addChecks = NormalizeChecks(effect.Checks);
+                    RequireAtLeastOneCheck(addChecks, "AddEval");
+
                     evals.Add(
                         new EvalSnapshot
                         {
                             Id = effect.EvalId.Value,
                             CriterionId = effect.CriterionId.Value,
                             Scenario = effect.Scenario.Trim(),
+                            Prompt = (effect.Prompt ?? "").Trim(),
+                            Context = (effect.Context ?? "").Trim(),
+                            Checks = addChecks,
                         }
                     );
                     capabilityTouched = true;
@@ -224,12 +230,66 @@ public static class ProposalApplicator
                         throw new CommandValidationException($"Criterion {criterionId} not found.");
                     }
 
+                    IReadOnlyList<CheckSnapshot> amendChecks;
+                    if (effect.Checks is null)
+                    {
+                        amendChecks = existing.Checks.ToArray();
+                    }
+                    else
+                    {
+                        amendChecks = NormalizeChecks(effect.Checks);
+                        RequireAtLeastOneCheck(amendChecks, "AmendEval");
+                    }
+
                     evals[evalIndex] = new EvalSnapshot
                     {
                         Id = effect.EvalId.Value,
                         CriterionId = criterionId,
                         Scenario = effect.Scenario.Trim(),
+                        Prompt = effect.Prompt is null ? existing.Prompt : effect.Prompt.Trim(),
+                        Context = effect.Context is null ? existing.Context : effect.Context.Trim(),
+                        Checks = amendChecks,
                     };
+                    capabilityTouched = true;
+                    break;
+
+                case ProposalEffectKinds.DuplicateEval:
+                    if (effect.EvalId is null || effect.SourceEvalId is null)
+                    {
+                        throw new CommandValidationException(
+                            "DuplicateEval requires EvalId and SourceEvalId."
+                        );
+                    }
+
+                    var source =
+                        evals.FirstOrDefault(e => e.Id == effect.SourceEvalId)
+                        ?? throw new CommandValidationException(
+                            $"Eval {effect.SourceEvalId} not found."
+                        );
+
+                    if (evals.Any(e => e.Id == effect.EvalId))
+                    {
+                        throw new CommandValidationException($"Eval {effect.EvalId} already exists.");
+                    }
+
+                    evals.Add(
+                        new EvalSnapshot
+                        {
+                            Id = effect.EvalId.Value,
+                            CriterionId = source.CriterionId,
+                            Scenario = source.Scenario,
+                            Prompt = source.Prompt,
+                            Context = source.Context,
+                            Checks =
+                            [
+                                .. source.Checks.Select(check => new CheckSnapshot
+                                {
+                                    Id = Guid.NewGuid(),
+                                    Statement = check.Statement,
+                                }),
+                            ],
+                        }
+                    );
                     capabilityTouched = true;
                     break;
 
@@ -370,6 +430,71 @@ public static class ProposalApplicator
         return true;
     }
 
+    public static IReadOnlyList<Guid> CriteriaLeftUncoveredByRetire(
+        IReadOnlyList<EvalSnapshot> before,
+        IReadOnlyList<EvalSnapshot> after,
+        IReadOnlyList<ProposalEffect> effects
+    )
+    {
+        var retiredIds = effects
+            .Where(e => e.Kind == ProposalEffectKinds.RetireEval && e.EvalId is not null)
+            .Select(e => e.EvalId!.Value)
+            .ToHashSet();
+
+        if (retiredIds.Count == 0)
+        {
+            return [];
+        }
+
+        var criterionIds = before
+            .Where(e => retiredIds.Contains(e.Id))
+            .Select(e => e.CriterionId)
+            .Distinct()
+            .ToList();
+
+        return
+        [
+            .. criterionIds.Where(criterionId => after.All(e => e.CriterionId != criterionId)),
+        ];
+    }
+
+    static IReadOnlyList<CheckSnapshot> NormalizeChecks(IReadOnlyList<CheckSnapshot>? checks)
+    {
+        if (checks is null || checks.Count == 0)
+        {
+            return [];
+        }
+
+        var normalized = new List<CheckSnapshot>(checks.Count);
+        var seen = new HashSet<Guid>();
+        foreach (var check in checks)
+        {
+            if (string.IsNullOrWhiteSpace(check.Statement))
+            {
+                throw new CommandValidationException("Each check requires a Statement.");
+            }
+
+            if (!seen.Add(check.Id))
+            {
+                throw new CommandValidationException($"Check {check.Id} is duplicated.");
+            }
+
+            normalized.Add(
+                new CheckSnapshot { Id = check.Id, Statement = check.Statement.Trim() }
+            );
+        }
+
+        return normalized;
+    }
+
+    static void RequireAtLeastOneCheck(IReadOnlyList<CheckSnapshot> checks, string kind)
+    {
+        if (checks.Count == 0)
+        {
+            throw new CommandValidationException($"{kind} requires at least one check.");
+        }
+    }
+
     static bool SameEvals(IReadOnlyList<EvalSnapshot> left, IReadOnlyList<EvalSnapshot> right)
     {
         if (left.Count != right.Count)
@@ -383,7 +508,28 @@ public static class ProposalApplicator
                 left[i].Id != right[i].Id
                 || left[i].CriterionId != right[i].CriterionId
                 || left[i].Scenario != right[i].Scenario
+                || left[i].Prompt != right[i].Prompt
+                || left[i].Context != right[i].Context
+                || !SameChecks(left[i].Checks, right[i].Checks)
             )
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    static bool SameChecks(IReadOnlyList<CheckSnapshot> left, IReadOnlyList<CheckSnapshot> right)
+    {
+        if (left.Count != right.Count)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < left.Count; i++)
+        {
+            if (left[i].Id != right[i].Id || left[i].Statement != right[i].Statement)
             {
                 return false;
             }

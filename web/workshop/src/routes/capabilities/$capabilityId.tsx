@@ -4,14 +4,14 @@ import { useCapabilityChat } from '../../capabilities/useCapabilityChat'
 import { AskDocument } from '../../components/organisms/AskDocument'
 import { CapabilityChatPanel } from '../../components/organisms/CapabilityChatPanel'
 import { CapabilityVersionPanel } from '../../components/organisms/CapabilityVersionPanel'
-import { CriteriaPanel } from '../../components/organisms/CriteriaPanel'
 import { DerivedSkillPanel } from '../../components/organisms/DerivedSkillPanel'
-import { EvalsPanel } from '../../components/organisms/EvalsPanel'
+import { SuitePanel } from '../../components/organisms/SuitePanel'
 import { WorkshopLayout } from '../../components/templates/WorkshopLayout'
 
 const CapabilityPage = () => {
   const { capabilityId } = Route.useParams()
-  const { state, saveAsk, saveName, reload } = useCapability(capabilityId)
+  const { state, saveAsk, saveName, saveEval, duplicateEval, retireEval, reload } =
+    useCapability(capabilityId)
   const chat = useCapabilityChat(capabilityId, reload)
 
   if (state.status === 'loading') {
@@ -58,8 +58,15 @@ const CapabilityPage = () => {
         onSaveAsk={saveAsk}
         onSaveName={saveName}
       />
-      <CriteriaPanel criteria={capability.criteria} />
-      <EvalsPanel evals={capability.evals} />
+      <SuitePanel
+        criteria={capability.criteria}
+        evals={capability.evals}
+        currentCapabilityVersionId={capability.currentCapabilityVersionId}
+        currentSkillVersionId={capability.currentSkillVersionId}
+        onAmend={saveEval}
+        onDuplicate={duplicateEval}
+        onRetire={retireEval}
+      />
       <DerivedSkillPanel
         capabilityId={capability.id}
         hasPublishedSkill={capability.hasPublishedSkill}

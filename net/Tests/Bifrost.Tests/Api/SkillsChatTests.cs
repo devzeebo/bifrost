@@ -79,6 +79,8 @@ public class SkillsChatTests
         detail.Ask.ShouldBe("Bundled ask for the capability.");
         detail.Criteria.Count.ShouldBe(1);
         detail.Evals.Count.ShouldBe(1);
+        detail.Evals[0].Prompt.ShouldNotBeNullOrWhiteSpace();
+        detail.Evals[0].Checks.Count.ShouldBe(1);
         detail.SkillMarkdown.ShouldContain("Bundled ask");
         detail.HasUnsavedCapabilityDraft.ShouldBeFalse();
         detail.HasUnsavedSkillDraft.ShouldBeFalse();
@@ -277,6 +279,171 @@ public class SkillsChatTests
         chat.Messages.Count.ShouldBeGreaterThanOrEqualTo(2);
         chat.Messages.ShouldContain(m => m.Role == "user" && m.Text == "hello there");
         chat.Messages.ShouldContain(m => m.Role == "assistant");
+    }
+
+    [Fact]
+    public async Task amend_eval_keeps_identity_and_records_version()
+    {
+        var client = _factory.CreateClient();
+        var id = await SeedCriterionAndEval(client, "Amend eval ask");
+
+        var detail = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
+        detail.ShouldNotBeNull();
+        var evalId = detail.Evals[0].Id;
+        var versionsBefore = await Query<ListCapabilityVersionsApi.Response>(
+            client,
+            $"/list-capability-versions/{id}"
+        );
+
+        (
+            await Post(
+                client,
+                "/amend-capability-eval",
+                new
+                {
+                    id,
+                    evalId,
+                    scenario = "Amended scenario statement",
+                    prompt = "Amended prompt",
+                    context = "Amended context",
+                    checks = new[]
+                    {
+                        new
+                        {
+                            id = detail.Evals[0].Checks[0].Id,
+                            statement = "Amended check statement",
+                        },
+                    },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var after = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
+        after.ShouldNotBeNull();
+        after.Evals.Count.ShouldBe(1);
+        after.Evals[0].Id.ShouldBe(evalId);
+        after.Evals[0].Scenario.ShouldBe("Amended scenario statement");
+        after.Evals[0].Prompt.ShouldBe("Amended prompt");
+        after.Evals[0].Context.ShouldBe("Amended context");
+        after.Evals[0].Checks[0].Statement.ShouldBe("Amended check statement");
+
+        var versionsAfter = await Query<ListCapabilityVersionsApi.Response>(
+            client,
+            $"/list-capability-versions/{id}"
+        );
+        versionsAfter.ShouldNotBeNull();
+        versionsAfter.Items.Count.ShouldBe(versionsBefore!.Items.Count + 1);
+    }
+
+    [Fact]
+    public async Task duplicate_eval_copies_with_new_ids()
+    {
+        var client = _factory.CreateClient();
+        var id = await SeedCriterionAndEval(client, "Duplicate eval ask");
+
+        var detail = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
+        detail.ShouldNotBeNull();
+        var source = detail.Evals[0];
+        var newEvalId = Guid.NewGuid();
+
+        (
+            await Post(
+                client,
+                "/duplicate-capability-eval",
+                new
+                {
+                    id,
+                    sourceEvalId = source.Id,
+                    newEvalId,
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var after = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
+        after.ShouldNotBeNull();
+        after.Evals.Count.ShouldBe(2);
+        var copy = after.Evals.Single(e => e.Id == newEvalId);
+        copy.CriterionId.ShouldBe(source.CriterionId);
+        copy.Scenario.ShouldBe(source.Scenario);
+        copy.Prompt.ShouldBe(source.Prompt);
+        copy.Checks.Count.ShouldBe(source.Checks.Count);
+        copy.Checks[0].Id.ShouldNotBe(source.Checks[0].Id);
+        copy.Checks[0].Statement.ShouldBe(source.Checks[0].Statement);
+    }
+
+    [Fact]
+    public async Task retire_last_eval_reports_uncovered_criterion()
+    {
+        var client = _factory.CreateClient();
+        var id = await SeedCriterionAndEval(client, "Retire eval ask");
+
+        var detail = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
+        detail.ShouldNotBeNull();
+        var evalId = detail.Evals[0].Id;
+        var criterionId = detail.Evals[0].CriterionId;
+
+        var retired = await PostJson<RetireCapabilityEvalApi.Response>(
+            client,
+            "/retire-capability-eval",
+            new { id, evalId }
+        );
+        retired.ShouldNotBeNull();
+        retired.LeftCriterionUncovered.ShouldBeTrue();
+        retired.UncoveredCriterionId.ShouldBe(criterionId);
+        retired.Note.ShouldNotBeNullOrWhiteSpace();
+
+        var after = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
+        after.ShouldNotBeNull();
+        after.Evals.ShouldBeEmpty();
+        after.Criteria.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task retire_last_eval_via_chat_calls_out_uncovered_criterion()
+    {
+        var client = _factory.CreateClient();
+        var id = await SeedCriterionAndEval(client, "Retire via chat ask");
+
+        var detail = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
+        detail.ShouldNotBeNull();
+        var evalId = detail.Evals[0].Id;
+
+        var posted = await PostJson<PostCapabilityChatMessageApi.Response>(
+            client,
+            "/post-capability-chat-message",
+            new { id, message = $"retire eval {evalId}" }
+        );
+        posted.ShouldNotBeNull();
+        posted.Proposal.ShouldNotBeNull();
+        posted.Proposal!.Summary.ShouldContain("last eval");
+
+        var applied = await PostJson<ApplyCapabilityProposalApi.Response>(
+            client,
+            "/apply-capability-proposal",
+            new { id, proposalId = posted.Proposal.Id }
+        );
+        applied.ShouldNotBeNull();
+        applied.Outcome.ShouldBe("Applied");
+        applied.Note!.ShouldContain("uncovered");
+    }
+
+    static async Task<Guid> SeedCriterionAndEval(HttpClient client, string ask)
+    {
+        var id = await CreateCapability(client, ask);
+        var posted = await PostJson<PostCapabilityChatMessageApi.Response>(
+            client,
+            "/post-capability-chat-message",
+            new { id, message = "bundle: " + ask }
+        );
+        posted.ShouldNotBeNull();
+        (
+            await PostJson<ApplyCapabilityProposalApi.Response>(
+                client,
+                "/apply-capability-proposal",
+                new { id, proposalId = posted!.Proposal!.Id }
+            )
+        ).ShouldNotBeNull();
+        return id;
     }
 
     static async Task<Guid> CreateCapability(HttpClient client, string ask)

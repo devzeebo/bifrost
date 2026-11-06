@@ -89,6 +89,11 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
             return Split(context, text["split ".Length..].Trim());
         }
 
+        if (text.StartsWith("retire eval ", StringComparison.OrdinalIgnoreCase))
+        {
+            return RetireEval(context, text["retire eval ".Length..].Trim());
+        }
+
         if (text.StartsWith("retire ", StringComparison.OrdinalIgnoreCase))
         {
             return Retire(context, text["retire ".Length..].Trim());
@@ -97,6 +102,16 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
         if (text.StartsWith("add eval ", StringComparison.OrdinalIgnoreCase))
         {
             return AddEval(context, text["add eval ".Length..].Trim());
+        }
+
+        if (text.StartsWith("duplicate eval ", StringComparison.OrdinalIgnoreCase))
+        {
+            return DuplicateEval(context, text["duplicate eval ".Length..].Trim());
+        }
+
+        if (text.StartsWith("amend eval ", StringComparison.OrdinalIgnoreCase))
+        {
+            return AmendEval(context, text["amend eval ".Length..].Trim());
         }
 
         if (text.StartsWith("reword ask:", StringComparison.OrdinalIgnoreCase))
@@ -156,7 +171,7 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
         return new EditorTurn
         {
             AssistantText =
-                "I can help edit this capability. Try: add criterion: …, sharpen <criterion-id>:<statement>, split <criterion-id>, retire <criterion-id>, add eval <criterion-id>:<scenario>, reword ask: …, replace skill: …, or bundle: …",
+                "I can help edit this capability. Try: add criterion: …, sharpen <criterion-id>:<statement>, split <criterion-id>, retire <criterion-id>, add eval <criterion-id>:<scenario>, amend eval <eval-id>:<scenario>, duplicate eval <eval-id>, retire eval <eval-id>, reword ask: …, replace skill: …, or bundle: …",
         };
     }
 
@@ -296,6 +311,7 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
             };
         }
 
+        var scenario = parts[1];
         return new EditorTurn
         {
             AssistantText = "Proposed adding an eval.",
@@ -308,7 +324,131 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
                     Description = "Add eval scenario",
                     EvalId = Guid.NewGuid(),
                     CriterionId = criterionId,
-                    Scenario = parts[1],
+                    Scenario = scenario,
+                    Prompt = scenario,
+                    Context = "",
+                    Checks =
+                    [
+                        new CheckSnapshot
+                        {
+                            Id = Guid.NewGuid(),
+                            Statement = $"The work satisfies: {scenario}",
+                        },
+                    ],
+                },
+            ],
+        };
+    }
+
+    static EditorTurn AmendEval(EditorContext context, string rest)
+    {
+        var parts = rest.Split(':', 2, StringSplitOptions.TrimEntries);
+        if (
+            parts.Length != 2
+            || !Guid.TryParse(parts[0], out var evalId)
+            || context.Evals.FirstOrDefault(e => e.Id == evalId) is not { } existing
+        )
+        {
+            return new EditorTurn
+            {
+                AssistantText = "Amend eval needs an existing eval id and scenario: amend eval <id>:<scenario>",
+            };
+        }
+
+        var scenario = parts[1];
+        return new EditorTurn
+        {
+            AssistantText = "Proposed amending an eval in place.",
+            ProposalSummary = "Amend eval",
+            Effects =
+            [
+                new ProposalEffect
+                {
+                    Kind = ProposalEffectKinds.AmendEval,
+                    Description = "Amend eval scenario",
+                    EvalId = evalId,
+                    CriterionId = existing.CriterionId,
+                    Scenario = scenario,
+                    Prompt = scenario,
+                    Context = existing.Context,
+                    Checks =
+                    [
+                        new CheckSnapshot
+                        {
+                            Id = existing.Checks.FirstOrDefault()?.Id ?? Guid.NewGuid(),
+                            Statement = $"The work satisfies: {scenario}",
+                        },
+                    ],
+                },
+            ],
+        };
+    }
+
+    static EditorTurn DuplicateEval(EditorContext context, string rest)
+    {
+        if (
+            !Guid.TryParse(rest, out var sourceEvalId)
+            || context.Evals.All(e => e.Id != sourceEvalId)
+        )
+        {
+            return new EditorTurn
+            {
+                AssistantText = "Duplicate eval needs an existing eval id: duplicate eval <id>",
+            };
+        }
+
+        return new EditorTurn
+        {
+            AssistantText = "Proposed duplicating an eval.",
+            ProposalSummary = "Duplicate eval",
+            Effects =
+            [
+                new ProposalEffect
+                {
+                    Kind = ProposalEffectKinds.DuplicateEval,
+                    Description = "Duplicate eval",
+                    SourceEvalId = sourceEvalId,
+                    EvalId = Guid.NewGuid(),
+                },
+            ],
+        };
+    }
+
+    static EditorTurn RetireEval(EditorContext context, string rest)
+    {
+        if (
+            !Guid.TryParse(rest, out var evalId)
+            || context.Evals.FirstOrDefault(e => e.Id == evalId) is not { } existing
+        )
+        {
+            return new EditorTurn
+            {
+                AssistantText = "Retire eval needs an existing eval id: retire eval <id>",
+            };
+        }
+
+        var remaining = context.Evals.Count(e => e.CriterionId == existing.CriterionId);
+        var callout =
+            remaining == 1
+                ? " This is the last eval behind its criterion; retiring it leaves the criterion uncovered."
+                : "";
+
+        return new EditorTurn
+        {
+            AssistantText = $"Proposed retiring an eval.{callout}",
+            ProposalSummary = remaining == 1 ? "Retire last eval for criterion" : "Retire eval",
+            Effects =
+            [
+                new ProposalEffect
+                {
+                    Kind = ProposalEffectKinds.RetireEval,
+                    Description =
+                        remaining == 1
+                            ? "Retire last eval — criterion will be uncovered"
+                            : "Retire eval",
+                    EvalId = evalId,
+                    CriterionId = existing.CriterionId,
+                    Scenario = existing.Scenario,
                 },
             ],
         };
@@ -319,6 +459,7 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
         var ask = rest;
         var criterionId = Guid.NewGuid();
         var evalId = Guid.NewGuid();
+        const string scenario = "Given the ask, the work succeeds";
         return new EditorTurn
         {
             AssistantText = "Proposed a multi-layer bundle: ask, criterion, eval, and skill.",
@@ -344,7 +485,17 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
                     Description = "Add proving eval",
                     EvalId = evalId,
                     CriterionId = criterionId,
-                    Scenario = "Given the ask, the work succeeds",
+                    Scenario = scenario,
+                    Prompt = scenario,
+                    Context = "",
+                    Checks =
+                    [
+                        new CheckSnapshot
+                        {
+                            Id = Guid.NewGuid(),
+                            Statement = $"The work satisfies: {scenario}",
+                        },
+                    ],
                 },
                 new ProposalEffect
                 {
@@ -403,6 +554,20 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
                     }
 
                     rebuilt.Add(effect);
+                    break;
+                case ProposalEffectKinds.DuplicateEval:
+                    if (
+                        effect.SourceEvalId is not { } sourceEvalId
+                        || !evals.Contains(sourceEvalId)
+                        || effect.EvalId is not { } duplicateEvalId
+                        || evals.Contains(duplicateEvalId)
+                    )
+                    {
+                        return null;
+                    }
+
+                    rebuilt.Add(effect);
+                    evals.Add(duplicateEvalId);
                     break;
                 case ProposalEffectKinds.RetireEval:
                     if (effect.EvalId is not { } retireEvalId || !evals.Contains(retireEvalId))
@@ -480,6 +645,7 @@ public static class ProposalEffectKinds
     public const string RetireCriterion = "RetireCriterion";
     public const string AddEval = "AddEval";
     public const string AmendEval = "AmendEval";
+    public const string DuplicateEval = "DuplicateEval";
     public const string RetireEval = "RetireEval";
     public const string ReplaceSkill = "ReplaceSkill";
 }
