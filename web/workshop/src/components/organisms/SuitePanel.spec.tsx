@@ -77,6 +77,21 @@ describe('SuitePanel', () => {
       retire_was_called,
     },
   })
+
+  test('run controls call through and show suite summary', {
+    given: {
+      one_covered_and_one_uncovered_criterion,
+      run_handlers_are_provided,
+    },
+    when: {
+      the_panel_renders,
+      run_is_clicked,
+    },
+    then: {
+      suite_summary_is_shown,
+      run_case_was_called,
+    },
+  })
 })
 
 type Context = {
@@ -85,6 +100,9 @@ type Context = {
   onAmend: Parameters<typeof SuitePanel>[0]['onAmend']
   onDuplicate: Parameters<typeof SuitePanel>[0]['onDuplicate']
   onRetire: Parameters<typeof SuitePanel>[0]['onRetire']
+  onRunCase?: Parameters<typeof SuitePanel>[0]['onRunCase']
+  onRunSuite?: Parameters<typeof SuitePanel>[0]['onRunSuite']
+  suiteSummary?: Parameters<typeof SuitePanel>[0]['suiteSummary']
   confirmSpy: ReturnType<typeof vi.spyOn>
 }
 
@@ -95,8 +113,23 @@ function reset_page(this: Context) {
   this.onAmend = vi.fn(async () => undefined)
   this.onDuplicate = vi.fn(async () => undefined)
   this.onRetire = vi.fn(async () => undefined)
+  this.onRunCase = undefined
+  this.onRunSuite = undefined
+  this.suiteSummary = undefined
   this.confirmSpy?.mockRestore()
   this.confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+}
+
+function run_handlers_are_provided(this: Context) {
+  this.onRunCase = vi.fn(async () => undefined)
+  this.onRunSuite = vi.fn(async () => undefined)
+  this.suiteSummary = {
+    passed: 0,
+    failed: 0,
+    unsettled: 1,
+    neverCompleted: 0,
+    neverRun: 1,
+  }
 }
 
 function no_criteria(this: Context) {
@@ -146,10 +179,27 @@ function the_panel_renders(this: Context) {
       evals={this.evals}
       currentCapabilityVersionId="cap-1"
       currentSkillVersionId={null}
+      {...(this.suiteSummary ? { suiteSummary: this.suiteSummary } : {})}
+      {...(this.onRunCase ? { onRunCase: this.onRunCase } : {})}
+      {...(this.onRunSuite ? { onRunSuite: this.onRunSuite } : {})}
       onAmend={this.onAmend}
       onDuplicate={this.onDuplicate}
       onRetire={this.onRetire}
     />,
+  )
+}
+
+function run_is_clicked() {
+  fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+}
+
+function suite_summary_is_shown() {
+  expect(screen.getByText('1 unsettled · 1 never run')).toBeInTheDocument()
+}
+
+function run_case_was_called(this: Context) {
+  expect(vi.mocked(this.onRunCase!)).toHaveBeenCalledWith(
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
   )
 }
 

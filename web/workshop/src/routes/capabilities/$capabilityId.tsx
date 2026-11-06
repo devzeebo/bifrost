@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useCapability } from '../../capabilities/useCapability'
 import { useCapabilityChat } from '../../capabilities/useCapabilityChat'
+import { useEvalRuns } from '../../capabilities/useEvalRuns'
 import { AskDocument } from '../../components/organisms/AskDocument'
 import { CapabilityChatPanel } from '../../components/organisms/CapabilityChatPanel'
 import { CapabilityVersionPanel } from '../../components/organisms/CapabilityVersionPanel'
@@ -13,6 +14,7 @@ const CapabilityPage = () => {
   const { state, saveAsk, saveName, saveEval, duplicateEval, retireEval, reload } =
     useCapability(capabilityId)
   const chat = useCapabilityChat(capabilityId, reload)
+  const evalRuns = useEvalRuns(capabilityId)
 
   if (state.status === 'loading') {
     return (
@@ -63,6 +65,20 @@ const CapabilityPage = () => {
         evals={capability.evals}
         currentCapabilityVersionId={capability.currentCapabilityVersionId}
         currentSkillVersionId={capability.currentSkillVersionId}
+        outcomes={evalRuns.outcomes}
+        caseRuns={evalRuns.caseRuns}
+        criterionRollups={evalRuns.criterionRollups}
+        suiteSummary={evalRuns.suiteSummary}
+        skillVersions={evalRuns.skillVersions}
+        skillTarget={evalRuns.skillTarget}
+        onSkillTargetChange={evalRuns.setSkillTarget}
+        busyEvalId={evalRuns.busyEvalId}
+        suiteBusy={evalRuns.suiteBusy}
+        canCancelSuite={evalRuns.activeSuiteRunId !== null}
+        runError={evalRuns.error}
+        onRunCase={evalRuns.runCase}
+        onRunSuite={evalRuns.runSuite}
+        onCancelSuite={evalRuns.cancelSuite}
         onAmend={saveEval}
         onDuplicate={duplicateEval}
         onRetire={retireEval}

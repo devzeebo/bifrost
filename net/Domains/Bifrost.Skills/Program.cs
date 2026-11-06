@@ -1,6 +1,8 @@
 using Bifrost;
+using Bifrost.Ai;
 using Bifrost.Capabilities.Commands;
 using Bifrost.Capabilities.Editor;
+using Bifrost.Capabilities.Evals;
 using Bifrost.Configuration;
 using Bifrost.MessageBus;
 using Bifrost.Rpc;
@@ -51,7 +53,9 @@ builder.Services.AddRpcHost(options =>
 
 builder.Services.AddMessageBus();
 builder.Services.AddWolverineHttp();
+builder.Services.AddBifrostAi(builder.Configuration);
 builder.Services.AddCapabilityEditor(builder.Configuration);
+builder.Services.AddEvalRuns();
 builder.Services.AddSkillsHandlers();
 
 var app = builder.Build();
@@ -123,6 +127,18 @@ app.Use(
                 {
                     Status = StatusCodes.Status502BadGateway,
                     Title = "Capability editor unavailable",
+                    Detail = ex.Message,
+                }
+            );
+        }
+        catch (ModelClientException ex)
+        {
+            context.Response.StatusCode = StatusCodes.Status502BadGateway;
+            await context.Response.WriteAsJsonAsync(
+                new ProblemDetails
+                {
+                    Status = StatusCodes.Status502BadGateway,
+                    Title = "Eval model unavailable",
                     Detail = ex.Message,
                 }
             );

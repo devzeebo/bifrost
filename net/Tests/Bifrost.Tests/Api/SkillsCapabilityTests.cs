@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using Bifrost.Ai;
 using Bifrost.Rpc;
 using Bifrost.Skills.Contracts;
 using Marten;
@@ -18,6 +19,41 @@ using Testcontainers.PostgreSql;
 
 namespace Bifrost.Tests.Api;
 
+public sealed class FakeModelClient : IModelClient
+{
+    public Func<ModelRequest, CancellationToken, Task<ModelResponse>>? Handler { get; set; }
+
+    public int CallCount { get; private set; }
+
+    public Task<ModelResponse> CreateResponse(
+        ModelRequest request,
+        CancellationToken ct = default
+    )
+    {
+        CallCount++;
+        if (Handler is not null)
+        {
+            return Handler(request, ct);
+        }
+
+        return Task.FromResult(
+            new ModelResponse
+            {
+                Status = "completed",
+                OutputText = "fake eval answer",
+                Output = [],
+                Usage = new LineUsage
+                {
+                    InputTokens = 11,
+                    OutputTokens = 7,
+                    TotalTokens = 18,
+                    Cost = 0.02,
+                },
+            }
+        );
+    }
+}
+
 public sealed class SkillsApiFactory : WebApplicationFactory<Skills::Program>, IAsyncLifetime
 {
     readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:16")
@@ -27,6 +63,8 @@ public sealed class SkillsApiFactory : WebApplicationFactory<Skills::Program>, I
         .Build();
 
     string _connectionString = string.Empty;
+
+    public FakeModelClient ModelClient { get; } = new();
 
     async Task IAsyncLifetime.InitializeAsync()
     {
@@ -44,6 +82,9 @@ public sealed class SkillsApiFactory : WebApplicationFactory<Skills::Program>, I
     {
         builder.UseEnvironment("Development");
         builder.UseSetting("ConnectionStrings:Marten", _connectionString);
+        builder.UseSetting("Ai:ApiKey", "test-key");
+        builder.UseSetting("Ai:BaseUrl", "https://example.test/v1/");
+        builder.UseSetting("Ai:Model", "test-model");
 
         builder.ConfigureTestServices(services =>
         {
@@ -53,6 +94,9 @@ public sealed class SkillsApiFactory : WebApplicationFactory<Skills::Program>, I
             {
                 services.Remove(descriptor);
             }
+
+            services.RemoveAll<IModelClient>();
+            services.AddSingleton<IModelClient>(ModelClient);
         });
     }
 
