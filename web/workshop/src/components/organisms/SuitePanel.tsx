@@ -1,26 +1,12 @@
 import { useState, type FormEvent } from 'react'
 import { neverRunOutcome, outcomeEarnedUnderNote, outcomeLabel } from '../../capabilities/evalOutcome'
 import type {
+  CheckKind,
   CheckSnapshot,
   CriterionSnapshot,
   EvalLatestOutcome,
   EvalSnapshot,
 } from '../../capabilities/types'
-
-export const assignCheckIds = (
-  statements: readonly string[],
-  existing: readonly CheckSnapshot[],
-): CheckSnapshot[] => {
-  const remaining = [...existing]
-  return statements.map((statement) => {
-    const matchIndex = remaining.findIndex((check) => check.statement === statement)
-    if (matchIndex >= 0) {
-      const [matched] = remaining.splice(matchIndex, 1)
-      return { id: matched.id, statement }
-    }
-    return { id: crypto.randomUUID(), statement }
-  })
-}
 
 type SuitePanelProps = {
   readonly criteria: readonly CriterionSnapshot[]
@@ -33,7 +19,7 @@ type SuitePanelProps = {
     readonly scenario: string
     readonly prompt: string
     readonly context: string
-    readonly checks: readonly CheckSnapshot[]
+    readonly checks?: readonly CheckSnapshot[] | null
   }) => Promise<void>
   readonly onDuplicate: (evalId: string) => Promise<void>
   readonly onRetire: (evalId: string) => Promise<void>
@@ -51,6 +37,8 @@ export const SuitePanel = ({
 }: SuitePanelProps) => {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [openScriptId, setOpenScriptId] = useState<string | null>(null)
+  const [kindError, setKindError] = useState<string | null>(null)
 
   if (criteria.length === 0) {
     return (
@@ -63,10 +51,35 @@ export const SuitePanel = ({
     )
   }
 
+  const setCheckKind = async (evalItem: EvalSnapshot, checkId: string, kind: CheckKind) => {
+    setKindError(null)
+    const checks = evalItem.checks.map((check) =>
+      check.id === checkId
+        ? {
+            ...check,
+            kind,
+            script: kind === 'HumanReview' ? null : check.script,
+          }
+        : check,
+    )
+    try {
+      await onAmend({
+        evalId: evalItem.id,
+        scenario: evalItem.scenario,
+        prompt: evalItem.prompt,
+        context: evalItem.context,
+        checks,
+      })
+    } catch (err) {
+      setKindError(err instanceof Error ? err.message : 'Could not update check kind')
+    }
+  }
+
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-xs tracking-[0.16em] text-muted uppercase">Suite</h2>
       <div className="flex flex-col gap-4 border border-line bg-surface px-5 py-6">
+        {kindError ? <p className="text-sm text-signal">{kindError}</p> : null}
         {criteria.map((criterion) => {
           const covering = evals.filter((item) => item.criterionId === criterion.id)
           return (
@@ -154,12 +167,25 @@ export const SuitePanel = ({
                                 evalItem={item}
                                 onCancel={() => setEditingId(null)}
                                 onSave={async (draft) => {
-                                  await onAmend({ evalId: item.id, ...draft })
+                                  await onAmend({
+                                    evalId: item.id,
+                                    ...draft,
+                                    checks: item.checks,
+                                  })
                                   setEditingId(null)
                                 }}
                               />
                             ) : (
-                              <EvalDetail evalItem={item} />
+                              <EvalDetail
+                                evalItem={item}
+                                openScriptId={openScriptId}
+                                onToggleScript={(checkId) =>
+                                  setOpenScriptId((current) =>
+                                    current === checkId ? null : checkId,
+                                  )
+                                }
+                                onSetKind={(checkId, kind) => void setCheckKind(item, checkId, kind)}
+                              />
                             )}
                           </div>
                         ) : null}
@@ -176,7 +202,17 @@ export const SuitePanel = ({
   )
 }
 
-const EvalDetail = ({ evalItem }: { readonly evalItem: EvalSnapshot }) => (
+const EvalDetail = ({
+  evalItem,
+  openScriptId,
+  onToggleScript,
+  onSetKind,
+}: {
+  readonly evalItem: EvalSnapshot
+  readonly openScriptId: string | null
+  readonly onToggleScript: (checkId: string) => void
+  readonly onSetKind: (checkId: string, kind: CheckKind) => void
+}) => (
   <div className="flex flex-col gap-3 text-sm text-fg">
     <DetailBlock label="Prompt" value={evalItem.prompt || '—'} />
     <DetailBlock label="Context" value={evalItem.context || '—'} />
@@ -185,9 +221,49 @@ const EvalDetail = ({ evalItem }: { readonly evalItem: EvalSnapshot }) => (
       {evalItem.checks.length === 0 ? (
         <p className="text-muted">No checks yet.</p>
       ) : (
-        <ul className="flex flex-col gap-1">
+        <ul className="flex flex-col gap-3">
           {evalItem.checks.map((check) => (
-            <li key={check.id}>{check.statement}</li>
+            <li key={check.id} className="flex flex-col gap-2 border border-line bg-surface px-3 py-2">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs tracking-[0.12em] text-muted uppercase">{check.kind}</span>
+                  <span>{check.statement}</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {check.kind === 'Script' ? (
+                    <>
+                      <button
+                        type="button"
+                        className="border border-line px-2 py-1 text-xs tracking-[0.12em] text-muted uppercase"
+                        onClick={() => onToggleScript(check.id)}
+                      >
+                        {openScriptId === check.id ? 'Hide script' : 'Open script'}
+                      </button>
+                      <button
+                        type="button"
+                        className="border border-line px-2 py-1 text-xs tracking-[0.12em] text-muted uppercase"
+                        onClick={() => onSetKind(check.id, 'HumanReview')}
+                      >
+                        Use human review
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className="border border-line px-2 py-1 text-xs tracking-[0.12em] text-muted uppercase"
+                      onClick={() => onSetKind(check.id, 'Script')}
+                    >
+                      Use script check
+                    </button>
+                  )}
+                </div>
+              </div>
+              {check.kind === 'Script' && openScriptId === check.id ? (
+                <pre className="overflow-x-auto whitespace-pre-wrap border border-line bg-ink px-3 py-2 text-xs text-fg">
+                  {check.script?.trim() ? check.script : 'Script not authored yet.'}
+                </pre>
+              ) : null}
+            </li>
           ))}
         </ul>
       )}
@@ -212,7 +288,6 @@ type EvalDraft = {
   readonly scenario: string
   readonly prompt: string
   readonly context: string
-  readonly checks: readonly CheckSnapshot[]
 }
 
 const EvalEditor = ({
@@ -227,27 +302,19 @@ const EvalEditor = ({
   const [scenario, setScenario] = useState(evalItem.scenario)
   const [prompt, setPrompt] = useState(evalItem.prompt)
   const [context, setContext] = useState(evalItem.context)
-  const [checksText, setChecksText] = useState(
-    evalItem.checks.map((check) => check.statement).join('\n'),
-  )
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(null)
-    const statements = checksText
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0)
-    if (statements.length === 0) {
-      setError('At least one check is required.')
+    if (scenario.trim().length === 0) {
+      setError('Scenario is required.')
       return
     }
-    const checks = assignCheckIds(statements, evalItem.checks)
     setSaving(true)
     try {
-      await onSave({ scenario, prompt, context, checks })
+      await onSave({ scenario, prompt, context })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save eval')
     } finally {
@@ -284,17 +351,9 @@ const EvalEditor = ({
           className="border border-line bg-surface px-3 py-2 text-fg outline-none focus:border-signal-dim"
         />
       </label>
-      <label className="flex flex-col gap-1">
-        <span className="text-xs tracking-[0.16em] text-muted uppercase">
-          Checks (one per line)
-        </span>
-        <textarea
-          value={checksText}
-          onChange={(event) => setChecksText(event.target.value)}
-          rows={4}
-          className="border border-line bg-surface px-3 py-2 text-fg outline-none focus:border-signal-dim"
-        />
-      </label>
+      <p className="text-xs text-muted">
+        Checks are authored behind the scenes. Changing the scenario re-derives script checks.
+      </p>
       {error ? <p className="text-sm text-signal">{error}</p> : null}
       <div className="flex gap-2">
         <button

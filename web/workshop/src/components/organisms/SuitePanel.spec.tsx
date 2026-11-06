@@ -33,16 +33,33 @@ describe('SuitePanel', () => {
     },
   })
 
-  test('opening an eval reveals prompt context and checks', {
+  test('opening an eval reveals prompt context checks and script', {
     given: {
       one_covered_and_one_uncovered_criterion,
     },
     when: {
       the_panel_renders,
       the_eval_is_opened,
+      the_script_is_opened,
     },
     then: {
       prompt_context_and_checks_are_shown,
+      script_body_is_shown,
+      check_textarea_is_absent,
+    },
+  })
+
+  test('kind toggle swaps script to human review', {
+    given: {
+      one_covered_and_one_uncovered_criterion,
+    },
+    when: {
+      the_panel_renders,
+      the_eval_is_opened,
+      use_human_review_is_clicked,
+    },
+    then: {
+      amend_was_called_with_human_review,
     },
   })
 
@@ -108,7 +125,10 @@ function one_covered_and_one_uncovered_criterion(this: Context) {
       checks: [
         {
           id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
-          statement: 'Reply avoids unexplained jargon',
+          statement: 'The work satisfies: Replies stay in plain language',
+          kind: 'Script',
+          script:
+            "export default function check(transcript: string, context: string): boolean {\n  return true;\n}\n",
         },
       ],
     },
@@ -135,6 +155,14 @@ function the_panel_renders(this: Context) {
 
 function the_eval_is_opened() {
   fireEvent.click(screen.getByText('Given a jargon-heavy ask, the reply stays plain'))
+}
+
+function the_script_is_opened() {
+  fireEvent.click(screen.getByRole('button', { name: 'Open script' }))
+}
+
+function use_human_review_is_clicked() {
+  fireEvent.click(screen.getByRole('button', { name: 'Use human review' }))
 }
 
 function retire_is_clicked() {
@@ -169,7 +197,33 @@ function never_run_badge_is_shown() {
 function prompt_context_and_checks_are_shown() {
   expect(screen.getByText('Rewrite this in plain language')).toBeInTheDocument()
   expect(screen.getByText('Audience: workshop users')).toBeInTheDocument()
-  expect(screen.getByText('Reply avoids unexplained jargon')).toBeInTheDocument()
+  expect(
+    screen.getByText('The work satisfies: Replies stay in plain language'),
+  ).toBeInTheDocument()
+}
+
+function script_body_is_shown() {
+  expect(screen.getByText(/export default function check/)).toBeInTheDocument()
+}
+
+function check_textarea_is_absent() {
+  expect(screen.queryByLabelText(/Checks/i)).not.toBeInTheDocument()
+  expect(screen.queryByText('Checks (one per line)')).not.toBeInTheDocument()
+}
+
+function amend_was_called_with_human_review(this: Context) {
+  expect(vi.mocked(this.onAmend)).toHaveBeenCalledWith(
+    expect.objectContaining({
+      evalId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      checks: [
+        expect.objectContaining({
+          id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+          kind: 'HumanReview',
+          script: null,
+        }),
+      ],
+    }),
+  )
 }
 
 function confirm_warned_about_last_eval(this: Context) {

@@ -48,6 +48,8 @@ public static class GetCapabilityHandler
                         {
                             Id = c.Id,
                             Statement = c.Statement,
+                            Kind = c.Kind,
+                            Script = c.Script,
                         }),
                     ],
                 }),

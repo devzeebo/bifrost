@@ -20,6 +20,8 @@ public static class GetCapabilityApi
     {
         public required Guid Id { get; init; }
         public required string Statement { get; init; }
+        public string Kind { get; init; } = CheckKinds.Script;
+        public string? Script { get; init; }
     }
 
     public sealed record EvalSummary

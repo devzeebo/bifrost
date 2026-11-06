@@ -158,6 +158,11 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
             return Bundle(context, text["bundle:".Length..].Trim());
         }
 
+        if (text.StartsWith("set check kind ", StringComparison.OrdinalIgnoreCase))
+        {
+            return SetCheckKind(context, text["set check kind ".Length..].Trim());
+        }
+
         if (text.Equals("withdraw-on-reread", StringComparison.OrdinalIgnoreCase))
         {
             return new EditorTurn
@@ -171,7 +176,7 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
         return new EditorTurn
         {
             AssistantText =
-                "I can help edit this capability. Try: add criterion: …, sharpen <criterion-id>:<statement>, split <criterion-id>, retire <criterion-id>, add eval <criterion-id>:<scenario>, amend eval <eval-id>:<scenario>, duplicate eval <eval-id>, retire eval <eval-id>, reword ask: …, replace skill: …, or bundle: …",
+                "I can help edit this capability. Try: add criterion: …, sharpen <criterion-id>:<statement>, split <criterion-id>, retire <criterion-id>, add eval <criterion-id>:<scenario>, amend eval <eval-id>:<scenario>, duplicate eval <eval-id>, retire eval <eval-id>, set check kind <eval-id>:<check-id>:Script|HumanReview, reword ask: …, replace skill: …, or bundle: …",
         };
     }
 
@@ -190,20 +195,43 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
             };
         }
 
-        return new EditorTurn
+        var statement = parts[1];
+        var effects = new List<ProposalEffect>
         {
-            AssistantText = "Proposed sharpening a criterion in place.",
-            ProposalSummary = "Sharpen criterion",
-            Effects =
-            [
+            new()
+            {
+                Kind = ProposalEffectKinds.SharpenCriterion,
+                Description = "Sharpen criterion wording",
+                CriterionId = criterionId,
+                Statement = statement,
+            },
+        };
+
+        foreach (var eval in context.Evals.Where(e => e.CriterionId == criterionId))
+        {
+            effects.Add(
                 new ProposalEffect
                 {
-                    Kind = ProposalEffectKinds.SharpenCriterion,
-                    Description = "Sharpen criterion wording",
-                    CriterionId = criterionId,
-                    Statement = parts[1],
-                },
-            ],
+                    Kind = ProposalEffectKinds.AmendEval,
+                    Description = "Re-derive checks for sharpened criterion",
+                    EvalId = eval.Id,
+                    CriterionId = eval.CriterionId,
+                    Scenario = eval.Scenario,
+                    Prompt = eval.Prompt,
+                    Context = eval.Context,
+                    Checks = CheckDerivation.ReDerive(eval.Checks, statement, eval.Scenario),
+                }
+            );
+        }
+
+        return new EditorTurn
+        {
+            AssistantText =
+                effects.Count > 1
+                    ? "Proposed sharpening a criterion and re-deriving its script checks."
+                    : "Proposed sharpening a criterion in place.",
+            ProposalSummary = "Sharpen criterion",
+            Effects = effects,
         };
     }
 
@@ -312,9 +340,12 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
         }
 
         var scenario = parts[1];
+        var criterion = context.Criteria.First(c => c.Id == criterionId);
+        var checkId = Guid.NewGuid();
         return new EditorTurn
         {
-            AssistantText = "Proposed adding an eval.",
+            AssistantText =
+                "Proposed adding an eval. The script check is ready to run.",
             ProposalSummary = "Add eval",
             Effects =
             [
@@ -329,11 +360,7 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
                     Context = "",
                     Checks =
                     [
-                        new CheckSnapshot
-                        {
-                            Id = Guid.NewGuid(),
-                            Statement = $"The work satisfies: {scenario}",
-                        },
+                        CheckDerivation.ScriptCheck(checkId, criterion.Statement, scenario),
                     ],
                 },
             ],
@@ -356,20 +383,14 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
         }
 
         var scenario = parts[1];
-        var checks =
-            existing.Checks.Count > 0
-                ? existing.Checks.ToArray()
-                :
-                [
-                    new CheckSnapshot
-                    {
-                        Id = Guid.NewGuid(),
-                        Statement = $"The work satisfies: {scenario}",
-                    },
-                ];
+        var criterion =
+            context.Criteria.FirstOrDefault(c => c.Id == existing.CriterionId)
+            ?? new CriterionSnapshot { Id = existing.CriterionId, Statement = scenario };
+        var checks = CheckDerivation.ReDerive(existing.Checks, criterion.Statement, scenario);
         return new EditorTurn
         {
-            AssistantText = "Proposed amending an eval in place.",
+            AssistantText =
+                "Proposed amending an eval in place. Script checks were re-derived and are ready to run.",
             ProposalSummary = "Amend eval",
             Effects =
             [
@@ -463,10 +484,13 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
         var ask = rest;
         var criterionId = Guid.NewGuid();
         var evalId = Guid.NewGuid();
+        var checkId = Guid.NewGuid();
+        const string criterionStatement = "Capability does what the ask requires";
         const string scenario = "Given the ask, the work succeeds";
         return new EditorTurn
         {
-            AssistantText = "Proposed a multi-layer bundle: ask, criterion, eval, and skill.",
+            AssistantText =
+                "Proposed a multi-layer bundle: ask, criterion, eval, and skill. The script check is ready to run.",
             ProposalSummary = "Bundle ask, criterion, eval, and skill",
             Effects =
             [
@@ -481,7 +505,7 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
                     Kind = ProposalEffectKinds.AddCriterion,
                     Description = "Add first criterion",
                     CriterionId = criterionId,
-                    Statement = "Capability does what the ask requires",
+                    Statement = criterionStatement,
                 },
                 new ProposalEffect
                 {
@@ -494,11 +518,7 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
                     Context = "",
                     Checks =
                     [
-                        new CheckSnapshot
-                        {
-                            Id = Guid.NewGuid(),
-                            Statement = $"The work satisfies: {scenario}",
-                        },
+                        CheckDerivation.ScriptCheck(checkId, criterionStatement, scenario),
                     ],
                 },
                 new ProposalEffect
@@ -507,6 +527,73 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
                     Description = "Seed skill draft",
                     Markdown = $"# Skill\n\nServes criterion {criterionId:N}\n\n{ask}",
                     ServedCriterionIds = [criterionId],
+                },
+            ],
+        };
+    }
+
+    static EditorTurn SetCheckKind(EditorContext context, string rest)
+    {
+        var parts = rest.Split(':', 3, StringSplitOptions.TrimEntries);
+        if (
+            parts.Length != 3
+            || !Guid.TryParse(parts[0], out var evalId)
+            || !Guid.TryParse(parts[1], out var checkId)
+            || context.Evals.FirstOrDefault(e => e.Id == evalId) is not { } existing
+        )
+        {
+            return new EditorTurn
+            {
+                AssistantText =
+                    "Set check kind needs eval id, check id, and Script|HumanReview: set check kind <eval-id>:<check-id>:Script|HumanReview",
+            };
+        }
+
+        var kind = CheckDerivation.NormalizeKind(parts[2]);
+        var criterion =
+            context.Criteria.FirstOrDefault(c => c.Id == existing.CriterionId)
+            ?? new CriterionSnapshot { Id = existing.CriterionId, Statement = existing.Scenario };
+        var checks = existing
+            .Checks.Select(check =>
+            {
+                if (check.Id != checkId)
+                {
+                    return check;
+                }
+
+                return kind == CheckKinds.HumanReview
+                    ? CheckDerivation.HumanReviewCheck(check.Id, criterion.Statement)
+                    : CheckDerivation.ScriptCheck(check.Id, criterion.Statement, existing.Scenario);
+            })
+            .ToArray();
+
+        if (checks.All(c => c.Id != checkId))
+        {
+            return new EditorTurn
+            {
+                AssistantText = $"Check {checkId} was not found on eval {evalId}.",
+            };
+        }
+
+        return new EditorTurn
+        {
+            AssistantText =
+                kind == CheckKinds.HumanReview
+                    ? "Proposed swapping the check to human review."
+                    : "Proposed swapping the check back to a script check. It is ready to run.",
+            ProposalSummary = $"Set check kind to {kind}",
+            Effects =
+            [
+                new ProposalEffect
+                {
+                    Kind = ProposalEffectKinds.AmendEval,
+                    Description = $"Set check kind to {kind}",
+                    EvalId = evalId,
+                    CriterionId = existing.CriterionId,
+                    Scenario = existing.Scenario,
+                    Prompt = existing.Prompt,
+                    Context = existing.Context,
+                    Checks = checks,
                 },
             ],
         };

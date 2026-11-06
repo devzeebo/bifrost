@@ -56,7 +56,7 @@ export const useCapability = (id: string) => {
       readonly scenario: string
       readonly prompt: string
       readonly context: string
-      readonly checks: readonly CheckSnapshot[]
+      readonly checks?: readonly CheckSnapshot[] | null
     }) => {
       await amendCapabilityEval({ id, ...input })
       await reload()
