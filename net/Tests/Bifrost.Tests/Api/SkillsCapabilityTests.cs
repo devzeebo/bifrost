@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using Bifrost.Rpc;
 using Bifrost.Skills.Contracts;
+using Marten;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -334,7 +335,7 @@ public class SkillsCapabilityTests
         var response = await Post(
             client,
             "/rename-capability",
-            new { id = otherId, name = heldName }
+            new { id = otherId, name = $" {heldName} " }
         );
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         (await response.Content.ReadAsStringAsync()).ShouldContain(holderId.ToString());
@@ -364,6 +365,13 @@ public class SkillsCapabilityTests
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
+        await using (
+            var session = _factory.Services.GetRequiredService<IDocumentStore>().QuerySession()
+        )
+        {
+            (await session.Events.FetchStreamAsync(id)).Count.ShouldBe(2);
+        }
+
         (
             await Post(client, "/rename-capability", new { id, name = $"  {name}  " })
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -372,6 +380,13 @@ public class SkillsCapabilityTests
         detail.ShouldNotBeNull();
         detail.Name.ShouldBe(name);
         detail.Ask.ShouldBe("Ask");
+
+        await using (
+            var session = _factory.Services.GetRequiredService<IDocumentStore>().QuerySession()
+        )
+        {
+            (await session.Events.FetchStreamAsync(id)).Count.ShouldBe(2);
+        }
     }
 
     static async Task<HttpResponseMessage> Post(HttpClient client, string path, object body)

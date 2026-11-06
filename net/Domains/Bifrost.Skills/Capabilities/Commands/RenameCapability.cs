@@ -24,6 +24,11 @@ public static class RenameCapabilityHandler
             throw new CommandValidationException("Name is required.");
         }
 
+        if (command.Name.Trim() == capability.Name)
+        {
+            return;
+        }
+
         await CapabilityNames.EnsureAvailable(session, command.Name.Trim(), command.Id);
     }
 
