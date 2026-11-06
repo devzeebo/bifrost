@@ -430,9 +430,10 @@ public static class ProposalApplicator
         return true;
     }
 
-    public static IReadOnlyList<Guid> CriteriaLeftUncoveredByRetire(
+    public static IReadOnlyList<CriterionSnapshot> CriteriaLeftUncoveredByRetire(
         IReadOnlyList<EvalSnapshot> before,
         IReadOnlyList<EvalSnapshot> after,
+        IReadOnlyList<CriterionSnapshot> survivingCriteria,
         IReadOnlyList<ProposalEffect> effects
     )
     {
@@ -446,6 +447,7 @@ public static class ProposalApplicator
             return [];
         }
 
+        var survivingById = survivingCriteria.ToDictionary(c => c.Id);
         var criterionIds = before
             .Where(e => retiredIds.Contains(e.Id))
             .Select(e => e.CriterionId)
@@ -454,7 +456,12 @@ public static class ProposalApplicator
 
         return
         [
-            .. criterionIds.Where(criterionId => after.All(e => e.CriterionId != criterionId)),
+            .. criterionIds
+                .Where(criterionId =>
+                    survivingById.ContainsKey(criterionId)
+                    && after.All(e => e.CriterionId != criterionId)
+                )
+                .Select(criterionId => survivingById[criterionId]),
         ];
     }
 

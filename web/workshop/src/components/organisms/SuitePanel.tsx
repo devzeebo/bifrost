@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { neverRunOutcome, outcomeEarnedUnderNote, outcomeLabel } from '../../capabilities/evalOutcome'
 import type {
   CheckSnapshot,
@@ -6,6 +6,21 @@ import type {
   EvalLatestOutcome,
   EvalSnapshot,
 } from '../../capabilities/types'
+
+export const assignCheckIds = (
+  statements: readonly string[],
+  existing: readonly CheckSnapshot[],
+): CheckSnapshot[] => {
+  const remaining = [...existing]
+  return statements.map((statement) => {
+    const matchIndex = remaining.findIndex((check) => check.statement === statement)
+    if (matchIndex >= 0) {
+      const [matched] = remaining.splice(matchIndex, 1)
+      return { id: matched.id, statement }
+    }
+    return { id: crypto.randomUUID(), statement }
+  })
+}
 
 type SuitePanelProps = {
   readonly criteria: readonly CriterionSnapshot[]
@@ -135,6 +150,7 @@ export const SuitePanel = ({
                           <div className="mt-3 border-t border-line pt-3">
                             {editing ? (
                               <EvalEditor
+                                key={item.id}
                                 evalItem={item}
                                 onCancel={() => setEditingId(null)}
                                 onSave={async (draft) => {
@@ -217,13 +233,6 @@ const EvalEditor = ({
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    setScenario(evalItem.scenario)
-    setPrompt(evalItem.prompt)
-    setContext(evalItem.context)
-    setChecksText(evalItem.checks.map((check) => check.statement).join('\n'))
-  }, [evalItem])
-
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(null)
@@ -235,11 +244,7 @@ const EvalEditor = ({
       setError('At least one check is required.')
       return
     }
-    const existingByIndex = evalItem.checks
-    const checks: CheckSnapshot[] = statements.map((statement, index) => ({
-      id: existingByIndex[index]?.id ?? crypto.randomUUID(),
-      statement,
-    }))
+    const checks = assignCheckIds(statements, evalItem.checks)
     setSaving(true)
     try {
       await onSave({ scenario, prompt, context, checks })

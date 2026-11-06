@@ -356,6 +356,17 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
         }
 
         var scenario = parts[1];
+        var checks =
+            existing.Checks.Count > 0
+                ? existing.Checks.ToArray()
+                :
+                [
+                    new CheckSnapshot
+                    {
+                        Id = Guid.NewGuid(),
+                        Statement = $"The work satisfies: {scenario}",
+                    },
+                ];
         return new EditorTurn
         {
             AssistantText = "Proposed amending an eval in place.",
@@ -371,14 +382,7 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
                     Scenario = scenario,
                     Prompt = scenario,
                     Context = existing.Context,
-                    Checks =
-                    [
-                        new CheckSnapshot
-                        {
-                            Id = existing.Checks.FirstOrDefault()?.Id ?? Guid.NewGuid(),
-                            Statement = $"The work satisfies: {scenario}",
-                        },
-                    ],
+                    Checks = checks,
                 },
             ],
         };

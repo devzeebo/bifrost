@@ -407,6 +407,7 @@ public class SkillsChatTests
         var detail = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
         detail.ShouldNotBeNull();
         var evalId = detail.Evals[0].Id;
+        var criterionStatement = detail.Criteria[0].Statement;
 
         var posted = await PostJson<PostCapabilityChatMessageApi.Response>(
             client,
@@ -424,7 +425,38 @@ public class SkillsChatTests
         );
         applied.ShouldNotBeNull();
         applied.Outcome.ShouldBe("Applied");
-        applied.Note!.ShouldContain("uncovered");
+        var note = applied.Note.ShouldNotBeNull();
+        note.ShouldContain("uncovered");
+        note.ShouldContain(criterionStatement);
+        note.ShouldNotContain(detail.Criteria[0].Id.ToString());
+    }
+
+    [Fact]
+    public async Task retire_criterion_does_not_warn_about_removed_criterion()
+    {
+        var client = _factory.CreateClient();
+        var id = await SeedCriterionAndEval(client, "Retire criterion ask");
+
+        var detail = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
+        detail.ShouldNotBeNull();
+        var criterionId = detail.Criteria[0].Id;
+
+        var posted = await PostJson<PostCapabilityChatMessageApi.Response>(
+            client,
+            "/post-capability-chat-message",
+            new { id, message = $"retire {criterionId}" }
+        );
+        posted.ShouldNotBeNull();
+        posted.Proposal.ShouldNotBeNull();
+
+        var applied = await PostJson<ApplyCapabilityProposalApi.Response>(
+            client,
+            "/apply-capability-proposal",
+            new { id, proposalId = posted.Proposal!.Id }
+        );
+        applied.ShouldNotBeNull();
+        applied.Outcome.ShouldBe("Applied");
+        applied.Note!.ShouldNotContain("uncovered");
     }
 
     static async Task<Guid> SeedCriterionAndEval(HttpClient client, string ask)
