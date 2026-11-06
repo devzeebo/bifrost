@@ -4,9 +4,14 @@ namespace Bifrost.Ai;
 
 public sealed record ModelRequest
 {
-    public required string Model { get; init; }
+    /// <summary>When null or empty, <see cref="AiClientOptions.Model"/> is used.</summary>
+    public string? Model { get; init; }
     public required IReadOnlyList<JsonElement> Input { get; init; }
     public required IReadOnlyList<FunctionTool> Tools { get; init; }
+
+    /// <summary>
+    /// Reserved for harness parity (engine affinity later); unused by the OpenAI client today.
+    /// </summary>
     public required string SessionId { get; init; }
     public string? Instructions { get; init; }
 }

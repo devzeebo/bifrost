@@ -1,7 +1,9 @@
-using System.Net;
-using System.Text;
+using System.Net.Http;
 using System.Text.Json;
 using Bifrost.Ai;
+using Flurl.Http;
+using Flurl.Http.Configuration;
+using Flurl.Http.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -14,38 +16,23 @@ public class OpenAiModelClientTests
     [Fact]
     public async Task CreateResponse_maps_provider_payload_and_usage()
     {
-        var handler = new StubHandler(
-            (request, _) =>
+        using var httpTest = new HttpTest();
+        httpTest.RespondWith(
+            """
             {
-                request.Method.ShouldBe(HttpMethod.Post);
-                request.RequestUri!.ToString().ShouldBe("https://example.test/v1/responses");
-                request.Headers.Authorization!.Parameter.ShouldBe("sk-test");
-
-                return Task.FromResult(
-                    new HttpResponseMessage(HttpStatusCode.OK)
-                    {
-                        Content = new StringContent(
-                            """
-                            {
-                              "status": "completed",
-                              "output_text": "hello",
-                              "output": [{"type": "message"}],
-                              "usage": {
-                                "input_tokens": 3,
-                                "output_tokens": 4,
-                                "total_tokens": 7
-                              }
-                            }
-                            """,
-                            Encoding.UTF8,
-                            "application/json"
-                        ),
-                    }
-                );
+              "status": "completed",
+              "output_text": "hello",
+              "output": [{"type": "message"}],
+              "usage": {
+                "input_tokens": 3,
+                "output_tokens": 4,
+                "total_tokens": 7
+              }
             }
+            """
         );
 
-        var client = CreateClient(handler, configured: true);
+        var client = CreateClient(configured: true);
         var response = await client.CreateResponse(
             new ModelRequest
             {
@@ -64,28 +51,67 @@ public class OpenAiModelClientTests
         response.Usage!.InputTokens.ShouldBe(3);
         response.Usage.OutputTokens.ShouldBe(4);
         response.Usage.TotalTokens.ShouldBe(7);
-        handler.LastRequestBody.ShouldNotBeNull();
-        handler.LastRequestBody.ShouldContain("\"model\"");
-        handler.LastRequestBody.ShouldContain("\"m1\"");
-        handler.LastRequestBody.ShouldContain("\"store\":false");
-        handler.LastRequestBody.ShouldContain("\"stream\":false");
-        handler.LastRequestBody.ShouldContain("\"instructions\"");
+
+        httpTest
+            .ShouldHaveCalled("https://example.test/v1/responses")
+            .WithVerb(HttpMethod.Post)
+            .WithOAuthBearerToken("sk-test")
+            .WithRequestBody("*\"model\"*")
+            .WithRequestBody("*\"m1\"*")
+            .WithRequestBody("*\"store\":false*")
+            .WithRequestBody("*\"stream\":false*")
+            .WithRequestBody("*\"instructions\"*");
+    }
+
+    [Fact]
+    public async Task CreateResponse_falls_back_to_configured_model()
+    {
+        using var httpTest = new HttpTest();
+        httpTest.RespondWith("""{"status":"completed","output_text":"ok","output":[]}""");
+
+        var client = CreateClient(configured: true, model: "configured-model");
+        await client.CreateResponse(
+            new ModelRequest
+            {
+                Input = [],
+                Tools = [],
+                SessionId = "session-1",
+            }
+        );
+
+        httpTest
+            .ShouldHaveCalled("https://example.test/v1/responses")
+            .WithRequestBody("*\"configured-model\"*");
+    }
+
+    [Fact]
+    public async Task CreateResponse_throws_when_model_is_not_configured()
+    {
+        using var httpTest = new HttpTest();
+        var client = CreateClient(configured: true, model: null);
+
+        var ex = await Should.ThrowAsync<ModelClientException>(() =>
+            client.CreateResponse(
+                new ModelRequest
+                {
+                    Input = [],
+                    Tools = [],
+                    SessionId = "session-1",
+                }
+            )
+        );
+
+        ex.Message.ShouldContain("AI model is not configured");
+        httpTest.ShouldNotHaveMadeACall();
     }
 
     [Fact]
     public async Task CreateResponse_throws_when_provider_returns_non_success()
     {
-        var handler = new StubHandler(
-            (_, _) =>
-                Task.FromResult(
-                    new HttpResponseMessage(HttpStatusCode.BadGateway)
-                    {
-                        Content = new StringContent("upstream down"),
-                    }
-                )
-        );
+        using var httpTest = new HttpTest();
+        httpTest.RespondWith("upstream down", 502);
 
-        var client = CreateClient(handler, configured: true);
+        var client = CreateClient(configured: true);
         var ex = await Should.ThrowAsync<ModelClientException>(() =>
             client.CreateResponse(
                 new ModelRequest
@@ -104,13 +130,57 @@ public class OpenAiModelClientTests
     }
 
     [Fact]
-    public async Task CreateResponse_throws_when_provider_is_unreachable()
+    public async Task CreateResponse_throws_when_provider_returns_invalid_json()
     {
-        var handler = new StubHandler(
-            (_, _) => throw new HttpRequestException("connection refused")
+        using var httpTest = new HttpTest();
+        httpTest.RespondWith("not-json");
+
+        var client = CreateClient(configured: true);
+        var ex = await Should.ThrowAsync<ModelClientException>(() =>
+            client.CreateResponse(
+                new ModelRequest
+                {
+                    Model = "m1",
+                    Input = [],
+                    Tools = [],
+                    SessionId = "session-1",
+                }
+            )
         );
 
-        var client = CreateClient(handler, configured: true);
+        ex.Message.ShouldContain("invalid response");
+        ex.InnerException.ShouldBeAssignableTo<JsonException>();
+    }
+
+    [Fact]
+    public async Task CreateResponse_throws_when_provider_returns_empty_body()
+    {
+        using var httpTest = new HttpTest();
+        httpTest.RespondWith("");
+
+        var client = CreateClient(configured: true);
+        var ex = await Should.ThrowAsync<ModelClientException>(() =>
+            client.CreateResponse(
+                new ModelRequest
+                {
+                    Model = "m1",
+                    Input = [],
+                    Tools = [],
+                    SessionId = "session-1",
+                }
+            )
+        );
+
+        ex.Message.ShouldContain("empty response");
+    }
+
+    [Fact]
+    public async Task CreateResponse_throws_when_provider_is_unreachable()
+    {
+        using var httpTest = new HttpTest();
+        httpTest.SimulateException(new HttpRequestException("connection refused"));
+
+        var client = CreateClient(configured: true);
         var ex = await Should.ThrowAsync<ModelClientException>(() =>
             client.CreateResponse(
                 new ModelRequest
@@ -124,13 +194,37 @@ public class OpenAiModelClientTests
         );
 
         ex.Message.ShouldContain("could not be reached");
-        ex.InnerException.ShouldBeOfType<HttpRequestException>();
+        ex.InnerException.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task CreateResponse_throws_timeout_when_request_is_canceled_by_http_client()
+    {
+        using var httpTest = new HttpTest();
+        httpTest.SimulateTimeout();
+
+        var client = CreateClient(configured: true);
+        var ex = await Should.ThrowAsync<ModelClientException>(() =>
+            client.CreateResponse(
+                new ModelRequest
+                {
+                    Model = "m1",
+                    Input = [],
+                    Tools = [],
+                    SessionId = "session-1",
+                }
+            )
+        );
+
+        ex.Message.ShouldContain("timed out");
+        ex.InnerException.ShouldBeOfType<FlurlHttpTimeoutException>();
     }
 
     [Fact]
     public async Task CreateResponse_throws_when_client_is_not_configured()
     {
-        var client = CreateClient(new StubHandler((_, _) => throw new InvalidOperationException()), configured: false);
+        using var httpTest = new HttpTest();
+        var client = CreateClient(configured: false);
 
         var ex = await Should.ThrowAsync<ModelClientException>(() =>
             client.CreateResponse(
@@ -145,6 +239,7 @@ public class OpenAiModelClientTests
         );
 
         ex.Message.ShouldContain("not configured");
+        httpTest.ShouldNotHaveMadeACall();
     }
 
     [Fact]
@@ -166,46 +261,37 @@ public class OpenAiModelClientTests
         using var provider = services.BuildServiceProvider();
 
         provider.GetRequiredService<IModelClient>().ShouldBeOfType<OpenAiModelClient>();
+        provider.GetRequiredService<IFlurlClientCache>().ShouldNotBeNull();
         provider.GetRequiredService<IOptions<AiClientOptions>>().Value.Model.ShouldBe(
             "configured-model"
         );
         provider.GetRequiredService<IOptions<AiClientOptions>>().Value.IsConfigured.ShouldBeTrue();
     }
 
-    static OpenAiModelClient CreateClient(StubHandler handler, bool configured)
+    static OpenAiModelClient CreateClient(bool configured, string? model = "m1")
     {
-        var httpClient = new HttpClient(handler)
-        {
-            BaseAddress = new Uri("https://example.test/v1/"),
-        };
-        var options = Options.Create(
+        var clients = new FlurlClientCache().Add(
+            AiClientOptions.HttpClientName,
+            "https://example.test/v1/",
+            builder => builder.WithAutoRedirect(false)
+        );
+        var options = new TestOptionsMonitor<AiClientOptions>(
             new AiClientOptions
             {
                 ApiKey = configured ? "sk-test" : null,
                 BaseUrl = "https://example.test/v1/",
-                Model = "m1",
+                Model = model,
             }
         );
-        return new OpenAiModelClient(httpClient, options);
+        return new OpenAiModelClient(clients, options);
     }
 
-    sealed class StubHandler(
-        Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send
-    ) : HttpMessageHandler
+    sealed class TestOptionsMonitor<T>(T currentValue) : IOptionsMonitor<T>
     {
-        public string? LastRequestBody { get; private set; }
+        public T CurrentValue => currentValue;
 
-        protected override async Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request,
-            CancellationToken cancellationToken
-        )
-        {
-            if (request.Content is not null)
-            {
-                LastRequestBody = await request.Content.ReadAsStringAsync(cancellationToken);
-            }
+        public T Get(string? name) => currentValue;
 
-            return await send(request, cancellationToken);
-        }
+        public IDisposable? OnChange(Action<T, string?> listener) => null;
     }
 }

@@ -1,3 +1,5 @@
+using Flurl.Http;
+using Flurl.Http.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -13,6 +15,7 @@ public static class AiServiceCollectionExtensions
         /// Registers <see cref="IModelClient"/> backed by an OpenAI-compatible Responses API client.
         /// Binds <see cref="AiClientOptions"/> from the <c>Ai</c> section with
         /// <c>OPENAI_API_KEY</c> / <c>OPENAI_BASE_URL</c> fallbacks.
+        /// Options are snapshotted once at registration; configuration reloads are not applied.
         /// </summary>
         public IServiceCollection AddBifrostAi(IConfiguration configuration)
         {
@@ -27,40 +30,27 @@ public static class AiServiceCollectionExtensions
                 options.Model = bound.Model;
             });
 
-            services
-                .AddHttpClient(
-                    AiClientOptions.HttpClientName,
-                    (sp, client) =>
-                    {
-                        var options = sp.GetRequiredService<IOptions<AiClientOptions>>().Value;
-                        var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl)
-                            ? AiClientOptions.DefaultBaseUrl
-                            : options.BaseUrl;
-                        if (!baseUrl.EndsWith('/'))
-                        {
-                            baseUrl += "/";
-                        }
-
-                        client.BaseAddress = new Uri(baseUrl);
-                    }
-                )
-                .ConfigurePrimaryHttpMessageHandler(() =>
-                    new HttpClientHandler
-                    {
-                        AllowAutoRedirect = false,
-                    }
-                );
-
-            services.TryAddSingleton<IModelClient>(sp =>
+            services.AddSingleton<IFlurlClientCache>(sp =>
             {
-                var factory = sp.GetRequiredService<IHttpClientFactory>();
-                return new OpenAiModelClient(
-                    factory.CreateClient(AiClientOptions.HttpClientName),
-                    sp.GetRequiredService<IOptions<AiClientOptions>>()
+                var options = sp.GetRequiredService<IOptions<AiClientOptions>>().Value;
+                return new FlurlClientCache().Add(
+                    AiClientOptions.HttpClientName,
+                    NormalizeBaseUrl(options.BaseUrl),
+                    builder => builder.WithAutoRedirect(false)
                 );
             });
 
+            services.TryAddSingleton<IModelClient, OpenAiModelClient>();
+
             return services;
         }
+    }
+
+    static string NormalizeBaseUrl(string? baseUrl)
+    {
+        var normalized = string.IsNullOrWhiteSpace(baseUrl)
+            ? AiClientOptions.DefaultBaseUrl
+            : baseUrl;
+        return normalized.EndsWith('/') ? normalized : normalized + "/";
     }
 }

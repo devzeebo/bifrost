@@ -1,23 +1,16 @@
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Flurl.Http;
+using Flurl.Http.Configuration;
 using Microsoft.Extensions.Options;
 
 namespace Bifrost.Ai;
 
-public sealed class OpenAiModelClient(HttpClient httpClient, IOptions<AiClientOptions> options)
-    : IModelClient
+public sealed class OpenAiModelClient(
+    IFlurlClientCache clients,
+    IOptionsMonitor<AiClientOptions> options
+) : IModelClient
 {
-    static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        PropertyNameCaseInsensitive = true,
-    };
-
-    readonly AiClientOptions _options = options.Value;
-
     public async Task<ModelResponse> CreateResponse(
         ModelRequest request,
         CancellationToken ct = default
@@ -25,7 +18,8 @@ public sealed class OpenAiModelClient(HttpClient httpClient, IOptions<AiClientOp
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (!_options.IsConfigured)
+        var current = options.CurrentValue;
+        if (!current.IsConfigured)
         {
             throw new ModelClientException(
                 "AI client is not configured. Set Ai:ApiKey or OPENAI_API_KEY."
@@ -34,40 +28,59 @@ public sealed class OpenAiModelClient(HttpClient httpClient, IOptions<AiClientOp
 
         try
         {
-            using var message = new HttpRequestMessage(HttpMethod.Post, "responses")
-            {
-                Content = JsonContent.Create(BuildBody(request), options: JsonOptions),
-            };
-            message.Headers.Authorization = new AuthenticationHeaderValue(
-                "Bearer",
-                _options.ApiKey
-            );
+            using var response = await clients
+                .Get(AiClientOptions.HttpClientName)
+                .Request("responses")
+                .WithOAuthBearerToken(current.ApiKey!)
+                .WithSettings(settings =>
+                    settings.JsonSerializer = new DefaultJsonSerializer(JsonOptions)
+                )
+                .AllowAnyHttpStatus()
+                .PostJsonAsync(BuildBody(request, current), cancellationToken: ct)
+                .ConfigureAwait(false);
 
-            using var response = await httpClient.SendAsync(message, ct).ConfigureAwait(false);
-            var payload = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            var payload = await response.GetStringAsync().ConfigureAwait(false);
 
-            if (!response.IsSuccessStatusCode)
+            if (response.StatusCode is < 200 or >= 300)
             {
                 throw new ModelClientException(
-                    $"AI provider returned {(int)response.StatusCode}: {Truncate(payload)}"
+                    $"AI provider returned {response.StatusCode}: {Truncate(payload)}"
                 )
                 {
-                    StatusCode = (int)response.StatusCode,
+                    StatusCode = response.StatusCode,
                 };
             }
 
-            using var document = JsonDocument.Parse(
-                string.IsNullOrWhiteSpace(payload) ? "{}" : payload
-            );
+            if (string.IsNullOrWhiteSpace(payload))
+            {
+                throw new ModelClientException("AI provider returned an empty response.");
+            }
+
+            using var document = JsonDocument.Parse(payload);
             return MapResponse(document.RootElement);
         }
         catch (ModelClientException)
         {
             throw;
         }
+        catch (JsonException ex)
+        {
+            throw new ModelClientException(
+                $"AI provider returned an invalid response: {ex.Message}",
+                ex
+            );
+        }
+        catch (FlurlHttpTimeoutException ex)
+        {
+            throw new ModelClientException($"AI provider request timed out: {ex.Message}", ex);
+        }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             throw;
+        }
+        catch (OperationCanceledException ex)
+        {
+            throw new ModelClientException($"AI provider request timed out: {ex.Message}", ex);
         }
         catch (Exception ex)
         {
@@ -75,8 +88,16 @@ public sealed class OpenAiModelClient(HttpClient httpClient, IOptions<AiClientOp
         }
     }
 
-    static object BuildBody(ModelRequest request)
+    static object BuildBody(ModelRequest request, AiClientOptions current)
     {
+        var model = FirstNonEmpty(request.Model, current.Model);
+        if (model is null)
+        {
+            throw new ModelClientException(
+                "AI model is not configured. Set Ai:Model or ModelRequest.Model."
+            );
+        }
+
         var tools = request.Tools.Select(tool => new
         {
             type = "function",
@@ -88,7 +109,7 @@ public sealed class OpenAiModelClient(HttpClient httpClient, IOptions<AiClientOp
 
         return new Dictionary<string, object?>
         {
-            ["model"] = request.Model,
+            ["model"] = model,
             ["input"] = request.Input,
             ["store"] = false,
             ["stream"] = false,
@@ -135,6 +156,26 @@ public sealed class OpenAiModelClient(HttpClient httpClient, IOptions<AiClientOp
         };
     }
 
+    static string? FirstNonEmpty(params string?[] values)
+    {
+        foreach (var value in values)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value.Trim();
+            }
+        }
+
+        return null;
+    }
+
     static string Truncate(string value) =>
         value.Length <= 500 ? value : value[..500] + "…";
+
+    static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        PropertyNameCaseInsensitive = true,
+    };
 }
