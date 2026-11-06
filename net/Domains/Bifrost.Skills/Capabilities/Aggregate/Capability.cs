@@ -55,6 +55,13 @@ public class Capability
         Ask = e.Ask;
     }
 
+    public void Apply(CapabilityLayersAmended e)
+    {
+        Ask = e.Ask;
+        Criteria = e.Criteria.ToList();
+        Evals = e.Evals.ToList();
+    }
+
     public void Apply(CapabilityRenamed e)
     {
         Name = e.Name;

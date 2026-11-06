@@ -1,14 +1,24 @@
+import type { EvalSnapshot } from '../../capabilities/types'
+
 type EvalsPanelProps = {
-  readonly count: number
+  readonly evals: readonly EvalSnapshot[]
 }
 
-export const EvalsPanel = ({ count }: EvalsPanelProps) => (
+export const EvalsPanel = ({ evals }: EvalsPanelProps) => (
   <section className="flex flex-col gap-3">
     <h2 className="text-xs tracking-[0.16em] text-muted uppercase">Evals</h2>
-    <p className="border border-line bg-surface px-5 py-6 text-sm text-muted">
-      {count === 0
-        ? 'Evals appear behind criteria once the ask is decomposed.'
-        : `${count} evals backing the criteria.`}
-    </p>
+    {evals.length === 0 ? (
+      <p className="border border-line bg-surface px-5 py-6 text-sm text-muted">
+        No evals yet. Each criterion needs scenarios that can prove it.
+      </p>
+    ) : (
+      <ul className="flex flex-col gap-2 border border-line bg-surface px-5 py-6">
+        {evals.map((item) => (
+          <li key={item.id} className="text-sm text-fg">
+            {item.scenario}
+          </li>
+        ))}
+      </ul>
+    )}
   </section>
 )

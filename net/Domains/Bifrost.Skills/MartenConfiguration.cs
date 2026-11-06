@@ -1,3 +1,4 @@
+using Bifrost.Capabilities.Chat;
 using Bifrost.Capabilities.Projections;
 using JasperFx.Events.Projections;
 using Marten;
@@ -18,5 +19,6 @@ public static class MartenConfiguration
         opts.Schema.For<CapabilityIndex.Model>().Identity(x => x.Id);
         opts.Schema.For<CapabilityVersionView.Model>().Identity(x => x.Id);
         opts.Schema.For<SkillVersionView.Model>().Identity(x => x.Id);
+        opts.Schema.For<CapabilityChatDocument>().Identity(x => x.Id);
     }
 }

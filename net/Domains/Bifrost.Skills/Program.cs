@@ -1,4 +1,5 @@
 using Bifrost;
+using Bifrost.Capabilities.Editor;
 using Bifrost.MessageBus;
 using Bifrost.Rpc;
 using Bifrost.Skills.Contracts;
@@ -48,6 +49,7 @@ builder.Services.AddRpcHost(options =>
 
 builder.Services.AddMessageBus();
 builder.Services.AddWolverineHttp();
+builder.Services.AddCapabilityEditor(builder.Configuration);
 builder.Services.AddSkillsHandlers();
 
 var app = builder.Build();

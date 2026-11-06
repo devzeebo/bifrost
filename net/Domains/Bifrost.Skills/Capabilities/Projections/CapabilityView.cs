@@ -35,6 +35,15 @@ public class CapabilityView : SingleStreamProjection<CapabilityView.Model, Guid>
             HasUnsavedCapabilityDraft = true,
         };
 
+    public Model Apply(CapabilityLayersAmended e, Model view) =>
+        view with
+        {
+            Ask = e.Ask,
+            Criteria = e.Criteria,
+            Evals = e.Evals,
+            HasUnsavedCapabilityDraft = true,
+        };
+
     public Model Apply(CapabilityRenamed e, Model view) => view with { Name = e.Name };
 
     public Model Apply(CapabilityVersionRecorded e, Model view) =>
