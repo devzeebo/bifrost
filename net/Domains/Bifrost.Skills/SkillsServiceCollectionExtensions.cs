@@ -34,6 +34,9 @@ public static class SkillsServiceCollectionExtensions
             services.Command<ApplyCapabilityProposalApi.Command>();
             services.Command<DismissCapabilityProposalApi.Command>();
             services.Command<RereadCapabilityProposalApi.Command>();
+            services.Command<RunCapabilityEvalApi.Command>();
+            services.Command<RunCapabilitySuiteApi.Command>();
+            services.Command<CancelEvalSuiteRunApi.Command>();
 
             services.Query<GetCapabilityApi.Query, GetCapabilityApi.Response>();
             services.Query<ListCapabilitiesApi.Query, ListCapabilitiesApi.Response>();
@@ -47,6 +50,13 @@ public static class SkillsServiceCollectionExtensions
             services.Query<GetSkillVersionApi.Query, GetSkillVersionApi.Response>();
             services.Query<CompareSkillVersionsApi.Query, CompareSkillVersionsApi.Response>();
             services.Query<GetCapabilityChatApi.Query, GetCapabilityChatApi.Response>();
+            services.Query<GetEvalCaseRunApi.Query, GetEvalCaseRunApi.Response>();
+            services.Query<GetEvalSuiteRunApi.Query, GetEvalSuiteRunApi.Response>();
+            services.Query<ListEvalCaseRunsApi.Query, ListEvalCaseRunsApi.Response>();
+            services.Query<
+                GetCapabilityEvalOutcomesApi.Query,
+                GetCapabilityEvalOutcomesApi.Response
+            >();
             return services;
         }
 

@@ -1,4 +1,5 @@
 using Bifrost.Capabilities.Chat;
+using Bifrost.Capabilities.Evals;
 using Bifrost.Capabilities.Projections;
 using JasperFx.Events.Projections;
 using Marten;
@@ -23,5 +24,8 @@ public static class MartenConfiguration
         opts.Schema.For<CapabilityVersionView.Model>().Identity(x => x.Id);
         opts.Schema.For<SkillVersionView.Model>().Identity(x => x.Id);
         opts.Schema.For<CapabilityChatDocument>().Identity(x => x.Id);
+        opts.Schema.For<EvalCaseRunDocument>().Identity(x => x.Id);
+        opts.Schema.For<EvalSuiteRunDocument>().Identity(x => x.Id);
+        opts.Schema.For<EvalLatestByEvalDocument>().Identity(x => x.Id);
     }
 }
