@@ -488,13 +488,22 @@ public static class ProposalApplicator
                 throw new CommandValidationException($"Check {check.Id} is duplicated.");
             }
 
-            var kind = CheckDerivation.NormalizeKind(check.Kind);
+            string kind;
+            try
+            {
+                kind = CheckDerivation.RequireKind(check.Kind);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new CommandValidationException(ex.Message);
+            }
+
+            var statement = check.Statement.Trim();
             var script = string.IsNullOrWhiteSpace(check.Script) ? null : check.Script.Trim();
             if (kind == CheckKinds.Script && script is null)
             {
-                throw new CommandValidationException(
-                    "Script checks require a TypeScript Script body."
-                );
+                // Legacy statement-only checks (and incomplete proposals): hydrate a body, keep id.
+                script = CheckDerivation.HydrateScript(check.Id, statement);
             }
 
             if (kind == CheckKinds.HumanReview && script is not null)
@@ -508,7 +517,7 @@ public static class ProposalApplicator
                 new CheckSnapshot
                 {
                     Id = check.Id,
-                    Statement = check.Statement.Trim(),
+                    Statement = statement,
                     Kind = kind,
                     Script = script,
                 }

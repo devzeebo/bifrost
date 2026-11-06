@@ -549,7 +549,20 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
             };
         }
 
-        var kind = CheckDerivation.NormalizeKind(parts[2]);
+        string kind;
+        try
+        {
+            kind = CheckDerivation.RequireKind(parts[2]);
+        }
+        catch (ArgumentException)
+        {
+            return new EditorTurn
+            {
+                AssistantText =
+                    "Set check kind needs Script or HumanReview: set check kind <eval-id>:<check-id>:Script|HumanReview",
+            };
+        }
+
         var criterion =
             context.Criteria.FirstOrDefault(c => c.Id == existing.CriterionId)
             ?? new CriterionSnapshot { Id = existing.CriterionId, Statement = existing.Scenario };
@@ -644,7 +657,48 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
                         return null;
                     }
 
-                    rebuilt.Add(effect);
+                    var currentEval = context.Evals.First(e => e.Id == amendEvalId);
+                    if (
+                        string.Equals(
+                            effect.Scenario.Trim(),
+                            currentEval.Scenario,
+                            StringComparison.Ordinal
+                        )
+                    )
+                    {
+                        // Check-only amend (e.g. sharpen re-derive): keep live prompt/context and
+                        // re-author scripts from the sharpened (or current) criterion wording.
+                        var criterionStatement =
+                            effects
+                                .FirstOrDefault(e =>
+                                    e.Kind == ProposalEffectKinds.SharpenCriterion
+                                    && e.CriterionId == currentEval.CriterionId
+                                    && !string.IsNullOrWhiteSpace(e.Statement)
+                                )
+                                ?.Statement
+                            ?? context
+                                .Criteria.FirstOrDefault(c => c.Id == currentEval.CriterionId)
+                                ?.Statement
+                            ?? currentEval.Scenario;
+                        rebuilt.Add(
+                            effect with
+                            {
+                                Scenario = currentEval.Scenario,
+                                Prompt = currentEval.Prompt,
+                                Context = currentEval.Context,
+                                Checks = CheckDerivation.ReDerive(
+                                    currentEval.Checks,
+                                    criterionStatement,
+                                    currentEval.Scenario
+                                ),
+                            }
+                        );
+                    }
+                    else
+                    {
+                        rebuilt.Add(effect);
+                    }
+
                     break;
                 case ProposalEffectKinds.DuplicateEval:
                     if (

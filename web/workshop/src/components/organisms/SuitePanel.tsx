@@ -39,6 +39,7 @@ export const SuitePanel = ({
   const [editingId, setEditingId] = useState<string | null>(null)
   const [openScriptId, setOpenScriptId] = useState<string | null>(null)
   const [kindError, setKindError] = useState<string | null>(null)
+  const [kindBusyKey, setKindBusyKey] = useState<string | null>(null)
 
   if (criteria.length === 0) {
     return (
@@ -52,7 +53,13 @@ export const SuitePanel = ({
   }
 
   const setCheckKind = async (evalItem: EvalSnapshot, checkId: string, kind: CheckKind) => {
+    const busyKey = `${evalItem.id}:${checkId}`
+    if (kindBusyKey !== null) {
+      return
+    }
     setKindError(null)
+    setKindBusyKey(busyKey)
+    // Kind toggles must send checks so the server can ApplyKindOverrides (same id, keep or re-author Script).
     const checks = evalItem.checks.map((check) =>
       check.id === checkId
         ? {
@@ -72,6 +79,8 @@ export const SuitePanel = ({
       })
     } catch (err) {
       setKindError(err instanceof Error ? err.message : 'Could not update check kind')
+    } finally {
+      setKindBusyKey(null)
     }
   }
 
@@ -167,10 +176,11 @@ export const SuitePanel = ({
                                 evalItem={item}
                                 onCancel={() => setEditingId(null)}
                                 onSave={async (draft) => {
+                                  // Omit checks: prompt/context-only keeps authored scripts; scenario
+                                  // change re-derives Script bodies server-side (same check ids).
                                   await onAmend({
                                     evalId: item.id,
                                     ...draft,
-                                    checks: item.checks,
                                   })
                                   setEditingId(null)
                                 }}
@@ -179,6 +189,7 @@ export const SuitePanel = ({
                               <EvalDetail
                                 evalItem={item}
                                 openScriptId={openScriptId}
+                                kindBusyKey={kindBusyKey}
                                 onToggleScript={(checkId) =>
                                   setOpenScriptId((current) =>
                                     current === checkId ? null : checkId,
@@ -205,11 +216,13 @@ export const SuitePanel = ({
 const EvalDetail = ({
   evalItem,
   openScriptId,
+  kindBusyKey,
   onToggleScript,
   onSetKind,
 }: {
   readonly evalItem: EvalSnapshot
   readonly openScriptId: string | null
+  readonly kindBusyKey: string | null
   readonly onToggleScript: (checkId: string) => void
   readonly onSetKind: (checkId: string, kind: CheckKind) => void
 }) => (
@@ -222,49 +235,60 @@ const EvalDetail = ({
         <p className="text-muted">No checks yet.</p>
       ) : (
         <ul className="flex flex-col gap-3">
-          {evalItem.checks.map((check) => (
-            <li key={check.id} className="flex flex-col gap-2 border border-line bg-surface px-3 py-2">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="flex flex-col gap-1">
-                  <span className="text-xs tracking-[0.12em] text-muted uppercase">{check.kind}</span>
-                  <span>{check.statement}</span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {check.kind === 'Script' ? (
-                    <>
+          {evalItem.checks.map((check) => {
+            const busy = kindBusyKey === `${evalItem.id}:${check.id}`
+            const anyKindBusy = kindBusyKey !== null
+            return (
+              <li
+                key={check.id}
+                className="flex flex-col gap-2 border border-line bg-surface px-3 py-2"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs tracking-[0.12em] text-muted uppercase">
+                      {check.kind}
+                    </span>
+                    <span>{check.statement}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {check.kind === 'Script' ? (
+                      <>
+                        <button
+                          type="button"
+                          className="border border-line px-2 py-1 text-xs tracking-[0.12em] text-muted uppercase"
+                          onClick={() => onToggleScript(check.id)}
+                        >
+                          {openScriptId === check.id ? 'Hide script' : 'Open script'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={anyKindBusy}
+                          className="border border-line px-2 py-1 text-xs tracking-[0.12em] text-muted uppercase disabled:opacity-50"
+                          onClick={() => onSetKind(check.id, 'HumanReview')}
+                        >
+                          {busy ? 'Updating…' : 'Use human review'}
+                        </button>
+                      </>
+                    ) : (
                       <button
                         type="button"
-                        className="border border-line px-2 py-1 text-xs tracking-[0.12em] text-muted uppercase"
-                        onClick={() => onToggleScript(check.id)}
+                        disabled={anyKindBusy}
+                        className="border border-line px-2 py-1 text-xs tracking-[0.12em] text-muted uppercase disabled:opacity-50"
+                        onClick={() => onSetKind(check.id, 'Script')}
                       >
-                        {openScriptId === check.id ? 'Hide script' : 'Open script'}
+                        {busy ? 'Updating…' : 'Use script check'}
                       </button>
-                      <button
-                        type="button"
-                        className="border border-line px-2 py-1 text-xs tracking-[0.12em] text-muted uppercase"
-                        onClick={() => onSetKind(check.id, 'HumanReview')}
-                      >
-                        Use human review
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      className="border border-line px-2 py-1 text-xs tracking-[0.12em] text-muted uppercase"
-                      onClick={() => onSetKind(check.id, 'Script')}
-                    >
-                      Use script check
-                    </button>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
-              {check.kind === 'Script' && openScriptId === check.id ? (
-                <pre className="overflow-x-auto whitespace-pre-wrap border border-line bg-ink px-3 py-2 text-xs text-fg">
-                  {check.script?.trim() ? check.script : 'Script not authored yet.'}
-                </pre>
-              ) : null}
-            </li>
-          ))}
+                {check.kind === 'Script' && openScriptId === check.id ? (
+                  <pre className="overflow-x-auto whitespace-pre-wrap border border-line bg-ink px-3 py-2 text-xs text-fg">
+                    {check.script?.trim() ? check.script : 'Script not authored yet.'}
+                  </pre>
+                ) : null}
+              </li>
+            )
+          })}
         </ul>
       )}
     </div>

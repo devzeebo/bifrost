@@ -20,7 +20,7 @@ const SCENARIO = "Given a jargon-heavy ask, the reply stays plain";
 
 const AUTHORING_PROMPT = `You are authoring Bifrost workshop script checks behind the scenes.
 
-Write exactly two JSON files in the workspace root:
+Write exactly three JSON files in the workspace root:
 
 1) proposal.json — an AddEval check authoring result for:
    - criterion statement: ${JSON.stringify(CRITERION)}

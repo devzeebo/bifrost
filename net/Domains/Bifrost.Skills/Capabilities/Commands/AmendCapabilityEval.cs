@@ -43,6 +43,18 @@ public static class AmendCapabilityEvalHandler
                 throw new CommandValidationException("Each check requires a Statement or Kind.");
             }
 
+            if (!string.IsNullOrWhiteSpace(check.Kind))
+            {
+                try
+                {
+                    CheckDerivation.RequireKind(check.Kind);
+                }
+                catch (ArgumentException ex)
+                {
+                    throw new CommandValidationException(ex.Message);
+                }
+            }
+
             if (!seen.Add(check.Id))
             {
                 throw new CommandValidationException($"Check {check.Id} is duplicated.");
@@ -134,10 +146,10 @@ public static class AmendCapabilityEvalHandler
             var withKinds = requested
                 .Select(check =>
                 {
-                    var kind = CheckDerivation.NormalizeKind(check.Kind);
-                    return kind == CheckKinds.HumanReview
-                        ? CheckDerivation.HumanReviewCheck(check.Id, criterionStatement)
-                        : CheckDerivation.ScriptCheck(check.Id, criterionStatement, scenario);
+            var kind = CheckDerivation.RequireKind(check.Kind);
+            return kind == CheckKinds.HumanReview
+                ? CheckDerivation.HumanReviewCheck(check.Id, criterionStatement)
+                : CheckDerivation.ScriptCheck(check.Id, criterionStatement, scenario);
                 })
                 .ToArray();
             return withKinds;
