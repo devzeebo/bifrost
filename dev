@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+COMPOSE=(docker compose -f "$ROOT/bifrost-server/docker-compose.yml")
+PIDS=()
+
+cleanup() {
+  trap - EXIT INT TERM
+  echo
+  echo "Stopping frontends…"
+  for pid in "${PIDS[@]:-}"; do
+    if kill -0 "$pid" 2>/dev/null; then
+      kill -- "-$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
+    fi
+  done
+  echo "Stopping Docker stack…"
+  "${COMPOSE[@]}" stop
+}
+
+trap cleanup EXIT INT TERM
+
+need() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "Missing required command: $1" >&2
+    exit 1
+  fi
+}
+
+need docker
+need npm
+
+if ! docker info >/dev/null 2>&1; then
+  echo "Docker is not running." >&2
+  exit 1
+fi
+
+echo "Starting Bifrost Docker stack…"
+"${COMPOSE[@]}" up --build -d --wait
+
+ensure_npm() {
+  local app="$1"
+  local dir="$ROOT/web/$app"
+  if [[ ! -d "$dir/node_modules" ]]; then
+    echo "Installing $app dependencies…"
+    (cd "$dir" && npm ci)
+  fi
+}
+
+ensure_npm workshop
+ensure_npm orchestrator
+
+echo "Starting workshop UI on http://127.0.0.1:5173 …"
+setsid npm run dev --prefix "$ROOT/web/workshop" -- --host 127.0.0.1 --port 5173 --strictPort </dev/null &
+PIDS+=($!)
+
+echo "Starting orchestrator UI on http://127.0.0.1:5174 …"
+setsid npm run dev --prefix "$ROOT/web/orchestrator" -- --host 127.0.0.1 --port 5174 --strictPort </dev/null &
+PIDS+=($!)
+
+cat <<EOF
+
+Bifrost local stack is up.
+
+  Workshop UI      http://127.0.0.1:5173
+  Orchestrator UI  http://127.0.0.1:5174
+  Work items API   http://127.0.0.1:8080
+  Orchestrator API http://127.0.0.1:8081
+  Skills API       http://127.0.0.1:8082
+  RabbitMQ mgmt    http://127.0.0.1:15672  (bifrost / bifrost)
+
+Ctrl+C stops the frontends and the Docker stack (volumes are kept).
+
+EOF
+
+wait -n "${PIDS[@]}"
+exit 1
