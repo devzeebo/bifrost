@@ -1,6 +1,8 @@
+using Bifrost.Capabilities.Commands;
 using Bifrost.MessageBus;
 using Bifrost.Rpc;
 using Bifrost.Skills.Contracts;
+using Marten;
 using Marten.Exceptions;
 using Microsoft.Extensions.DependencyInjection;
 using Wolverine;
@@ -77,6 +79,19 @@ public static class SkillsServiceCollectionExtensions
                             {
                                 Code = BusErrorCodes.Validation,
                                 Message = $"Capability {ex.Id} already exists.",
+                            }
+                        );
+                    }
+                    catch (Exception ex) when (CapabilityNames.TryGetConflictingName(ex, out var name))
+                    {
+                        await using var session = scope
+                            .ServiceProvider.GetRequiredService<IDocumentStore>()
+                            .QuerySession();
+                        throw new BusException(
+                            new BusError
+                            {
+                                Code = BusErrorCodes.Validation,
+                                Message = await CapabilityNames.ConflictDetail(session, name),
                             }
                         );
                     }

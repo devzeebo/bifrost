@@ -42,14 +42,17 @@ namespace Internal.Generated.WolverineHandlers
             var eventStreamOfCapability = await documentSession.Events.FetchForWriting<Bifrost.Capabilities.Aggregate.Capability>(capability_Id, httpContext.RequestAborted);
             System.Diagnostics.Activity.Current?.SetTag("wolverine.stream.id", capability_Id);
             System.Diagnostics.Activity.Current?.SetTag("wolverine.stream.type", "Bifrost.Capabilities.Aggregate.Capability");
-            Bifrost.Capabilities.Commands.RenameCapabilityHandler.Validate(command, eventStreamOfCapability.Aggregate);
+            await Bifrost.Capabilities.Commands.RenameCapabilityHandler.Validate(command, eventStreamOfCapability.Aggregate, ((Marten.IQuerySession)documentSession)).ConfigureAwait(false);
             
             // The actual HTTP request handler execution
-            var capabilityRenamed = Bifrost.Capabilities.Commands.RenameCapabilityHandler.Handle(command, eventStreamOfCapability.Aggregate);
+            var events = Bifrost.Capabilities.Commands.RenameCapabilityHandler.Handle(command, eventStreamOfCapability.Aggregate);
 
-            if (capabilityRenamed != null)
+            if (events != null)
             {
-                eventStreamOfCapability.AppendOne(capabilityRenamed);
+                
+                // Capturing any possible events returned from the command handlers
+                eventStreamOfCapability.AppendMany(events);
+
             }
 
             
@@ -70,4 +73,3 @@ namespace Internal.Generated.WolverineHandlers
     
     
 }
-

@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using Bifrost.Rpc;
 using Bifrost.Skills.Contracts;
+using Marten;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -226,6 +227,166 @@ public class SkillsCapabilityTests
         var client = _factory.CreateClient();
         var response = await SendQuery(client, $"/get-capability/{Guid.NewGuid()}");
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task create_rejects_duplicate_name()
+    {
+        var client = _factory.CreateClient();
+        var holderId = Guid.NewGuid();
+        var name = $"Dup {holderId:N}"[..24];
+
+        (
+            await Post(
+                client,
+                "/create-capability",
+                new
+                {
+                    id = holderId,
+                    name,
+                    ask = "First ask",
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var response = await Post(
+            client,
+            "/create-capability",
+            new
+            {
+                id = Guid.NewGuid(),
+                name,
+                ask = "Second ask",
+            }
+        );
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await response.Content.ReadAsStringAsync()).ShouldContain(holderId.ToString());
+    }
+
+    [Fact]
+    public async Task create_rejects_duplicate_name_after_trim()
+    {
+        var client = _factory.CreateClient();
+        var holderId = Guid.NewGuid();
+        var name = $"Trim {holderId:N}"[..24];
+
+        (
+            await Post(
+                client,
+                "/create-capability",
+                new
+                {
+                    id = holderId,
+                    name,
+                    ask = "First ask",
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var response = await Post(
+            client,
+            "/create-capability",
+            new
+            {
+                id = Guid.NewGuid(),
+                name = $" {name} ",
+                ask = "Second ask",
+            }
+        );
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await response.Content.ReadAsStringAsync()).ShouldContain(holderId.ToString());
+    }
+
+    [Fact]
+    public async Task rename_rejects_name_held_by_another()
+    {
+        var client = _factory.CreateClient();
+        var holderId = Guid.NewGuid();
+        var otherId = Guid.NewGuid();
+        var heldName = $"Held {holderId:N}"[..24];
+        var otherName = $"Other {otherId:N}"[..24];
+
+        (
+            await Post(
+                client,
+                "/create-capability",
+                new
+                {
+                    id = holderId,
+                    name = heldName,
+                    ask = "Holder ask",
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (
+            await Post(
+                client,
+                "/create-capability",
+                new
+                {
+                    id = otherId,
+                    name = otherName,
+                    ask = "Other ask",
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var response = await Post(
+            client,
+            "/rename-capability",
+            new { id = otherId, name = $" {heldName} " }
+        );
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await response.Content.ReadAsStringAsync()).ShouldContain(holderId.ToString());
+
+        var detail = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{otherId}");
+        detail.ShouldNotBeNull();
+        detail.Name.ShouldBe(otherName);
+    }
+
+    [Fact]
+    public async Task rename_to_current_name_is_noop()
+    {
+        var client = _factory.CreateClient();
+        var id = Guid.NewGuid();
+        var name = $"Noop {id:N}"[..24];
+
+        (
+            await Post(
+                client,
+                "/create-capability",
+                new
+                {
+                    id,
+                    name,
+                    ask = "Ask",
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        await using (
+            var session = _factory.Services.GetRequiredService<IDocumentStore>().QuerySession()
+        )
+        {
+            (await session.Events.FetchStreamAsync(id)).Count.ShouldBe(2);
+        }
+
+        (
+            await Post(client, "/rename-capability", new { id, name = $"  {name}  " })
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var detail = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
+        detail.ShouldNotBeNull();
+        detail.Name.ShouldBe(name);
+        detail.Ask.ShouldBe("Ask");
+
+        await using (
+            var session = _factory.Services.GetRequiredService<IDocumentStore>().QuerySession()
+        )
+        {
+            (await session.Events.FetchStreamAsync(id)).Count.ShouldBe(2);
+        }
     }
 
     static async Task<HttpResponseMessage> Post(HttpClient client, string path, object body)

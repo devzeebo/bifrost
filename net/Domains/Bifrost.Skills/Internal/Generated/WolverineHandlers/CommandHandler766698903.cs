@@ -29,7 +29,7 @@ namespace Internal.Generated.WolverineHandlers
             System.Diagnostics.Activity.Current?.SetTag("id", command.Id);
             // Loading Marten aggregate as part of the aggregate handler workflow
             var eventStreamOfCapability = await documentSession.Events.FetchForWriting<Bifrost.Capabilities.Aggregate.Capability>(capability_Id, cancellation);
-            Bifrost.Capabilities.Commands.RenameCapabilityHandler.Validate(command, eventStreamOfCapability.Aggregate);
+            await Bifrost.Capabilities.Commands.RenameCapabilityHandler.Validate(command, eventStreamOfCapability.Aggregate, ((Marten.IQuerySession)documentSession)).ConfigureAwait(false);
             System.Diagnostics.Activity.Current?.SetTag("message.handler", "Bifrost.Capabilities.Commands.RenameCapabilityHandler");
             System.Diagnostics.Activity.Current?.SetTag("handler.type", "Bifrost.Capabilities.Commands.RenameCapabilityHandler");
             System.Diagnostics.Activity.Current?.SetTag("wolverine.stream.id", capability_Id);
@@ -40,7 +40,10 @@ namespace Internal.Generated.WolverineHandlers
 
             if (outgoing1 != null)
             {
-                eventStreamOfCapability.AppendOne(outgoing1);
+                
+                // Capturing any possible events returned from the command handlers
+                eventStreamOfCapability.AppendMany(outgoing1);
+
             }
 
             
@@ -59,4 +62,3 @@ namespace Internal.Generated.WolverineHandlers
     
     
 }
-

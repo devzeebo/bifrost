@@ -1,4 +1,5 @@
 using Bifrost;
+using Bifrost.Capabilities.Commands;
 using Bifrost.Capabilities.Editor;
 using Bifrost.Configuration;
 using Bifrost.MessageBus;
@@ -95,6 +96,22 @@ app.Use(
                     Status = StatusCodes.Status400BadRequest,
                     Title = "Invalid command",
                     Detail = $"Capability {ex.Id} already exists.",
+                }
+            );
+        }
+        catch (Exception ex) when (CapabilityNames.TryGetConflictingName(ex, out var name))
+        {
+            await using var session = context
+                .RequestServices.GetRequiredService<IDocumentStore>()
+                .QuerySession();
+            var detail = await CapabilityNames.ConflictDetail(session, name);
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await context.Response.WriteAsJsonAsync(
+                new ProblemDetails
+                {
+                    Status = StatusCodes.Status400BadRequest,
+                    Title = "Invalid command",
+                    Detail = detail,
                 }
             );
         }

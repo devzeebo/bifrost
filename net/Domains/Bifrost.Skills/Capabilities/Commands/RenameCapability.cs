@@ -1,12 +1,18 @@
 using Bifrost.Capabilities.Aggregate;
 using Bifrost.Capabilities.Events;
+using Marten;
 using Wolverine.Marten;
+using MartenEvents = Wolverine.Marten.Events;
 
 namespace Bifrost.Capabilities.Commands;
 
 public static class RenameCapabilityHandler
 {
-    public static void Validate(RenameCapabilityApi.Command command, Capability? capability)
+    public static async Task Validate(
+        RenameCapabilityApi.Command command,
+        Capability? capability,
+        IQuerySession session
+    )
     {
         if (capability is null)
         {
@@ -17,12 +23,25 @@ public static class RenameCapabilityHandler
         {
             throw new CommandValidationException("Name is required.");
         }
+
+        if (command.Name.Trim() == capability.Name)
+        {
+            return;
+        }
+
+        await CapabilityNames.EnsureAvailable(session, command.Name.Trim(), command.Id);
     }
 
     [WolverinePost("/rename-capability"), EmptyResponse]
     [AggregateHandler]
-    public static CapabilityRenamed Handle(
-        RenameCapabilityApi.Command command,
-        Capability capability
-    ) => new() { Name = command.Name.Trim() };
+    public static MartenEvents Handle(RenameCapabilityApi.Command command, Capability capability)
+    {
+        var name = command.Name.Trim();
+        if (name == capability.Name)
+        {
+            return [];
+        }
+
+        return [new CapabilityRenamed { Name = name }];
+    }
 }

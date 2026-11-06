@@ -24,6 +24,8 @@ public static class CreateCapabilityHandler
         {
             throw new CommandValidationException($"Capability {command.Id} already exists.");
         }
+
+        await CapabilityNames.EnsureAvailable(session, command.Name.Trim());
     }
 
     [WolverinePost("/create-capability"), EmptyResponse]
