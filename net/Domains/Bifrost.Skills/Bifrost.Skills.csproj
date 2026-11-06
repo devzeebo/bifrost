@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Bifrost</RootNamespace>
     <AllowMissingPrunePackageData>true</AllowMissingPrunePackageData>
+    <UserSecretsId>bifrost</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Bifrost.Skills.Contracts\Bifrost.Skills.Contracts.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Bifrost.Configuration\Bifrost.Configuration.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Bifrost.MessageBus.Abstractions\Bifrost.MessageBus.Abstractions.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Bifrost.Rpc\Bifrost.Rpc.csproj" />
   </ItemGroup>

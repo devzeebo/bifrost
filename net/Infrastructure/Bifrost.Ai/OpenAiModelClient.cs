@@ -19,19 +19,13 @@ public sealed class OpenAiModelClient(
         ArgumentNullException.ThrowIfNull(request);
 
         var current = options.CurrentValue;
-        if (!current.IsConfigured)
-        {
-            throw new ModelClientException(
-                "AI client is not configured. Set Ai:ApiKey or OPENAI_API_KEY."
-            );
-        }
 
         try
         {
             using var response = await clients
                 .Get(AiClientOptions.HttpClientName)
                 .Request("responses")
-                .WithOAuthBearerToken(current.ApiKey!)
+                .WithOAuthBearerToken(current.ApiKey)
                 .WithSettings(settings =>
                     settings.JsonSerializer = new DefaultJsonSerializer(JsonOptions)
                 )
@@ -94,7 +88,7 @@ public sealed class OpenAiModelClient(
         if (model is null)
         {
             throw new ModelClientException(
-                "AI model is not configured. Set Ai:Model or ModelRequest.Model."
+                "AI model is not configured. Set Ai:Model or provide ModelRequest.Model."
             );
         }
 

@@ -25,11 +25,10 @@ public class AiClientOptionsTests
         options.ApiKey.ShouldBe("sk-test");
         options.BaseUrl.ShouldBe("https://example.test/v1");
         options.Model.ShouldBe("accounts/fireworks/models/llama");
-        options.IsConfigured.ShouldBeTrue();
     }
 
     [Fact]
-    public void FromConfiguration_falls_back_to_OpenAI_env_keys_and_default_base_url()
+    public void FromConfiguration_ignores_root_OpenAI_keys()
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(
@@ -41,21 +40,34 @@ public class AiClientOptionsTests
             )
             .Build();
 
-        var options = AiClientOptions.FromConfiguration(configuration);
+        var ex = Should.Throw<InvalidOperationException>(() =>
+            AiClientOptions.FromConfiguration(configuration)
+        );
 
-        options.ApiKey.ShouldBe("sk-env");
-        options.BaseUrl.ShouldBe("https://env.test/v1/");
-        options.Model.ShouldBeNull();
-        options.IsConfigured.ShouldBeTrue();
+        ex.Message.ShouldContain("Missing Ai:ApiKey");
     }
 
     [Fact]
-    public void FromConfiguration_defaults_base_url_when_unconfigured()
+    public void FromConfiguration_requires_all_Ai_properties()
     {
-        var options = AiClientOptions.FromConfiguration(new ConfigurationBuilder().Build());
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(
+                new Dictionary<string, string?>
+                {
+                    ["Ai:ApiKey"] = "sk-test",
+                    ["Ai:BaseUrl"] = "https://example.test/v1/",
+                }
+            )
+            .Build();
 
-        options.ApiKey.ShouldBeNull();
-        options.BaseUrl.ShouldBe(AiClientOptions.DefaultBaseUrl);
-        options.IsConfigured.ShouldBeFalse();
+        var ex = Should.Throw<InvalidOperationException>(() =>
+            AiClientOptions.FromConfiguration(configuration)
+        );
+
+        ex.Message.ShouldContain("Missing Ai:Model");
+
+        Should.Throw<InvalidOperationException>(() =>
+            AiClientOptions.FromConfiguration(new ConfigurationBuilder().Build())
+        );
     }
 }

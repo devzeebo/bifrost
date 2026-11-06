@@ -13,8 +13,8 @@ public static class AiServiceCollectionExtensions
     {
         /// <summary>
         /// Registers <see cref="IModelClient"/> backed by an OpenAI-compatible Responses API client.
-        /// Binds <see cref="AiClientOptions"/> from the <c>Ai</c> section with
-        /// <c>OPENAI_API_KEY</c> / <c>OPENAI_BASE_URL</c> fallbacks.
+        /// Binds <see cref="AiClientOptions"/> from the <c>Ai</c> section
+        /// (<c>ApiKey</c>, <c>BaseUrl</c>, and <c>Model</c> are all required).
         /// Options are snapshotted once at registration; configuration reloads are not applied.
         /// </summary>
         public IServiceCollection AddBifrostAi(IConfiguration configuration)
@@ -46,11 +46,9 @@ public static class AiServiceCollectionExtensions
         }
     }
 
-    static string NormalizeBaseUrl(string? baseUrl)
+    static string NormalizeBaseUrl(string baseUrl)
     {
-        var normalized = string.IsNullOrWhiteSpace(baseUrl)
-            ? AiClientOptions.DefaultBaseUrl
-            : baseUrl;
-        return normalized.EndsWith('/') ? normalized : normalized + "/";
+        ArgumentException.ThrowIfNullOrWhiteSpace(baseUrl);
+        return baseUrl.EndsWith('/') ? baseUrl : baseUrl + "/";
     }
 }

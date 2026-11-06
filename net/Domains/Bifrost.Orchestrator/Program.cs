@@ -1,4 +1,5 @@
 using Bifrost;
+using Bifrost.Configuration;
 using Bifrost.MessageBus;
 using Bifrost.Orchestrator.Contracts;
 using Bifrost.Rpc;
@@ -11,6 +12,7 @@ using Wolverine.Marten;
 using Wolverine.Runtime.Heartbeat;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddVariableExpansion();
 
 var connectionString =
     builder.Configuration["ConnectionStrings:Marten"]

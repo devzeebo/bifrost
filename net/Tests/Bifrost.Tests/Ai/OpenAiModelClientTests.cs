@@ -32,7 +32,7 @@ public class OpenAiModelClientTests
             """
         );
 
-        var client = CreateClient(configured: true);
+        var client = CreateClient();
         var response = await client.CreateResponse(
             new ModelRequest
             {
@@ -69,7 +69,7 @@ public class OpenAiModelClientTests
         using var httpTest = new HttpTest();
         httpTest.RespondWith("""{"status":"completed","output_text":"ok","output":[]}""");
 
-        var client = CreateClient(configured: true, model: "configured-model");
+        var client = CreateClient(model: "configured-model");
         await client.CreateResponse(
             new ModelRequest
             {
@@ -88,7 +88,7 @@ public class OpenAiModelClientTests
     public async Task CreateResponse_throws_when_model_is_not_configured()
     {
         using var httpTest = new HttpTest();
-        var client = CreateClient(configured: true, model: null);
+        var client = CreateClient(model: " ");
 
         var ex = await Should.ThrowAsync<ModelClientException>(() =>
             client.CreateResponse(
@@ -111,7 +111,7 @@ public class OpenAiModelClientTests
         using var httpTest = new HttpTest();
         httpTest.RespondWith("upstream down", 502);
 
-        var client = CreateClient(configured: true);
+        var client = CreateClient();
         var ex = await Should.ThrowAsync<ModelClientException>(() =>
             client.CreateResponse(
                 new ModelRequest
@@ -135,7 +135,7 @@ public class OpenAiModelClientTests
         using var httpTest = new HttpTest();
         httpTest.RespondWith("not-json");
 
-        var client = CreateClient(configured: true);
+        var client = CreateClient();
         var ex = await Should.ThrowAsync<ModelClientException>(() =>
             client.CreateResponse(
                 new ModelRequest
@@ -158,7 +158,7 @@ public class OpenAiModelClientTests
         using var httpTest = new HttpTest();
         httpTest.RespondWith("");
 
-        var client = CreateClient(configured: true);
+        var client = CreateClient();
         var ex = await Should.ThrowAsync<ModelClientException>(() =>
             client.CreateResponse(
                 new ModelRequest
@@ -180,7 +180,7 @@ public class OpenAiModelClientTests
         using var httpTest = new HttpTest();
         httpTest.SimulateException(new HttpRequestException("connection refused"));
 
-        var client = CreateClient(configured: true);
+        var client = CreateClient();
         var ex = await Should.ThrowAsync<ModelClientException>(() =>
             client.CreateResponse(
                 new ModelRequest
@@ -203,7 +203,7 @@ public class OpenAiModelClientTests
         using var httpTest = new HttpTest();
         httpTest.SimulateTimeout();
 
-        var client = CreateClient(configured: true);
+        var client = CreateClient();
         var ex = await Should.ThrowAsync<ModelClientException>(() =>
             client.CreateResponse(
                 new ModelRequest
@@ -218,28 +218,6 @@ public class OpenAiModelClientTests
 
         ex.Message.ShouldContain("timed out");
         ex.InnerException.ShouldBeOfType<FlurlHttpTimeoutException>();
-    }
-
-    [Fact]
-    public async Task CreateResponse_throws_when_client_is_not_configured()
-    {
-        using var httpTest = new HttpTest();
-        var client = CreateClient(configured: false);
-
-        var ex = await Should.ThrowAsync<ModelClientException>(() =>
-            client.CreateResponse(
-                new ModelRequest
-                {
-                    Model = "m1",
-                    Input = [],
-                    Tools = [],
-                    SessionId = "session-1",
-                }
-            )
-        );
-
-        ex.Message.ShouldContain("not configured");
-        httpTest.ShouldNotHaveMadeACall();
     }
 
     [Fact]
@@ -265,10 +243,18 @@ public class OpenAiModelClientTests
         provider.GetRequiredService<IOptions<AiClientOptions>>().Value.Model.ShouldBe(
             "configured-model"
         );
-        provider.GetRequiredService<IOptions<AiClientOptions>>().Value.IsConfigured.ShouldBeTrue();
     }
 
-    static OpenAiModelClient CreateClient(bool configured, string? model = "m1")
+    [Fact]
+    public void AddBifrostAi_throws_when_Ai_section_is_incomplete()
+    {
+        var configuration = new ConfigurationBuilder().Build();
+        var services = new ServiceCollection();
+
+        Should.Throw<InvalidOperationException>(() => services.AddBifrostAi(configuration));
+    }
+
+    static OpenAiModelClient CreateClient(string model = "m1")
     {
         var clients = new FlurlClientCache().Add(
             AiClientOptions.HttpClientName,
@@ -278,7 +264,7 @@ public class OpenAiModelClientTests
         var options = new TestOptionsMonitor<AiClientOptions>(
             new AiClientOptions
             {
-                ApiKey = configured ? "sk-test" : null,
+                ApiKey = "sk-test",
                 BaseUrl = "https://example.test/v1/",
                 Model = model,
             }
