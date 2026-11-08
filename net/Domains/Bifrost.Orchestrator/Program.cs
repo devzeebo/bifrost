@@ -1,5 +1,6 @@
 using Bifrost;
 using Bifrost.Configuration;
+using Bifrost.Gateway;
 using Bifrost.MessageBus;
 using Bifrost.Orchestrator.Contracts;
 using Bifrost.Rpc;
@@ -52,6 +53,7 @@ builder.Services.AddRpcHost(options =>
 });
 
 builder.Services.AddMessageBus();
+builder.Services.AddGatewayQuota(builder.Configuration);
 builder.Services.AddWolverineHttp();
 
 var app = builder.Build();
@@ -83,6 +85,24 @@ app.Use(
                 {
                     Status = StatusCodes.Status400BadRequest,
                     Title = "Invalid command",
+                    Detail = ex.Message,
+                }
+            );
+        }
+        catch (VirtualKeyQuotaException ex)
+        {
+            context.Response.StatusCode = ex.StatusCode;
+            await context.Response.WriteAsJsonAsync(
+                new ProblemDetails
+                {
+                    Status = ex.StatusCode,
+                    Title = ex.StatusCode switch
+                    {
+                        StatusCodes.Status401Unauthorized => "Invalid virtual key",
+                        StatusCodes.Status403Forbidden => "Virtual key expired",
+                        StatusCodes.Status503ServiceUnavailable => "Gateway not configured",
+                        _ => "Gateway unavailable",
+                    },
                     Detail = ex.Message,
                 }
             );
