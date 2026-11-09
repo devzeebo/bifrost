@@ -47,12 +47,29 @@ public static class ExecuteHarnessHandler
 
         if (state is HarnessAcceptState.Running)
         {
-            await RecoverInterruptedRun(bus, accepts, command, actor, cancellationToken)
-                .ConfigureAwait(false);
-            return;
+            var recovery = await DecideRecovery(bus, identity.Id, command).ConfigureAwait(false);
+            switch (recovery)
+            {
+                case RecoveryAction.Skip:
+                    accepts.MarkConcluded(command.WorkItemId, command.RunId);
+                    return;
+                case RecoveryAction.FailInterrupted:
+                    await Fail(
+                            bus,
+                            command,
+                            actor,
+                            "harness ended without a clean exit after the item was already running",
+                            cancellationToken
+                        )
+                        .ConfigureAwait(false);
+                    accepts.MarkConcluded(command.WorkItemId, command.RunId);
+                    return;
+                case RecoveryAction.ResumeAsFirstAttempt:
+                    // Start never landed; continue into the normal execution path.
+                    break;
+            }
         }
-
-        if (!accepts.TryBeginRunning(command.WorkItemId, command.RunId))
+        else if (!accepts.TryBeginRunning(command.WorkItemId, command.RunId))
         {
             return;
         }
@@ -160,40 +177,54 @@ public static class ExecuteHarnessHandler
         }
     }
 
-    static async Task RecoverInterruptedRun(
+    enum RecoveryAction
+    {
+        Skip,
+        FailInterrupted,
+        ResumeAsFirstAttempt,
+    }
+
+    static async Task<RecoveryAction> DecideRecovery(
         IBifrostBus bus,
-        IHarnessAcceptStore accepts,
-        ExecuteHarness command,
-        string actor,
-        CancellationToken cancellationToken
+        Guid workerId,
+        ExecuteHarness command
     )
     {
         if (!await RunStillOpen(bus, command).ConfigureAwait(false))
         {
-            accepts.MarkConcluded(command.WorkItemId, command.RunId);
-            return;
+            return RecoveryAction.Skip;
         }
 
-        if (!await StillHeld(bus, Guid.Parse(actor), command).ConfigureAwait(false))
+        GetTrackedWorkItemApi.Response item;
+        try
         {
-            accepts.MarkConcluded(command.WorkItemId, command.RunId);
-            return;
+            item = await bus.Request<GetTrackedWorkItemApi.Query, GetTrackedWorkItemApi.Response>(
+                    new GetTrackedWorkItemApi.Query { Id = command.WorkItemId }
+                )
+                .ConfigureAwait(false);
+        }
+        catch (BusException)
+        {
+            throw;
         }
 
-        await Fail(
-                bus,
-                command,
-                actor,
-                "harness ended without a clean exit: worker restarted during execution",
-                cancellationToken
-            )
-            .ConfigureAwait(false);
-        accepts.MarkConcluded(command.WorkItemId, command.RunId);
+        if (item.HolderId != workerId)
+        {
+            return RecoveryAction.Skip;
+        }
+
+        return item.Status switch
+        {
+            TrackedWorkItemStatuses.Claimed => RecoveryAction.ResumeAsFirstAttempt,
+            TrackedWorkItemStatuses.Running => RecoveryAction.FailInterrupted,
+            _ => RecoveryAction.Skip,
+        };
     }
 
     static string PrepareWorkspace(string baseDirectory, Guid runId)
     {
-        var workspace = Path.GetFullPath(Path.Combine(baseDirectory, runId.ToString("D")));
+        var root = string.IsNullOrWhiteSpace(baseDirectory) ? "workspaces" : baseDirectory;
+        var workspace = Path.GetFullPath(Path.Combine(root, runId.ToString("D")));
         if (Directory.Exists(workspace))
         {
             Directory.Delete(workspace, recursive: true);

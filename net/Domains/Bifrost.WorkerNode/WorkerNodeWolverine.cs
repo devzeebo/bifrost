@@ -32,6 +32,10 @@ public static class WorkerNodeWolverine
         opts.Policies.UseDurableOutboxOnAllSendingEndpoints();
         opts.Policies.AlwaysMakeScheduledMessagesDurable();
 
+        // Harness runs are long-lived; the worker only hosts short registration
+        // handlers besides ExecuteHarness.
+        opts.DefaultExecutionTimeout = TimeSpan.FromDays(1);
+
         opts.Discovery.IncludeAssembly(typeof(WorkerNodeWolverine).Assembly);
 
         opts.LocalQueueFor<ExecuteHarness>().Sequential();

@@ -152,7 +152,7 @@ public class ExecuteHarnessTests
     }
 
     [Fact]
-    public async Task interrupted_running_state_fails_without_starting_process()
+    public async Task interrupted_while_still_claimed_resumes_as_first_attempt()
     {
         var identity = new WorkerNodeIdentity { Id = Guid.NewGuid() };
         var db = Path.Combine(Path.GetTempPath(), $"harness-accept-{Guid.NewGuid():N}.db");
@@ -165,6 +165,49 @@ public class ExecuteHarnessTests
             identity.Id,
             new Dictionary<Guid, Guid> { [command.RunId] = command.WorkItemId }
         );
+        bus.SeedStatus(command.WorkItemId, TrackedWorkItemStatuses.Claimed);
+        var runner = new FixedRunner(new HarnessProcessResult { Started = true, ExitCode = 0 });
+        var started = 0;
+        runner.OnRun = () => Interlocked.Increment(ref started);
+
+        await ExecuteHarnessHandler.Handle(
+            command,
+            bus,
+            identity,
+            accepts,
+            new HarnessExecutionSlot(),
+            runner,
+            Options.Create(
+                new HarnessHostOptions
+                {
+                    WorkingDirectory = Path.Combine(Path.GetTempPath(), $"ws-{Guid.NewGuid():N}"),
+                }
+            ),
+            CancellationToken.None
+        );
+
+        started.ShouldBe(1);
+        bus.Requests.OfType<StartTrackedWorkItemApi.Command>().ShouldHaveSingleItem();
+        bus.Published.OfType<FailTrackedWorkItemApi.Command>().ShouldBeEmpty();
+        bus.Published.OfType<SucceedTrackedWorkItemApi.Command>().ShouldHaveSingleItem();
+        accepts.GetState(command.WorkItemId, command.RunId).ShouldBe(HarnessAcceptState.Concluded);
+    }
+
+    [Fact]
+    public async Task interrupted_after_start_fails_without_starting_process()
+    {
+        var identity = new WorkerNodeIdentity { Id = Guid.NewGuid() };
+        var db = Path.Combine(Path.GetTempPath(), $"harness-accept-{Guid.NewGuid():N}.db");
+        using var accepts = new HarnessAcceptStore(db);
+        var command = new ExecuteHarness { WorkItemId = Guid.NewGuid(), RunId = Guid.NewGuid() };
+        accepts.TryAccept(command.WorkItemId, command.RunId).ShouldBeTrue();
+        accepts.TryBeginRunning(command.WorkItemId, command.RunId).ShouldBeTrue();
+
+        var bus = new RecordingBus(
+            identity.Id,
+            new Dictionary<Guid, Guid> { [command.RunId] = command.WorkItemId }
+        );
+        bus.SeedStatus(command.WorkItemId, TrackedWorkItemStatuses.Running);
         var runner = new FixedRunner(new HarnessProcessResult { Started = true, ExitCode = 0 });
         var started = 0;
         runner.OnRun = () => Interlocked.Increment(ref started);
@@ -186,9 +229,10 @@ public class ExecuteHarnessTests
         );
 
         started.ShouldBe(0);
-        bus.Published.OfType<FailTrackedWorkItemApi.Command>()
-            .ShouldHaveSingleItem()
-            .Reason.ShouldContain("worker restarted");
+        bus.Requests.OfType<StartTrackedWorkItemApi.Command>().ShouldBeEmpty();
+        var fail = bus.Published.OfType<FailTrackedWorkItemApi.Command>().ShouldHaveSingleItem();
+        fail.Reason.ShouldContain("already running");
+        fail.Expected!["status"]!.GetValue<string>().ShouldBe(TrackedWorkItemStatuses.Running);
         accepts.GetState(command.WorkItemId, command.RunId).ShouldBe(HarnessAcceptState.Concluded);
     }
 
@@ -286,6 +330,9 @@ public class ExecuteHarnessTests
         public List<object> Published { get; } = [];
         readonly Dictionary<Guid, string> _statusByItem = new();
 
+        public void SeedStatus(Guid workItemId, string status) =>
+            _statusByItem[workItemId] = status;
+
         public Task<TResponse> Request<TRequest, TResponse>(
             TRequest request,
             CancellationToken cancellationToken = default
@@ -333,6 +380,17 @@ public class ExecuteHarnessTests
 
         Unit Start(StartTrackedWorkItemApi.Command start)
         {
+            var current = _statusByItem.GetValueOrDefault(
+                start.Id,
+                TrackedWorkItemStatuses.Claimed
+            );
+            if (current != TrackedWorkItemStatuses.Claimed)
+            {
+                throw new InvalidOperationException(
+                    $"Start refused: expected claimed, actual {current}"
+                );
+            }
+
             _statusByItem[start.Id] = TrackedWorkItemStatuses.Running;
             return Unit.Value;
         }

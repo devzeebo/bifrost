@@ -25,8 +25,15 @@ public static class ExecuteClaimedWorkHandler
         }
 
         var existing = accepts.GetState(command.WorkItemId, command.RunId);
-        if (existing is not null)
+        if (existing is HarnessAcceptState.Concluded or HarnessAcceptState.Running)
         {
+            return;
+        }
+
+        if (existing is HarnessAcceptState.Accepted)
+        {
+            // Accept survived a crash or failed enqueue — reschedule without double-accept.
+            await Enqueue(jobs, command).ConfigureAwait(false);
             return;
         }
 
@@ -58,16 +65,24 @@ public static class ExecuteClaimedWorkHandler
 
         if (!accepts.TryAccept(command.WorkItemId, command.RunId))
         {
+            // Lost the race with another delivery; if it stayed Accepted, still enqueue.
+            if (accepts.GetState(command.WorkItemId, command.RunId) is HarnessAcceptState.Accepted)
+            {
+                await Enqueue(jobs, command).ConfigureAwait(false);
+            }
+
             return;
         }
 
-        await jobs.Enqueue(
-                new ExecuteHarness
-                {
-                    WorkItemId = command.WorkItemId,
-                    RunId = command.RunId,
-                }
-            )
-            .ConfigureAwait(false);
+        await Enqueue(jobs, command).ConfigureAwait(false);
     }
+
+    static Task Enqueue(IHarnessJobScheduler jobs, ExecuteClaimedWorkApi.Command command) =>
+        jobs.Enqueue(
+            new ExecuteHarness
+            {
+                WorkItemId = command.WorkItemId,
+                RunId = command.RunId,
+            }
+        );
 }

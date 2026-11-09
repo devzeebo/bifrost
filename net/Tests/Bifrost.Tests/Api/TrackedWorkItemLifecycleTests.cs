@@ -292,6 +292,36 @@ public class TrackedWorkItemLifecycleTests
     }
 
     [Fact]
+    public async Task start_rejects_run_that_does_not_belong_to_the_item()
+    {
+        var client = _factory.CreateClient();
+        var id = await CreateAt(client, TrackedWorkItemStatuses.Claimed);
+        var holder = (await Get(client, id)).HolderId!.Value;
+        var foreignRunId = Guid.NewGuid();
+        (
+            await Post(
+                client,
+                "/create-run",
+                new
+                {
+                    id = foreignRunId,
+                    workItemId = Guid.NewGuid(),
+                    actor = WorkItemLifecycleActors.Orchestrator,
+                    reason = "other-item",
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var response = await Post(
+            client,
+            "/start-tracked-work-item",
+            ReportBody(id, foreignRunId, holder, "harness")
+        );
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await response.Content.ReadAsStringAsync()).ShouldContain("does not belong");
+    }
+
+    [Fact]
     public async Task fail_accepts_orchestrator_speaker_while_running()
     {
         var client = _factory.CreateClient();

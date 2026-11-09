@@ -31,8 +31,38 @@ public class ExecuteClaimedWorkTests
         bus.Lookups.ShouldBe(1);
 
         await ExecuteClaimedWorkHandler.Handle(command, bus, jobs, identity, accepts);
-        jobs.Jobs.Count.ShouldBe(1);
+        jobs.Jobs.Count.ShouldBe(2);
         bus.Lookups.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task reenqueues_when_accepted_without_looking_up_again()
+    {
+        var identity = new WorkerNodeIdentity { Id = Guid.NewGuid() };
+        var db = Path.Combine(Path.GetTempPath(), $"harness-accept-{Guid.NewGuid():N}.db");
+        using var accepts = new HarnessAcceptStore(db);
+        var workItemId = Guid.NewGuid();
+        var runId = Guid.NewGuid();
+        accepts.TryAccept(workItemId, runId).ShouldBeTrue();
+
+        var bus = new StubBus(identity.Id, TrackedWorkItemStatuses.Claimed);
+        var jobs = new RecordingJobs();
+
+        await ExecuteClaimedWorkHandler.Handle(
+            new ExecuteClaimedWorkApi.Command
+            {
+                WorkItemId = workItemId,
+                WorkerId = identity.Id,
+                RunId = runId,
+            },
+            bus,
+            jobs,
+            identity,
+            accepts
+        );
+
+        jobs.Jobs.ShouldHaveSingleItem().RunId.ShouldBe(runId);
+        bus.Lookups.ShouldBe(0);
     }
 
     [Fact]

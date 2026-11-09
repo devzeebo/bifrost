@@ -10,11 +10,16 @@ using Wolverine;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-var socketPath = builder.Configuration["Bifrost:BusSocket"] ?? "/run/bifrost/bus.sock";
-var outboxPath = builder.Configuration["Bifrost:OutboxPath"] ?? "worker-node.db";
-var nodeId = Guid.TryParse(builder.Configuration["Bifrost:NodeId"], out var configured)
-    ? configured
-    : Guid.NewGuid();
+var socketPath = string.IsNullOrWhiteSpace(builder.Configuration["Bifrost:BusSocket"])
+    ? "/run/bifrost/bus.sock"
+    : builder.Configuration["Bifrost:BusSocket"]!;
+var outboxPath = string.IsNullOrWhiteSpace(builder.Configuration["Bifrost:OutboxPath"])
+    ? "worker-node.db"
+    : builder.Configuration["Bifrost:OutboxPath"]!;
+var nodeId = WorkerNodeIdentityStore.Resolve(
+    outboxPath,
+    builder.Configuration["Bifrost:NodeId"]
+);
 
 builder.Services.Configure<HarnessHostOptions>(
     builder.Configuration.GetSection(HarnessHostOptions.SectionName)

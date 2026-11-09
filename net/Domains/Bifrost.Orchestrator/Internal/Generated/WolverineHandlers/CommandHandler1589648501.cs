@@ -22,17 +22,17 @@ namespace Internal.Generated.WolverineHandlers
 
         public override async System.Threading.Tasks.Task HandleAsync(Wolverine.Runtime.MessageContext context, System.Threading.CancellationToken cancellation)
         {
+            // Building the Marten session
+            await using var documentSession = _outboxedSessionFactory.OpenSession(context);
             // The actual message body
             var command = (Bifrost.Orchestrator.Contracts.FailTrackedWorkItemApi.Command)context.Envelope.Message;
 
             var trackedWorkItem_Id = command.Id;
-            // Building the Marten session
-            await using var documentSession = _outboxedSessionFactory.OpenSession(context);
             // Application-specific Open Telemetry auditing
             System.Diagnostics.Activity.Current?.SetTag("id", command.Id);
             // Loading Marten aggregate as part of the aggregate handler workflow
             var eventStreamOfTrackedWorkItem = await documentSession.Events.FetchForWriting<Bifrost.TrackedWorkItems.Aggregate.TrackedWorkItem>(trackedWorkItem_Id, cancellation);
-            Bifrost.TrackedWorkItems.Commands.FailTrackedWorkItemHandler.Validate(command, eventStreamOfTrackedWorkItem.Aggregate);
+            await Bifrost.TrackedWorkItems.Commands.FailTrackedWorkItemHandler.Validate(command, eventStreamOfTrackedWorkItem.Aggregate, ((Marten.IQuerySession)documentSession)).ConfigureAwait(false);
             System.Diagnostics.Activity.Current?.SetTag("message.handler", "Bifrost.TrackedWorkItems.Commands.FailTrackedWorkItemHandler");
             System.Diagnostics.Activity.Current?.SetTag("handler.type", "Bifrost.TrackedWorkItems.Commands.FailTrackedWorkItemHandler");
             System.Diagnostics.Activity.Current?.SetTag("wolverine.stream.id", trackedWorkItem_Id);

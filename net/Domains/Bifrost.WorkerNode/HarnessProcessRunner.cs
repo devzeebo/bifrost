@@ -24,6 +24,8 @@ public interface IHarnessProcessRunner
 
 public sealed class HarnessProcessRunner(IOptions<HarnessHostOptions> options) : IHarnessProcessRunner
 {
+    const int MaxCapturedChars = 64 * 1024;
+
     public async Task<HarnessProcessResult> Run(
         string workingDirectory,
         IReadOnlyDictionary<string, string> extraEnvironment,
@@ -85,20 +87,8 @@ public sealed class HarnessProcessRunner(IOptions<HarnessHostOptions> options) :
 
         var stdout = new StringBuilder();
         var stderr = new StringBuilder();
-        process.OutputDataReceived += (_, e) =>
-        {
-            if (e.Data is not null)
-            {
-                stdout.AppendLine(e.Data);
-            }
-        };
-        process.ErrorDataReceived += (_, e) =>
-        {
-            if (e.Data is not null)
-            {
-                stderr.AppendLine(e.Data);
-            }
-        };
+        process.OutputDataReceived += (_, e) => AppendBounded(stdout, e.Data);
+        process.ErrorDataReceived += (_, e) => AppendBounded(stderr, e.Data);
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
@@ -127,18 +117,51 @@ public sealed class HarnessProcessRunner(IOptions<HarnessHostOptions> options) :
                 // ignored
             }
 
+            try
+            {
+                await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+            }
+            catch
+            {
+                // ignored — best effort so the slot is not released over a live child
+            }
+
             return new HarnessProcessResult
             {
                 Started = true,
-                ExitCode = null,
+                ExitCode = process.HasExited ? process.ExitCode : null,
                 StandardOutput = stdout.ToString(),
                 StandardError = stderr.ToString(),
-                StartError = "harness ended without a clean exit",
+                StartError = process.HasExited
+                    ? null
+                    : "harness ended without a clean exit",
             };
         }
         finally
         {
             process.Dispose();
         }
+    }
+
+    static void AppendBounded(StringBuilder buffer, string? line)
+    {
+        if (line is null)
+        {
+            return;
+        }
+
+        if (buffer.Length >= MaxCapturedChars)
+        {
+            return;
+        }
+
+        var remaining = MaxCapturedChars - buffer.Length;
+        if (line.Length + 1 > remaining)
+        {
+            buffer.Append(line.AsSpan(0, Math.Max(0, remaining - 1)));
+            return;
+        }
+
+        buffer.AppendLine(line);
     }
 }

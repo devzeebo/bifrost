@@ -31,13 +31,13 @@ namespace Internal.Generated.WolverineHandlers
 
         public override async System.Threading.Tasks.Task Handle(Microsoft.AspNetCore.Http.HttpContext httpContext)
         {
+            var messageContext = new Wolverine.Runtime.MessageContext(_wolverineRuntime);
+            // Building the Marten session
+            await using var documentSession = _outboxedSessionFactory.OpenSession(messageContext);
             // Reading the request body via JSON deserialization
             var (command, jsonContinue) = await ReadJsonAsync<Bifrost.Orchestrator.Contracts.SucceedTrackedWorkItemApi.Command>(httpContext);
             if (jsonContinue == Wolverine.HandlerContinuation.Stop) return;
             var trackedWorkItem_Id = command.Id;
-            var messageContext = new Wolverine.Runtime.MessageContext(_wolverineRuntime);
-            // Building the Marten session
-            await using var documentSession = _outboxedSessionFactory.OpenSession(messageContext);
             // Application-specific Open Telemetry auditing
             System.Diagnostics.Activity.Current?.SetTag("id", command.Id);
             System.Diagnostics.Activity.Current?.SetTag("handler.type", "Bifrost.TrackedWorkItems.Commands.SucceedTrackedWorkItemHandler");
@@ -45,7 +45,7 @@ namespace Internal.Generated.WolverineHandlers
             var eventStreamOfTrackedWorkItem = await documentSession.Events.FetchForWriting<Bifrost.TrackedWorkItems.Aggregate.TrackedWorkItem>(trackedWorkItem_Id, httpContext.RequestAborted);
             System.Diagnostics.Activity.Current?.SetTag("wolverine.stream.id", trackedWorkItem_Id);
             System.Diagnostics.Activity.Current?.SetTag("wolverine.stream.type", "Bifrost.TrackedWorkItems.Aggregate.TrackedWorkItem");
-            Bifrost.TrackedWorkItems.Commands.SucceedTrackedWorkItemHandler.Validate(command, eventStreamOfTrackedWorkItem.Aggregate);
+            await Bifrost.TrackedWorkItems.Commands.SucceedTrackedWorkItemHandler.Validate(command, eventStreamOfTrackedWorkItem.Aggregate, ((Marten.IQuerySession)documentSession)).ConfigureAwait(false);
             
             // The actual HTTP request handler execution
             var trackedWorkItemSucceeded = await Bifrost.TrackedWorkItems.Commands.SucceedTrackedWorkItemHandler.Handle(command, eventStreamOfTrackedWorkItem.Aggregate, _bifrostBus).ConfigureAwait(false);
