@@ -39,6 +39,7 @@ public sealed class OrchestratorApiFactory : WebApplicationFactory<Orchestrator:
     public InMemoryWorkItemLedger WorkItemLedger { get; } = new();
     public StubVirtualKeyQuotaClient VirtualKeyQuota { get; } = new();
     public RecordingExecuteClaimedWork ExecuteClaimedWork { get; } = new();
+    public RecordingKillHarnessProcesses KillHarnessProcesses { get; } = new();
 
     async Task IAsyncLifetime.InitializeAsync()
     {
@@ -59,6 +60,9 @@ public sealed class OrchestratorApiFactory : WebApplicationFactory<Orchestrator:
         builder.UseSetting("Gateway:BaseUrl", "https://gateway.test/");
         builder.UseSetting("Gateway:VirtualKey", "sk-test");
         builder.UseSetting("Gateway:QuotaAccessToken", "test-quota-token");
+        // Keep the silence detector from racing tests; invoke DeclareWorkerOffline directly.
+        builder.UseSetting("WorkerLiveness:SilenceThreshold", "01:00:00");
+        builder.UseSetting("WorkerLiveness:CheckInterval", "01:00:00");
 
         builder.ConfigureTestServices(services =>
         {
@@ -74,6 +78,7 @@ public sealed class OrchestratorApiFactory : WebApplicationFactory<Orchestrator:
             services.AddSingleton(WorkItemLedger);
             services.AddSingleton<IVirtualKeyQuotaClient>(VirtualKeyQuota);
             services.AddSingleton(ExecuteClaimedWork);
+            services.AddSingleton(KillHarnessProcesses);
             services.AddMessageBusHandler<ChangeWorkItemStatusApi.Command>(
                 (_, command, _) =>
                 {
@@ -85,6 +90,13 @@ public sealed class OrchestratorApiFactory : WebApplicationFactory<Orchestrator:
                 (sp, command, _) =>
                 {
                     sp.GetRequiredService<RecordingExecuteClaimedWork>().Record(command);
+                    return Task.CompletedTask;
+                }
+            );
+            services.AddMessageBusHandler<KillHarnessProcessesApi.Command>(
+                (sp, command, _) =>
+                {
+                    sp.GetRequiredService<RecordingKillHarnessProcesses>().Record(command);
                     return Task.CompletedTask;
                 }
             );
@@ -142,6 +154,39 @@ public sealed class RecordingExecuteClaimedWork
         {
             _received.Clear();
             FailuresRemaining = 0;
+        }
+    }
+}
+
+public sealed class RecordingKillHarnessProcesses
+{
+    readonly List<KillHarnessProcessesApi.Command> _received = [];
+    readonly object _gate = new();
+
+    public IReadOnlyList<KillHarnessProcessesApi.Command> Received
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _received.ToArray();
+            }
+        }
+    }
+
+    public void Record(KillHarnessProcessesApi.Command command)
+    {
+        lock (_gate)
+        {
+            _received.Add(command);
+        }
+    }
+
+    public void Clear()
+    {
+        lock (_gate)
+        {
+            _received.Clear();
         }
     }
 }
@@ -232,7 +277,22 @@ public class OrchestratorTests
 
         var node = (await List(client)).Where(x => x.Id == id).ShouldHaveSingleItem();
         node.IsAvailable.ShouldBeTrue();
-        node.IsOnline.ShouldBeFalse();
+        node.IsOnline.ShouldBeTrue();
+        node.LastHeartbeatAt.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task registration_alone_lists_an_online_node()
+    {
+        var client = _factory.CreateClient();
+        var id = Guid.NewGuid();
+
+        await Publish(new WorkerNodeRegistered.Command { Id = id });
+
+        var node = (await List(client)).Where(x => x.Id == id).ShouldHaveSingleItem();
+        node.IsAvailable.ShouldBeTrue();
+        node.IsOnline.ShouldBeTrue();
+        node.LastHeartbeatAt.ShouldNotBeNull();
     }
 
     [Fact]

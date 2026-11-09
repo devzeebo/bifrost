@@ -13,11 +13,13 @@ public class WorkerNode
     {
         Id = e.Id;
         IsAvailable = true;
-    }
-
-    public void Apply(WorkerNodeHeartbeatRecorded e)
-    {
         IsOnline = true;
         LastHeartbeatAt = e.At;
     }
+
+    public void Apply(WorkerNodeHeartbeatRecorded e) => LastHeartbeatAt = e.At;
+
+    public void Apply(WorkerDeclaredOffline _) => IsOnline = false;
+
+    public void Apply(WorkerDeclaredOnline _) => IsOnline = true;
 }

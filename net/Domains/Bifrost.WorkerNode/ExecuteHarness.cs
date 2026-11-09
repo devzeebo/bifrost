@@ -23,6 +23,7 @@ public static class ExecuteHarnessHandler
         IBifrostBus bus,
         WorkerNodeIdentity identity,
         IHarnessAcceptStore accepts,
+        IHarnessRunGate runs,
         HarnessExecutionSlot slot,
         IHarnessProcessRunner runner,
         IOptions<HarnessHostOptions> harnessOptions,
@@ -43,6 +44,7 @@ public static class ExecuteHarnessHandler
             return;
         }
 
+        using var runGate = runs.Begin(command.RunId, cancellationToken, out var runToken);
         var actor = WorkItemLifecycleActors.ForWorker(identity.Id);
 
         if (state is HarnessAcceptState.Running)
@@ -59,7 +61,7 @@ public static class ExecuteHarnessHandler
                             command,
                             actor,
                             "harness ended without a clean exit after the item was already running",
-                            cancellationToken
+                            runToken
                         )
                         .ConfigureAwait(false);
                     accepts.MarkConcluded(command.WorkItemId, command.RunId);
@@ -90,7 +92,7 @@ public static class ExecuteHarnessHandler
 
             var workItem = await bus.Request<GetWorkItemApi.Query, GetWorkItemApi.Response>(
                     new GetWorkItemApi.Query { Id = command.WorkItemId },
-                    cancellationToken
+                    runToken
                 )
                 .ConfigureAwait(false);
 
@@ -107,7 +109,7 @@ public static class ExecuteHarnessHandler
             await File.WriteAllTextAsync(
                     Path.Combine(workspace, "run-spec.json"),
                     spec.ToJsonString(new JsonSerializerOptions { WriteIndented = true }),
-                    cancellationToken
+                    runToken
                 )
                 .ConfigureAwait(false);
 
@@ -120,7 +122,7 @@ public static class ExecuteHarnessHandler
                         Reason = "harness started",
                         Expected = new JsonObject { ["status"] = TrackedWorkItemStatuses.Claimed },
                     },
-                    cancellationToken
+                    runToken
                 )
                 .ConfigureAwait(false);
 
@@ -137,7 +139,7 @@ public static class ExecuteHarnessHandler
                             ["specFingerprint"] = Fingerprint(workItem.Data),
                         },
                     },
-                    cancellationToken
+                    runToken
                 )
                 .ConfigureAwait(false);
 
@@ -156,7 +158,7 @@ public static class ExecuteHarnessHandler
                         ["BIFROST_RUN_ID"] = command.RunId.ToString("D"),
                         ["BIFROST_WORKSPACE"] = workspace,
                     },
-                    cancellationToken
+                    runToken
                 )
                 .ConfigureAwait(false);
 
@@ -166,13 +168,26 @@ public static class ExecuteHarnessHandler
                 return;
             }
 
-            await ReportOutcome(bus, command, actor, result, cancellationToken)
-                .ConfigureAwait(false);
+            if (!await RunStillOpen(bus, command).ConfigureAwait(false))
+            {
+                // Attempt closed under us (death release) — do not report a late outcome.
+                accepts.MarkConcluded(command.WorkItemId, command.RunId);
+                return;
+            }
+
+            await ReportOutcome(bus, command, actor, result, runToken).ConfigureAwait(false);
+            accepts.MarkConcluded(command.WorkItemId, command.RunId);
+        }
+        catch (OperationCanceledException)
+            when (runToken.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            // Kill directive canceled this run only — conclude so we do not report.
             accepts.MarkConcluded(command.WorkItemId, command.RunId);
         }
         catch
         {
-            // Leave Accepted/Running so durable redelivery can resume or recover.
+            // Host/parent cancellation or other failure: leave Accepted/Running so
+            // durable redelivery can resume or recover.
             throw;
         }
     }

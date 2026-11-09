@@ -21,6 +21,7 @@ public class ExecuteHarnessTests
             ctx.Bus,
             ctx.Identity,
             ctx.Accepts,
+            ctx.Runs,
             ctx.Slot,
             ctx.Runner,
             ctx.Options,
@@ -51,6 +52,7 @@ public class ExecuteHarnessTests
             ctx.Bus,
             ctx.Identity,
             ctx.Accepts,
+            ctx.Runs,
             ctx.Slot,
             ctx.Runner,
             ctx.Options,
@@ -78,6 +80,7 @@ public class ExecuteHarnessTests
             ctx.Bus,
             ctx.Identity,
             ctx.Accepts,
+            ctx.Runs,
             ctx.Slot,
             ctx.Runner,
             ctx.Options,
@@ -125,6 +128,7 @@ public class ExecuteHarnessTests
             bus,
             identity,
             accepts,
+            new HarnessRunGate(),
             slot,
             runner,
             options,
@@ -137,6 +141,7 @@ public class ExecuteHarnessTests
             bus,
             identity,
             accepts,
+            new HarnessRunGate(),
             slot,
             runner,
             options,
@@ -175,6 +180,7 @@ public class ExecuteHarnessTests
             bus,
             identity,
             accepts,
+            new HarnessRunGate(),
             new HarnessExecutionSlot(),
             runner,
             Options.Create(
@@ -217,6 +223,7 @@ public class ExecuteHarnessTests
             bus,
             identity,
             accepts,
+            new HarnessRunGate(),
             new HarnessExecutionSlot(),
             runner,
             Options.Create(
@@ -246,6 +253,7 @@ public class ExecuteHarnessTests
         return new TestContext(
             identity,
             accepts,
+            new HarnessRunGate(),
             new HarnessExecutionSlot(),
             command,
             new RecordingBus(
@@ -282,6 +290,7 @@ public class ExecuteHarnessTests
     sealed record TestContext(
         WorkerNodeIdentity Identity,
         HarnessAcceptStore Accepts,
+        IHarnessRunGate Runs,
         HarnessExecutionSlot Slot,
         ExecuteHarness Command,
         RecordingBus Bus,

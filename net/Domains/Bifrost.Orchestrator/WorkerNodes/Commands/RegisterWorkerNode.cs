@@ -20,9 +20,9 @@ public static class RegisterWorkerNodeHandler
 
         session.Events.StartStream<WorkerNode>(
             message.Id,
-            new WorkerNodeRegistered(message.Id)
+            new WorkerNodeRegistered(message.Id, DateTimeOffset.UtcNow)
         );
-        // Registration alone is not online; dispatch no-ops until a heartbeat lands.
+        // Registration proves reachability; the worker starts online and eligible for dispatch.
         return new ProcessWorkItemDispatch();
     }
 }

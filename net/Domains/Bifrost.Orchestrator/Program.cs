@@ -6,6 +6,7 @@ using Bifrost.MessageBus;
 using Bifrost.Orchestrator.Contracts;
 using Bifrost.Rpc;
 using Bifrost.TrackedWorkItems;
+using Bifrost.WorkerNodes;
 using JasperFx;
 using JasperFx.CodeGeneration;
 using Marten;
@@ -61,6 +62,7 @@ builder.Services.AddRpcHost(options =>
 builder.Services.AddMessageBus();
 builder.Services.AddTrackedWorkItemBusQueries();
 builder.Services.AddGatewayQuota(builder.Configuration);
+builder.Services.AddWorkerLiveness(builder.Configuration);
 builder.Services.AddWolverineHttp();
 
 var app = builder.Build();

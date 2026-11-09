@@ -26,6 +26,7 @@ builder.Services.Configure<HarnessHostOptions>(
 );
 builder.Services.AddSingleton(new WorkerNodeIdentity { Id = nodeId });
 builder.Services.AddSingleton<IHarnessAcceptStore>(_ => new HarnessAcceptStore(outboxPath));
+builder.Services.AddSingleton<IHarnessRunGate, HarnessRunGate>();
 builder.Services.AddSingleton<HarnessExecutionSlot>();
 builder.Services.AddSingleton<IHarnessProcessRunner, HarnessProcessRunner>();
 builder.Services.AddSingleton<IHarnessJobScheduler, WolverineHarnessJobScheduler>();
@@ -48,6 +49,17 @@ builder.Services.AddMessageBusHandler<ExecuteClaimedWorkApi.Command>(
             sp.GetRequiredService<IHarnessJobScheduler>(),
             sp.GetRequiredService<WorkerNodeIdentity>(),
             sp.GetRequiredService<IHarnessAcceptStore>()
+        );
+    }
+);
+builder.Services.AddMessageBusHandler<KillHarnessProcessesApi.Command>(
+    async (sp, command, _) =>
+    {
+        await KillHarnessProcessesHandler.Handle(
+            command,
+            sp.GetRequiredService<WorkerNodeIdentity>(),
+            sp.GetRequiredService<IHarnessAcceptStore>(),
+            sp.GetRequiredService<IHarnessRunGate>()
         );
     }
 );
