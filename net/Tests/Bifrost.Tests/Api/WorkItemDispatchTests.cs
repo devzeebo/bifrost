@@ -9,6 +9,7 @@ using Marten;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using Wolverine;
+using DeclareWorkerOffline = Orchestrator::Bifrost.WorkerNodes.DeclareWorkerOffline;
 using DeliverClaimedWork = Orchestrator::Bifrost.TrackedWorkItems.Dispatch.DeliverClaimedWork;
 using TrackedWorkItemModel = Orchestrator::Bifrost.TrackedWorkItems.Projections.TrackedWorkItemView.Model;
 
@@ -302,14 +303,61 @@ public class WorkItemDispatchTests
         held.Items.ShouldHaveSingleItem().Id.ShouldBe(id);
     }
 
+    /// <summary>
+    /// Registers a worker then takes it offline so create stays pending for manual claim tests.
+    /// Claim still accepts a registered (offline) worker.
+    /// </summary>
     async Task<Guid> RegisterWorker()
     {
         var id = Guid.NewGuid();
+        var client = _factory.CreateClient();
         await _factory
             .Services.GetRequiredService<IBifrostBus>()
             .Publish(new WorkerNodeRegistered.Command { Id = id });
+        await WaitFor(
+            async () =>
+            {
+                var nodes = await ListWorkers(client);
+                return nodes.Any(n => n.Id == id && n.IsOnline);
+            },
+            "worker registered online"
+        );
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            await scope
+                .ServiceProvider.GetRequiredService<IMessageBus>()
+                .InvokeAsync(new DeclareWorkerOffline { WorkerId = id });
+        }
+        await WaitFor(
+            async () =>
+            {
+                var nodes = await ListWorkers(client);
+                return nodes.Any(n => n.Id == id && !n.IsOnline);
+            },
+            "worker declared offline"
+        );
         return id;
     }
+
+    static async Task<List<WorkerNodeDto>> ListWorkers(HttpClient client)
+    {
+        var request = new HttpRequestMessage(new HttpMethod("QUERY"), "/list-worker-nodes")
+        {
+            Content = JsonContent.Create(new { }),
+        };
+        var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        return (
+            await response.Content.ReadFromJsonAsync<List<WorkerNodeDto>>(JsonOptions)
+        )!;
+    }
+
+    sealed record WorkerNodeDto(
+        Guid Id,
+        bool IsAvailable,
+        bool IsOnline,
+        DateTimeOffset? LastHeartbeatAt
+    );
 
     static async Task WaitFor(Func<Task<bool>> condition, string label)
     {

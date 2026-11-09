@@ -2,13 +2,14 @@ using Bifrost.TrackedWorkItems.Dispatch;
 using Bifrost.WorkerNodes.Events;
 using Bifrost.WorkerNodes.Projections;
 using Marten;
+using Wolverine;
 using Wolverine.Runtime.Heartbeat;
 
 namespace Bifrost.WorkerNodes.Commands;
 
 public static class RecordWorkerHeartbeatHandler
 {
-    public static async Task<ProcessWorkItemDispatch?> Handle(
+    public static async Task<OutgoingMessages?> Handle(
         WolverineHeartbeat heartbeat,
         IDocumentSession session
     )
@@ -26,12 +27,14 @@ public static class RecordWorkerHeartbeatHandler
         var view = await session.LoadAsync<WorkerNodeView.Model>(id);
         session.Events.Append(id, new WorkerNodeHeartbeatRecorded(heartbeat.SentAt));
 
-        // Sticky-online: only the transition onto the board wakes dispatch.
-        if (view is { IsOnline: true })
+        // Presence-only: a beat never judges the worker offline. Coming back from a
+        // recorded offline is an observation — the first fresh beat speaks online.
+        if (view is not { IsOnline: false })
         {
             return null;
         }
 
-        return new ProcessWorkItemDispatch();
+        session.Events.Append(id, new WorkerDeclaredOnline { At = heartbeat.SentAt });
+        return [new ProcessWorkItemDispatch()];
     }
 }

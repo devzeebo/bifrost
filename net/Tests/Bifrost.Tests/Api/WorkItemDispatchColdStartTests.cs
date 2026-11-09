@@ -5,8 +5,6 @@ using Bifrost.MessageBus;
 using Bifrost.Orchestrator.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
-using Wolverine.Runtime.Heartbeat;
-
 namespace Bifrost.Tests.Api;
 
 /// <summary>
@@ -31,7 +29,7 @@ public class WorkItemDispatchColdStartTests
     }
 
     [Fact]
-    public async Task create_with_zero_online_workers_stays_pending_until_heartbeat()
+    public async Task create_with_zero_online_workers_stays_pending_until_registration()
     {
         var client = _factory.CreateClient();
         var id = Guid.NewGuid();
@@ -45,15 +43,10 @@ public class WorkItemDispatchColdStartTests
         var workerId = Guid.NewGuid();
         var bus = _factory.Services.GetRequiredService<IBifrostBus>();
         await bus.Publish(new WorkerNodeRegistered.Command { Id = workerId });
-        (await Get(client, id)).Status.ShouldBe(TrackedWorkItemStatuses.Pending);
-
-        await bus.Publish(
-            new WolverineHeartbeat(workerId.ToString(), 1, DateTimeOffset.UtcNow, TimeSpan.Zero)
-        );
 
         await WaitFor(
             async () => (await Get(client, id)).Status == TrackedWorkItemStatuses.Claimed,
-            "item claimed after worker online"
+            "item claimed after worker registers online"
         );
         (await Get(client, id)).HolderId.ShouldBe(workerId);
     }

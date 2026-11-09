@@ -1,3 +1,5 @@
+extern alias Orchestrator;
+
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -5,6 +7,8 @@ using Bifrost.MessageBus;
 using Bifrost.Orchestrator.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
+using Wolverine;
+using DeclareWorkerOffline = Orchestrator::Bifrost.WorkerNodes.DeclareWorkerOffline;
 
 namespace Bifrost.Tests.Api;
 
@@ -152,8 +156,9 @@ public class TrackedWorkItemLifecycleTests
     public async Task stale_expected_status_is_rejected_as_validation_error()
     {
         var client = _factory.CreateClient();
-        var id = await CreateAt(client, TrackedWorkItemStatuses.Pending);
+        // Register first so the brief online window cannot auto-claim the pending item.
         var workerId = await RegisterWorker();
+        var id = await CreateAt(client, TrackedWorkItemStatuses.Pending);
 
         var response = await Post(
             client,
@@ -203,9 +208,9 @@ public class TrackedWorkItemLifecycleTests
     public async Task mirror_request_key_makes_ledger_write_replay_safe()
     {
         var client = _factory.CreateClient();
+        var workerId = await RegisterWorker();
         var id = await CreateAt(client, TrackedWorkItemStatuses.Pending);
         var historyBefore = _factory.WorkItemLedger.HistoryOf(id).Count;
-        var workerId = await RegisterWorker();
 
         (
             await Post(client, "/claim-tracked-work-item", Body(id, "dispatch", workerId))
@@ -408,29 +413,79 @@ public class TrackedWorkItemLifecycleTests
         (await Get(client, id)).Status.ShouldBe(TrackedWorkItemStatuses.Pending);
     }
 
+    /// <summary>
+    /// Registers then takes offline so create stays pending for manual claim setup.
+    /// </summary>
     async Task<Guid> RegisterWorker()
     {
         var id = Guid.NewGuid();
+        var client = _factory.CreateClient();
         await _factory
             .Services.GetRequiredService<IBifrostBus>()
             .Publish(new WorkerNodeRegistered.Command { Id = id });
+        await WaitForWorker(client, id, online: true);
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            await scope
+                .ServiceProvider.GetRequiredService<IMessageBus>()
+                .InvokeAsync(new DeclareWorkerOffline { WorkerId = id });
+        }
+
+        await WaitForWorker(client, id, online: false);
         return id;
     }
+
+    static async Task WaitForWorker(HttpClient client, Guid id, bool online)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (DateTime.UtcNow < deadline)
+        {
+            var request = new HttpRequestMessage(new HttpMethod("QUERY"), "/list-worker-nodes")
+            {
+                Content = JsonContent.Create(new { }),
+            };
+            var response = await client.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+            var nodes = (
+                await response.Content.ReadFromJsonAsync<List<WorkerNodeDto>>(JsonOptions)
+            )!;
+            if (nodes.Any(n => n.Id == id && n.IsOnline == online))
+            {
+                return;
+            }
+
+            await Task.Delay(50);
+        }
+
+        throw new TimeoutException(
+            $"Timed out waiting for worker {id} online={online}."
+        );
+    }
+
+    sealed record WorkerNodeDto(
+        Guid Id,
+        bool IsAvailable,
+        bool IsOnline,
+        DateTimeOffset? LastHeartbeatAt
+    );
 
     async Task<Guid> CreateAt(HttpClient client, string status)
     {
         var id = Guid.NewGuid();
         _factory.WorkItemLedger.Seed(id);
-        (await Post(client, "/create-tracked-work-item", Body(id, "accept"))).StatusCode.ShouldBe(
-            HttpStatusCode.NoContent
-        );
 
         if (status is TrackedWorkItemStatuses.Pending)
         {
+            (await Post(client, "/create-tracked-work-item", Body(id, "accept")))
+                .StatusCode.ShouldBe(HttpStatusCode.NoContent);
             return id;
         }
 
+        // Register (ends offline) before create so the brief online window cannot auto-claim.
         var workerId = await RegisterWorker();
+        (await Post(client, "/create-tracked-work-item", Body(id, "accept"))).StatusCode.ShouldBe(
+            HttpStatusCode.NoContent
+        );
         (
             await Post(client, "/claim-tracked-work-item", Body(id, "dispatch", workerId))
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
