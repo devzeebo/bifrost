@@ -3,6 +3,7 @@ extern alias Orchestrator;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Bifrost.MessageBus;
 using Bifrost.Orchestrator.Contracts;
 using Marten;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,8 +40,8 @@ public class WorkItemDispatchTests
     {
         var client = _factory.CreateClient();
         var id = Guid.NewGuid();
-        var first = Guid.NewGuid();
-        var second = Guid.NewGuid();
+        var first = await RegisterWorker();
+        var second = await RegisterWorker();
         _factory.WorkItemLedger.Seed(id);
 
         (await Post(client, "/create-tracked-work-item", Body(id, "accept"))).StatusCode.ShouldBe(
@@ -59,14 +60,17 @@ public class WorkItemDispatchTests
         item.Status.ShouldBe(TrackedWorkItemStatuses.Claimed);
         item.HolderId.ShouldBeOneOf(first, second);
 
-        (await ListRuns(client, id)).Count.ShouldBe(1);
+        await WaitFor(
+            async () => (await ListRuns(client, id)).Count == 1,
+            "run born for winner"
+        );
     }
 
     [Fact]
     public async Task holder_query_lists_claimed_and_running_and_clears_on_release()
     {
         var client = _factory.CreateClient();
-        var workerId = Guid.NewGuid();
+        var workerId = await RegisterWorker();
         var claimedId = Guid.NewGuid();
         var runningId = Guid.NewGuid();
         _factory.WorkItemLedger.Seed(claimedId);
@@ -117,7 +121,7 @@ public class WorkItemDispatchTests
     public async Task cancel_before_handoff_skips_delivery()
     {
         var client = _factory.CreateClient();
-        var workerId = Guid.NewGuid();
+        var workerId = await RegisterWorker();
         var id = Guid.NewGuid();
         var runId = Guid.NewGuid();
         _factory.WorkItemLedger.Seed(id);
@@ -167,10 +171,101 @@ public class WorkItemDispatchTests
     }
 
     [Fact]
+    public async Task handoff_rethrows_while_held_then_succeeds_on_retry()
+    {
+        var client = _factory.CreateClient();
+        var workerId = await RegisterWorker();
+        var id = Guid.NewGuid();
+        _factory.WorkItemLedger.Seed(id);
+        _factory.ExecuteClaimedWork.Clear();
+
+        (await Post(client, "/create-tracked-work-item", Body(id, "accept"))).StatusCode.ShouldBe(
+            HttpStatusCode.NoContent
+        );
+        (
+            await Post(client, "/claim-tracked-work-item", Body(id, "dispatch", workerId))
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        await WaitFor(
+            () => Task.FromResult(_factory.ExecuteClaimedWork.Received.Any(r => r.WorkItemId == id)),
+            "initial handoff"
+        );
+        var runId = _factory.ExecuteClaimedWork.Received.Single(r => r.WorkItemId == id).RunId;
+        _factory.ExecuteClaimedWork.Clear();
+        _factory.ExecuteClaimedWork.FailuresRemaining = 1;
+
+        var deliver = new DeliverClaimedWork
+        {
+            WorkItemId = id,
+            WorkerId = workerId,
+            RunId = runId,
+        };
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+            await Should.ThrowAsync<BusException>(() => bus.InvokeAsync(deliver));
+            _factory.ExecuteClaimedWork.FailuresRemaining.ShouldBe(0);
+            _factory.ExecuteClaimedWork.Received.ShouldBeEmpty();
+
+            await bus.InvokeAsync(deliver);
+        }
+
+        _factory.ExecuteClaimedWork.Received.ShouldHaveSingleItem().WorkItemId.ShouldBe(id);
+        (await Get(client, id)).HolderId.ShouldBe(workerId);
+    }
+
+    [Fact]
+    public async Task handoff_bus_failure_drops_after_release()
+    {
+        var client = _factory.CreateClient();
+        var workerId = await RegisterWorker();
+        var id = Guid.NewGuid();
+        _factory.WorkItemLedger.Seed(id);
+        _factory.ExecuteClaimedWork.Clear();
+
+        (await Post(client, "/create-tracked-work-item", Body(id, "accept"))).StatusCode.ShouldBe(
+            HttpStatusCode.NoContent
+        );
+        (
+            await Post(client, "/claim-tracked-work-item", Body(id, "dispatch", workerId))
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        await WaitFor(
+            () => Task.FromResult(_factory.ExecuteClaimedWork.Received.Any(r => r.WorkItemId == id)),
+            "initial handoff"
+        );
+        var runId = _factory.ExecuteClaimedWork.Received.Single(r => r.WorkItemId == id).RunId;
+        _factory.ExecuteClaimedWork.Clear();
+        _factory.ExecuteClaimedWork.FailuresRemaining = 1;
+
+        (
+            await Post(client, "/release-tracked-work-item", Body(id, "dead-worker"))
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            await scope
+                .ServiceProvider.GetRequiredService<IMessageBus>()
+                .InvokeAsync(
+                    new DeliverClaimedWork
+                    {
+                        WorkItemId = id,
+                        WorkerId = workerId,
+                        RunId = runId,
+                    }
+                );
+        }
+
+        _factory.ExecuteClaimedWork.Received.ShouldBeEmpty();
+        _factory.ExecuteClaimedWork.FailuresRemaining.ShouldBe(1);
+    }
+
+    [Fact]
     public async Task holder_query_survives_projection_reload()
     {
         var client = _factory.CreateClient();
-        var workerId = Guid.NewGuid();
+        var workerId = await RegisterWorker();
         var id = Guid.NewGuid();
         _factory.WorkItemLedger.Seed(id);
 
@@ -190,6 +285,15 @@ public class WorkItemDispatchTests
 
         var held = await ListHeld(client, workerId);
         held.Items.ShouldHaveSingleItem().Id.ShouldBe(id);
+    }
+
+    async Task<Guid> RegisterWorker()
+    {
+        var id = Guid.NewGuid();
+        await _factory
+            .Services.GetRequiredService<IBifrostBus>()
+            .Publish(new WorkerNodeRegistered.Command { Id = id });
+        return id;
     }
 
     static async Task WaitFor(Func<Task<bool>> condition, string label)

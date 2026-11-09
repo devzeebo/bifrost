@@ -49,6 +49,10 @@ public class WorkItemDispatchOnlineTests
         var item = await Get(client, id);
         item.HolderId.ShouldNotBeNull();
 
+        await WaitFor(
+            async () => (await ListRuns(client, id)).Count == 1,
+            "run born at claim"
+        );
         var runs = await ListRuns(client, id);
         runs.ShouldHaveSingleItem().WorkItemId.ShouldBe(id);
 

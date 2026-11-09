@@ -42,6 +42,9 @@ builder.Host.UseWolverine(opts =>
     );
     opts.Discovery.IncludeAssembly(typeof(MartenConfiguration).Assembly);
     opts.Policies.AutoApplyTransactions();
+    // ProcessWorkItemDispatch / CreateRun / DeliverClaimedWork cascades are enlisted in
+    // Marten's transactional outbox (IntegrateWithWolverine + OutboxedSessionFactory) with
+    // the claim/create/release commit — a crash after commit still reloads and flushes them.
     opts.UseBifrostBus()
         .ListenFor<WorkerNodeRegistered.Command>()
         .ListenFor<WolverineHeartbeat>();

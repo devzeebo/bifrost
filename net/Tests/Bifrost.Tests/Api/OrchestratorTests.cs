@@ -102,6 +102,9 @@ public sealed class RecordingExecuteClaimedWork
     readonly List<ExecuteClaimedWorkApi.Command> _received = [];
     readonly object _gate = new();
 
+    /// <summary>Next N handoff requests throw so DeliverClaimedWork must retry.</summary>
+    public int FailuresRemaining { get; set; }
+
     public IReadOnlyList<ExecuteClaimedWorkApi.Command> Received
     {
         get
@@ -117,6 +120,18 @@ public sealed class RecordingExecuteClaimedWork
     {
         lock (_gate)
         {
+            if (FailuresRemaining > 0)
+            {
+                FailuresRemaining--;
+                throw new BusException(
+                    new BusError
+                    {
+                        Code = BusErrorCodes.Internal,
+                        Message = "handoff failed",
+                    }
+                );
+            }
+
             _received.Add(command);
         }
     }
@@ -126,6 +141,7 @@ public sealed class RecordingExecuteClaimedWork
         lock (_gate)
         {
             _received.Clear();
+            FailuresRemaining = 0;
         }
     }
 }

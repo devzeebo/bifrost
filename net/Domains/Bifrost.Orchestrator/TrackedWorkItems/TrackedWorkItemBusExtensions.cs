@@ -16,10 +16,18 @@ public static class TrackedWorkItemBusExtensions
         {
             ArgumentNullException.ThrowIfNull(services);
 
-            services.AddMessageBusHandler<
-                GetTrackedWorkItemApi.Query,
-                GetTrackedWorkItemApi.Response
-            >(
+            services.Query<GetTrackedWorkItemApi.Query, GetTrackedWorkItemApi.Response>();
+            services.Query<
+                ListTrackedWorkItemsHeldByWorkerApi.Query,
+                ListTrackedWorkItemsHeldByWorkerApi.Response
+            >();
+            return services;
+        }
+
+        void Query<TQuery, TResponse>()
+            where TQuery : class
+        {
+            services.AddMessageBusHandler<TQuery, TResponse>(
                 async (sp, query, ct) =>
                 {
                     await using var scope = sp.CreateAsyncScope();
@@ -27,7 +35,7 @@ public static class TrackedWorkItemBusExtensions
                     {
                         return await scope
                             .ServiceProvider.GetRequiredService<IMessageBus>()
-                            .InvokeAsync<GetTrackedWorkItemApi.Response>(query, ct);
+                            .InvokeAsync<TResponse>(query, ct);
                     }
                     catch (CommandValidationException ex)
                     {
@@ -41,7 +49,6 @@ public static class TrackedWorkItemBusExtensions
                     }
                 }
             );
-            return services;
         }
     }
 }

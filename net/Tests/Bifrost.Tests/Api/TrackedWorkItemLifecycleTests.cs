@@ -1,12 +1,20 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Bifrost.MessageBus;
 using Bifrost.Orchestrator.Contracts;
+using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 
 namespace Bifrost.Tests.Api;
 
-[Collection("orchestrator")]
+[CollectionDefinition("orchestrator-lifecycle")]
+public sealed class OrchestratorLifecycleCollection : ICollectionFixture<OrchestratorApiFactory>;
+
+/// <summary>
+/// Own factory so OrchestratorTests worker heartbeats cannot auto-claim pending items.
+/// </summary>
+[Collection("orchestrator-lifecycle")]
 public class TrackedWorkItemLifecycleTests
 {
     readonly OrchestratorApiFactory _factory;
@@ -25,7 +33,7 @@ public class TrackedWorkItemLifecycleTests
     {
         var client = _factory.CreateClient();
         var id = Guid.NewGuid();
-        var workerId = Guid.NewGuid();
+        var workerId = await RegisterWorker();
         _factory.WorkItemLedger.Seed(id);
 
         (await Post(client, "/create-tracked-work-item", Body(id, "accept"))).StatusCode.ShouldBe(
@@ -138,6 +146,7 @@ public class TrackedWorkItemLifecycleTests
     {
         var client = _factory.CreateClient();
         var id = await CreateAt(client, TrackedWorkItemStatuses.Pending);
+        var workerId = await RegisterWorker();
 
         var response = await Post(
             client,
@@ -145,7 +154,7 @@ public class TrackedWorkItemLifecycleTests
             new
             {
                 id,
-                workerId = Guid.NewGuid(),
+                workerId,
                 actor = "orchestrator",
                 reason = "race",
                 expected = new { status = TrackedWorkItemStatuses.Running },
@@ -189,9 +198,10 @@ public class TrackedWorkItemLifecycleTests
         var client = _factory.CreateClient();
         var id = await CreateAt(client, TrackedWorkItemStatuses.Pending);
         var historyBefore = _factory.WorkItemLedger.HistoryOf(id).Count;
+        var workerId = await RegisterWorker();
 
         (
-            await Post(client, "/claim-tracked-work-item", Body(id, "dispatch", Guid.NewGuid()))
+            await Post(client, "/claim-tracked-work-item", Body(id, "dispatch", workerId))
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
         _factory.WorkItemLedger.HistoryOf(id).Count.ShouldBe(historyBefore + 1);
 
@@ -246,6 +256,31 @@ public class TrackedWorkItemLifecycleTests
         (await Get(client, id)).Status.ShouldBe(TrackedWorkItemStatuses.Pending);
     }
 
+    [Fact]
+    public async Task claim_rejects_unregistered_worker()
+    {
+        var client = _factory.CreateClient();
+        var id = await CreateAt(client, TrackedWorkItemStatuses.Pending);
+
+        var response = await Post(
+            client,
+            "/claim-tracked-work-item",
+            Body(id, "dispatch", Guid.NewGuid())
+        );
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await response.Content.ReadAsStringAsync()).ShouldContain("not registered");
+        (await Get(client, id)).Status.ShouldBe(TrackedWorkItemStatuses.Pending);
+    }
+
+    async Task<Guid> RegisterWorker()
+    {
+        var id = Guid.NewGuid();
+        await _factory
+            .Services.GetRequiredService<IBifrostBus>()
+            .Publish(new WorkerNodeRegistered.Command { Id = id });
+        return id;
+    }
+
     async Task<Guid> CreateAt(HttpClient client, string status)
     {
         var id = Guid.NewGuid();
@@ -259,8 +294,9 @@ public class TrackedWorkItemLifecycleTests
             return id;
         }
 
+        var workerId = await RegisterWorker();
         (
-            await Post(client, "/claim-tracked-work-item", Body(id, "dispatch", Guid.NewGuid()))
+            await Post(client, "/claim-tracked-work-item", Body(id, "dispatch", workerId))
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
         if (status is TrackedWorkItemStatuses.Claimed)
         {

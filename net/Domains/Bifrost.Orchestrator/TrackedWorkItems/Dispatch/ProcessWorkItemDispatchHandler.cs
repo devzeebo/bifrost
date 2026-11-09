@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using Bifrost.Orchestrator.Contracts;
 using Bifrost.TrackedWorkItems.Projections;
 using Bifrost.WorkerNodes.Projections;
+using JasperFx.Events;
 using Marten;
 using Wolverine;
 
@@ -55,7 +56,15 @@ public static class ProcessWorkItemDispatchHandler
             }
             catch (Exception ex) when (IsClaimRaceLoss(ex))
             {
-                // Another claim won; leave that item alone and keep walking the rest.
+                // Only swallow when another claim actually took the item.
+                var current = await session.LoadAsync<TrackedWorkItemView.Model>(item.Id);
+                if (
+                    current is null
+                    || current.Status == TrackedWorkItemStatuses.Pending
+                )
+                {
+                    throw;
+                }
             }
         }
     }
@@ -66,13 +75,7 @@ public static class ProcessWorkItemDispatchHandler
 
     static bool IsClaimRaceLoss(Exception ex) =>
         ex is CommandValidationException or ContractValidationException
-        || ex is JasperFx.Events.EventStreamUnexpectedMaxEventIdException
+        || ex is EventStreamUnexpectedMaxEventIdException
         || ex.InnerException is CommandValidationException or ContractValidationException
-        || ex.InnerException is JasperFx.Events.EventStreamUnexpectedMaxEventIdException
-        || ex.Message.Contains("expected state", StringComparison.OrdinalIgnoreCase)
-        || ex.Message.Contains("Cannot claim", StringComparison.OrdinalIgnoreCase)
-        || ex.Message.Contains(
-            "pk_mt_events_stream_and_version",
-            StringComparison.OrdinalIgnoreCase
-        );
+        || ex.InnerException is EventStreamUnexpectedMaxEventIdException;
 }

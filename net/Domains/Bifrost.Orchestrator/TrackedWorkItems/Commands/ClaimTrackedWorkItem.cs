@@ -4,6 +4,8 @@ using Bifrost.TrackedWorkItems.Aggregate;
 using Bifrost.TrackedWorkItems.Dispatch;
 using Bifrost.TrackedWorkItems.Events;
 using Bifrost.TrackedWorkItems.Services;
+using Bifrost.WorkerNodes.Projections;
+using Marten;
 using Wolverine;
 using Wolverine.Marten;
 
@@ -11,11 +13,22 @@ namespace Bifrost.TrackedWorkItems.Commands;
 
 public static class ClaimTrackedWorkItemHandler
 {
-    public static void Validate(ClaimTrackedWorkItemApi.Command command, TrackedWorkItem item)
+    public static async Task Validate(
+        ClaimTrackedWorkItemApi.Command command,
+        TrackedWorkItem item,
+        IQuerySession session
+    )
     {
         if (command.WorkerId == Guid.Empty)
         {
             throw new CommandValidationException("WorkerId is required.");
+        }
+
+        if (await session.LoadAsync<WorkerNodeView.Model>(command.WorkerId) is null)
+        {
+            throw new CommandValidationException(
+                $"Worker {command.WorkerId} is not registered."
+            );
         }
 
         item.EnsureExpected(command.Expected);
@@ -60,6 +73,8 @@ public static class ClaimTrackedWorkItemHandler
         );
 
         var runId = Guid.NewGuid();
+        // CreateRun first; DeliverClaimedWork waits for the run row so handoff cannot
+        // race ahead of run birth when cascades flush out of order.
         var cascades = new OutgoingMessages
         {
             new CreateRunApi.Command
