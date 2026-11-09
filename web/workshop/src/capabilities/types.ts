@@ -47,6 +47,7 @@ export type EvalSpend = {
 
 export type EvalCheckVerdict = {
   readonly checkId: string
+  readonly statement: string
   readonly kind: string
   readonly status: string
   readonly reason: string
@@ -63,6 +64,7 @@ export type EvalCaseRun = {
   readonly isEval: boolean
   readonly status: string
   readonly outcome: string | null
+  readonly failureReason: string | null
   readonly transcript: readonly TranscriptLine[]
   readonly spend: EvalSpend | null
   readonly checks: readonly EvalCheckVerdict[]
@@ -89,6 +91,7 @@ export type CriterionEvalRollup = {
 
 export type CapabilityEvalOutcomes = {
   readonly capabilityId: string
+  readonly activeSuiteRunId: string | null
   readonly suite: SuiteEvalSummary
   readonly criteria: readonly CriterionEvalRollup[]
   readonly evals: readonly (EvalLatestOutcome & {

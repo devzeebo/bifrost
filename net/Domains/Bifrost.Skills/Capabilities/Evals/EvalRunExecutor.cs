@@ -78,7 +78,16 @@ public sealed class EvalRunExecutor(
         try
         {
             var userText = BuildUserInput(eval);
-            using var inputDoc = JsonDocument.Parse(JsonSerializer.Serialize(userText));
+            using var inputDoc = JsonDocument.Parse(
+                JsonSerializer.Serialize(
+                    new
+                    {
+                        type = "message",
+                        role = "user",
+                        content = userText,
+                    }
+                )
+            );
             var input = new[] { inputDoc.RootElement.Clone() };
             var response = await modelClient.CreateResponse(
                 new ModelRequest
@@ -91,11 +100,28 @@ public sealed class EvalRunExecutor(
                 ct
             );
 
+            if (!IsSuccessfulResponse(response))
+            {
+                await MarkNeverCompleted(
+                    session,
+                    run,
+                    $"Model response was incomplete (status: {response.Status})."
+                );
+                await session.SaveChangesAsync(CancellationToken.None);
+                return run;
+            }
+
             run.Transcript =
             [
                 new TranscriptLine { Role = "system", Text = skillMarkdown },
                 new TranscriptLine { Role = "user", Text = userText },
-                new TranscriptLine { Role = "assistant", Text = response.OutputText },
+                new TranscriptLine
+                {
+                    Role = "assistant",
+                    Text = string.IsNullOrWhiteSpace(response.OutputText)
+                        ? FormatOutputFallback(response.Output)
+                        : response.OutputText,
+                },
             ];
             run.Spend = ToSpend(response.Usage);
             run.Checks = await BuildCheckVerdicts(eval, run.Transcript, ct);
@@ -103,33 +129,52 @@ public sealed class EvalRunExecutor(
             run.Status = EvalCaseRunStatuses.Completed;
             run.CompletedAt = DateTimeOffset.UtcNow;
             session.Store(run);
-            StoreLatest(session, run);
+            await StoreLatest(session, run);
             await session.SaveChangesAsync(ct);
             return run;
         }
         catch (OperationCanceledException)
         {
-            MarkNeverCompleted(session, run);
+            await MarkNeverCompleted(session, run, "Canceled.");
+            await session.SaveChangesAsync(CancellationToken.None);
+            throw;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            await MarkNeverCompleted(session, run, ex.Message);
             await session.SaveChangesAsync(CancellationToken.None);
             throw;
         }
     }
 
-    public void MarkNeverCompleted(IDocumentSession session, EvalCaseRunDocument run)
+    public async Task MarkNeverCompleted(
+        IDocumentSession session,
+        EvalCaseRunDocument run,
+        string? failureReason = null
+    )
     {
         run.Status = EvalCaseRunStatuses.NeverCompleted;
         run.Outcome = null;
+        run.FailureReason = failureReason;
         run.CompletedAt = DateTimeOffset.UtcNow;
         session.Store(run);
-        StoreLatest(session, run);
+        await StoreLatest(session, run);
     }
 
-    public static void StoreLatest(IDocumentSession session, EvalCaseRunDocument run)
+    public static async Task StoreLatest(IDocumentSession session, EvalCaseRunDocument run)
     {
+        var key = EvalLatestByEvalDocument.Key(run.CapabilityId, run.EvalId);
+        var recordedAt = run.CompletedAt ?? run.StartedAt;
+        var existing = await session.LoadAsync<EvalLatestByEvalDocument>(key);
+        if (existing is not null && existing.RecordedAt > recordedAt)
+        {
+            return;
+        }
+
         session.Store(
             new EvalLatestByEvalDocument
             {
-                Id = EvalLatestByEvalDocument.Key(run.CapabilityId, run.EvalId),
+                Id = key,
                 CapabilityId = run.CapabilityId,
                 EvalId = run.EvalId,
                 CriterionId = run.CriterionId,
@@ -137,7 +182,7 @@ public sealed class EvalRunExecutor(
                 Status = EvalOutcomeRollup.LatestStatus(run),
                 CapabilityVersionId = run.CapabilityVersionId,
                 SkillVersionId = run.SkillVersionId,
-                RecordedAt = run.CompletedAt ?? run.StartedAt,
+                RecordedAt = recordedAt,
             }
         );
     }
@@ -158,6 +203,7 @@ public sealed class EvalRunExecutor(
                     new EvalCheckVerdict
                     {
                         CheckId = check.Id,
+                        Statement = check.Statement,
                         Kind = check.Kind,
                         Status = EvalCheckVerdictStatuses.Unsettled,
                         Reason = "Awaiting human review",
@@ -181,6 +227,7 @@ public sealed class EvalRunExecutor(
                 new EvalCheckVerdict
                 {
                     CheckId = check.Id,
+                    Statement = check.Statement,
                     Kind = string.IsNullOrWhiteSpace(check.Kind) ? CheckKinds.Script : check.Kind,
                     Status = result.Status,
                     Reason = result.Reason,
@@ -203,6 +250,22 @@ public sealed class EvalRunExecutor(
             Cost = usage?.Cost,
         };
     }
+
+    static bool IsSuccessfulResponse(ModelResponse response) =>
+        string.Equals(response.Status, "completed", StringComparison.OrdinalIgnoreCase)
+        || (
+            string.IsNullOrWhiteSpace(response.Status)
+            && (
+                !string.IsNullOrWhiteSpace(response.OutputText)
+                || response.Output.Count > 0
+            )
+        );
+
+    static string FormatOutputFallback(IReadOnlyList<JsonElement> output) =>
+        string.Join(
+            "\n",
+            output.Select(item => item.ToString()).Where(text => !string.IsNullOrWhiteSpace(text))
+        );
 
     static string BuildUserInput(EvalSnapshot eval)
     {

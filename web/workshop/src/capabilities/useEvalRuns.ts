@@ -32,28 +32,90 @@ export const useEvalRuns = (capabilityId: string) => {
   const [skillVersions, setSkillVersions] = useState<readonly SkillVersionSummary[]>([])
   const [skillTarget, setSkillTarget] = useState<SkillTarget>('draft')
   const [caseRuns, setCaseRuns] = useState<ReadonlyMap<string, EvalCaseRun>>(new Map())
-  const [busyEvalId, setBusyEvalId] = useState<string | null>(null)
+  const [busyEvalIds, setBusyEvalIds] = useState<ReadonlySet<string>>(new Set())
   const [suiteBusy, setSuiteBusy] = useState(false)
   const [activeSuiteRunId, setActiveSuiteRunId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const pollRef = useRef<number | null>(null)
+  const pollSuiteIdRef = useRef<string | null>(null)
+  const reloadGeneration = useRef(0)
+  const reloadRef = useRef<() => Promise<void>>(async () => {})
 
   const stopPolling = useCallback(() => {
     if (pollRef.current != null) {
       window.clearInterval(pollRef.current)
       pollRef.current = null
     }
+    pollSuiteIdRef.current = null
   }, [])
 
+  const applySuiteCases = useCallback((cases: readonly EvalCaseRun[]) => {
+    setCaseRuns((current) => {
+      const next = new Map(current)
+      for (const run of cases) {
+        next.set(run.evalId, run)
+      }
+      return next
+    })
+  }, [])
+
+  const pollSuite = useCallback(
+    (suiteRunId: string) => {
+      stopPolling()
+      pollSuiteIdRef.current = suiteRunId
+      pollRef.current = window.setInterval(() => {
+        void (async () => {
+          if (pollSuiteIdRef.current !== suiteRunId) {
+            return
+          }
+          try {
+            const suite = await getEvalSuiteRun(suiteRunId)
+            if (pollSuiteIdRef.current !== suiteRunId) {
+              return
+            }
+            applySuiteCases(suite.cases)
+            if (suite.status !== 'running') {
+              stopPolling()
+              setSuiteBusy(false)
+              setActiveSuiteRunId(null)
+              await reloadRef.current()
+            }
+          } catch (err) {
+            if (pollSuiteIdRef.current !== suiteRunId) {
+              return
+            }
+            setError(err instanceof Error ? err.message : 'Could not poll suite')
+          }
+        })()
+      }, 750)
+    },
+    [applySuiteCases, stopPolling],
+  )
+
   const reload = useCallback(async () => {
+    const generation = ++reloadGeneration.current
     try {
       const [nextOutcomes, versions] = await Promise.all([
         getCapabilityEvalOutcomes(capabilityId),
         listSkillVersions(capabilityId),
       ])
+      if (generation !== reloadGeneration.current) {
+        return
+      }
       setOutcomes(nextOutcomes)
       setSkillVersions(versions)
       setError(null)
+
+      if (nextOutcomes.activeSuiteRunId != null) {
+        setActiveSuiteRunId(nextOutcomes.activeSuiteRunId)
+        setSuiteBusy(true)
+        if (pollSuiteIdRef.current !== nextOutcomes.activeSuiteRunId) {
+          pollSuite(nextOutcomes.activeSuiteRunId)
+        }
+      } else if (pollSuiteIdRef.current == null) {
+        setActiveSuiteRunId(null)
+        setSuiteBusy(false)
+      }
 
       const runs = new Map<string, EvalCaseRun>()
       await Promise.all(
@@ -68,16 +130,33 @@ export const useEvalRuns = (capabilityId: string) => {
           }
         }),
       )
+      if (generation !== reloadGeneration.current) {
+        return
+      }
       setCaseRuns(runs)
     } catch (err) {
+      if (generation !== reloadGeneration.current) {
+        return
+      }
       setError(err instanceof Error ? err.message : 'Could not load eval outcomes')
     }
-  }, [capabilityId])
+  }, [capabilityId, pollSuite])
+
+  reloadRef.current = reload
 
   useEffect(() => {
+    setOutcomes(null)
+    setSkillVersions([])
+    setSkillTarget('draft')
+    setCaseRuns(new Map())
+    setBusyEvalIds(new Set())
+    setSuiteBusy(false)
+    setActiveSuiteRunId(null)
+    setError(null)
+    stopPolling()
     void reload()
     return stopPolling
-  }, [reload, stopPolling])
+  }, [capabilityId, reload, stopPolling])
 
   const outcomeMap = useMemo(() => {
     const map = new Map<string, EvalLatestOutcome>()
@@ -97,45 +176,9 @@ export const useEvalRuns = (capabilityId: string) => {
 
   const skillVersionId = skillTarget === 'draft' ? null : skillTarget
 
-  const applySuiteCases = useCallback((cases: readonly EvalCaseRun[]) => {
-    setCaseRuns((current) => {
-      const next = new Map(current)
-      for (const run of cases) {
-        next.set(run.evalId, run)
-      }
-      return next
-    })
-  }, [])
-
-  const pollSuite = useCallback(
-    (suiteRunId: string) => {
-      stopPolling()
-      pollRef.current = window.setInterval(() => {
-        void (async () => {
-          try {
-            const suite = await getEvalSuiteRun(suiteRunId)
-            applySuiteCases(suite.cases)
-            if (suite.status !== 'running') {
-              stopPolling()
-              setSuiteBusy(false)
-              setActiveSuiteRunId(null)
-              await reload()
-            }
-          } catch (err) {
-            stopPolling()
-            setSuiteBusy(false)
-            setActiveSuiteRunId(null)
-            setError(err instanceof Error ? err.message : 'Could not poll suite')
-          }
-        })()
-      }, 750)
-    },
-    [applySuiteCases, reload, stopPolling],
-  )
-
   const runCase = useCallback(
     async (evalId: string) => {
-      setBusyEvalId(evalId)
+      setBusyEvalIds((current) => new Set(current).add(evalId))
       setError(null)
       try {
         const run = await runCapabilityEval({
@@ -152,7 +195,11 @@ export const useEvalRuns = (capabilityId: string) => {
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Could not run eval')
       } finally {
-        setBusyEvalId(null)
+        setBusyEvalIds((current) => {
+          const next = new Set(current)
+          next.delete(evalId)
+          return next
+        })
       }
     },
     [capabilityId, reload, skillVersionId],
@@ -195,7 +242,7 @@ export const useEvalRuns = (capabilityId: string) => {
     skillVersions,
     skillTarget,
     setSkillTarget,
-    busyEvalId,
+    busyEvalIds,
     suiteBusy,
     activeSuiteRunId,
     error,

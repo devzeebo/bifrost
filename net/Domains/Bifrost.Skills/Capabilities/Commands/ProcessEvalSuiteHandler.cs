@@ -42,16 +42,7 @@ public static class ProcessEvalSuiteHandler
             suite.SkillVersionId
         );
 
-        var finishedEvalIds = new HashSet<Guid>();
-        foreach (var caseRunId in suite.CaseRunIds)
-        {
-            var existing = await session.LoadAsync<EvalCaseRunDocument>(caseRunId);
-            if (existing is not null)
-            {
-                finishedEvalIds.Add(existing.EvalId);
-            }
-        }
-
+        var finishedEvalIds = await FinishedEvalIds(session, suite);
         var nextEvalId = suite.EvalIds.FirstOrDefault(id => !finishedEvalIds.Contains(id));
         if (nextEvalId == Guid.Empty)
         {
@@ -60,6 +51,7 @@ public static class ProcessEvalSuiteHandler
             return [];
         }
 
+        suite = await ReloadSuite(session, suite.Id) ?? suite;
         if (suite.CancelRequested)
         {
             await MarkRemainingNeverCompleted(
@@ -92,23 +84,72 @@ public static class ProcessEvalSuiteHandler
                 suite.Id,
                 linked.Token
             );
-            suite.CaseRunIds.Add(run.Id);
+
+            suite = await ReloadSuite(session, suite.Id) ?? suite;
+            if (!suite.CaseRunIds.Contains(run.Id))
+            {
+                suite.CaseRunIds.Add(run.Id);
+            }
+
             session.Store(suite);
             await session.SaveChangesAsync(CancellationToken.None);
+
+            if (run.Status == EvalCaseRunStatuses.NeverCompleted)
+            {
+                finishedEvalIds.Add(nextEvalId);
+                await MarkRemainingNeverCompleted(
+                    session,
+                    capability,
+                    suite,
+                    finishedEvalIds,
+                    skillVersionId,
+                    markdown
+                );
+                await CompleteSuite(session, suite);
+                cancellation.Complete(suite.Id);
+                return [];
+            }
         }
         catch (OperationCanceledException)
         {
+            suite = await ReloadSuite(session, suite.Id) ?? suite;
             suite.CancelRequested = true;
-            var incomplete = await session
-                .Query<EvalCaseRunDocument>()
-                .Where(r => r.SuiteRunId == suite.Id && r.EvalId == nextEvalId)
-                .OrderByDescending(r => r.StartedAt)
-                .FirstOrDefaultAsync(CancellationToken.None);
-            if (incomplete is not null && !suite.CaseRunIds.Contains(incomplete.Id))
-            {
-                suite.CaseRunIds.Add(incomplete.Id);
-            }
-
+            await EnsureCaseLinked(
+                session,
+                capability,
+                suite,
+                eval,
+                nextEvalId,
+                skillVersionId,
+                markdown,
+                "Canceled."
+            );
+            finishedEvalIds.Add(nextEvalId);
+            await MarkRemainingNeverCompleted(
+                session,
+                capability,
+                suite,
+                finishedEvalIds,
+                skillVersionId,
+                markdown
+            );
+            await CompleteSuite(session, suite);
+            cancellation.Complete(suite.Id);
+            return [];
+        }
+        catch (Exception ex)
+        {
+            suite = await ReloadSuite(session, suite.Id) ?? suite;
+            await EnsureCaseLinked(
+                session,
+                capability,
+                suite,
+                eval,
+                nextEvalId,
+                skillVersionId,
+                markdown,
+                ex.Message
+            );
             finishedEvalIds.Add(nextEvalId);
             await MarkRemainingNeverCompleted(
                 session,
@@ -124,6 +165,7 @@ public static class ProcessEvalSuiteHandler
         }
 
         finishedEvalIds.Add(nextEvalId);
+        suite = await ReloadSuite(session, suite.Id) ?? suite;
         if (suite.CancelRequested)
         {
             await MarkRemainingNeverCompleted(
@@ -147,6 +189,79 @@ public static class ProcessEvalSuiteHandler
         }
 
         return [new ProcessEvalSuite { SuiteRunId = suite.Id }];
+    }
+
+    static async Task<HashSet<Guid>> FinishedEvalIds(
+        IDocumentSession session,
+        EvalSuiteRunDocument suite
+    )
+    {
+        var finishedEvalIds = new HashSet<Guid>();
+        foreach (var caseRunId in suite.CaseRunIds)
+        {
+            var existing = await session.LoadAsync<EvalCaseRunDocument>(caseRunId);
+            if (existing is not null)
+            {
+                finishedEvalIds.Add(existing.EvalId);
+            }
+        }
+
+        return finishedEvalIds;
+    }
+
+    static async Task<EvalSuiteRunDocument?> ReloadSuite(IDocumentSession session, Guid suiteId) =>
+        await session.LoadAsync<EvalSuiteRunDocument>(suiteId);
+
+    static async Task EnsureCaseLinked(
+        IDocumentSession session,
+        CapabilityView.Model capability,
+        EvalSuiteRunDocument suite,
+        EvalSnapshot eval,
+        Guid evalId,
+        Guid? skillVersionId,
+        string markdown,
+        string failureReason
+    )
+    {
+        var existing = await session
+            .Query<EvalCaseRunDocument>()
+            .Where(r => r.SuiteRunId == suite.Id && r.EvalId == evalId)
+            .OrderByDescending(r => r.StartedAt)
+            .FirstOrDefaultAsync(CancellationToken.None);
+        if (existing is not null)
+        {
+            if (!suite.CaseRunIds.Contains(existing.Id))
+            {
+                suite.CaseRunIds.Add(existing.Id);
+            }
+
+            session.Store(suite);
+            await session.SaveChangesAsync(CancellationToken.None);
+            return;
+        }
+
+        var run = new EvalCaseRunDocument
+        {
+            Id = Guid.NewGuid(),
+            CapabilityId = capability.Id,
+            EvalId = eval.Id,
+            CriterionId = eval.CriterionId,
+            SuiteRunId = suite.Id,
+            SkillVersionId = skillVersionId,
+            CapabilityVersionId = capability.CurrentCapabilityVersionId,
+            SkillMarkdown = markdown,
+            IsEval = true,
+            Status = EvalCaseRunStatuses.NeverCompleted,
+            Outcome = null,
+            FailureReason = failureReason,
+            StartedAt = DateTimeOffset.UtcNow,
+            CompletedAt = DateTimeOffset.UtcNow,
+        };
+        session.Store(run);
+        await EvalRunExecutor.StoreLatest(session, run);
+        suite.CaseRunIds.Add(run.Id);
+        session.Store(suite);
+        await session.SaveChangesAsync(CancellationToken.None);
     }
 
     static async Task MarkRemainingNeverCompleted(
@@ -174,11 +289,12 @@ public static class ProcessEvalSuiteHandler
                 IsEval = true,
                 Status = EvalCaseRunStatuses.NeverCompleted,
                 Outcome = null,
+                FailureReason = "Suite ended before this case ran.",
                 StartedAt = DateTimeOffset.UtcNow,
                 CompletedAt = DateTimeOffset.UtcNow,
             };
             session.Store(run);
-            EvalRunExecutor.StoreLatest(session, run);
+            await EvalRunExecutor.StoreLatest(session, run);
             suite.CaseRunIds.Add(run.Id);
             finishedEvalIds.Add(evalId);
         }

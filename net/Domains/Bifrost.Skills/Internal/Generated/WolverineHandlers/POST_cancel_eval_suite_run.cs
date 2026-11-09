@@ -41,18 +41,22 @@ namespace Internal.Generated.WolverineHandlers
             await Bifrost.Capabilities.Commands.CancelEvalSuiteRunHandler.Validate(command, ((Marten.IQuerySession)documentSession)).ConfigureAwait(false);
             
             // The actual HTTP request handler execution
-            var response_response = await Bifrost.Capabilities.Commands.CancelEvalSuiteRunHandler.Handle(command, documentSession, _evalRunCancellation).ConfigureAwait(false);
+            (var response_response, var processEvalSuite) = await Bifrost.Capabilities.Commands.CancelEvalSuiteRunHandler.Handle(command, documentSession, _evalRunCancellation).ConfigureAwait(false);
+
+            
+            // Outgoing, cascaded message
+            await messageContext.EnqueueCascadingAsync(processEvalSuite).ConfigureAwait(false);
 
             
             // Save all pending changes to this Marten session
             await documentSession.SaveChangesAsync(httpContext.RequestAborted).ConfigureAwait(false);
 
+            // Writing the response body to JSON because this was the first 'return variable' in the method signature
+            await WriteJsonAsync(httpContext, response_response, 404);
             
             // Have to flush outgoing messages just in case Marten did nothing because of https://github.com/JasperFx/wolverine/issues/536
             await messageContext.FlushOutgoingMessagesAsync().ConfigureAwait(false);
 
-            // Writing the response body to JSON because this was the first 'return variable' in the method signature
-            await WriteJsonAsync(httpContext, response_response, 404);
         }
 
     }
@@ -61,4 +65,3 @@ namespace Internal.Generated.WolverineHandlers
     
     
 }
-

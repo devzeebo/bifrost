@@ -15,6 +15,7 @@ public sealed class EvalCaseRunDocument
     public bool IsEval { get; set; } = true;
     public string Status { get; set; } = EvalCaseRunStatuses.Running;
     public string? Outcome { get; set; }
+    public string? FailureReason { get; set; }
     public List<TranscriptLine> Transcript { get; set; } = [];
     public EvalSpend? Spend { get; set; }
     public List<EvalCheckVerdict> Checks { get; set; } = [];

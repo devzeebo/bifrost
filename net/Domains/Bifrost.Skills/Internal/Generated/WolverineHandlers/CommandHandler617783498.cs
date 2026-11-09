@@ -32,11 +32,15 @@ namespace Internal.Generated.WolverineHandlers
             System.Diagnostics.Activity.Current?.SetTag("handler.type", "Bifrost.Capabilities.Commands.CancelEvalSuiteRunHandler");
             
             // The actual message execution
-            var outgoing1 = await Bifrost.Capabilities.Commands.CancelEvalSuiteRunHandler.Handle(command, documentSession, _evalRunCancellation).ConfigureAwait(false);
+            (var outgoing1, var outgoing2) = await Bifrost.Capabilities.Commands.CancelEvalSuiteRunHandler.Handle(command, documentSession, _evalRunCancellation).ConfigureAwait(false);
 
             
             // Outgoing, cascaded message
             await context.EnqueueCascadingAsync(outgoing1).ConfigureAwait(false);
+
+            
+            // Outgoing, cascaded message
+            await context.EnqueueCascadingAsync(outgoing2).ConfigureAwait(false);
 
             
             // Save all pending changes to this Marten session
@@ -54,4 +58,3 @@ namespace Internal.Generated.WolverineHandlers
     
     
 }
-

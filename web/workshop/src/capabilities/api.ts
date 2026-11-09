@@ -926,6 +926,7 @@ const parseEvalCheckVerdict = (value: unknown): EvalCheckVerdict => {
   }
   return {
     checkId: requireString(value['checkId'], 'checkId'),
+    statement: optionalString(value['statement']) ?? '',
     kind: requireString(value['kind'], 'kind'),
     status: requireString(value['status'], 'status'),
     reason: requireString(value['reason'], 'reason'),
@@ -952,6 +953,7 @@ const parseEvalCaseRun = (value: unknown): EvalCaseRun => {
     isEval: requireBoolean(value['isEval'], 'isEval'),
     status: requireString(value['status'], 'status'),
     outcome: optionalString(value['outcome']),
+    failureReason: optionalString(value['failureReason']),
     transcript: transcript.map(parseTranscriptLine),
     spend: parseEvalSpend(value['spend']),
     checks: checks.map(parseEvalCheckVerdict),
@@ -987,6 +989,7 @@ const parseCapabilityEvalOutcomes = (value: unknown): CapabilityEvalOutcomes => 
   }
   return {
     capabilityId: requireString(value['capabilityId'], 'capabilityId'),
+    activeSuiteRunId: optionalGuid(value['activeSuiteRunId']),
     suite: parseSuiteEvalSummary(value['suite']),
     criteria: criteria.map((item): CriterionEvalRollup => {
       if (!isRecord(item)) {

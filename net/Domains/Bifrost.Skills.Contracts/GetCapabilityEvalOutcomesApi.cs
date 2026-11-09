@@ -13,6 +13,7 @@ public static class GetCapabilityEvalOutcomesApi
     public sealed record Response
     {
         public required Guid CapabilityId { get; init; }
+        public Guid? ActiveSuiteRunId { get; init; }
         public required SuiteEvalSummary Suite { get; init; }
         public required IReadOnlyList<CriterionEvalRollup> Criteria { get; init; }
         public required IReadOnlyList<EvalLatestOutcome> Evals { get; init; }

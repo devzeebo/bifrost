@@ -19,6 +19,8 @@ import type {
   SuiteEvalSummary,
 } from '../../capabilities/types'
 
+const emptyBusyEvalIds: ReadonlySet<string> = new Set()
+
 type SuitePanelProps = {
   readonly criteria: readonly CriterionSnapshot[]
   readonly evals: readonly EvalSnapshot[]
@@ -31,7 +33,7 @@ type SuitePanelProps = {
   readonly skillVersions?: readonly SkillVersionSummary[]
   readonly skillTarget?: SkillTarget
   readonly onSkillTargetChange?: (target: SkillTarget) => void
-  readonly busyEvalId?: string | null
+  readonly busyEvalIds?: ReadonlySet<string>
   readonly suiteBusy?: boolean
   readonly canCancelSuite?: boolean
   readonly runError?: string | null
@@ -61,7 +63,7 @@ export const SuitePanel = ({
   skillVersions = [],
   skillTarget = 'draft',
   onSkillTargetChange,
-  busyEvalId = null,
+  busyEvalIds = emptyBusyEvalIds,
   suiteBusy = false,
   canCancelSuite = false,
   runError = null,
@@ -77,6 +79,7 @@ export const SuitePanel = ({
   const [openScriptId, setOpenScriptId] = useState<string | null>(null)
   const [kindError, setKindError] = useState<string | null>(null)
   const [kindBusyKey, setKindBusyKey] = useState<string | null>(null)
+  const anyCaseBusy = busyEvalIds.size > 0
 
   if (criteria.length === 0) {
     return (
@@ -133,7 +136,7 @@ export const SuitePanel = ({
               {onRunSuite ? (
                 <button
                   type="button"
-                  disabled={suiteBusy || evals.length === 0}
+                  disabled={suiteBusy || anyCaseBusy || evals.length === 0}
                   className="border border-signal-dim px-3 py-1 text-xs tracking-[0.12em] text-signal uppercase disabled:opacity-50"
                   onClick={() => void onRunSuite()}
                 >
@@ -156,7 +159,7 @@ export const SuitePanel = ({
               <span className="text-xs tracking-[0.16em] text-muted uppercase">Skill target</span>
               <select
                 value={skillTarget}
-                disabled={suiteBusy || busyEvalId !== null}
+                disabled={suiteBusy || anyCaseBusy}
                 onChange={(event) => onSkillTargetChange(event.target.value)}
                 className="border border-line bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-signal-dim disabled:opacity-50"
               >
@@ -203,7 +206,7 @@ export const SuitePanel = ({
                     const editing = editingId === item.id
                     const isLast = covering.length === 1
                     const caseRun = caseRuns?.get(item.id) ?? null
-                    const caseBusy = busyEvalId === item.id
+                    const caseBusy = busyEvalIds.has(item.id)
                     return (
                       <li key={item.id} className="border border-line bg-ink px-4 py-3">
                         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -328,6 +331,7 @@ const EvalRunDetail = ({ run }: { readonly run: EvalCaseRun }) => (
         </span>
       ) : null}
     </div>
+    {run.failureReason ? <p className="text-sm text-signal">{run.failureReason}</p> : null}
     {run.transcript.length > 0 ? (
       <div className="flex flex-col gap-2">
         <span className="text-xs tracking-[0.16em] text-muted uppercase">Transcript</span>
@@ -348,9 +352,10 @@ const EvalRunDetail = ({ run }: { readonly run: EvalCaseRun }) => (
           {run.checks.map((check) => (
             <li key={check.checkId} className="border border-line bg-ink px-3 py-2">
               <p className="text-xs tracking-[0.12em] text-muted uppercase">
-                {check.kind} · {check.status}
+                {check.kind} · {check.status} · {check.checkId.slice(0, 8)}
               </p>
-              <p>{check.reason}</p>
+              <p>{check.statement}</p>
+              <p className="text-muted">{check.reason}</p>
             </li>
           ))}
         </ul>

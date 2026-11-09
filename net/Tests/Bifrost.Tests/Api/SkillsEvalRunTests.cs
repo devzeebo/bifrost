@@ -219,7 +219,7 @@ public class SkillsEvalRunTests
         outcomes.ShouldNotBeNull();
         outcomes.Suite.NeverCompleted.ShouldBe(2);
         outcomes.Suite.Failed.ShouldBe(0);
-        outcomes.Criteria.ShouldAllBe(c => c.NeverCompleted >= 0);
+        outcomes.Criteria.Sum(c => c.NeverCompleted).ShouldBe(2);
     }
 
     [Fact]

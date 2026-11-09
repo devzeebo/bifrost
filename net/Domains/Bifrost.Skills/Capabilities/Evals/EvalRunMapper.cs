@@ -17,6 +17,7 @@ public static class EvalRunMapper
             IsEval = run.IsEval,
             Status = run.Status,
             Outcome = run.Outcome,
+            FailureReason = run.FailureReason,
             Transcript = run.Transcript,
             Spend = run.Spend,
             Checks = run.Checks,

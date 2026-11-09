@@ -48,6 +48,7 @@ public sealed record EvalSpend
 public sealed record EvalCheckVerdict
 {
     public required Guid CheckId { get; init; }
+    public required string Statement { get; init; }
     public required string Kind { get; init; }
     public required string Status { get; init; }
     public required string Reason { get; init; }
@@ -65,6 +66,7 @@ public sealed record EvalCaseRunSummary
     public required bool IsEval { get; init; }
     public required string Status { get; init; }
     public string? Outcome { get; init; }
+    public string? FailureReason { get; init; }
     public required IReadOnlyList<TranscriptLine> Transcript { get; init; }
     public EvalSpend? Spend { get; init; }
     public required IReadOnlyList<EvalCheckVerdict> Checks { get; init; }

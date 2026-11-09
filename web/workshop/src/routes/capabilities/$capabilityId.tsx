@@ -34,6 +34,11 @@ const CapabilityPage = () => {
 
   const { capability } = state
 
+  const refreshAfterMutation = async (mutate: () => Promise<void>) => {
+    await mutate()
+    await evalRuns.reload()
+  }
+
   return (
     <WorkshopLayout
       title={capability.name}
@@ -46,7 +51,10 @@ const CapabilityPage = () => {
         pendingProposals={chat.state.status === 'ready' ? chat.state.pendingProposals : []}
         busy={chat.busy || chat.state.status === 'loading'}
         onSend={chat.sendMessage}
-        onApply={chat.applyProposal}
+        onApply={async (proposalId) => {
+          await chat.applyProposal(proposalId)
+          await evalRuns.reload()
+        }}
         onDismiss={chat.dismissProposal}
         onReread={chat.rereadProposal}
       />
@@ -72,7 +80,7 @@ const CapabilityPage = () => {
         skillVersions={evalRuns.skillVersions}
         skillTarget={evalRuns.skillTarget}
         onSkillTargetChange={evalRuns.setSkillTarget}
-        busyEvalId={evalRuns.busyEvalId}
+        busyEvalIds={evalRuns.busyEvalIds}
         suiteBusy={evalRuns.suiteBusy}
         canCancelSuite={evalRuns.activeSuiteRunId !== null}
         runError={evalRuns.error}
@@ -80,21 +88,31 @@ const CapabilityPage = () => {
         onRunSuite={evalRuns.runSuite}
         onCancelSuite={evalRuns.cancelSuite}
         onAmend={saveEval}
-        onDuplicate={duplicateEval}
-        onRetire={retireEval}
+        onDuplicate={(evalId) => refreshAfterMutation(() => duplicateEval(evalId))}
+        onRetire={(evalId) => refreshAfterMutation(() => retireEval(evalId))}
       />
       <DerivedSkillPanel
         capabilityId={capability.id}
         hasPublishedSkill={capability.hasPublishedSkill}
         skillMarkdown={capability.skillMarkdown}
         hasUnsavedSkillDraft={capability.hasUnsavedSkillDraft}
-        onRestored={reload}
+        onRestored={async () => {
+          await reload()
+          await evalRuns.reload()
+        }}
       />
-      <CapabilityVersionPanel capabilityId={capability.id} onRestored={reload} />
+      <CapabilityVersionPanel
+        capabilityId={capability.id}
+        onRestored={async () => {
+          await reload()
+          await evalRuns.reload()
+        }}
+      />
     </WorkshopLayout>
   )
 }
 
 export const Route = createFileRoute('/capabilities/$capabilityId')({
   component: CapabilityPage,
+  remountDeps: ({ params }) => [params.capabilityId],
 })

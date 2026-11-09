@@ -62,9 +62,18 @@ public static class GetCapabilityEvalOutcomesHandler
             .Criteria.Select(c => EvalOutcomeRollup.CriterionRollup(c.Id, evalOutcomes))
             .ToList();
 
+        var activeSuite = await session
+            .Query<EvalSuiteRunDocument>()
+            .Where(s =>
+                s.CapabilityId == query.Id && s.Status == EvalSuiteRunStatuses.Running
+            )
+            .OrderByDescending(s => s.StartedAt)
+            .FirstOrDefaultAsync();
+
         return new GetCapabilityEvalOutcomesApi.Response
         {
             CapabilityId = capability.Id,
+            ActiveSuiteRunId = activeSuite?.Id,
             Suite = EvalOutcomeRollup.Summarize(evalOutcomes),
             Criteria = criteria,
             Evals = evalOutcomes,

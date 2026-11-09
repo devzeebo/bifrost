@@ -22,10 +22,12 @@ public static class ListEvalCaseRunsHandler
         IQuerySession session
     )
     {
+        const int maxItems = 100;
         var items = await session
             .Query<EvalCaseRunDocument>()
             .Where(r => r.CapabilityId == query.CapabilityId && r.EvalId == query.EvalId)
             .OrderByDescending(r => r.StartedAt)
+            .Take(maxItems)
             .ToListAsync();
 
         return new ListEvalCaseRunsApi.Response

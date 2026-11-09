@@ -34,9 +34,9 @@ public static class SkillsServiceCollectionExtensions
             services.Command<ApplyCapabilityProposalApi.Command>();
             services.Command<DismissCapabilityProposalApi.Command>();
             services.Command<RereadCapabilityProposalApi.Command>();
-            services.Command<RunCapabilityEvalApi.Command>();
-            services.Command<RunCapabilitySuiteApi.Command>();
-            services.Command<CancelEvalSuiteRunApi.Command>();
+            services.Command<RunCapabilityEvalApi.Command, RunCapabilityEvalApi.Response>();
+            services.Command<RunCapabilitySuiteApi.Command, RunCapabilitySuiteApi.Response>();
+            services.Command<CancelEvalSuiteRunApi.Command, CancelEvalSuiteRunApi.Response>();
 
             services.Query<GetCapabilityApi.Query, GetCapabilityApi.Response>();
             services.Query<ListCapabilitiesApi.Query, ListCapabilitiesApi.Response>();
@@ -72,6 +72,58 @@ public static class SkillsServiceCollectionExtensions
                         await scope
                             .ServiceProvider.GetRequiredService<IMessageBus>()
                             .InvokeAsync(command, ct);
+                    }
+                    catch (CommandValidationException ex)
+                    {
+                        throw new BusException(
+                            new BusError { Code = BusErrorCodes.Validation, Message = ex.Message }
+                        );
+                    }
+                    catch (ContractValidationException ex)
+                    {
+                        throw new BusException(
+                            new BusError { Code = BusErrorCodes.Validation, Message = ex.Message }
+                        );
+                    }
+                    catch (ExistingStreamIdCollisionException ex)
+                    {
+                        throw new BusException(
+                            new BusError
+                            {
+                                Code = BusErrorCodes.Validation,
+                                Message = $"Capability {ex.Id} already exists.",
+                            }
+                        );
+                    }
+                    catch (Exception ex) when (CapabilityNames.TryGetConflictingName(ex, out var name))
+                    {
+                        await using var session = scope
+                            .ServiceProvider.GetRequiredService<IDocumentStore>()
+                            .QuerySession();
+                        throw new BusException(
+                            new BusError
+                            {
+                                Code = BusErrorCodes.Validation,
+                                Message = await CapabilityNames.ConflictDetail(session, name),
+                            }
+                        );
+                    }
+                }
+            );
+        }
+
+        void Command<TCommand, TResponse>()
+            where TCommand : class
+        {
+            services.AddMessageBusHandler<TCommand, TResponse>(
+                async (sp, command, ct) =>
+                {
+                    await using var scope = sp.CreateAsyncScope();
+                    try
+                    {
+                        return await scope
+                            .ServiceProvider.GetRequiredService<IMessageBus>()
+                            .InvokeAsync<TResponse>(command, ct);
                     }
                     catch (CommandValidationException ex)
                     {

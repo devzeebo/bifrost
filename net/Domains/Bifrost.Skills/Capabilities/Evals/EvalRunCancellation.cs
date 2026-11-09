@@ -11,10 +11,8 @@ public sealed class EvalRunCancellation
 
     public void Cancel(Guid suiteRunId)
     {
-        if (_sources.TryGetValue(suiteRunId, out var cts))
-        {
-            cts.Cancel();
-        }
+        var cts = _sources.GetOrAdd(suiteRunId, static _ => new CancellationTokenSource());
+        cts.Cancel();
     }
 
     public void Complete(Guid suiteRunId)

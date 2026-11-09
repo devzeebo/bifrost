@@ -23,9 +23,22 @@ public static class RunCapabilitySuiteHandler
             throw new CommandValidationException("Capability has no evals to run.");
         }
 
+        var activeSuite = await session
+            .Query<EvalSuiteRunDocument>()
+            .Where(s =>
+                s.CapabilityId == command.Id && s.Status == EvalSuiteRunStatuses.Running
+            )
+            .AnyAsync();
+        if (activeSuite)
+        {
+            throw new CommandValidationException(
+                "A suite is already running for this capability. Cancel it or wait for it to finish."
+            );
+        }
+
         if (command.EvalIds is { Count: > 0 })
         {
-            foreach (var evalId in command.EvalIds)
+            foreach (var evalId in command.EvalIds.Distinct())
             {
                 if (capability.Evals.All(e => e.Id != evalId))
                 {
@@ -64,7 +77,7 @@ public static class RunCapabilitySuiteHandler
         var capability = (await session.LoadAsync<CapabilityView.Model>(command.Id))!;
         var evalIds =
             command.EvalIds is { Count: > 0 }
-                ? command.EvalIds.ToList()
+                ? command.EvalIds.Distinct().ToList()
                 : capability.Evals.Select(e => e.Id).ToList();
 
         var suite = new EvalSuiteRunDocument
