@@ -12,7 +12,8 @@
   "dependencies": {
     "@tanstack/react-router": "1.170.38",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "recharts": "^3.10.1"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",

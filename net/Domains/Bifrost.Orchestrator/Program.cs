@@ -1,5 +1,7 @@
+using System.Net.Http.Headers;
 using Bifrost;
 using Bifrost.Configuration;
+using Bifrost.Gateway;
 using Bifrost.MessageBus;
 using Bifrost.Orchestrator.Contracts;
 using Bifrost.Rpc;
@@ -7,6 +9,7 @@ using JasperFx;
 using JasperFx.CodeGeneration;
 using Marten;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using Wolverine;
 using Wolverine.Marten;
 using Wolverine.Runtime.Heartbeat;
@@ -52,6 +55,7 @@ builder.Services.AddRpcHost(options =>
 });
 
 builder.Services.AddMessageBus();
+builder.Services.AddGatewayQuota(builder.Configuration);
 builder.Services.AddWolverineHttp();
 
 var app = builder.Build();
@@ -59,6 +63,58 @@ var app = builder.Build();
 app.Use(
     async (context, next) =>
     {
+        if (
+            string.Equals(context.Request.Method, "QUERY", StringComparison.OrdinalIgnoreCase)
+            && context.Request.Path.Equals(
+                "/get-virtual-key-quota",
+                StringComparison.OrdinalIgnoreCase
+            )
+        )
+        {
+            var gateway = context
+                .RequestServices.GetRequiredService<IOptions<GatewayOptions>>()
+                .Value;
+            if (string.IsNullOrWhiteSpace(gateway.QuotaAccessToken))
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                await context.Response.WriteAsJsonAsync(
+                    new ProblemDetails
+                    {
+                        Status = StatusCodes.Status401Unauthorized,
+                        Title = "Quota access denied",
+                        Detail =
+                            "Gateway:QuotaAccessToken is required before HTTP quota lookups are allowed.",
+                    }
+                );
+                return;
+            }
+
+            var authorized = false;
+            var header = context.Request.Headers.Authorization.ToString();
+            if (
+                AuthenticationHeaderValue.TryParse(header, out var auth)
+                && string.Equals(auth.Scheme, "Bearer", StringComparison.OrdinalIgnoreCase)
+                && auth.Parameter == gateway.QuotaAccessToken
+            )
+            {
+                authorized = true;
+            }
+
+            if (!authorized)
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                await context.Response.WriteAsJsonAsync(
+                    new ProblemDetails
+                    {
+                        Status = StatusCodes.Status401Unauthorized,
+                        Title = "Quota access denied",
+                        Detail = "Missing or invalid quota access token.",
+                    }
+                );
+                return;
+            }
+        }
+
         try
         {
             await next();
@@ -83,6 +139,24 @@ app.Use(
                 {
                     Status = StatusCodes.Status400BadRequest,
                     Title = "Invalid command",
+                    Detail = ex.Message,
+                }
+            );
+        }
+        catch (VirtualKeyQuotaException ex)
+        {
+            context.Response.StatusCode = ex.StatusCode;
+            await context.Response.WriteAsJsonAsync(
+                new ProblemDetails
+                {
+                    Status = ex.StatusCode,
+                    Title = ex.StatusCode switch
+                    {
+                        StatusCodes.Status401Unauthorized => "Invalid virtual key",
+                        StatusCodes.Status403Forbidden => "Virtual key expired",
+                        StatusCodes.Status503ServiceUnavailable => "Gateway not configured",
+                        _ => "Gateway unavailable",
+                    },
                     Detail = ex.Message,
                 }
             );

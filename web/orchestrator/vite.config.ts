@@ -21,6 +21,18 @@ export default defineConfig({
         target: 'http://127.0.0.1:8081',
         changeOrigin: true,
       },
+      '/get-virtual-key-quota': {
+        target: 'http://127.0.0.1:8081',
+        changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => {
+            const token = process.env.BIFROST_QUOTA_ACCESS_TOKEN
+            if (token !== undefined && token.length > 0) {
+              proxyReq.setHeader('Authorization', `Bearer ${token}`)
+            }
+          })
+        },
+      },
     },
   },
   test: {

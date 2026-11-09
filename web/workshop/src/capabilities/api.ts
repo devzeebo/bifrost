@@ -2,19 +2,29 @@ import type {
   ApplyProposalResult,
   CapabilityChat,
   CapabilityDetail,
+  CapabilityEvalOutcomes,
   CapabilitySummary,
   CapabilityVersionDetail,
   CapabilityVersionSnapshot,
   ChatMessage,
   CheckSnapshot,
+  CriterionEvalRollup,
   CriterionSnapshot,
+  EvalCaseRun,
+  EvalCheckVerdict,
+  EvalLatestOutcome,
+  EvalOutcomeStatus,
   EvalSnapshot,
+  EvalSpend,
+  EvalSuiteRunResult,
   Proposal,
   ProposalEffect,
   RereadProposalResult,
   SkillVersionDetail,
   SkillVersionSnapshot,
   SkillVersionSummary,
+  SuiteEvalSummary,
+  TranscriptLine,
   VersionSummary,
 } from './types'
 
@@ -225,6 +235,101 @@ export const rereadCapabilityProposal = async (input: {
 }): Promise<RereadProposalResult> => {
   const response = await postJson('/reread-capability-proposal', input)
   return parseRereadResult(response)
+}
+
+export const runCapabilityEval = async (input: {
+  readonly id: string
+  readonly evalId: string
+  readonly skillVersionId?: string | null
+}): Promise<EvalCaseRun> => {
+  const response = await postJson('/run-capability-eval', {
+    id: input.id,
+    evalId: input.evalId,
+    skillVersionId: input.skillVersionId ?? null,
+  })
+  if (!isRecord(response)) {
+    throw new CapabilityApiError('Run eval response was invalid')
+  }
+  return parseEvalCaseRun(response['run'])
+}
+
+export const runCapabilitySuite = async (input: {
+  readonly id: string
+  readonly skillVersionId?: string | null
+  readonly evalIds?: readonly string[] | null
+}): Promise<EvalSuiteRunResult> => {
+  const response = await postJson('/run-capability-suite', {
+    id: input.id,
+    skillVersionId: input.skillVersionId ?? null,
+    evalIds: input.evalIds ?? null,
+  })
+  return parseEvalSuiteRunResult(response)
+}
+
+export const cancelEvalSuiteRun = async (suiteRunId: string): Promise<{
+  readonly suiteRunId: string
+  readonly status: string
+  readonly cancelRequested: boolean
+}> => {
+  const response = await postJson('/cancel-eval-suite-run', { suiteRunId })
+  if (!isRecord(response)) {
+    throw new CapabilityApiError('Cancel suite response was invalid')
+  }
+  const id = response['suiteRunId']
+  const status = response['status']
+  const cancelRequested = response['cancelRequested']
+  if (typeof id !== 'string' || typeof status !== 'string' || typeof cancelRequested !== 'boolean') {
+    throw new CapabilityApiError('Cancel suite response was invalid')
+  }
+  return { suiteRunId: id, status, cancelRequested }
+}
+
+export const getEvalCaseRun = async (id: string): Promise<EvalCaseRun> => {
+  const response = await queryJson(`/get-eval-case-run/${id}`)
+  if (!isRecord(response)) {
+    throw new CapabilityApiError('Eval case run response was invalid')
+  }
+  return parseEvalCaseRun(response['run'])
+}
+
+export const getEvalSuiteRun = async (id: string): Promise<EvalSuiteRunResult & {
+  readonly capabilityId: string
+  readonly skillVersionId: string | null
+  readonly cancelRequested: boolean
+  readonly startedAt: string
+  readonly completedAt: string | null
+}> => {
+  const response = await queryJson(`/get-eval-suite-run/${id}`)
+  if (!isRecord(response)) {
+    throw new CapabilityApiError('Eval suite run response was invalid')
+  }
+  const parsed = parseEvalSuiteRunResult(response)
+  return {
+    ...parsed,
+    capabilityId: requireString(response['capabilityId'], 'capabilityId'),
+    skillVersionId: optionalGuid(response['skillVersionId']),
+    cancelRequested: requireBoolean(response['cancelRequested'], 'cancelRequested'),
+    startedAt: requireString(response['startedAt'], 'startedAt'),
+    completedAt: optionalString(response['completedAt']),
+  }
+}
+
+export const listEvalCaseRuns = async (
+  capabilityId: string,
+  evalId: string,
+): Promise<readonly EvalCaseRun[]> => {
+  const response = await queryJson(`/list-eval-case-runs/${capabilityId}/${evalId}`)
+  if (!isRecord(response) || !Array.isArray(response['items'])) {
+    throw new CapabilityApiError('Eval case run list was invalid')
+  }
+  return response['items'].map(parseEvalCaseRun)
+}
+
+export const getCapabilityEvalOutcomes = async (
+  id: string,
+): Promise<CapabilityEvalOutcomes> => {
+  const response = await queryJson(`/get-capability-eval-outcomes/${id}`)
+  return parseCapabilityEvalOutcomes(response)
 }
 
 const queryJson = async (path: string): Promise<unknown> => {
@@ -739,6 +844,184 @@ const optionalString = (value: unknown): string | null => {
     throw new CapabilityApiError('Expected a string or null')
   }
   return value
+}
+
+const requireString = (value: unknown, field: string): string => {
+  if (typeof value !== 'string') {
+    throw new CapabilityApiError(`Expected string for ${field}`)
+  }
+  return value
+}
+
+const requireBoolean = (value: unknown, field: string): boolean => {
+  if (typeof value !== 'boolean') {
+    throw new CapabilityApiError(`Expected boolean for ${field}`)
+  }
+  return value
+}
+
+const requireNumber = (value: unknown, field: string): number => {
+  if (typeof value !== 'number') {
+    throw new CapabilityApiError(`Expected number for ${field}`)
+  }
+  return value
+}
+
+const parseEvalOutcomeStatus = (value: unknown): EvalOutcomeStatus => {
+  if (
+    value === 'passed'
+    || value === 'failed'
+    || value === 'unsettled'
+    || value === 'never_run'
+    || value === 'never_completed'
+  ) {
+    return value
+  }
+  throw new CapabilityApiError('Eval outcome status was invalid')
+}
+
+const parseSuiteEvalSummary = (value: unknown): SuiteEvalSummary => {
+  if (!isRecord(value)) {
+    throw new CapabilityApiError('Suite summary was invalid')
+  }
+  return {
+    passed: requireNumber(value['passed'], 'passed'),
+    failed: requireNumber(value['failed'], 'failed'),
+    unsettled: requireNumber(value['unsettled'], 'unsettled'),
+    neverCompleted: requireNumber(value['neverCompleted'], 'neverCompleted'),
+    neverRun: requireNumber(value['neverRun'], 'neverRun'),
+  }
+}
+
+const parseTranscriptLine = (value: unknown): TranscriptLine => {
+  if (!isRecord(value)) {
+    throw new CapabilityApiError('Transcript line was invalid')
+  }
+  return {
+    role: requireString(value['role'], 'role'),
+    text: requireString(value['text'], 'text'),
+  }
+}
+
+const parseEvalSpend = (value: unknown): EvalSpend | null => {
+  if (value === null || value === undefined) {
+    return null
+  }
+  if (!isRecord(value)) {
+    throw new CapabilityApiError('Eval spend was invalid')
+  }
+  const cost = value['cost']
+  return {
+    model: requireString(value['model'], 'model'),
+    inputTokens: requireNumber(value['inputTokens'], 'inputTokens'),
+    outputTokens: requireNumber(value['outputTokens'], 'outputTokens'),
+    totalTokens: requireNumber(value['totalTokens'], 'totalTokens'),
+    cost: cost === null || cost === undefined ? null : requireNumber(cost, 'cost'),
+  }
+}
+
+const parseEvalCheckVerdict = (value: unknown): EvalCheckVerdict => {
+  if (!isRecord(value)) {
+    throw new CapabilityApiError('Check verdict was invalid')
+  }
+  return {
+    checkId: requireString(value['checkId'], 'checkId'),
+    statement: optionalString(value['statement']) ?? '',
+    kind: requireString(value['kind'], 'kind'),
+    status: requireString(value['status'], 'status'),
+    reason: requireString(value['reason'], 'reason'),
+  }
+}
+
+const parseEvalCaseRun = (value: unknown): EvalCaseRun => {
+  if (!isRecord(value)) {
+    throw new CapabilityApiError('Eval case run was invalid')
+  }
+  const transcript = value['transcript']
+  const checks = value['checks']
+  if (!Array.isArray(transcript) || !Array.isArray(checks)) {
+    throw new CapabilityApiError('Eval case run was invalid')
+  }
+  return {
+    id: requireString(value['id'], 'id'),
+    capabilityId: requireString(value['capabilityId'], 'capabilityId'),
+    evalId: requireString(value['evalId'], 'evalId'),
+    criterionId: requireString(value['criterionId'], 'criterionId'),
+    suiteRunId: optionalGuid(value['suiteRunId']),
+    skillVersionId: optionalGuid(value['skillVersionId']),
+    capabilityVersionId: optionalGuid(value['capabilityVersionId']),
+    isEval: requireBoolean(value['isEval'], 'isEval'),
+    status: requireString(value['status'], 'status'),
+    outcome: optionalString(value['outcome']),
+    failureReason: optionalString(value['failureReason']),
+    transcript: transcript.map(parseTranscriptLine),
+    spend: parseEvalSpend(value['spend']),
+    checks: checks.map(parseEvalCheckVerdict),
+    startedAt: requireString(value['startedAt'], 'startedAt'),
+    completedAt: optionalString(value['completedAt']),
+  }
+}
+
+const parseEvalSuiteRunResult = (value: unknown): EvalSuiteRunResult => {
+  if (!isRecord(value)) {
+    throw new CapabilityApiError('Eval suite run was invalid')
+  }
+  const cases = value['cases']
+  if (!Array.isArray(cases)) {
+    throw new CapabilityApiError('Eval suite run was invalid')
+  }
+  return {
+    suiteRunId: requireString(value['suiteRunId'], 'suiteRunId'),
+    status: requireString(value['status'], 'status'),
+    summary: parseSuiteEvalSummary(value['summary']),
+    cases: cases.map(parseEvalCaseRun),
+  }
+}
+
+const parseCapabilityEvalOutcomes = (value: unknown): CapabilityEvalOutcomes => {
+  if (!isRecord(value)) {
+    throw new CapabilityApiError('Eval outcomes response was invalid')
+  }
+  const criteria = value['criteria']
+  const evals = value['evals']
+  if (!Array.isArray(criteria) || !Array.isArray(evals)) {
+    throw new CapabilityApiError('Eval outcomes response was invalid')
+  }
+  return {
+    capabilityId: requireString(value['capabilityId'], 'capabilityId'),
+    activeSuiteRunId: optionalGuid(value['activeSuiteRunId']),
+    suite: parseSuiteEvalSummary(value['suite']),
+    criteria: criteria.map((item): CriterionEvalRollup => {
+      if (!isRecord(item)) {
+        throw new CapabilityApiError('Criterion rollup was invalid')
+      }
+      return {
+        criterionId: requireString(item['criterionId'], 'criterionId'),
+        passed: requireNumber(item['passed'], 'passed'),
+        failed: requireNumber(item['failed'], 'failed'),
+        unsettled: requireNumber(item['unsettled'], 'unsettled'),
+        neverCompleted: requireNumber(item['neverCompleted'], 'neverCompleted'),
+        neverRun: requireNumber(item['neverRun'], 'neverRun'),
+      }
+    }),
+    evals: evals.map((item) => {
+      if (!isRecord(item)) {
+        throw new CapabilityApiError('Eval latest outcome was invalid')
+      }
+      const outcome: EvalLatestOutcome & {
+        readonly evalId: string
+        readonly criterionId: string
+      } = {
+        evalId: requireString(item['evalId'], 'evalId'),
+        criterionId: requireString(item['criterionId'], 'criterionId'),
+        status: parseEvalOutcomeStatus(item['status']),
+        caseRunId: optionalGuid(item['caseRunId']),
+        capabilityVersionId: optionalGuid(item['capabilityVersionId']),
+        skillVersionId: optionalGuid(item['skillVersionId']),
+      }
+      return outcome
+    }),
+  }
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>

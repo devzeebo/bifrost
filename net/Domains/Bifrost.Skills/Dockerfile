@@ -1,6 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY net/Domains/Bifrost.Skills.Contracts net/Domains/Bifrost.Skills.Contracts
+COPY net/Infrastructure/Bifrost.Ai net/Infrastructure/Bifrost.Ai
 COPY net/Infrastructure/Bifrost.Configuration net/Infrastructure/Bifrost.Configuration
 COPY net/Infrastructure/Bifrost.Rpc.Abstractions net/Infrastructure/Bifrost.Rpc.Abstractions
 COPY net/Infrastructure/Bifrost.Rpc.Generators net/Infrastructure/Bifrost.Rpc.Generators

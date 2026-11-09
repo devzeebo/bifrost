@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useCapability } from '../../capabilities/useCapability'
 import { useCapabilityChat } from '../../capabilities/useCapabilityChat'
+import { useEvalRuns } from '../../capabilities/useEvalRuns'
 import { AskDocument } from '../../components/organisms/AskDocument'
 import { CapabilityChatPanel } from '../../components/organisms/CapabilityChatPanel'
 import { CapabilityVersionPanel } from '../../components/organisms/CapabilityVersionPanel'
@@ -13,6 +14,7 @@ const CapabilityPage = () => {
   const { state, saveAsk, saveName, saveEval, duplicateEval, retireEval, reload } =
     useCapability(capabilityId)
   const chat = useCapabilityChat(capabilityId, reload)
+  const evalRuns = useEvalRuns(capabilityId)
 
   if (state.status === 'loading') {
     return (
@@ -32,6 +34,11 @@ const CapabilityPage = () => {
 
   const { capability } = state
 
+  const refreshAfterMutation = async (mutate: () => Promise<void>) => {
+    await mutate()
+    await evalRuns.reload()
+  }
+
   return (
     <WorkshopLayout
       title={capability.name}
@@ -44,7 +51,10 @@ const CapabilityPage = () => {
         pendingProposals={chat.state.status === 'ready' ? chat.state.pendingProposals : []}
         busy={chat.busy || chat.state.status === 'loading'}
         onSend={chat.sendMessage}
-        onApply={chat.applyProposal}
+        onApply={async (proposalId) => {
+          await chat.applyProposal(proposalId)
+          await evalRuns.reload()
+        }}
         onDismiss={chat.dismissProposal}
         onReread={chat.rereadProposal}
       />
@@ -63,22 +73,46 @@ const CapabilityPage = () => {
         evals={capability.evals}
         currentCapabilityVersionId={capability.currentCapabilityVersionId}
         currentSkillVersionId={capability.currentSkillVersionId}
+        outcomes={evalRuns.outcomes}
+        caseRuns={evalRuns.caseRuns}
+        criterionRollups={evalRuns.criterionRollups}
+        suiteSummary={evalRuns.suiteSummary}
+        skillVersions={evalRuns.skillVersions}
+        skillTarget={evalRuns.skillTarget}
+        onSkillTargetChange={evalRuns.setSkillTarget}
+        busyEvalIds={evalRuns.busyEvalIds}
+        suiteBusy={evalRuns.suiteBusy}
+        canCancelSuite={evalRuns.activeSuiteRunId !== null}
+        runError={evalRuns.error}
+        onRunCase={evalRuns.runCase}
+        onRunSuite={evalRuns.runSuite}
+        onCancelSuite={evalRuns.cancelSuite}
         onAmend={saveEval}
-        onDuplicate={duplicateEval}
-        onRetire={retireEval}
+        onDuplicate={(evalId) => refreshAfterMutation(() => duplicateEval(evalId))}
+        onRetire={(evalId) => refreshAfterMutation(() => retireEval(evalId))}
       />
       <DerivedSkillPanel
         capabilityId={capability.id}
         hasPublishedSkill={capability.hasPublishedSkill}
         skillMarkdown={capability.skillMarkdown}
         hasUnsavedSkillDraft={capability.hasUnsavedSkillDraft}
-        onRestored={reload}
+        onRestored={async () => {
+          await reload()
+          await evalRuns.reload()
+        }}
       />
-      <CapabilityVersionPanel capabilityId={capability.id} onRestored={reload} />
+      <CapabilityVersionPanel
+        capabilityId={capability.id}
+        onRestored={async () => {
+          await reload()
+          await evalRuns.reload()
+        }}
+      />
     </WorkshopLayout>
   )
 }
 
 export const Route = createFileRoute('/capabilities/$capabilityId')({
   component: CapabilityPage,
+  remountDeps: ({ params }) => [params.capabilityId],
 })

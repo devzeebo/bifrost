@@ -6,12 +6,15 @@ COMPOSE=(docker compose -f "$ROOT/bifrost-server/docker-compose.yml")
 PIDS=()
 STARTED_STACK=0
 
+# Shared with the vite proxy so the usage page can call the orchestrator quota route.
+export BIFROST_QUOTA_ACCESS_TOKEN="${BIFROST_QUOTA_ACCESS_TOKEN:-local-dev-quota-token}"
+
 cleanup() {
   trap - EXIT INT TERM
   echo
   echo "Stopping frontends…"
   for pid in "${PIDS[@]:-}"; do
-    # Signal the process group even if the npm leader has already exited.
+    # Signal the process group even if the pnpm leader has already exited.
     kill -- "-$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
     wait "$pid" 2>/dev/null || true
   done
@@ -29,7 +32,7 @@ need() {
 }
 
 need docker
-need npm
+need pnpm
 need bash
 
 if ! docker info >/dev/null 2>&1; then
@@ -47,32 +50,73 @@ if ! bash -c 'sleep 0 & wait -n' >/dev/null 2>&1; then
   exit 1
 fi
 
+dump_failed_containers() {
+  local ids
+  # Include exited/dead/restarting and running-but-unhealthy; --wait failures can leave either.
+  ids="$("${COMPOSE[@]}" ps -aq --status exited --status dead --status restarting 2>/dev/null || true)"
+  local running
+  running="$("${COMPOSE[@]}" ps -aq --status running 2>/dev/null || true)"
+  if [[ -n "${running}" ]]; then
+    while IFS= read -r id; do
+      [[ -z "${id}" ]] && continue
+      local health
+      health="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "${id}" 2>/dev/null || echo none)"
+      if [[ "${health}" == "unhealthy" ]]; then
+        ids="${ids}"$'\n'"${id}"
+      fi
+    done <<<"${running}"
+  fi
+
+  if [[ -z "${ids//[[:space:]]/}" ]]; then
+    return 0
+  fi
+
+  echo
+  echo "Docker stack failed to become healthy. Logs from failed containers:" >&2
+  echo >&2
+  while IFS= read -r id; do
+    [[ -z "${id}" ]] && continue
+    local name
+    name="$(docker inspect -f '{{.Name}} ({{.State.Status}}, exit {{.State.ExitCode}})' "${id}" 2>/dev/null | sed 's#^/##')"
+    echo "──── ${name} ────" >&2
+    docker logs --tail 80 "${id}" >&2 || true
+    echo >&2
+  done <<<"${ids}"
+}
+
 trap cleanup EXIT INT TERM
 
 echo "Starting Bifrost Docker stack…"
-"${COMPOSE[@]}" up --build -d --wait
+if ! "${COMPOSE[@]}" up --build -d --wait; then
+  dump_failed_containers
+  echo "Stopping partially started Docker stack…" >&2
+  "${COMPOSE[@]}" stop || true
+  exit 1
+fi
 STARTED_STACK=1
 
-ensure_npm() {
+ensure_pnpm() {
   local app="$1"
   local dir="$ROOT/web/$app"
-  local lock="$dir/package-lock.json"
-  local installed="$dir/node_modules/.package-lock.json"
-  if [[ ! -d "$dir/node_modules" ]] || [[ ! -f "$installed" ]] || ! cmp -s "$lock" "$installed"; then
-    echo "Installing $app dependencies…"
-    (cd "$dir" && npm ci)
+  local lock="$dir/pnpm-lock.yaml"
+  # Always install before startup so a package.json change without a lock update fails fast.
+  echo "Installing $app dependencies…"
+  if [[ -f "$lock" ]]; then
+    (cd "$dir" && pnpm install --frozen-lockfile)
+  else
+    (cd "$dir" && pnpm install)
   fi
 }
 
-ensure_npm workshop
-ensure_npm orchestrator
+ensure_pnpm workshop
+ensure_pnpm orchestrator
 
 echo "Starting workshop UI on http://127.0.0.1:5173 …"
-setsid npm run dev --prefix "$ROOT/web/workshop" -- --host 127.0.0.1 --port 5173 --strictPort </dev/null &
+setsid pnpm --dir "$ROOT/web/workshop" run dev --host 127.0.0.1 --port 5173 --strictPort </dev/null &
 PIDS+=($!)
 
 echo "Starting orchestrator UI on http://127.0.0.1:5174 …"
-setsid npm run dev --prefix "$ROOT/web/orchestrator" -- --host 127.0.0.1 --port 5174 --strictPort </dev/null &
+setsid pnpm --dir "$ROOT/web/orchestrator" run dev --host 127.0.0.1 --port 5174 --strictPort </dev/null &
 PIDS+=($!)
 
 cat <<EOF

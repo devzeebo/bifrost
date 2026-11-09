@@ -72,6 +72,9 @@ services:
       ConnectionStrings__Marten: Host=postgres;Port=5432;Database=bifrost;Username=bifrost;Password=bifrost
       Bifrost__BusSocket: /run/bifrost/bus.sock
       ASPNETCORE_URLS: http://+:8080
+      Gateway__BaseUrl: ${BIFROST_GATEWAY_BASE_URL:-}
+      Gateway__VirtualKey: ${BIFROST_API_KEY:-}
+      Gateway__QuotaAccessToken: ${BIFROST_QUOTA_ACCESS_TOKEN:-}
     ports:
       - "8081:8080"
     volumes:
@@ -133,6 +136,9 @@ services:
       ConnectionStrings__Marten: Host=postgres;Port=5432;Database=bifrost;Username=bifrost;Password=bifrost
       Bifrost__BusSocket: /run/bifrost/bus.sock
       ASPNETCORE_URLS: http://+:8080
+      Ai__ApiKey: ${BIFROST_AI_API_KEY:-unset}
+      Ai__BaseUrl: ${BIFROST_AI_BASE_URL:-https://api.fireworks.ai/inference/v1/}
+      Ai__Model: ${BIFROST_AI_MODEL:-accounts/fireworks/models/llama-v3p1-70b-instruct}
     ports:
       - "8082:8080"
     volumes:

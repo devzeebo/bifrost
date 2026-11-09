@@ -2,6 +2,7 @@ import type { EvalLatestOutcome, EvalOutcomeStatus } from './types'
 
 export const neverRunOutcome = (): EvalLatestOutcome => ({
   status: 'never_run',
+  caseRunId: null,
   capabilityVersionId: null,
   skillVersionId: null,
 })
@@ -16,8 +17,44 @@ export const outcomeLabel = (status: EvalOutcomeStatus): string => {
       return 'Unsettled'
     case 'never_run':
       return 'Never run'
+    case 'never_completed':
+      return 'Never completed'
   }
 }
+
+export const formatSuiteSummary = (summary: {
+  readonly passed: number
+  readonly failed: number
+  readonly unsettled: number
+  readonly neverCompleted: number
+  readonly neverRun: number
+}): string => {
+  const parts: string[] = []
+  if (summary.passed > 0) {
+    parts.push(`${summary.passed} passed`)
+  }
+  if (summary.failed > 0) {
+    parts.push(`${summary.failed} failed`)
+  }
+  if (summary.unsettled > 0) {
+    parts.push(`${summary.unsettled} unsettled`)
+  }
+  if (summary.neverCompleted > 0) {
+    parts.push(`${summary.neverCompleted} never completed`)
+  }
+  if (summary.neverRun > 0) {
+    parts.push(`${summary.neverRun} never run`)
+  }
+  return parts.length === 0 ? 'No evals' : parts.join(' · ')
+}
+
+export const formatCriterionRollup = (rollup: {
+  readonly passed: number
+  readonly failed: number
+  readonly unsettled: number
+  readonly neverCompleted: number
+  readonly neverRun: number
+}): string => formatSuiteSummary(rollup)
 
 export const outcomeEarnedUnderNote = (input: {
   readonly outcome: EvalLatestOutcome

@@ -18,12 +18,93 @@ export type CheckSnapshot = {
   readonly script: string | null
 }
 
-export type EvalOutcomeStatus = 'passed' | 'failed' | 'unsettled' | 'never_run'
+export type EvalOutcomeStatus =
+  | 'passed'
+  | 'failed'
+  | 'unsettled'
+  | 'never_run'
+  | 'never_completed'
 
 export type EvalLatestOutcome = {
   readonly status: EvalOutcomeStatus
+  readonly caseRunId: string | null
   readonly capabilityVersionId: string | null
   readonly skillVersionId: string | null
+}
+
+export type TranscriptLine = {
+  readonly role: string
+  readonly text: string
+}
+
+export type EvalSpend = {
+  readonly model: string
+  readonly inputTokens: number
+  readonly outputTokens: number
+  readonly totalTokens: number
+  readonly cost: number | null
+}
+
+export type EvalCheckVerdict = {
+  readonly checkId: string
+  readonly statement: string
+  readonly kind: string
+  readonly status: string
+  readonly reason: string
+}
+
+export type EvalCaseRun = {
+  readonly id: string
+  readonly capabilityId: string
+  readonly evalId: string
+  readonly criterionId: string
+  readonly suiteRunId: string | null
+  readonly skillVersionId: string | null
+  readonly capabilityVersionId: string | null
+  readonly isEval: boolean
+  readonly status: string
+  readonly outcome: string | null
+  readonly failureReason: string | null
+  readonly transcript: readonly TranscriptLine[]
+  readonly spend: EvalSpend | null
+  readonly checks: readonly EvalCheckVerdict[]
+  readonly startedAt: string
+  readonly completedAt: string | null
+}
+
+export type SuiteEvalSummary = {
+  readonly passed: number
+  readonly failed: number
+  readonly unsettled: number
+  readonly neverCompleted: number
+  readonly neverRun: number
+}
+
+export type CriterionEvalRollup = {
+  readonly criterionId: string
+  readonly passed: number
+  readonly failed: number
+  readonly unsettled: number
+  readonly neverCompleted: number
+  readonly neverRun: number
+}
+
+export type CapabilityEvalOutcomes = {
+  readonly capabilityId: string
+  readonly activeSuiteRunId: string | null
+  readonly suite: SuiteEvalSummary
+  readonly criteria: readonly CriterionEvalRollup[]
+  readonly evals: readonly (EvalLatestOutcome & {
+    readonly evalId: string
+    readonly criterionId: string
+  })[]
+}
+
+export type EvalSuiteRunResult = {
+  readonly suiteRunId: string
+  readonly status: string
+  readonly summary: SuiteEvalSummary
+  readonly cases: readonly EvalCaseRun[]
 }
 
 export type EvalSnapshot = {

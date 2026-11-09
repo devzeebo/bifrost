@@ -60,6 +60,7 @@ function a_never_run_outcome_is_built(this: Context) {
 function status_is_never_run(this: Context) {
   expect(this.outcome).toEqual({
     status: 'never_run',
+    caseRunId: null,
     capabilityVersionId: null,
     skillVersionId: null,
   })
@@ -71,6 +72,7 @@ function labels_are_read(this: Context) {
     failed: outcomeLabel('failed'),
     unsettled: outcomeLabel('unsettled'),
     never_run: outcomeLabel('never_run'),
+    never_completed: outcomeLabel('never_completed'),
   }
 }
 
@@ -80,12 +82,14 @@ function each_status_has_a_label(this: Context) {
     failed: 'Failed',
     unsettled: 'Unsettled',
     never_run: 'Never run',
+    never_completed: 'Never completed',
   })
 }
 
 function a_passed_outcome_on_current_versions(this: Context) {
   this.outcome = {
     status: 'passed',
+    caseRunId: 'run-1',
     capabilityVersionId: 'cap-1',
     skillVersionId: 'skill-1',
   }
@@ -94,6 +98,7 @@ function a_passed_outcome_on_current_versions(this: Context) {
 function a_passed_outcome_on_older_versions(this: Context) {
   this.outcome = {
     status: 'passed',
+    caseRunId: 'run-old',
     capabilityVersionId: 'cap-old',
     skillVersionId: 'skill-old',
   }
