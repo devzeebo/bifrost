@@ -11,6 +11,8 @@ public static class FailTrackedWorkItemHandler
 {
     public static void Validate(FailTrackedWorkItemApi.Command command, TrackedWorkItem item)
     {
+        TrackedWorkItemSpeakers.EnsureRunId(command.RunId);
+        TrackedWorkItemSpeakers.EnsureHolderOrSystem(item, command.Actor);
         item.EnsureExpected(command.Expected);
         WorkItemLifecycle.EnsureLegal(
             DefaultWorkItemLifecycle.Definition,
@@ -27,7 +29,7 @@ public static class FailTrackedWorkItemHandler
         IBifrostBus bus
     )
     {
-        var actor = WorkItemLifecycleActors.ForSystem();
+        var actor = command.Actor;
         var from = item.Status;
         var next = WorkItemLifecycle.Decide(
             DefaultWorkItemLifecycle.Definition,
@@ -46,7 +48,8 @@ public static class FailTrackedWorkItemHandler
                 RequestKey = MirrorRequestKeys.For(
                     command.Id,
                     WorkItemLifecycleAction.Fail,
-                    from
+                    from,
+                    command.RunId
                 ),
             },
             bus

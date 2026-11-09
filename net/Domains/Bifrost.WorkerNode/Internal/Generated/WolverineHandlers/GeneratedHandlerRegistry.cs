@@ -11,7 +11,7 @@ namespace Internal.Generated.WolverineHandlers
 
         public override System.Type[] HandlerTypes()
         {
-            return new System.Type[] { typeof(Bifrost.WorkerNode.RegisterWorkerHandler) };
+            return new System.Type[] { typeof(Bifrost.WorkerNode.ExecuteHarnessHandler), typeof(Bifrost.WorkerNode.RegisterWorkerHandler) };
         }
 
 

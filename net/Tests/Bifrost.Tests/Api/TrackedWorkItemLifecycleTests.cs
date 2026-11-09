@@ -29,7 +29,7 @@ public class TrackedWorkItemLifecycleTests
     }
 
     [Fact]
-    public async Task create_claim_start_succeed_records_orchestrator_status_and_mirrors_ledger()
+    public async Task create_claim_start_succeed_records_worker_on_reports_and_mirrors_ledger()
     {
         var client = _factory.CreateClient();
         var id = Guid.NewGuid();
@@ -58,15 +58,16 @@ public class TrackedWorkItemLifecycleTests
         var claimed = await Get(client, id);
         claimed.Status.ShouldBe(TrackedWorkItemStatuses.Claimed);
         claimed.HolderId.ShouldBe(workerId);
+        var runId = await LatestRunId(client, id);
 
-        (await Post(client, "/start-tracked-work-item", Body(id, "harness"))).StatusCode.ShouldBe(
-            HttpStatusCode.NoContent
-        );
+        (
+            await Post(client, "/start-tracked-work-item", ReportBody(id, runId, workerId, "harness"))
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
         (await Get(client, id)).Status.ShouldBe(TrackedWorkItemStatuses.Running);
 
-        (await Post(client, "/succeed-tracked-work-item", Body(id, "done"))).StatusCode.ShouldBe(
-            HttpStatusCode.NoContent
-        );
+        (
+            await Post(client, "/succeed-tracked-work-item", ReportBody(id, runId, workerId, "done"))
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
         var done = await Get(client, id);
         done.Status.ShouldBe(TrackedWorkItemStatuses.Succeeded);
         done.HolderId.ShouldBeNull();
@@ -74,8 +75,14 @@ public class TrackedWorkItemLifecycleTests
         _factory
             .WorkItemLedger.HistoryOf(id)
             .Select(h => h.Actor)
-            .Distinct()
-            .ShouldBe([WorkItemLifecycleActors.Orchestrator]);
+            .ShouldBe(
+                [
+                    WorkItemLifecycleActors.Orchestrator,
+                    WorkItemLifecycleActors.Orchestrator,
+                    WorkItemLifecycleActors.ForWorker(workerId),
+                    WorkItemLifecycleActors.ForWorker(workerId),
+                ]
+            );
     }
 
     [Fact]
@@ -234,10 +241,12 @@ public class TrackedWorkItemLifecycleTests
         // Corrupt the ledger so the mirror CAS fails while orchestrator state is claimed.
         _factory.WorkItemLedger.Seed(id, TrackedWorkItemStatuses.Running);
 
+        var item = await Get(client, id);
+        var runId = await LatestRunId(client, id);
         var response = await Post(
             client,
             "/start-tracked-work-item",
-            Body(id, "harness")
+            ReportBody(id, runId, item.HolderId!.Value, "harness")
         );
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         (await response.Content.ReadAsStringAsync()).ShouldContain("expected state");
@@ -250,10 +259,107 @@ public class TrackedWorkItemLifecycleTests
         var client = _factory.CreateClient();
         var id = await CreateAt(client, TrackedWorkItemStatuses.Pending);
 
-        (await Post(client, "/fail-tracked-work-item", Body(id, "nope"))).StatusCode.ShouldBe(
-            HttpStatusCode.BadRequest
-        );
+        (
+            await Post(
+                client,
+                "/fail-tracked-work-item",
+                new
+                {
+                    id,
+                    runId = Guid.NewGuid(),
+                    actor = WorkItemLifecycleActors.Orchestrator,
+                    reason = "nope",
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         (await Get(client, id)).Status.ShouldBe(TrackedWorkItemStatuses.Pending);
+    }
+
+    [Fact]
+    public async Task start_rejects_non_holder_speaker()
+    {
+        var client = _factory.CreateClient();
+        var id = await CreateAt(client, TrackedWorkItemStatuses.Claimed);
+        var runId = await LatestRunId(client, id);
+
+        var response = await Post(
+            client,
+            "/start-tracked-work-item",
+            ReportBody(id, runId, Guid.NewGuid(), "harness")
+        );
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await response.Content.ReadAsStringAsync()).ShouldContain("holding");
+    }
+
+    [Fact]
+    public async Task fail_accepts_orchestrator_speaker_while_running()
+    {
+        var client = _factory.CreateClient();
+        var id = await CreateAt(client, TrackedWorkItemStatuses.Running);
+        var runId = await LatestRunId(client, id);
+
+        (
+            await Post(
+                client,
+                "/fail-tracked-work-item",
+                new
+                {
+                    id,
+                    runId,
+                    actor = WorkItemLifecycleActors.Orchestrator,
+                    reason = "time budget exceeded",
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        (await Get(client, id)).Status.ShouldBe(TrackedWorkItemStatuses.Failed);
+        _factory.WorkItemLedger.HistoryOf(id).Last().Actor.ShouldBe(
+            WorkItemLifecycleActors.Orchestrator
+        );
+    }
+
+    [Fact]
+    public async Task mirror_request_key_scopes_fail_by_run()
+    {
+        var client = _factory.CreateClient();
+        var id = await CreateAt(client, TrackedWorkItemStatuses.Running);
+        var firstRunId = await LatestRunId(client, id);
+        var holder = (await Get(client, id)).HolderId!.Value;
+
+        (
+            await Post(
+                client,
+                "/fail-tracked-work-item",
+                ReportBody(id, firstRunId, holder, "transient")
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var secondRunId = Guid.NewGuid();
+        var failKey1 =
+            $"{id:D}:fail:{TrackedWorkItemStatuses.Running}:{firstRunId:D}";
+        var failKey2 =
+            $"{id:D}:fail:{TrackedWorkItemStatuses.Running}:{secondRunId:D}";
+        _factory.WorkItemLedger.Apply(
+            new Bifrost.WorkItems.Contracts.ChangeWorkItemStatusApi.Command
+            {
+                Id = id,
+                Status = TrackedWorkItemStatuses.Failed,
+                Actor = WorkItemLifecycleActors.ForWorker(holder),
+                Reason = "replay",
+                RequestKey = failKey1,
+            }
+        );
+        var historyAfterReplay = _factory.WorkItemLedger.HistoryOf(id).Count;
+        _factory.WorkItemLedger.Apply(
+            new Bifrost.WorkItems.Contracts.ChangeWorkItemStatusApi.Command
+            {
+                Id = id,
+                Status = TrackedWorkItemStatuses.Failed,
+                Actor = WorkItemLifecycleActors.ForWorker(holder),
+                Reason = "second-attempt",
+                RequestKey = failKey2,
+            }
+        );
+        _factory.WorkItemLedger.HistoryOf(id).Count.ShouldBe(historyAfterReplay + 1);
     }
 
     [Fact]
@@ -303,9 +409,14 @@ public class TrackedWorkItemLifecycleTests
             return id;
         }
 
-        (await Post(client, "/start-tracked-work-item", Body(id, "harness"))).StatusCode.ShouldBe(
-            HttpStatusCode.NoContent
-        );
+        var runId = await LatestRunId(client, id);
+        (
+            await Post(
+                client,
+                "/start-tracked-work-item",
+                ReportBody(id, runId, workerId, "harness")
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
         if (status is TrackedWorkItemStatuses.Running)
         {
             return id;
@@ -329,6 +440,42 @@ public class TrackedWorkItemLifecycleTests
                 actor = WorkItemLifecycleActors.Orchestrator,
                 reason,
             };
+
+    static object ReportBody(Guid id, Guid runId, Guid workerId, string reason) =>
+        new
+        {
+            id,
+            runId,
+            actor = WorkItemLifecycleActors.ForWorker(workerId),
+            reason,
+        };
+
+    async Task<Guid> LatestRunId(HttpClient client, Guid workItemId)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (DateTime.UtcNow < deadline)
+        {
+            var request = new HttpRequestMessage(new HttpMethod("QUERY"), "/list-runs-for-work-item")
+            {
+                Content = JsonContent.Create(new { workItemId }),
+            };
+            var response = await client.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+            var body = (
+                await response.Content.ReadFromJsonAsync<ListRunsForWorkItemApi.Response>(
+                    JsonOptions
+                )
+            )!;
+            if (body.Items.Count > 0)
+            {
+                return body.Items.OrderByDescending(i => i.Position).First().Id;
+            }
+
+            await Task.Delay(50);
+        }
+
+        throw new TimeoutException($"Timed out waiting for a run on {workItemId}.");
+    }
 
     static async Task<HttpResponseMessage> Post(HttpClient client, string path, object body)
     {

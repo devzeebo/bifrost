@@ -16,8 +16,14 @@ var nodeId = Guid.TryParse(builder.Configuration["Bifrost:NodeId"], out var conf
     ? configured
     : Guid.NewGuid();
 
+builder.Services.Configure<HarnessHostOptions>(
+    builder.Configuration.GetSection(HarnessHostOptions.SectionName)
+);
 builder.Services.AddSingleton(new WorkerNodeIdentity { Id = nodeId });
-builder.Services.AddSingleton<AcceptedClaimedWork>();
+builder.Services.AddSingleton<IHarnessAcceptStore>(_ => new HarnessAcceptStore(outboxPath));
+builder.Services.AddSingleton<HarnessExecutionSlot>();
+builder.Services.AddSingleton<IHarnessProcessRunner, HarnessProcessRunner>();
+builder.Services.AddSingleton<IHarnessJobScheduler, WolverineHarnessJobScheduler>();
 
 builder.Services.AddRpcHost(options =>
 {
@@ -34,8 +40,9 @@ builder.Services.AddMessageBusHandler<ExecuteClaimedWorkApi.Command>(
         await ExecuteClaimedWorkHandler.Handle(
             command,
             sp.GetRequiredService<IBifrostBus>(),
+            sp.GetRequiredService<IHarnessJobScheduler>(),
             sp.GetRequiredService<WorkerNodeIdentity>(),
-            sp.GetRequiredService<AcceptedClaimedWork>()
+            sp.GetRequiredService<IHarnessAcceptStore>()
         );
     }
 );

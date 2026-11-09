@@ -129,6 +129,14 @@ public class WorkItemLifecycleTests
         WorkItemLifecycleActors.ForSystem().ShouldBe("orchestrator");
 
     [Fact]
+    public void worker_actor_is_canonical_guid()
+    {
+        var id = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        WorkItemLifecycleActors.ForWorker(id).ShouldBe(id.ToString("D"));
+        Should.Throw<ContractValidationException>(() => WorkItemLifecycleActors.ForWorker(Guid.Empty));
+    }
+
+    [Fact]
     public void requester_actor_requires_identity()
     {
         WorkItemLifecycleActors.ForRequester("alice").ShouldBe("alice");
