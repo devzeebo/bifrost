@@ -21,79 +21,42 @@ const chartSignal = '#5fd4b8'
 const chartSignalDim = '#3f9f8d'
 
 export const ModelUsageCharts = ({ budgets }: ModelUsageChartsProps) => {
-  const rows = aggregateModelUsage(budgets)
+  const windows = budgets
+    .map((budget) => ({
+      budget,
+      rows: modelRows(budget.perModelUsage),
+    }))
+    .filter((window) => window.rows.length > 0)
 
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-xs tracking-[0.16em] text-muted uppercase">Per-model usage</h2>
-      {rows.length === 0 ? (
+      {windows.length === 0 ? (
         <p className="border border-line bg-surface px-5 py-6 text-sm text-muted">
           No per-model usage for the current cycle.
         </p>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <ChartCard title="Cost (USD)">
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
-                <CartesianGrid stroke={chartMuted} strokeOpacity={0.2} vertical={false} />
-                <XAxis
-                  dataKey="id"
-                  stroke={chartMuted}
-                  tick={<ModelTick rows={rows} />}
-                  interval={0}
-                  height={64}
-                  tickLine={false}
-                />
-                <YAxis stroke={chartMuted} tick={{ fill: chartMuted, fontSize: 12 }} />
-                <Tooltip
-                  contentStyle={{
-                    background: chartInk,
-                    border: '1px solid #4a5565',
-                    color: chartFg,
-                  }}
-                  labelFormatter={(_, payload) => {
-                    const row = payload[0]?.payload as ModelRow | undefined
-                    if (row === undefined) {
-                      return ''
-                    }
-                    return `${row.provider}\n${row.modelName}`
-                  }}
-                />
-                <Bar dataKey="totalCost" fill={chartSignal} name="Cost" />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-          <ChartCard title="Tokens">
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
-                <CartesianGrid stroke={chartMuted} strokeOpacity={0.2} vertical={false} />
-                <XAxis
-                  dataKey="id"
-                  stroke={chartMuted}
-                  tick={<ModelTick rows={rows} />}
-                  interval={0}
-                  height={64}
-                  tickLine={false}
-                />
-                <YAxis stroke={chartMuted} tick={{ fill: chartMuted, fontSize: 12 }} />
-                <Tooltip
-                  contentStyle={{
-                    background: chartInk,
-                    border: '1px solid #4a5565',
-                    color: chartFg,
-                  }}
-                  labelFormatter={(_, payload) => {
-                    const row = payload[0]?.payload as ModelRow | undefined
-                    if (row === undefined) {
-                      return ''
-                    }
-                    return `${row.provider}\n${row.modelName}`
-                  }}
-                />
-                <Bar dataKey="totalTokens" fill={chartSignalDim} name="Tokens" />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
+        <div className="flex flex-col gap-6">
+          {windows.map(({ budget, rows }) => (
+            <div key={budget.id} className="flex flex-col gap-3">
+              <h3 className="text-sm text-fg">
+                {budgetScopeLabel(budget)} · reset {budget.resetDuration || 'n/a'}
+              </h3>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <ChartCard title="Cost (USD)">
+                  <UsageChart rows={rows} dataKey="totalCost" fill={chartSignal} name="Cost" />
+                </ChartCard>
+                <ChartCard title="Tokens">
+                  <UsageChart
+                    rows={rows}
+                    dataKey="totalTokens"
+                    fill={chartSignalDim}
+                    name="Tokens"
+                  />
+                </ChartCard>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </section>
@@ -121,6 +84,45 @@ type ModelRow = {
   readonly totalRequests: number
 }
 
+type UsageChartProps = {
+  readonly rows: readonly ModelRow[]
+  readonly dataKey: 'totalCost' | 'totalTokens'
+  readonly fill: string
+  readonly name: string
+}
+
+const UsageChart = ({ rows, dataKey, fill, name }: UsageChartProps) => (
+  <ResponsiveContainer width="100%" height={280}>
+    <BarChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+      <CartesianGrid stroke={chartMuted} strokeOpacity={0.2} vertical={false} />
+      <XAxis
+        dataKey="id"
+        stroke={chartMuted}
+        tick={<ModelTick rows={rows} />}
+        interval={0}
+        height={64}
+        tickLine={false}
+      />
+      <YAxis stroke={chartMuted} tick={{ fill: chartMuted, fontSize: 12 }} />
+      <Tooltip
+        contentStyle={{
+          background: chartInk,
+          border: '1px solid #4a5565',
+          color: chartFg,
+        }}
+        labelFormatter={(_, payload) => {
+          const row = payload[0]?.payload as ModelRow | undefined
+          if (row === undefined) {
+            return ''
+          }
+          return `${row.provider}\n${row.modelName}`
+        }}
+      />
+      <Bar dataKey={dataKey} fill={fill} name={name} />
+    </BarChart>
+  </ResponsiveContainer>
+)
+
 type ModelTickProps = {
   readonly x?: number
   readonly y?: number
@@ -146,34 +148,20 @@ const ModelTick = ({ x = 0, y = 0, payload, rows }: ModelTickProps) => {
   )
 }
 
-const aggregateModelUsage = (budgets: readonly Budget[]): readonly ModelRow[] => {
-  const byModel = new Map<string, ModelRow>()
-  for (const budget of budgets) {
-    for (const usage of budget.perModelUsage) {
+const modelRows = (usages: readonly ModelUsage[]): readonly ModelRow[] =>
+  [...usages]
+    .map((usage) => {
       const display = displayParts(usage)
-      const key = modelKey(usage)
-      const existing = byModel.get(key)
-      if (existing === undefined) {
-        byModel.set(key, {
-          id: key,
-          provider: display.provider,
-          modelName: display.modelName,
-          totalCost: usage.totalCost,
-          totalTokens: usage.totalTokens,
-          totalRequests: usage.totalRequests,
-        })
-        continue
+      return {
+        id: modelKey(usage),
+        provider: display.provider,
+        modelName: display.modelName,
+        totalCost: usage.totalCost,
+        totalTokens: usage.totalTokens,
+        totalRequests: usage.totalRequests,
       }
-      byModel.set(key, {
-        ...existing,
-        totalCost: existing.totalCost + usage.totalCost,
-        totalTokens: existing.totalTokens + usage.totalTokens,
-        totalRequests: existing.totalRequests + usage.totalRequests,
-      })
-    }
-  }
-  return [...byModel.values()].sort((left, right) => right.totalCost - left.totalCost)
-}
+    })
+    .sort((left, right) => right.totalCost - left.totalCost)
 
 const modelKey = (usage: ModelUsage): string =>
   usage.provider === null ? usage.model : `${usage.provider}/${usage.model}`
@@ -183,12 +171,22 @@ const displayParts = (usage: ModelUsage): { provider: string; modelName: string 
   const modelName = segments.at(-1) ?? usage.model
   const providerRaw =
     usage.provider ??
-    (segments.length >= 2 ? segments[1] : null) ??
+    (segments.length >= 2 ? segments[0] : null) ??
     'Unknown'
   return {
     provider: titleCase(providerRaw),
     modelName,
   }
+}
+
+const budgetScopeLabel = (budget: Budget): string => {
+  if (budget.sourceName !== null && budget.sourceName.length > 0) {
+    return budget.sourceName
+  }
+  if (budget.sourceType !== null && budget.sourceType.length > 0) {
+    return budget.sourceType
+  }
+  return 'Key budget'
 }
 
 const titleCase = (value: string): string => {

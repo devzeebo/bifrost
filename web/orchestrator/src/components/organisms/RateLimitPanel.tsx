@@ -1,46 +1,49 @@
 import { Fact } from '../molecules/Fact'
 import type { RateLimit } from '../../usage/virtualKeyQuota'
 
+export type ScopedRateLimit = RateLimit & {
+  readonly scopeLabel: string
+}
+
 type RateLimitPanelProps = {
-  readonly rateLimit: RateLimit | null
-  readonly rateLimits: readonly RateLimit[]
+  readonly limits: readonly ScopedRateLimit[]
 }
 
-export const RateLimitPanel = ({ rateLimit, rateLimits }: RateLimitPanelProps) => {
-  const limits = rateLimit !== null ? [rateLimit, ...rateLimits.filter((item) => item.id !== rateLimit.id)] : rateLimits
-
-  return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-xs tracking-[0.16em] text-muted uppercase">Rate limits</h2>
-      {limits.length === 0 ? (
-        <p className="border border-line bg-surface px-5 py-6 text-sm text-muted">
-          No rate limits are configured for this key.
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {limits.map((limit) => (
-            <li key={limit.id} className="border border-line bg-surface px-5 py-5">
-              <div className="flex flex-col gap-5">
-                <UsageBar
-                  label="Tokens"
-                  current={limit.tokenCurrentUsage}
-                  max={limit.tokenMaxLimit}
-                  reset={limit.tokenResetDuration}
-                />
-                <UsageBar
-                  label="Requests"
-                  current={limit.requestCurrentUsage}
-                  max={limit.requestMaxLimit}
-                  reset={limit.requestResetDuration}
-                />
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  )
-}
+export const RateLimitPanel = ({ limits }: RateLimitPanelProps) => (
+  <section className="flex flex-col gap-3">
+    <h2 className="text-xs tracking-[0.16em] text-muted uppercase">Rate limits</h2>
+    {limits.length === 0 ? (
+      <p className="border border-line bg-surface px-5 py-6 text-sm text-muted">
+        No rate limits are configured for this key.
+      </p>
+    ) : (
+      <ul className="flex flex-col gap-3">
+        {limits.map((limit) => (
+          <li
+            key={`${limit.scopeLabel}-${limit.id}`}
+            className="border border-line bg-surface px-5 py-5"
+          >
+            <div className="flex flex-col gap-5">
+              <Fact label="Scope" value={limit.scopeLabel} />
+              <UsageBar
+                label="Tokens"
+                current={limit.tokenCurrentUsage}
+                max={limit.tokenMaxLimit}
+                reset={limit.tokenResetDuration}
+              />
+              <UsageBar
+                label="Requests"
+                current={limit.requestCurrentUsage}
+                max={limit.requestMaxLimit}
+                reset={limit.requestResetDuration}
+              />
+            </div>
+          </li>
+        ))}
+      </ul>
+    )}
+  </section>
+)
 
 type UsageBarProps = {
   readonly label: string

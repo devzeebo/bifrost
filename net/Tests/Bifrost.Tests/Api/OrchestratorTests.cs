@@ -57,6 +57,7 @@ public sealed class OrchestratorApiFactory : WebApplicationFactory<Orchestrator:
         builder.UseSetting("ConnectionStrings:Marten", _connectionString);
         builder.UseSetting("Gateway:BaseUrl", "https://gateway.test/");
         builder.UseSetting("Gateway:VirtualKey", "sk-test");
+        builder.UseSetting("Gateway:QuotaAccessToken", "test-quota-token");
 
         builder.ConfigureTestServices(services =>
         {
@@ -226,6 +227,19 @@ public class OrchestratorTests
     }
 
     [Fact]
+    public async Task get_virtual_key_quota_rejects_missing_access_token()
+    {
+        var client = _factory.CreateClient();
+        var response = await QueryQuota(client, accessToken: null);
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+
+        var problem = (
+            await response.Content.ReadFromJsonAsync<ProblemDetails>(JsonOptions)
+        )!;
+        problem.Title.ShouldBe("Quota access denied");
+    }
+
+    [Fact]
     public async Task get_virtual_key_quota_maps_gateway_auth_failures()
     {
         _factory.VirtualKeyQuota.Response = null;
@@ -306,12 +320,23 @@ public class OrchestratorTests
         )!;
     }
 
-    static Task<HttpResponseMessage> QueryQuota(HttpClient client)
+    static Task<HttpResponseMessage> QueryQuota(
+        HttpClient client,
+        string? accessToken = "test-quota-token"
+    )
     {
         var request = new HttpRequestMessage(new HttpMethod("QUERY"), "/get-virtual-key-quota")
         {
             Content = new StringContent("{}", Encoding.UTF8, "application/json"),
         };
+        if (accessToken is not null)
+        {
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
+                "Bearer",
+                accessToken
+            );
+        }
+
         return client.SendAsync(request);
     }
 

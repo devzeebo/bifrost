@@ -10,6 +10,11 @@ public sealed class GatewayOptions
     public string BaseUrl { get; set; } = string.Empty;
     public string VirtualKey { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Bearer token required on HTTP quota lookups. Empty disables the HTTP route.
+    /// </summary>
+    public string QuotaAccessToken { get; set; } = string.Empty;
+
     public bool IsConfigured =>
         !string.IsNullOrWhiteSpace(BaseUrl) && !string.IsNullOrWhiteSpace(VirtualKey);
 
@@ -22,6 +27,7 @@ public sealed class GatewayOptions
         {
             BaseUrl = section["BaseUrl"]?.Trim() ?? string.Empty,
             VirtualKey = section["VirtualKey"]?.Trim() ?? string.Empty,
+            QuotaAccessToken = section["QuotaAccessToken"]?.Trim() ?? string.Empty,
         };
     }
 }

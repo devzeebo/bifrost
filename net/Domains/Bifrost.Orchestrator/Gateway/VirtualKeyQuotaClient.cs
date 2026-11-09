@@ -29,10 +29,9 @@ public sealed class VirtualKeyQuotaClient(
             );
         }
 
-        var client = httpClientFactory.CreateClient(GatewayOptions.HttpClientName);
-
         try
         {
+            var client = httpClientFactory.CreateClient(GatewayOptions.HttpClientName);
             using var request = new HttpRequestMessage(
                 HttpMethod.Get,
                 "api/governance/virtual-keys/quota"
@@ -84,6 +83,14 @@ public sealed class VirtualKeyQuotaClient(
                     StatusCodes.Status502BadGateway
                 );
 
+            if (string.IsNullOrWhiteSpace(upstream.VirtualKeyName))
+            {
+                throw new VirtualKeyQuotaException(
+                    "Gateway returned a quota response without virtual key identity.",
+                    StatusCodes.Status502BadGateway
+                );
+            }
+
             return Map(upstream);
         }
         catch (VirtualKeyQuotaException)
@@ -115,7 +122,7 @@ public sealed class VirtualKeyQuotaClient(
     static GetVirtualKeyQuotaApi.Response Map(UpstreamQuotaResponse upstream) =>
         new()
         {
-            VirtualKeyName = upstream.VirtualKeyName ?? string.Empty,
+            VirtualKeyName = upstream.VirtualKeyName!,
             IsActive = upstream.IsActive,
             Budgets = MapBudgets(upstream.Budgets),
             RateLimit = MapRateLimit(upstream.RateLimit),
@@ -202,6 +209,11 @@ public sealed class VirtualKeyQuotaClient(
         try
         {
             using var document = JsonDocument.Parse(payload);
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return Truncate(payload);
+            }
+
             if (
                 document.RootElement.TryGetProperty("error", out var error)
                 && error.ValueKind == JsonValueKind.String

@@ -22,7 +22,10 @@ const chartSignal = '#5fd4b8'
 export const ProviderBudgetPanel = ({ providers }: ProviderBudgetPanelProps) => {
   const rows = providers.flatMap((provider) =>
     provider.budgets.map((budget) => ({
-      label: provider.provider,
+      id: budget.id || `${provider.id}-${budget.resetDuration}-${budget.maxLimit}`,
+      label: `${provider.provider} · ${budget.resetDuration || 'n/a'}`,
+      provider: provider.provider,
+      resetDuration: budget.resetDuration,
       currentUsage: budget.currentUsage,
       maxLimit: budget.maxLimit,
     })),
@@ -54,8 +57,9 @@ export const ProviderBudgetPanel = ({ providers }: ProviderBudgetPanelProps) => 
           </ResponsiveContainer>
           <ul className="mt-5 flex flex-col gap-3">
             {rows.map((row) => (
-              <li key={`${row.label}-${row.maxLimit}`} className="flex flex-wrap gap-6">
-                <Fact label="Provider" value={row.label} />
+              <li key={row.id} className="flex flex-wrap gap-6">
+                <Fact label="Provider" value={row.provider} />
+                <Fact label="Reset" value={row.resetDuration || 'n/a'} />
                 <Fact label="Usage" value={formatUsd(row.currentUsage)} />
                 <Fact label="Limit" value={formatUsd(row.maxLimit)} />
               </li>

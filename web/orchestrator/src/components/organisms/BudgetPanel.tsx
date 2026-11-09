@@ -1,8 +1,12 @@
 import { Fact } from '../molecules/Fact'
 import type { Budget } from '../../usage/virtualKeyQuota'
 
+export type ScopedBudget = Budget & {
+  readonly scopeLabel: string
+}
+
 type BudgetPanelProps = {
-  readonly budgets: readonly Budget[]
+  readonly budgets: readonly ScopedBudget[]
 }
 
 export const BudgetPanel = ({ budgets }: BudgetPanelProps) => (
@@ -21,9 +25,13 @@ export const BudgetPanel = ({ budgets }: BudgetPanelProps) => (
               ? Math.min((budget.currentUsage / budget.maxLimit) * 100, 100)
               : 0
           return (
-            <li key={budget.id} className="border border-line bg-surface px-5 py-5">
+            <li
+              key={`${budget.scopeLabel}-${budget.id}`}
+              className="border border-line bg-surface px-5 py-5"
+            >
               <div className="flex flex-col gap-4">
                 <div className="flex flex-wrap gap-6">
+                  <Fact label="Scope" value={budget.scopeLabel} />
                   <Fact label="Usage" value={formatUsd(budget.currentUsage)} />
                   <Fact label="Limit" value={formatUsd(budget.maxLimit)} />
                   <Fact label="Remaining" value={formatUsd(remaining)} />

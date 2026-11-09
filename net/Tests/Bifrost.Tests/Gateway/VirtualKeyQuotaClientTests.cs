@@ -120,6 +120,24 @@ public class VirtualKeyQuotaClientTests
         ex.Message.ShouldContain("500");
     }
 
+    [Fact]
+    public async Task GetQuota_rejects_payload_without_identity()
+    {
+        var client = CreateClient(HttpStatusCode.OK, "{}");
+        var ex = await Should.ThrowAsync<VirtualKeyQuotaException>(() => client.GetQuota());
+        ex.StatusCode.ShouldBe(StatusCodes.Status502BadGateway);
+        ex.Message.ShouldContain("identity");
+    }
+
+    [Fact]
+    public async Task GetQuota_preserves_status_for_non_object_auth_errors()
+    {
+        var client = CreateClient(HttpStatusCode.Unauthorized, "\"denied\"");
+        var ex = await Should.ThrowAsync<VirtualKeyQuotaException>(() => client.GetQuota());
+        ex.StatusCode.ShouldBe(StatusCodes.Status401Unauthorized);
+        ex.Message.ShouldContain("denied");
+    }
+
     static VirtualKeyQuotaClient CreateClient(
         HttpStatusCode status,
         string body,

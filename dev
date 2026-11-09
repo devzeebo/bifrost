@@ -6,6 +6,9 @@ COMPOSE=(docker compose -f "$ROOT/bifrost-server/docker-compose.yml")
 PIDS=()
 STARTED_STACK=0
 
+# Shared with the vite proxy so the usage page can call the orchestrator quota route.
+export BIFROST_QUOTA_ACCESS_TOKEN="${BIFROST_QUOTA_ACCESS_TOKEN:-local-dev-quota-token}"
+
 cleanup() {
   trap - EXIT INT TERM
   echo
@@ -49,9 +52,22 @@ fi
 
 dump_failed_containers() {
   local ids
-  # Include exited/dead and restarting; --wait failures often leave a service crash-looping.
+  # Include exited/dead/restarting and running-but-unhealthy; --wait failures can leave either.
   ids="$("${COMPOSE[@]}" ps -aq --status exited --status dead --status restarting 2>/dev/null || true)"
-  if [[ -z "${ids}" ]]; then
+  local running
+  running="$("${COMPOSE[@]}" ps -aq --status running 2>/dev/null || true)"
+  if [[ -n "${running}" ]]; then
+    while IFS= read -r id; do
+      [[ -z "${id}" ]] && continue
+      local health
+      health="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "${id}" 2>/dev/null || echo none)"
+      if [[ "${health}" == "unhealthy" ]]; then
+        ids="${ids}"$'\n'"${id}"
+      fi
+    done <<<"${running}"
+  fi
+
+  if [[ -z "${ids//[[:space:]]/}" ]]; then
     return 0
   fi
 
@@ -73,6 +89,8 @@ trap cleanup EXIT INT TERM
 echo "Starting Bifrost Docker stack…"
 if ! "${COMPOSE[@]}" up --build -d --wait; then
   dump_failed_containers
+  echo "Stopping partially started Docker stack…" >&2
+  "${COMPOSE[@]}" stop || true
   exit 1
 fi
 STARTED_STACK=1
@@ -81,14 +99,12 @@ ensure_pnpm() {
   local app="$1"
   local dir="$ROOT/web/$app"
   local lock="$dir/pnpm-lock.yaml"
-  local stamp="$dir/node_modules/.modules.yaml"
-  if [[ ! -d "$dir/node_modules" ]] || [[ ! -f "$lock" ]] || [[ ! -f "$stamp" ]] || [[ "$lock" -nt "$stamp" ]]; then
-    echo "Installing $app dependencies…"
-    if [[ -f "$lock" ]]; then
-      (cd "$dir" && pnpm install --frozen-lockfile)
-    else
-      (cd "$dir" && pnpm install)
-    fi
+  # Always install before startup so a package.json change without a lock update fails fast.
+  echo "Installing $app dependencies…"
+  if [[ -f "$lock" ]]; then
+    (cd "$dir" && pnpm install --frozen-lockfile)
+  else
+    (cd "$dir" && pnpm install)
   fi
 }
 
@@ -96,11 +112,11 @@ ensure_pnpm workshop
 ensure_pnpm orchestrator
 
 echo "Starting workshop UI on http://127.0.0.1:5173 …"
-setsid pnpm --dir "$ROOT/web/workshop" run dev -- --host 127.0.0.1 --port 5173 --strictPort </dev/null &
+setsid pnpm --dir "$ROOT/web/workshop" run dev --host 127.0.0.1 --port 5173 --strictPort </dev/null &
 PIDS+=($!)
 
 echo "Starting orchestrator UI on http://127.0.0.1:5174 …"
-setsid pnpm --dir "$ROOT/web/orchestrator" run dev -- --host 127.0.0.1 --port 5174 --strictPort </dev/null &
+setsid pnpm --dir "$ROOT/web/orchestrator" run dev --host 127.0.0.1 --port 5174 --strictPort </dev/null &
 PIDS+=($!)
 
 cat <<EOF
