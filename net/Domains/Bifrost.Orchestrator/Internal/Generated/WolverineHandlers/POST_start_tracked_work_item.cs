@@ -45,7 +45,7 @@ namespace Internal.Generated.WolverineHandlers
             var eventStreamOfTrackedWorkItem = await documentSession.Events.FetchForWriting<Bifrost.TrackedWorkItems.Aggregate.TrackedWorkItem>(trackedWorkItem_Id, httpContext.RequestAborted);
             System.Diagnostics.Activity.Current?.SetTag("wolverine.stream.id", trackedWorkItem_Id);
             System.Diagnostics.Activity.Current?.SetTag("wolverine.stream.type", "Bifrost.TrackedWorkItems.Aggregate.TrackedWorkItem");
-            Bifrost.TrackedWorkItems.Commands.StartTrackedWorkItemHandler.Validate(command, eventStreamOfTrackedWorkItem.Aggregate);
+            await Bifrost.TrackedWorkItems.Commands.StartTrackedWorkItemHandler.Validate(command, eventStreamOfTrackedWorkItem.Aggregate, ((Marten.IQuerySession)documentSession)).ConfigureAwait(false);
             
             // The actual HTTP request handler execution
             var trackedWorkItemStarted = await Bifrost.TrackedWorkItems.Commands.StartTrackedWorkItemHandler.Handle(command, eventStreamOfTrackedWorkItem.Aggregate, _bifrostBus).ConfigureAwait(false);

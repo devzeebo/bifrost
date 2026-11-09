@@ -1,19 +1,22 @@
 using Bifrost.MessageBus;
 using Bifrost.Orchestrator.Contracts;
+using Wolverine.Attributes;
 
 namespace Bifrost.WorkerNode;
 
 /// <summary>
-/// Idempotent accept of a claimed handoff. Harness execution is #61 —
-/// this story only records that the worker took the message.
+/// Durable accept of a claimed handoff; harness execution is enqueued serially.
+/// Invoked via the message-bus RPC handler, not Wolverine discovery.
 /// </summary>
+[WolverineIgnore]
 public static class ExecuteClaimedWorkHandler
 {
     public static async Task Handle(
         ExecuteClaimedWorkApi.Command command,
         IBifrostBus bus,
+        IHarnessJobScheduler jobs,
         WorkerNodeIdentity identity,
-        AcceptedClaimedWork accepted
+        IHarnessAcceptStore accepts
     )
     {
         if (command.WorkerId != identity.Id)
@@ -21,8 +24,16 @@ public static class ExecuteClaimedWorkHandler
             return;
         }
 
-        if (accepted.Contains(command.WorkItemId, command.RunId))
+        var existing = accepts.GetState(command.WorkItemId, command.RunId);
+        if (existing is HarnessAcceptState.Concluded or HarnessAcceptState.Running)
         {
+            return;
+        }
+
+        if (existing is HarnessAcceptState.Accepted)
+        {
+            // Accept survived a crash or failed enqueue — reschedule without double-accept.
+            await Enqueue(jobs, command).ConfigureAwait(false);
             return;
         }
 
@@ -52,29 +63,26 @@ public static class ExecuteClaimedWorkHandler
             return;
         }
 
-        accepted.Record(command.WorkItemId, command.RunId);
-    }
-}
-
-/// <summary>In-process set of accepted (work item, run) pairs for handoff idempotency.</summary>
-public sealed class AcceptedClaimedWork
-{
-    readonly HashSet<(Guid WorkItemId, Guid RunId)> _accepted = [];
-    readonly object _gate = new();
-
-    public bool Contains(Guid workItemId, Guid runId)
-    {
-        lock (_gate)
+        if (!accepts.TryAccept(command.WorkItemId, command.RunId))
         {
-            return _accepted.Contains((workItemId, runId));
+            // Lost the race with another delivery; if it stayed Accepted, still enqueue.
+            if (accepts.GetState(command.WorkItemId, command.RunId) is HarnessAcceptState.Accepted)
+            {
+                await Enqueue(jobs, command).ConfigureAwait(false);
+            }
+
+            return;
         }
+
+        await Enqueue(jobs, command).ConfigureAwait(false);
     }
 
-    public void Record(Guid workItemId, Guid runId)
-    {
-        lock (_gate)
-        {
-            _accepted.Add((workItemId, runId));
-        }
-    }
+    static Task Enqueue(IHarnessJobScheduler jobs, ExecuteClaimedWorkApi.Command command) =>
+        jobs.Enqueue(
+            new ExecuteHarness
+            {
+                WorkItemId = command.WorkItemId,
+                RunId = command.RunId,
+            }
+        );
 }

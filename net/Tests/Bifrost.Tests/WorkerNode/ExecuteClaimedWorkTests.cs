@@ -11,10 +11,12 @@ public class ExecuteClaimedWorkTests
     public async Task accepts_when_still_held_and_is_idempotent()
     {
         var identity = new WorkerNodeIdentity { Id = Guid.NewGuid() };
-        var accepted = new AcceptedClaimedWork();
+        var db = Path.Combine(Path.GetTempPath(), $"harness-accept-{Guid.NewGuid():N}.db");
+        using var accepts = new HarnessAcceptStore(db);
         var workItemId = Guid.NewGuid();
         var runId = Guid.NewGuid();
         var bus = new StubBus(identity.Id, TrackedWorkItemStatuses.Claimed);
+        var jobs = new RecordingJobs();
 
         var command = new ExecuteClaimedWorkApi.Command
         {
@@ -23,21 +25,55 @@ public class ExecuteClaimedWorkTests
             RunId = runId,
         };
 
-        await ExecuteClaimedWorkHandler.Handle(command, bus, identity, accepted);
-        accepted.Contains(workItemId, runId).ShouldBeTrue();
+        await ExecuteClaimedWorkHandler.Handle(command, bus, jobs, identity, accepts);
+        accepts.GetState(workItemId, runId).ShouldBe(HarnessAcceptState.Accepted);
+        jobs.Jobs.ShouldHaveSingleItem().RunId.ShouldBe(runId);
         bus.Lookups.ShouldBe(1);
 
-        await ExecuteClaimedWorkHandler.Handle(command, bus, identity, accepted);
+        await ExecuteClaimedWorkHandler.Handle(command, bus, jobs, identity, accepts);
+        jobs.Jobs.Count.ShouldBe(2);
         bus.Lookups.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task reenqueues_when_accepted_without_looking_up_again()
+    {
+        var identity = new WorkerNodeIdentity { Id = Guid.NewGuid() };
+        var db = Path.Combine(Path.GetTempPath(), $"harness-accept-{Guid.NewGuid():N}.db");
+        using var accepts = new HarnessAcceptStore(db);
+        var workItemId = Guid.NewGuid();
+        var runId = Guid.NewGuid();
+        accepts.TryAccept(workItemId, runId).ShouldBeTrue();
+
+        var bus = new StubBus(identity.Id, TrackedWorkItemStatuses.Claimed);
+        var jobs = new RecordingJobs();
+
+        await ExecuteClaimedWorkHandler.Handle(
+            new ExecuteClaimedWorkApi.Command
+            {
+                WorkItemId = workItemId,
+                WorkerId = identity.Id,
+                RunId = runId,
+            },
+            bus,
+            jobs,
+            identity,
+            accepts
+        );
+
+        jobs.Jobs.ShouldHaveSingleItem().RunId.ShouldBe(runId);
+        bus.Lookups.ShouldBe(0);
     }
 
     [Fact]
     public async Task ignores_wrong_node_and_terminal_items()
     {
         var identity = new WorkerNodeIdentity { Id = Guid.NewGuid() };
-        var accepted = new AcceptedClaimedWork();
+        var db = Path.Combine(Path.GetTempPath(), $"harness-accept-{Guid.NewGuid():N}.db");
+        using var accepts = new HarnessAcceptStore(db);
         var workItemId = Guid.NewGuid();
         var runId = Guid.NewGuid();
+        var jobs = new RecordingJobs();
 
         await ExecuteClaimedWorkHandler.Handle(
             new ExecuteClaimedWorkApi.Command
@@ -47,10 +83,12 @@ public class ExecuteClaimedWorkTests
                 RunId = runId,
             },
             new StubBus(identity.Id, TrackedWorkItemStatuses.Claimed),
+            jobs,
             identity,
-            accepted
+            accepts
         );
-        accepted.Contains(workItemId, runId).ShouldBeFalse();
+        accepts.GetState(workItemId, runId).ShouldBeNull();
+        jobs.Jobs.ShouldBeEmpty();
 
         await ExecuteClaimedWorkHandler.Handle(
             new ExecuteClaimedWorkApi.Command
@@ -60,10 +98,23 @@ public class ExecuteClaimedWorkTests
                 RunId = runId,
             },
             new StubBus(identity.Id, TrackedWorkItemStatuses.Canceled),
+            jobs,
             identity,
-            accepted
+            accepts
         );
-        accepted.Contains(workItemId, runId).ShouldBeFalse();
+        accepts.GetState(workItemId, runId).ShouldBeNull();
+        jobs.Jobs.ShouldBeEmpty();
+    }
+
+    sealed class RecordingJobs : IHarnessJobScheduler
+    {
+        public List<ExecuteHarness> Jobs { get; } = [];
+
+        public Task Enqueue(ExecuteHarness job, CancellationToken cancellationToken = default)
+        {
+            Jobs.Add(job);
+            return Task.CompletedTask;
+        }
     }
 
     sealed class StubBus(Guid holderId, string status) : IBifrostBus
@@ -75,22 +126,22 @@ public class ExecuteClaimedWorkTests
             CancellationToken cancellationToken = default
         )
         {
-            if (request is GetTrackedWorkItemApi.Query query)
+            if (request is GetTrackedWorkItemApi.Query)
             {
                 Lookups++;
                 object response = new GetTrackedWorkItemApi.Response
                 {
-                    Id = query.Id,
+                    Id = Guid.NewGuid(),
                     Status = status,
                     HolderId = holderId,
                 };
                 return Task.FromResult((TResponse)response);
             }
 
-            throw new InvalidOperationException($"Unexpected request {typeof(TRequest).Name}");
+            throw new NotSupportedException();
         }
 
         public Task Publish<TEvent>(TEvent @event, CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
+            throw new NotSupportedException();
     }
 }

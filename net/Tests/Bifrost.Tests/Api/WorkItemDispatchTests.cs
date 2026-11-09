@@ -87,8 +87,23 @@ public class WorkItemDispatchTests
         (
             await Post(client, "/claim-tracked-work-item", Body(runningId, "dispatch", workerId))
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        await WaitFor(
+            async () => (await ListRuns(client, runningId)).Count == 1,
+            "run for running item"
+        );
+        var runningRunId = (await ListRuns(client, runningId)).Single().Id;
         (
-            await Post(client, "/start-tracked-work-item", Body(runningId, "harness"))
+            await Post(
+                client,
+                "/start-tracked-work-item",
+                new
+                {
+                    id = runningId,
+                    runId = runningRunId,
+                    actor = WorkItemLifecycleActors.ForWorker(workerId),
+                    reason = "harness",
+                }
+            )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
         var held = await ListHeld(client, workerId);

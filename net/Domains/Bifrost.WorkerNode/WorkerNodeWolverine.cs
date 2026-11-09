@@ -32,11 +32,23 @@ public static class WorkerNodeWolverine
         opts.Policies.UseDurableOutboxOnAllSendingEndpoints();
         opts.Policies.AlwaysMakeScheduledMessagesDurable();
 
+        // Harness runs are long-lived; the worker only hosts short registration
+        // handlers besides ExecuteHarness.
+        opts.DefaultExecutionTimeout = TimeSpan.FromDays(1);
+
         opts.Discovery.IncludeAssembly(typeof(WorkerNodeWolverine).Assembly);
+
+        opts.LocalQueueFor<ExecuteHarness>().Sequential();
 
         opts.EnableHeartbeats(TimeSpan.FromSeconds(1));
         opts.UseBifrostBus();
         opts.PublishMessage<WorkerNodeRegistered.Command>().To(BifrostBusEndpoint.Address);
         opts.PublishMessage<WolverineHeartbeat>().To(BifrostBusEndpoint.Address);
+        opts.PublishMessage<StartTrackedWorkItemApi.Command>().To(BifrostBusEndpoint.Address);
+        opts.PublishMessage<SucceedTrackedWorkItemApi.Command>().To(BifrostBusEndpoint.Address);
+        opts.PublishMessage<FailTrackedWorkItemApi.Command>().To(BifrostBusEndpoint.Address);
+        opts.PublishMessage<SucceedRunApi.Command>().To(BifrostBusEndpoint.Address);
+        opts.PublishMessage<FailRunApi.Command>().To(BifrostBusEndpoint.Address);
+        opts.PublishMessage<ReplaceRunMetadataApi.Command>().To(BifrostBusEndpoint.Address);
     }
 }
