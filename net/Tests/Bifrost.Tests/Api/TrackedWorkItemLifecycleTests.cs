@@ -25,6 +25,7 @@ public class TrackedWorkItemLifecycleTests
     {
         var client = _factory.CreateClient();
         var id = Guid.NewGuid();
+        var workerId = Guid.NewGuid();
         _factory.WorkItemLedger.Seed(id);
 
         (await Post(client, "/create-tracked-work-item", Body(id, "accept"))).StatusCode.ShouldBe(
@@ -43,10 +44,12 @@ public class TrackedWorkItemLifecycleTests
                 )
             );
 
-        (await Post(client, "/claim-tracked-work-item", Body(id, "dispatch"))).StatusCode.ShouldBe(
-            HttpStatusCode.NoContent
-        );
-        (await Get(client, id)).Status.ShouldBe(TrackedWorkItemStatuses.Claimed);
+        (
+            await Post(client, "/claim-tracked-work-item", Body(id, "dispatch", workerId))
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        var claimed = await Get(client, id);
+        claimed.Status.ShouldBe(TrackedWorkItemStatuses.Claimed);
+        claimed.HolderId.ShouldBe(workerId);
 
         (await Post(client, "/start-tracked-work-item", Body(id, "harness"))).StatusCode.ShouldBe(
             HttpStatusCode.NoContent
@@ -56,7 +59,9 @@ public class TrackedWorkItemLifecycleTests
         (await Post(client, "/succeed-tracked-work-item", Body(id, "done"))).StatusCode.ShouldBe(
             HttpStatusCode.NoContent
         );
-        (await Get(client, id)).Status.ShouldBe(TrackedWorkItemStatuses.Succeeded);
+        var done = await Get(client, id);
+        done.Status.ShouldBe(TrackedWorkItemStatuses.Succeeded);
+        done.HolderId.ShouldBeNull();
         _factory.WorkItemLedger.StatusOf(id).ShouldBe(TrackedWorkItemStatuses.Succeeded);
         _factory
             .WorkItemLedger.HistoryOf(id)
@@ -74,14 +79,18 @@ public class TrackedWorkItemLifecycleTests
         (
             await Post(client, "/release-tracked-work-item", Body(claimed, "dead-worker"))
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
-        (await Get(client, claimed)).Status.ShouldBe(TrackedWorkItemStatuses.Pending);
+        var afterClaimedRelease = await Get(client, claimed);
+        afterClaimedRelease.Status.ShouldBe(TrackedWorkItemStatuses.Pending);
+        afterClaimedRelease.HolderId.ShouldBeNull();
         _factory.WorkItemLedger.StatusOf(claimed).ShouldBe(TrackedWorkItemStatuses.Pending);
 
         var running = await CreateAt(client, TrackedWorkItemStatuses.Running);
         (
             await Post(client, "/release-tracked-work-item", Body(running, "dead-worker"))
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
-        (await Get(client, running)).Status.ShouldBe(TrackedWorkItemStatuses.Pending);
+        var afterRunningRelease = await Get(client, running);
+        afterRunningRelease.Status.ShouldBe(TrackedWorkItemStatuses.Pending);
+        afterRunningRelease.HolderId.ShouldBeNull();
         _factory.WorkItemLedger.StatusOf(running).ShouldBe(TrackedWorkItemStatuses.Pending);
     }
 
@@ -104,7 +113,9 @@ public class TrackedWorkItemLifecycleTests
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
-        (await Get(client, id)).Status.ShouldBe(TrackedWorkItemStatuses.Canceled);
+        var canceled = await Get(client, id);
+        canceled.Status.ShouldBe(TrackedWorkItemStatuses.Canceled);
+        canceled.HolderId.ShouldBeNull();
         _factory.WorkItemLedger.HistoryOf(id).Last().Actor.ShouldBe("alice");
         _factory.WorkItemLedger.HistoryOf(id).Last().Reason.ShouldBe("stop");
 
@@ -134,6 +145,7 @@ public class TrackedWorkItemLifecycleTests
             new
             {
                 id,
+                workerId = Guid.NewGuid(),
                 actor = "orchestrator",
                 reason = "race",
                 expected = new { status = TrackedWorkItemStatuses.Running },
@@ -179,7 +191,7 @@ public class TrackedWorkItemLifecycleTests
         var historyBefore = _factory.WorkItemLedger.HistoryOf(id).Count;
 
         (
-            await Post(client, "/claim-tracked-work-item", Body(id, "dispatch"))
+            await Post(client, "/claim-tracked-work-item", Body(id, "dispatch", Guid.NewGuid()))
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
         _factory.WorkItemLedger.HistoryOf(id).Count.ShouldBe(historyBefore + 1);
 
@@ -247,9 +259,9 @@ public class TrackedWorkItemLifecycleTests
             return id;
         }
 
-        (await Post(client, "/claim-tracked-work-item", Body(id, "dispatch"))).StatusCode.ShouldBe(
-            HttpStatusCode.NoContent
-        );
+        (
+            await Post(client, "/claim-tracked-work-item", Body(id, "dispatch", Guid.NewGuid()))
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
         if (status is TrackedWorkItemStatuses.Claimed)
         {
             return id;
@@ -266,13 +278,21 @@ public class TrackedWorkItemLifecycleTests
         throw new InvalidOperationException($"Unsupported setup status '{status}'.");
     }
 
-    static object Body(Guid id, string reason) =>
-        new
-        {
-            id,
-            actor = WorkItemLifecycleActors.Orchestrator,
-            reason,
-        };
+    static object Body(Guid id, string reason, Guid? workerId = null) =>
+        workerId is { } worker
+            ? new
+            {
+                id,
+                workerId = worker,
+                actor = WorkItemLifecycleActors.Orchestrator,
+                reason,
+            }
+            : new
+            {
+                id,
+                actor = WorkItemLifecycleActors.Orchestrator,
+                reason,
+            };
 
     static async Task<HttpResponseMessage> Post(HttpClient client, string path, object body)
     {

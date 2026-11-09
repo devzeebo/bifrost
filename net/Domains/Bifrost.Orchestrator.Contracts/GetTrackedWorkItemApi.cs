@@ -14,5 +14,6 @@ public static class GetTrackedWorkItemApi
     {
         public required Guid Id { get; init; }
         public required string Status { get; init; }
+        public Guid? HolderId { get; init; }
     }
 }

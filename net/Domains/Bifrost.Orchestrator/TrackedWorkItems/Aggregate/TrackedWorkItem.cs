@@ -8,24 +8,46 @@ public class TrackedWorkItem
 {
     public Guid Id { get; set; }
     public string Status { get; set; } = TrackedWorkItemStatuses.Pending;
+    public Guid? HolderId { get; set; }
 
     public void Apply(TrackedWorkItemCreated e)
     {
         Id = e.Id;
         Status = TrackedWorkItemStatuses.Normalize(e.Status);
+        HolderId = null;
     }
 
-    public void Apply(TrackedWorkItemClaimed _) => Status = TrackedWorkItemStatuses.Claimed;
+    public void Apply(TrackedWorkItemClaimed e)
+    {
+        Status = TrackedWorkItemStatuses.Claimed;
+        HolderId = e.WorkerId;
+    }
 
     public void Apply(TrackedWorkItemStarted _) => Status = TrackedWorkItemStatuses.Running;
 
-    public void Apply(TrackedWorkItemSucceeded _) => Status = TrackedWorkItemStatuses.Succeeded;
+    public void Apply(TrackedWorkItemSucceeded _)
+    {
+        Status = TrackedWorkItemStatuses.Succeeded;
+        HolderId = null;
+    }
 
-    public void Apply(TrackedWorkItemFailed _) => Status = TrackedWorkItemStatuses.Failed;
+    public void Apply(TrackedWorkItemFailed _)
+    {
+        Status = TrackedWorkItemStatuses.Failed;
+        HolderId = null;
+    }
 
-    public void Apply(TrackedWorkItemReleased _) => Status = TrackedWorkItemStatuses.Pending;
+    public void Apply(TrackedWorkItemReleased _)
+    {
+        Status = TrackedWorkItemStatuses.Pending;
+        HolderId = null;
+    }
 
-    public void Apply(TrackedWorkItemCanceled _) => Status = TrackedWorkItemStatuses.Canceled;
+    public void Apply(TrackedWorkItemCanceled _)
+    {
+        Status = TrackedWorkItemStatuses.Canceled;
+        HolderId = null;
+    }
 
     public void EnsureExpected(JsonObject? expected)
     {

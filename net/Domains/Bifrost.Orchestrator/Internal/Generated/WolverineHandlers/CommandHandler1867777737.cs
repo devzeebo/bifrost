@@ -22,12 +22,12 @@ namespace Internal.Generated.WolverineHandlers
 
         public override async System.Threading.Tasks.Task HandleAsync(Wolverine.Runtime.MessageContext context, System.Threading.CancellationToken cancellation)
         {
+            // Building the Marten session
+            await using var documentSession = _outboxedSessionFactory.OpenSession(context);
             // The actual message body
             var command = (Bifrost.Orchestrator.Contracts.SucceedTrackedWorkItemApi.Command)context.Envelope.Message;
 
             var trackedWorkItem_Id = command.Id;
-            // Building the Marten session
-            await using var documentSession = _outboxedSessionFactory.OpenSession(context);
             // Application-specific Open Telemetry auditing
             System.Diagnostics.Activity.Current?.SetTag("id", command.Id);
             // Loading Marten aggregate as part of the aggregate handler workflow

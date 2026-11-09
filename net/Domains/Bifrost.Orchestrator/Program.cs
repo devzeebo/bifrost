@@ -5,6 +5,7 @@ using Bifrost.Gateway;
 using Bifrost.MessageBus;
 using Bifrost.Orchestrator.Contracts;
 using Bifrost.Rpc;
+using Bifrost.TrackedWorkItems;
 using JasperFx;
 using JasperFx.CodeGeneration;
 using Marten;
@@ -55,6 +56,7 @@ builder.Services.AddRpcHost(options =>
 });
 
 builder.Services.AddMessageBus();
+builder.Services.AddTrackedWorkItemBusQueries();
 builder.Services.AddGatewayQuota(builder.Configuration);
 builder.Services.AddWolverineHttp();
 
@@ -140,6 +142,20 @@ app.Use(
                     Status = StatusCodes.Status400BadRequest,
                     Title = "Invalid command",
                     Detail = ex.Message,
+                }
+            );
+        }
+        catch (JasperFx.Events.EventStreamUnexpectedMaxEventIdException)
+        {
+            // Concurrent aggregate append — treat as a lost expected-state race.
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await context.Response.WriteAsJsonAsync(
+                new ProblemDetails
+                {
+                    Status = StatusCodes.Status400BadRequest,
+                    Title = "Invalid command",
+                    Detail =
+                        "Tracked work item no longer matches the expected state.",
                 }
             );
         }

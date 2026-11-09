@@ -1,11 +1,12 @@
 using Bifrost.MessageBus;
+using Bifrost.Orchestrator.Contracts;
+using Bifrost.Rpc;
+using Bifrost.WorkerNode;
 using JasperFx;
+using JasperFx.Resources;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Wolverine;
-using Bifrost.Rpc;
-using Bifrost.WorkerNode;
-using JasperFx.Resources;
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -16,6 +17,7 @@ var nodeId = Guid.TryParse(builder.Configuration["Bifrost:NodeId"], out var conf
     : Guid.NewGuid();
 
 builder.Services.AddSingleton(new WorkerNodeIdentity { Id = nodeId });
+builder.Services.AddSingleton<AcceptedClaimedWork>();
 
 builder.Services.AddRpcHost(options =>
 {
@@ -26,6 +28,17 @@ builder.Services.AddRpcHost(options =>
 });
 
 builder.Services.AddMessageBus();
+builder.Services.AddMessageBusHandler<ExecuteClaimedWorkApi.Command>(
+    async (sp, command, ct) =>
+    {
+        await ExecuteClaimedWorkHandler.Handle(
+            command,
+            sp.GetRequiredService<IBifrostBus>(),
+            sp.GetRequiredService<WorkerNodeIdentity>(),
+            sp.GetRequiredService<AcceptedClaimedWork>()
+        );
+    }
+);
 builder.Services.AddResourceSetupOnStartup();
 
 builder.UseWolverine(opts => WorkerNodeWolverine.Configure(opts, outboxPath, nodeId));

@@ -1,11 +1,12 @@
 using Bifrost.MessageBus;
 using Bifrost.Orchestrator.Contracts;
 using Bifrost.TrackedWorkItems.Aggregate;
+using Bifrost.TrackedWorkItems.Dispatch;
 using Bifrost.TrackedWorkItems.Events;
 using Bifrost.TrackedWorkItems.Projections;
 using Bifrost.TrackedWorkItems.Services;
 using Marten;
-using Wolverine.Marten;
+using Wolverine;
 
 namespace Bifrost.TrackedWorkItems.Commands;
 
@@ -27,10 +28,10 @@ public static class CreateTrackedWorkItemHandler
     }
 
     [WolverinePost("/create-tracked-work-item"), EmptyResponse]
-    public static async Task<IStartStream?> Handle(
+    public static async Task<OutgoingMessages?> Handle(
         CreateTrackedWorkItemApi.Command command,
         IBifrostBus bus,
-        IQuerySession session
+        IDocumentSession session
     )
     {
         if (await session.LoadAsync<TrackedWorkItemView.Model>(command.Id) is not null)
@@ -54,7 +55,7 @@ public static class CreateTrackedWorkItemHandler
             bus
         );
 
-        return MartenOps.StartStream<TrackedWorkItem>(
+        session.Events.StartStream<TrackedWorkItem>(
             command.Id,
             new TrackedWorkItemCreated
             {
@@ -64,5 +65,7 @@ public static class CreateTrackedWorkItemHandler
                 Reason = command.Reason,
             }
         );
+
+        return [new ProcessWorkItemDispatch()];
     }
 }

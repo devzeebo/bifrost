@@ -32,15 +32,11 @@ namespace Internal.Generated.WolverineHandlers
             System.Diagnostics.Activity.Current?.SetTag("handler.type", "Bifrost.TrackedWorkItems.Commands.CreateTrackedWorkItemHandler");
             
             // The actual message execution
-            var outgoing1 = await Bifrost.TrackedWorkItems.Commands.CreateTrackedWorkItemHandler.Handle(command, _bifrostBus, ((Marten.IQuerySession)documentSession)).ConfigureAwait(false);
+            var outgoing1 = await Bifrost.TrackedWorkItems.Commands.CreateTrackedWorkItemHandler.Handle(command, _bifrostBus, documentSession).ConfigureAwait(false);
 
-            if (outgoing1 != null)
-            {
-                
-                // Placed by Wolverine's ISideEffect policy
-                outgoing1.Execute(documentSession);
-
-            }
+            
+            // Outgoing, cascaded message
+            await context.EnqueueCascadingAsync(outgoing1).ConfigureAwait(false);
 
             
             // Save all pending changes to this Marten session

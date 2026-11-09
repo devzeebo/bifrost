@@ -38,6 +38,7 @@ public sealed class OrchestratorApiFactory : WebApplicationFactory<Orchestrator:
 
     public InMemoryWorkItemLedger WorkItemLedger { get; } = new();
     public StubVirtualKeyQuotaClient VirtualKeyQuota { get; } = new();
+    public RecordingExecuteClaimedWork ExecuteClaimedWork { get; } = new();
 
     async Task IAsyncLifetime.InitializeAsync()
     {
@@ -72,10 +73,18 @@ public sealed class OrchestratorApiFactory : WebApplicationFactory<Orchestrator:
 
             services.AddSingleton(WorkItemLedger);
             services.AddSingleton<IVirtualKeyQuotaClient>(VirtualKeyQuota);
+            services.AddSingleton(ExecuteClaimedWork);
             services.AddMessageBusHandler<ChangeWorkItemStatusApi.Command>(
                 (_, command, _) =>
                 {
                     WorkItemLedger.Apply(command);
+                    return Task.CompletedTask;
+                }
+            );
+            services.AddMessageBusHandler<ExecuteClaimedWorkApi.Command>(
+                (sp, command, _) =>
+                {
+                    sp.GetRequiredService<RecordingExecuteClaimedWork>().Record(command);
                     return Task.CompletedTask;
                 }
             );
@@ -86,6 +95,39 @@ public sealed class OrchestratorApiFactory : WebApplicationFactory<Orchestrator:
     static bool IsRpcHostedService(ServiceDescriptor descriptor) =>
         descriptor.ServiceType == typeof(IHostedService)
         && descriptor.ImplementationType?.Name is "RpcHostedService";
+}
+
+public sealed class RecordingExecuteClaimedWork
+{
+    readonly List<ExecuteClaimedWorkApi.Command> _received = [];
+    readonly object _gate = new();
+
+    public IReadOnlyList<ExecuteClaimedWorkApi.Command> Received
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _received.ToArray();
+            }
+        }
+    }
+
+    public void Record(ExecuteClaimedWorkApi.Command command)
+    {
+        lock (_gate)
+        {
+            _received.Add(command);
+        }
+    }
+
+    public void Clear()
+    {
+        lock (_gate)
+        {
+            _received.Clear();
+        }
+    }
 }
 
 public sealed class StubVirtualKeyQuotaClient : IVirtualKeyQuotaClient

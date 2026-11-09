@@ -19,6 +19,11 @@ public static class GetTrackedWorkItemHandler
             await session.LoadAsync<TrackedWorkItemView.Model>(query.Id)
             ?? throw new CommandValidationException($"Tracked work item {query.Id} not found.");
 
-        return new GetTrackedWorkItemApi.Response { Id = item.Id, Status = item.Status };
+        return new GetTrackedWorkItemApi.Response
+        {
+            Id = item.Id,
+            Status = item.Status,
+            HolderId = item.HolderId,
+        };
     }
 }

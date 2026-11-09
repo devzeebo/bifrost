@@ -1,8 +1,10 @@
 using Bifrost.MessageBus;
 using Bifrost.Orchestrator.Contracts;
 using Bifrost.TrackedWorkItems.Aggregate;
+using Bifrost.TrackedWorkItems.Dispatch;
 using Bifrost.TrackedWorkItems.Events;
 using Bifrost.TrackedWorkItems.Services;
+using Wolverine;
 using Wolverine.Marten;
 
 namespace Bifrost.TrackedWorkItems.Commands;
@@ -21,11 +23,10 @@ public static class ReleaseTrackedWorkItemHandler
 
     [WolverinePost("/release-tracked-work-item"), EmptyResponse]
     [AggregateHandler]
-    public static async Task<TrackedWorkItemReleased> Handle(
-        ReleaseTrackedWorkItemApi.Command command,
-        TrackedWorkItem item,
-        IBifrostBus bus
-    )
+    public static async Task<(
+        TrackedWorkItemReleased Released,
+        OutgoingMessages Cascades
+    )> Handle(ReleaseTrackedWorkItemApi.Command command, TrackedWorkItem item, IBifrostBus bus)
     {
         var actor = WorkItemLifecycleActors.ForSystem();
         var from = item.Status;
@@ -52,6 +53,9 @@ public static class ReleaseTrackedWorkItemHandler
             bus
         );
 
-        return new TrackedWorkItemReleased { Actor = actor, Reason = command.Reason };
+        return (
+            new TrackedWorkItemReleased { Actor = actor, Reason = command.Reason },
+            [new ProcessWorkItemDispatch()]
+        );
     }
 }
