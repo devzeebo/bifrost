@@ -178,13 +178,16 @@ public static class ExecuteHarnessHandler
             await ReportOutcome(bus, command, actor, result, runToken).ConfigureAwait(false);
             accepts.MarkConcluded(command.WorkItemId, command.RunId);
         }
-        catch (OperationCanceledException) when (runToken.IsCancellationRequested)
+        catch (OperationCanceledException)
+            when (runToken.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
+            // Kill directive canceled this run only — conclude so we do not report.
             accepts.MarkConcluded(command.WorkItemId, command.RunId);
         }
         catch
         {
-            // Leave Accepted/Running so durable redelivery can resume or recover.
+            // Host/parent cancellation or other failure: leave Accepted/Running so
+            // durable redelivery can resume or recover.
             throw;
         }
     }

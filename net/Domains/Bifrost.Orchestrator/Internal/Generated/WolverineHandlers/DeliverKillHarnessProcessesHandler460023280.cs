@@ -26,7 +26,7 @@ namespace Internal.Generated.WolverineHandlers
             System.Diagnostics.Activity.Current?.SetTag("handler.type", "Bifrost.WorkerNodes.Commands.DeliverKillHarnessProcessesHandler");
             
             // The actual message execution
-            await Bifrost.WorkerNodes.Commands.DeliverKillHarnessProcessesHandler.Handle(deliverKillHarnessProcesses, _bifrostBus).ConfigureAwait(false);
+            await Bifrost.WorkerNodes.Commands.DeliverKillHarnessProcessesHandler.Handle(deliverKillHarnessProcesses, _bifrostBus, cancellation).ConfigureAwait(false);
 
         }
 

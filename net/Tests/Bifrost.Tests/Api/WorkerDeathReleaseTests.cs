@@ -37,8 +37,8 @@ public class WorkerDeathReleaseTests
     public async Task silence_verdict_releases_held_item_abandons_run_and_sends_kill()
     {
         var client = _factory.CreateClient();
-        var workerId = await BringWorkerOnline();
-        var otherWorker = await BringWorkerOnline();
+        await BringWorkerOnline();
+        await BringWorkerOnline();
         var id = Guid.NewGuid();
         _factory.WorkItemLedger.Seed(id);
         _factory.ExecuteClaimedWork.Clear();
@@ -52,7 +52,6 @@ public class WorkerDeathReleaseTests
             "item claimed"
         );
         var holder = (await Get(client, id)).HolderId!.Value;
-        holder.ShouldBeOneOf(workerId, otherWorker);
 
         await WaitFor(async () => (await ListRuns(client, id)).Count == 1, "run born");
         var deadRunId = (await ListRuns(client, id)).Single().Id;

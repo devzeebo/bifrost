@@ -10,17 +10,27 @@ namespace Bifrost.WorkerNodes;
 /// </summary>
 public sealed class WorkerLivenessDetector(
     IServiceScopeFactory scopeFactory,
-    IOptions<WorkerLivenessOptions> options
+    IOptions<WorkerLivenessOptions> options,
+    ILogger<WorkerLivenessDetector> logger
 ) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        // Grace period: give the bus time to drain queued heartbeats after restart so a
+        // healthy worker is not declared offline on a stale LastHeartbeatAt from downtime.
+        var grace = SilenceThreshold();
+        try
+        {
+            await Task.Delay(grace, stoppingToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            return;
+        }
+
         while (!stoppingToken.IsCancellationRequested)
         {
-            var opts = options.Value;
-            var delay = opts.CheckInterval <= TimeSpan.Zero
-                ? TimeSpan.FromSeconds(1)
-                : opts.CheckInterval;
+            var delay = CheckInterval();
 
             try
             {
@@ -31,15 +41,16 @@ public sealed class WorkerLivenessDetector(
             {
                 return;
             }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Worker liveness sweep failed; retrying next interval.");
+            }
         }
     }
 
     async Task Sweep(CancellationToken cancellationToken)
     {
-        var opts = options.Value;
-        var threshold = opts.SilenceThreshold <= TimeSpan.Zero
-            ? TimeSpan.FromSeconds(5)
-            : opts.SilenceThreshold;
+        var threshold = SilenceThreshold();
         var cutoff = DateTimeOffset.UtcNow - threshold;
 
         await using var scope = scopeFactory.CreateAsyncScope();
@@ -60,11 +71,38 @@ public sealed class WorkerLivenessDetector(
 
         foreach (var workerId in quiet)
         {
-            await bus.InvokeAsync(
-                    new DeclareWorkerOffline { WorkerId = workerId },
-                    cancellationToken
-                )
-                .ConfigureAwait(false);
+            try
+            {
+                await bus.InvokeAsync(
+                        new DeclareWorkerOffline { WorkerId = workerId },
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(
+                    ex,
+                    "Failed to declare worker {WorkerId} offline; continuing sweep.",
+                    workerId
+                );
+            }
         }
+    }
+
+    TimeSpan SilenceThreshold()
+    {
+        var threshold = options.Value.SilenceThreshold;
+        return threshold <= TimeSpan.Zero ? TimeSpan.FromSeconds(5) : threshold;
+    }
+
+    TimeSpan CheckInterval()
+    {
+        var interval = options.Value.CheckInterval;
+        return interval <= TimeSpan.Zero ? TimeSpan.FromSeconds(1) : interval;
     }
 }
