@@ -45,10 +45,10 @@ namespace Internal.Generated.WolverineHandlers
             var eventStreamOfTrackedWorkItem = await documentSession.Events.FetchForWriting<Bifrost.TrackedWorkItems.Aggregate.TrackedWorkItem>(trackedWorkItem_Id, httpContext.RequestAborted);
             System.Diagnostics.Activity.Current?.SetTag("wolverine.stream.id", trackedWorkItem_Id);
             System.Diagnostics.Activity.Current?.SetTag("wolverine.stream.type", "Bifrost.TrackedWorkItems.Aggregate.TrackedWorkItem");
-            Bifrost.TrackedWorkItems.Commands.ClaimTrackedWorkItemHandler.Validate(command, eventStreamOfTrackedWorkItem.Aggregate);
+            await Bifrost.TrackedWorkItems.Commands.ClaimTrackedWorkItemHandler.Validate(command, eventStreamOfTrackedWorkItem.Aggregate, ((Marten.IQuerySession)documentSession)).ConfigureAwait(false);
             
             // The actual HTTP request handler execution
-            var trackedWorkItemClaimed = await Bifrost.TrackedWorkItems.Commands.ClaimTrackedWorkItemHandler.Handle(command, eventStreamOfTrackedWorkItem.Aggregate, _bifrostBus).ConfigureAwait(false);
+            (var trackedWorkItemClaimed, var outgoingMessages) = await Bifrost.TrackedWorkItems.Commands.ClaimTrackedWorkItemHandler.Handle(command, eventStreamOfTrackedWorkItem.Aggregate, _bifrostBus).ConfigureAwait(false);
 
             if (trackedWorkItemClaimed != null)
             {
@@ -56,15 +56,19 @@ namespace Internal.Generated.WolverineHandlers
             }
 
             
+            // Outgoing, cascaded message
+            await messageContext.EnqueueCascadingAsync(outgoingMessages).ConfigureAwait(false);
+
+            
             // Save all pending changes to this Marten session
             await documentSession.SaveChangesAsync(httpContext.RequestAborted).ConfigureAwait(false);
 
+            // Wolverine automatically sets the status code to 204 for empty responses
+            if (httpContext.Response is { HasStarted: false, StatusCode: 200 }) httpContext.Response.StatusCode = 204;
             
             // Have to flush outgoing messages just in case Marten did nothing because of https://github.com/JasperFx/wolverine/issues/536
             await messageContext.FlushOutgoingMessagesAsync().ConfigureAwait(false);
 
-            // Wolverine automatically sets the status code to 204 for empty responses
-            if (httpContext.Response is { HasStarted: false, StatusCode: 200 }) httpContext.Response.StatusCode = 204;
         }
 
     }

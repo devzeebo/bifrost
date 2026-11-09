@@ -10,6 +10,7 @@ public class TrackedWorkItemView : SingleStreamProjection<TrackedWorkItemView.Mo
     {
         public Guid Id { get; init; }
         public required string Status { get; init; }
+        public Guid? HolderId { get; init; }
     }
 
     public Model Create(TrackedWorkItemCreated e) =>
@@ -17,12 +18,14 @@ public class TrackedWorkItemView : SingleStreamProjection<TrackedWorkItemView.Mo
         {
             Id = e.Id,
             Status = TrackedWorkItemStatuses.Normalize(e.Status),
+            HolderId = null,
         };
 
-    public Model Apply(TrackedWorkItemClaimed _, Model view) =>
+    public Model Apply(TrackedWorkItemClaimed e, Model view) =>
         view with
         {
             Status = TrackedWorkItemStatuses.Claimed,
+            HolderId = e.WorkerId,
         };
 
     public Model Apply(TrackedWorkItemStarted _, Model view) =>
@@ -35,23 +38,27 @@ public class TrackedWorkItemView : SingleStreamProjection<TrackedWorkItemView.Mo
         view with
         {
             Status = TrackedWorkItemStatuses.Succeeded,
+            HolderId = null,
         };
 
     public Model Apply(TrackedWorkItemFailed _, Model view) =>
         view with
         {
             Status = TrackedWorkItemStatuses.Failed,
+            HolderId = null,
         };
 
     public Model Apply(TrackedWorkItemReleased _, Model view) =>
         view with
         {
             Status = TrackedWorkItemStatuses.Pending,
+            HolderId = null,
         };
 
     public Model Apply(TrackedWorkItemCanceled _, Model view) =>
         view with
         {
             Status = TrackedWorkItemStatuses.Canceled,
+            HolderId = null,
         };
 }

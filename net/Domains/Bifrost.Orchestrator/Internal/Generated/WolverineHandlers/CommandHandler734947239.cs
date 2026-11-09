@@ -28,7 +28,11 @@ namespace Internal.Generated.WolverineHandlers
             System.Diagnostics.Activity.Current?.SetTag("handler.type", "Bifrost.WorkerNodes.Commands.RegisterWorkerNodeHandler");
             
             // The actual message execution
-            await Bifrost.WorkerNodes.Commands.RegisterWorkerNodeHandler.Handle(command, documentSession).ConfigureAwait(false);
+            var outgoing1 = await Bifrost.WorkerNodes.Commands.RegisterWorkerNodeHandler.Handle(command, documentSession).ConfigureAwait(false);
+
+            
+            // Outgoing, cascaded message
+            await context.EnqueueCascadingAsync(outgoing1).ConfigureAwait(false);
 
             
             // Save all pending changes to this Marten session
