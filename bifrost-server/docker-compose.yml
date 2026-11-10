@@ -197,6 +197,7 @@ services:
         condition: service_started
       rabbitmq:
         condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   bifrost_pgdata:

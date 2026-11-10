@@ -17,7 +17,7 @@ public static class GetWorkflowHandler
     {
         var workflow =
             await session.LoadAsync<WorkflowView.Model>(query.Id)
-            ?? throw new CommandValidationException($"Workflow {query.Id} not found.");
+            ?? throw new NotFoundException($"Workflow {query.Id} not found.");
 
         return new GetWorkflowApi.Response
         {

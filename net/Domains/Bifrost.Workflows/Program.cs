@@ -82,6 +82,18 @@ app.Use(
                 }
             );
         }
+        catch (NotFoundException ex)
+        {
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            await context.Response.WriteAsJsonAsync(
+                new ProblemDetails
+                {
+                    Status = StatusCodes.Status404NotFound,
+                    Title = "Not found",
+                    Detail = ex.Message,
+                }
+            );
+        }
     }
 );
 

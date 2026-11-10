@@ -115,8 +115,11 @@ public class WorkflowTests
         got.Connections.ShouldBeEmpty();
         got.Nodes.Count.ShouldBe(1);
         got.Nodes[0].Id.ShouldBe(nodeId);
-        got.Nodes[0].Definition.ShouldNotBeNull();
-        got.Nodes[0].Definition!.Style.ShouldBe("harness");
+        var definition = got.Nodes[0].Definition;
+        definition.ShouldNotBeNull();
+        definition!.Style.ShouldBe("harness");
+        definition.Spec.ShouldNotBeNull();
+        definition.Spec!["identity"]!.GetValue<string>().ShouldBe("agent");
         got.Nodes[0].Inputs.Single().Id.ShouldBe(inputId);
         got.Nodes[0].Outputs.Single().Id.ShouldBe(outputId);
 
@@ -302,10 +305,26 @@ public class WorkflowTests
         got.Connections.ShouldBeEmpty();
     }
 
+    [Fact]
+    public async Task get_missing_workflow_returns_not_found()
+    {
+        var client = _factory.CreateClient();
+        var missingId = Guid.NewGuid();
+
+        var response = await QueryRaw(client, $"/get-workflow/{missingId}");
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        var body = await response.Content.ReadAsStringAsync();
+        body.ShouldContain($"Workflow {missingId} not found.");
+    }
+
     static async Task<HttpResponseMessage> Post(HttpClient client, string path, object body)
     {
         var response = await client.PostAsJsonAsync(path, body);
-        if (!response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.BadRequest)
+        if (
+            !response.IsSuccessStatusCode
+            && response.StatusCode != HttpStatusCode.BadRequest
+            && response.StatusCode != HttpStatusCode.NotFound
+        )
         {
             var content = await response.Content.ReadAsStringAsync();
             throw new Exception($"{(int)response.StatusCode} {path}: {content}");
@@ -316,13 +335,18 @@ public class WorkflowTests
 
     static async Task<T?> Query<T>(HttpClient client, string path)
     {
+        var response = await QueryRaw(client, path);
+        response.EnsureSuccessStatusCode();
+        await using var stream = await response.Content.ReadAsStreamAsync();
+        return await JsonSerializer.DeserializeAsync<T>(stream, JsonOptions);
+    }
+
+    static async Task<HttpResponseMessage> QueryRaw(HttpClient client, string path)
+    {
         var request = new HttpRequestMessage(new HttpMethod("QUERY"), path)
         {
             Content = new StringContent("{}", Encoding.UTF8, "application/json"),
         };
-        var response = await client.SendAsync(request);
-        response.EnsureSuccessStatusCode();
-        await using var stream = await response.Content.ReadAsStreamAsync();
-        return await JsonSerializer.DeserializeAsync<T>(stream, JsonOptions);
+        return await client.SendAsync(request);
     }
 }
