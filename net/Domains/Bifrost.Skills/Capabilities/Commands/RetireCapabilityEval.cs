@@ -36,13 +36,16 @@ public static class RetireCapabilityEvalHandler
         var remainingForCriterion = capability.Evals.Count(e =>
             e.CriterionId == retiring.CriterionId && e.Id != command.EvalId
         );
-        var leftUncovered = remainingForCriterion == 0;
+        var retireCriterion = remainingForCriterion == 0;
 
         var evals = capability.Evals.Where(e => e.Id != command.EvalId).ToArray();
+        var criteria = retireCriterion
+            ? capability.Criteria.Where(c => c.Id != retiring.CriterionId).ToArray()
+            : capability.Criteria.ToArray();
         var snapshot = new CapabilityVersionSnapshot
         {
             Ask = capability.Ask,
-            Criteria = capability.Criteria.ToArray(),
+            Criteria = criteria,
             Evals = evals,
         };
 
@@ -66,10 +69,10 @@ public static class RetireCapabilityEvalHandler
 
         return new RetireCapabilityEvalApi.Response
         {
-            LeftCriterionUncovered = leftUncovered,
-            UncoveredCriterionId = leftUncovered ? retiring.CriterionId : null,
-            Note = leftUncovered
-                ? $"Retired the last eval behind criterion {retiring.CriterionId}; that criterion is now uncovered."
+            LeftCriterionUncovered = false,
+            UncoveredCriterionId = null,
+            Note = retireCriterion
+                ? $"Retired the last eval and its criterion {retiring.CriterionId} so the layers stay one agreement."
                 : null,
         };
     }

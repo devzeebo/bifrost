@@ -116,7 +116,7 @@ const describeEffect = (effect: ProposalEffect): string => {
     case 'ReplaceSkill': {
       const served =
         effect.servedCriterionIds && effect.servedCriterionIds.length > 0
-          ? ` (serves ${effect.servedCriterionIds.length} criterion${effect.servedCriterionIds.length === 1 ? '' : 'a'})`
+          ? ` (serves ${effect.servedCriterionIds.length} ${effect.servedCriterionIds.length === 1 ? 'criterion' : 'criteria'})`
           : ''
       return effect.markdown?.trim()
         ? `Skill — ${label}${served}: ${summarizeMarkdown(effect.markdown)}`

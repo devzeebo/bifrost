@@ -114,11 +114,7 @@ public static class CapabilityChatStore
         IQuerySession session
     )
     {
-        if (
-            proposal.CompositionSummary is null
-            && proposal.BasisSuiteRunId is null
-            && !IsDerivationProposal(proposal)
-        )
+        if (proposal.CompositionSummary is null && proposal.BasisSuiteRunId is null)
         {
             return proposal;
         }
@@ -136,6 +132,7 @@ public static class CapabilityChatStore
                 return proposal with
                 {
                     Summary = DerivationSummary.WithRunLessPlain(composition),
+                    CompositionSummary = composition,
                 };
             }
 
@@ -146,31 +143,12 @@ public static class CapabilityChatStore
             };
         }
 
-        if (proposal.CompositionSummary is not null || IsDerivationProposal(proposal))
+        return proposal with
         {
-            return proposal with
-            {
-                Summary = DerivationSummary.WithRunLessPlain(composition),
-                CompositionSummary = composition,
-            };
-        }
-
-        return proposal;
+            Summary = DerivationSummary.WithRunLessPlain(composition),
+            CompositionSummary = composition,
+        };
     }
-
-    public static bool IsDerivationProposal(Proposal proposal) =>
-        proposal.Effects.Any(e => e.Kind == ProposalEffectKinds.ReplaceSkill)
-        && proposal.Effects.All(e =>
-            e.Kind
-                is ProposalEffectKinds.ReplaceSkill
-                    or ProposalEffectKinds.AmendAsk
-                    or ProposalEffectKinds.SharpenCriterion
-                    or ProposalEffectKinds.AddCriterion
-                    or ProposalEffectKinds.RetireCriterion
-                    or ProposalEffectKinds.AddEval
-                    or ProposalEffectKinds.AmendEval
-                    or ProposalEffectKinds.RetireEval
-        );
 
     static string StripLiveAccount(string summary)
     {

@@ -114,7 +114,9 @@ public static class DerivationSummary
             if (basis.MovedCriterionIds.Count > 0)
             {
                 parts.Add(
-                    $"{basis.MovedCriterionIds.Count} criterion{(basis.MovedCriterionIds.Count == 1 ? "" : "a")}"
+                    basis.MovedCriterionIds.Count == 1
+                        ? "1 criterion"
+                        : $"{basis.MovedCriterionIds.Count} criteria"
                 );
             }
 

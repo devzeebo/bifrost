@@ -435,7 +435,7 @@ public class SkillsChatTests
     }
 
     [Fact]
-    public async Task retire_last_eval_reports_uncovered_criterion()
+    public async Task retire_last_eval_also_retires_its_criterion()
     {
         var client = _factory.CreateClient();
         var id = await SeedCriterionAndEval(client, "Retire eval ask");
@@ -443,7 +443,6 @@ public class SkillsChatTests
         var detail = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
         detail.ShouldNotBeNull();
         var evalId = detail.Evals[0].Id;
-        var criterionId = detail.Evals[0].CriterionId;
 
         var retired = await PostJson<RetireCapabilityEvalApi.Response>(
             client,
@@ -451,14 +450,15 @@ public class SkillsChatTests
             new { id, evalId }
         );
         retired.ShouldNotBeNull();
-        retired.LeftCriterionUncovered.ShouldBeTrue();
-        retired.UncoveredCriterionId.ShouldBe(criterionId);
+        retired.LeftCriterionUncovered.ShouldBeFalse();
+        retired.UncoveredCriterionId.ShouldBeNull();
         retired.Note.ShouldNotBeNullOrWhiteSpace();
+        retired.Note!.ShouldContain("criterion");
 
         var after = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
         after.ShouldNotBeNull();
         after.Evals.ShouldBeEmpty();
-        after.Criteria.Count.ShouldBe(1);
+        after.Criteria.ShouldBeEmpty();
     }
 
     [Fact]

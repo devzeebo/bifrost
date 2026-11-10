@@ -39,56 +39,9 @@ public sealed record DerivationSuiteBasis
             .OrderByDescending(s => s.CompletedAt)
             .FirstOrDefaultAsync();
 
-        if (suite is null)
-        {
-            return new DerivationSuiteBasis();
-        }
-
-        var caseRuns = await session
-            .Query<EvalCaseRunDocument>()
-            .Where(r => r.SuiteRunId == suite.Id)
-            .ToListAsync();
-
-        var failed = new List<Guid>();
-        var passed = new List<Guid>();
-        var unsettled = new List<UnsettledCase>();
-
-        foreach (var run in caseRuns)
-        {
-            var status = EvalOutcomeRollup.LatestStatus(run);
-            switch (status)
-            {
-                case EvalOutcomeStatuses.Failed:
-                    failed.Add(run.EvalId);
-                    break;
-                case EvalOutcomeStatuses.Passed:
-                    passed.Add(run.EvalId);
-                    break;
-                default:
-                    unsettled.Add(
-                        new UnsettledCase(
-                            run.EvalId,
-                            run.CriterionId,
-                            status,
-                            run.FailureReason
-                        )
-                    );
-                    break;
-            }
-        }
-
-        var (movedEvals, movedCriteria) = await MovedSinceRun(session, caseRuns, current);
-
-        return new DerivationSuiteBasis
-        {
-            SuiteRunId = suite.Id,
-            CaseRuns = caseRuns,
-            FailedEvalIds = failed,
-            PassedEvalIds = passed,
-            Unsettled = unsettled,
-            MovedEvalIds = movedEvals,
-            MovedCriterionIds = movedCriteria,
-        };
+        return suite is null
+            ? new DerivationSuiteBasis()
+            : await FromSuite(session, suite, current);
     }
 
     public static async Task<DerivationSuiteBasis> LoadNamed(
@@ -98,11 +51,17 @@ public sealed record DerivationSuiteBasis
     )
     {
         var suite = await session.LoadAsync<EvalSuiteRunDocument>(suiteRunId);
-        if (suite is null || suite.Status != EvalSuiteRunStatuses.Completed)
-        {
-            return new DerivationSuiteBasis();
-        }
+        return suite is null || suite.Status != EvalSuiteRunStatuses.Completed
+            ? new DerivationSuiteBasis()
+            : await FromSuite(session, suite, current);
+    }
 
+    static async Task<DerivationSuiteBasis> FromSuite(
+        IQuerySession session,
+        EvalSuiteRunDocument suite,
+        CapabilityVersionSnapshot current
+    )
+    {
         var caseRuns = await session
             .Query<EvalCaseRunDocument>()
             .Where(r => r.SuiteRunId == suite.Id)

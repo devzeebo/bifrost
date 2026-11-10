@@ -264,13 +264,13 @@ public sealed class HttpCapabilityEditor(
                 $"Eval words moved since that run (eval ids): {JsonSerializer.Serialize(context.SuiteBasis.MovedEvalIds, JsonOptions)}"
             );
             sb.AppendLine(
-                "Proposal summary for ReplaceSkill must name which criteria/evals each skill part serves, which settled evals fail, which cases are unsettled, the suite run id, and which eval/criterion words moved since that run."
+                "For ReplaceSkill-only derivation, proposalSummary must name only which criteria/evals each skill part serves and what was left out and why. Do not put suite-run ids, fail/pass/unsettled counts, or moved-words notices in proposalSummary — the service appends that live account."
             );
         }
         else
         {
             sb.AppendLine(
-                "No completed suite run. When deriving a skill, the proposal summary must say plainly that the first run is expected to fail some evals — that is the loop working."
+                "No completed suite run. For ReplaceSkill-only derivation, proposalSummary must name only served mapping and left-outs; the service appends the plain first-run-failures statement."
             );
         }
 
