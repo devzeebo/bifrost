@@ -9,6 +9,7 @@ public sealed record ScriptCheckRequest
     public required string? Script { get; init; }
     public required string Transcript { get; init; }
     public required string Context { get; init; }
+    public required int TimeoutMs { get; init; }
 }
 
 public sealed record ScriptCheckResult

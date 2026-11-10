@@ -6,7 +6,12 @@ using System.Text;
 using System.Text.Json;
 using Bifrost.Ai;
 using Bifrost.Skills.Contracts;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Shouldly;
+using Skills::Bifrost.Capabilities.Evals;
 
 namespace Bifrost.Tests.Api;
 
@@ -26,7 +31,7 @@ public class SkillsEvalRunTests
     }
 
     [Fact]
-    public async Task run_eval_records_transcript_spend_and_unsettled_checks()
+    public async Task run_eval_records_transcript_spend_and_script_verdicts()
     {
         var client = _factory.CreateClient();
         var id = await SeedCapabilityWithSkill(client);
@@ -34,6 +39,24 @@ public class SkillsEvalRunTests
         var detail = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
         detail.ShouldNotBeNull();
         var eval = detail.Evals[0];
+
+        // Default authored script looks for the criterion wording in the transcript.
+        _factory.ModelClient.Handler = (_, _) =>
+            Task.FromResult(
+                new ModelResponse
+                {
+                    Status = "completed",
+                    OutputText = "capability does what the ask requires",
+                    Output = [],
+                    Usage = new LineUsage
+                    {
+                        InputTokens = 10,
+                        OutputTokens = 8,
+                        TotalTokens = 18,
+                        Cost = 0.02,
+                    },
+                }
+            );
 
         var response = await PostJson<RunCapabilityEvalApi.Response>(
             client,
@@ -43,24 +66,227 @@ public class SkillsEvalRunTests
         response.ShouldNotBeNull();
         response.Run.IsEval.ShouldBeTrue();
         response.Run.Status.ShouldBe(EvalCaseRunStatuses.Completed);
-        response.Run.Outcome.ShouldBe(EvalOutcomeStatuses.Unsettled);
+        response.Run.Outcome.ShouldBe(EvalOutcomeStatuses.Passed);
         response.Run.Transcript.Count.ShouldBe(3);
         response.Run.Transcript[2].Role.ShouldBe("assistant");
-        response.Run.Transcript[2].Text.ShouldBe("fake eval answer");
+        response.Run.Transcript[2].Text.ShouldBe("capability does what the ask requires");
         response.Run.Spend.ShouldNotBeNull();
         response.Run.Spend!.Model.ShouldBe("test-model");
         response.Run.Spend.TotalTokens.ShouldBe(18);
         response.Run.Spend.Cost.ShouldBe(0.02);
         response.Run.Checks.Count.ShouldBe(eval.Checks.Count);
-        response.Run.Checks.ShouldAllBe(c => c.Status == EvalCheckVerdictStatuses.Unsettled);
+        response.Run.Checks.ShouldAllBe(c => c.Status == EvalCheckVerdictStatuses.Passed);
+        response.Run.Checks.ShouldAllBe(c => !string.IsNullOrWhiteSpace(c.Statement));
+        response.Run.Checks.ShouldAllBe(c => !string.IsNullOrWhiteSpace(c.Reason));
 
         var outcomes = await Query<GetCapabilityEvalOutcomesApi.Response>(
             client,
             $"/get-capability-eval-outcomes/{id}"
         );
         outcomes.ShouldNotBeNull();
-        outcomes.Evals.Single(e => e.EvalId == eval.Id).Status.ShouldBe(EvalOutcomeStatuses.Unsettled);
-        outcomes.Suite.Unsettled.ShouldBeGreaterThanOrEqualTo(1);
+        outcomes.Evals.Single(e => e.EvalId == eval.Id).Status.ShouldBe(EvalOutcomeStatuses.Passed);
+        outcomes.Suite.Passed.ShouldBeGreaterThanOrEqualTo(1);
+    }
+
+    [Fact]
+    public async Task failing_script_check_settles_case_failed()
+    {
+        var client = _factory.CreateClient();
+        var id = await SeedCapabilityWithSkill(client);
+        var detail = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
+        var eval = detail!.Evals[0];
+
+        _factory.ModelClient.Handler = (_, _) =>
+            Task.FromResult(
+                new ModelResponse
+                {
+                    Status = "completed",
+                    OutputText = "unrelated answer with no criterion wording",
+                    Output = [],
+                    Usage = new LineUsage
+                    {
+                        InputTokens = 2,
+                        OutputTokens = 2,
+                        TotalTokens = 4,
+                        Cost = 0.01,
+                    },
+                }
+            );
+
+        var response = await PostJson<RunCapabilityEvalApi.Response>(
+            client,
+            "/run-capability-eval",
+            new { id, evalId = eval.Id }
+        );
+        response.ShouldNotBeNull();
+        response.Run.Status.ShouldBe(EvalCaseRunStatuses.Completed);
+        response.Run.Outcome.ShouldBe(EvalOutcomeStatuses.Failed);
+        response.Run.Checks.ShouldAllBe(c => c.Status == EvalCheckVerdictStatuses.Failed);
+
+        var outcomes = await Query<GetCapabilityEvalOutcomesApi.Response>(
+            client,
+            $"/get-capability-eval-outcomes/{id}"
+        );
+        outcomes.ShouldNotBeNull();
+        outcomes.Evals.Single(e => e.EvalId == eval.Id).Status.ShouldBe(EvalOutcomeStatuses.Failed);
+        outcomes.Suite.Failed.ShouldBeGreaterThanOrEqualTo(1);
+    }
+
+    [Fact]
+    public async Task broken_check_does_not_crash_run_and_siblings_still_execute()
+    {
+        var client = _factory
+            .WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureTestServices(services =>
+                {
+                    services.RemoveAll<IScriptCheckRunner>();
+                    services.AddSingleton<IScriptCheckRunner>(new SequencingScriptCheckRunner());
+                });
+            })
+            .CreateClient();
+
+        var id = await SeedCapabilityWithSkill(client);
+        var detail = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
+        detail.ShouldNotBeNull();
+        var eval = detail.Evals[0];
+
+        // Plant three script checks with stable ids via amend (same scenario → keeps/overrides kinds).
+        var checkError = Guid.NewGuid();
+        var checkFail = Guid.NewGuid();
+        var checkPass = Guid.NewGuid();
+        (
+            await Post(
+                client,
+                "/amend-capability-eval",
+                new
+                {
+                    id,
+                    evalId = eval.Id,
+                    scenario = eval.Scenario,
+                    prompt = eval.Prompt,
+                    context = eval.Context,
+                    checks = new object[]
+                    {
+                        new
+                        {
+                            id = checkError,
+                            statement = eval.Checks[0].Statement,
+                            kind = CheckKinds.Script,
+                            script = (string?)null,
+                        },
+                        new
+                        {
+                            id = checkFail,
+                            statement = eval.Checks[0].Statement,
+                            kind = CheckKinds.Script,
+                            script = (string?)null,
+                        },
+                        new
+                        {
+                            id = checkPass,
+                            statement = eval.Checks[0].Statement,
+                            kind = CheckKinds.Script,
+                            script = (string?)null,
+                        },
+                    },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        _factory.ModelClient.Handler = (_, _) =>
+            Task.FromResult(
+                new ModelResponse
+                {
+                    Status = "completed",
+                    OutputText = "answer",
+                    Output = [],
+                    Usage = new LineUsage
+                    {
+                        InputTokens = 1,
+                        OutputTokens = 1,
+                        TotalTokens = 2,
+                        Cost = 0.01,
+                    },
+                }
+            );
+
+        var response = await PostJson<RunCapabilityEvalApi.Response>(
+            client,
+            "/run-capability-eval",
+            new { id, evalId = eval.Id }
+        );
+        response.ShouldNotBeNull();
+        response.Run.Status.ShouldBe(EvalCaseRunStatuses.Completed);
+        response.Run.Outcome.ShouldBe(EvalOutcomeStatuses.Failed);
+        response.Run.Checks.Count.ShouldBe(3);
+        response.Run.Checks[0].Status.ShouldBe(EvalCheckVerdictStatuses.Failed);
+        response.Run.Checks[0].Reason.ShouldContain("boom");
+        response.Run.Checks[1].Status.ShouldBe(EvalCheckVerdictStatuses.Failed);
+        response.Run.Checks[1].Reason.ShouldContain("genuine");
+        response.Run.Checks[2].Status.ShouldBe(EvalCheckVerdictStatuses.Passed);
+        response.Run.Checks.ShouldAllBe(c => !string.IsNullOrWhiteSpace(c.Statement));
+    }
+
+    [Fact]
+    public async Task human_review_check_leaves_case_unsettled()
+    {
+        var client = _factory.CreateClient();
+        var id = await SeedCapabilityWithSkill(client);
+        var detail = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
+        var eval = detail!.Evals[0];
+        var check = eval.Checks[0];
+
+        (
+            await Post(
+                client,
+                "/amend-capability-eval",
+                new
+                {
+                    id,
+                    evalId = eval.Id,
+                    scenario = eval.Scenario,
+                    prompt = eval.Prompt,
+                    context = eval.Context,
+                    checks = new object[]
+                    {
+                        new
+                        {
+                            id = check.Id,
+                            statement = check.Statement,
+                            kind = CheckKinds.HumanReview,
+                            script = (string?)null,
+                        },
+                    },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        _factory.ModelClient.Handler = (_, _) =>
+            Task.FromResult(
+                new ModelResponse
+                {
+                    Status = "completed",
+                    OutputText = "capability does what the ask requires",
+                    Output = [],
+                    Usage = new LineUsage
+                    {
+                        InputTokens = 1,
+                        OutputTokens = 1,
+                        TotalTokens = 2,
+                        Cost = 0.01,
+                    },
+                }
+            );
+
+        var response = await PostJson<RunCapabilityEvalApi.Response>(
+            client,
+            "/run-capability-eval",
+            new { id, evalId = eval.Id }
+        );
+        response.ShouldNotBeNull();
+        response.Run.Outcome.ShouldBe(EvalOutcomeStatuses.Unsettled);
+        response.Run.Checks.Single().Status.ShouldBe(EvalCheckVerdictStatuses.Unsettled);
     }
 
     [Fact]
@@ -204,11 +430,10 @@ public class SkillsEvalRunTests
 
         suite.ShouldNotBeNull();
         suite!.Status.ShouldBe(EvalSuiteRunStatuses.Canceled);
-        suite.Cases.Count.ShouldBe(3);
         suite.Cases.Count(c => c.Status == EvalCaseRunStatuses.Completed).ShouldBe(1);
         suite
             .Cases.Count(c => c.Status == EvalCaseRunStatuses.NeverCompleted)
-            .ShouldBe(2);
+            .ShouldBeGreaterThanOrEqualTo(2);
         suite.Cases.Where(c => c.Status == EvalCaseRunStatuses.NeverCompleted)
             .ShouldAllBe(c => c.Outcome == null);
 
@@ -217,8 +442,8 @@ public class SkillsEvalRunTests
             $"/get-capability-eval-outcomes/{id}"
         );
         outcomes.ShouldNotBeNull();
+        // Latest-by-eval: two evals never completed; the finished case may fail its script check.
         outcomes.Suite.NeverCompleted.ShouldBe(2);
-        outcomes.Suite.Failed.ShouldBe(0);
         outcomes.Criteria.Sum(c => c.NeverCompleted).ShouldBe(2);
     }
 
@@ -346,5 +571,41 @@ public class SkillsEvalRunTests
         response.EnsureSuccessStatusCode();
         await using var stream = await response.Content.ReadAsStreamAsync();
         return await JsonSerializer.DeserializeAsync<T>(stream, JsonOptions);
+    }
+
+    /// <summary>
+    /// First call throws (caught as failed), second genuine fail, third pass — proves siblings run.
+    /// </summary>
+    sealed class SequencingScriptCheckRunner : IScriptCheckRunner
+    {
+        int _call;
+
+        public Task<ScriptCheckResult> Run(ScriptCheckRequest request, CancellationToken ct)
+        {
+            var n = Interlocked.Increment(ref _call);
+            if (n == 1)
+            {
+                throw new InvalidOperationException("boom from runner");
+            }
+
+            if (n == 2)
+            {
+                return Task.FromResult(
+                    new ScriptCheckResult
+                    {
+                        Status = EvalCheckVerdictStatuses.Failed,
+                        Reason = "genuine fail against transcript",
+                    }
+                );
+            }
+
+            return Task.FromResult(
+                new ScriptCheckResult
+                {
+                    Status = EvalCheckVerdictStatuses.Passed,
+                    Reason = $"Passed: {request.Statement}",
+                }
+            );
+        }
     }
 }

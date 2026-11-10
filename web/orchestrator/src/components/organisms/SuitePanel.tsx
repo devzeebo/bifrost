@@ -398,6 +398,9 @@ const EvalDetail = ({
                   <div className="flex flex-col gap-1">
                     <span className="text-xs tracking-[0.12em] text-muted uppercase">
                       {check.kind}
+                      {check.kind === 'Script' && check.timeoutMs != null
+                        ? ` · ${check.timeoutMs}ms`
+                        : ''}
                     </span>
                     <span>{check.statement}</span>
                   </div>

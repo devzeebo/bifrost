@@ -288,6 +288,7 @@ public static class ProposalApplicator
                                     Statement = check.Statement,
                                     Kind = check.Kind,
                                     Script = check.Script,
+                                    TimeoutMs = check.TimeoutMs,
                                 }),
                             ],
                         }
@@ -520,6 +521,7 @@ public static class ProposalApplicator
                     Statement = statement,
                     Kind = kind,
                     Script = script,
+                    TimeoutMs = check.TimeoutMs,
                 }
             );
         }
@@ -574,6 +576,7 @@ public static class ProposalApplicator
                 || left[i].Statement != right[i].Statement
                 || !string.Equals(left[i].Kind, right[i].Kind, StringComparison.Ordinal)
                 || !string.Equals(left[i].Script, right[i].Script, StringComparison.Ordinal)
+                || left[i].TimeoutMs != right[i].TimeoutMs
             )
             {
                 return false;

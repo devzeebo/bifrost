@@ -9,8 +9,11 @@ public static class EvalRunsServiceCollectionExtensions
     {
         public IServiceCollection AddEvalRuns()
         {
+            services
+                .AddOptions<ScriptCheckOptions>()
+                .BindConfiguration(ScriptCheckOptions.SectionName);
             services.TryAddSingleton<EvalRunCancellation>();
-            services.TryAddSingleton<IScriptCheckRunner, UnsettledScriptCheckRunner>();
+            services.TryAddSingleton<IScriptCheckRunner, SealedScriptCheckRunner>();
             services.TryAddScoped<EvalRunExecutor>();
             return services;
         }

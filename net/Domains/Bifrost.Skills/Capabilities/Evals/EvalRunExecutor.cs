@@ -212,27 +212,52 @@ public sealed class EvalRunExecutor(
                 continue;
             }
 
-            var result = await scriptCheckRunner.Run(
-                new ScriptCheckRequest
-                {
-                    CheckId = check.Id,
-                    Statement = check.Statement,
-                    Script = check.Script,
-                    Transcript = transcriptText,
-                    Context = eval.Context,
-                },
-                ct
-            );
-            verdicts.Add(
-                new EvalCheckVerdict
-                {
-                    CheckId = check.Id,
-                    Statement = check.Statement,
-                    Kind = string.IsNullOrWhiteSpace(check.Kind) ? CheckKinds.Script : check.Kind,
-                    Status = result.Status,
-                    Reason = result.Reason,
-                }
-            );
+            var kind = string.IsNullOrWhiteSpace(check.Kind) ? CheckKinds.Script : check.Kind;
+            try
+            {
+                var result = await scriptCheckRunner.Run(
+                    new ScriptCheckRequest
+                    {
+                        CheckId = check.Id,
+                        Statement = check.Statement,
+                        Script = check.Script,
+                        Transcript = transcriptText,
+                        Context = eval.Context,
+                        // 0 → runner applies ScriptCheckOptions.DefaultTimeoutMs
+                        TimeoutMs = check.TimeoutMs is > 0 ? check.TimeoutMs.Value : 0,
+                    },
+                    ct
+                );
+                verdicts.Add(
+                    new EvalCheckVerdict
+                    {
+                        CheckId = check.Id,
+                        Statement = check.Statement,
+                        Kind = kind,
+                        Status = result.Status,
+                        Reason = result.Reason,
+                    }
+                );
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                verdicts.Add(
+                    new EvalCheckVerdict
+                    {
+                        CheckId = check.Id,
+                        Statement = check.Statement,
+                        Kind = kind,
+                        Status = EvalCheckVerdictStatuses.Failed,
+                        Reason = string.IsNullOrWhiteSpace(ex.Message)
+                            ? "Script check failed."
+                            : ex.Message,
+                    }
+                );
+            }
         }
 
         return verdicts;
