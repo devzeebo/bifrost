@@ -1,18 +1,19 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useCapabilityLibrary } from '../capabilities/useCapabilityLibrary'
 import { CapabilityLibrary } from '../components/organisms/CapabilityLibrary'
-import { WorkshopLayout } from '../components/templates/WorkshopLayout'
+import { PageLayout } from '../components/templates/PageLayout'
 
 const LibraryPage = () => {
   const library = useCapabilityLibrary()
 
   return (
-    <WorkshopLayout
+    <PageLayout
       title="Capability library"
       subtitle="Named asks that the workshop decomposes into criteria, evals, and a derived skill."
+      current="skills"
       actions={
         <Link
-          to="/capabilities/new"
+          to="/skills/new"
           className="border border-signal-dim px-4 py-2 text-xs tracking-[0.16em] text-signal uppercase"
         >
           New capability
@@ -26,10 +27,10 @@ const LibraryPage = () => {
         <p className="border border-line bg-surface px-5 py-6 text-sm text-signal">{library.message}</p>
       ) : null}
       {library.status === 'ready' ? <CapabilityLibrary items={library.items} /> : null}
-    </WorkshopLayout>
+    </PageLayout>
   )
 }
 
-export const Route = createFileRoute('/')({
+export const Route = createFileRoute('/skills/')({
   component: LibraryPage,
 })

@@ -4,7 +4,7 @@ import { describe, expect, vi } from 'vitest'
 import test, { withAspect } from 'vitest-gwt'
 import { routeTree } from '../routeTree.gen'
 
-describe('library route', () => {
+describe('skills library route', () => {
   withAspect(reset_page, reset_page)
 
   test('ready library lists capabilities', {
@@ -77,7 +77,7 @@ async function the_library_page_opens(this: Context) {
 
   const router = createRouter({
     routeTree,
-    history: createMemoryHistory({ initialEntries: ['/'] }),
+    history: createMemoryHistory({ initialEntries: ['/skills'] }),
   })
   render(<RouterProvider router={router} />)
   await router.load()

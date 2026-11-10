@@ -17,7 +17,7 @@ export const CapabilityLibrary = ({ items }: CapabilityLibraryProps) => (
         {items.map((item) => (
           <li key={item.id}>
             <Link
-              to="/capabilities/$capabilityId"
+              to="/skills/$capabilityId"
               params={{ capabilityId: item.id }}
               className="flex items-center justify-between gap-4 border border-line bg-surface px-5 py-4 hover:border-signal-dim"
             >

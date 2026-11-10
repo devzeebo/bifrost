@@ -13,8 +13,7 @@ Thanks for contributing to Bifrost.
 | `net/Domains/Bifrost.Skills.Contracts` | Skills API contracts: capabilities, criteria, evals, publishing |
 | `net/Domains/Bifrost.Skills` | Skills bounded context — workshop domain. Marten schema `skills` |
 | `net/Domains/Bifrost.WorkerNode` | Registers itself and heartbeats. Wolverine with a local SQLite outbox, no Postgres or Marten. Sends through `IBifrostBus` |
-| `web/workshop` | Skill creator workshop UI (capability library and capability page) |
-| `web/orchestrator` | Orchestrator cluster-status UI |
+| `web/orchestrator` | Orchestrator UI (cluster status, usage, and skills workshop) |
 | `net/Infrastructure/Bifrost.MessageBus.Abstractions` | `IBifrostBus`, envelopes, RPC wire contracts, provider surface |
 | `net/Infrastructure/Bifrost.MessageBus.Wolverine` | Wolverine transport over `IBifrostBus`. Hosts publish through the outbox and listen with `Handle` methods |
 | `net/Infrastructure/Bifrost.MessageBus.ZeroMq` | ZeroMQ bus sidecar deployable (`IMessageBusProvider`) |

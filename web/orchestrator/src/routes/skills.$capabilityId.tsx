@@ -1,13 +1,13 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { useCapability } from '../../capabilities/useCapability'
-import { useCapabilityChat } from '../../capabilities/useCapabilityChat'
-import { useEvalRuns } from '../../capabilities/useEvalRuns'
-import { AskDocument } from '../../components/organisms/AskDocument'
-import { CapabilityChatPanel } from '../../components/organisms/CapabilityChatPanel'
-import { CapabilityVersionPanel } from '../../components/organisms/CapabilityVersionPanel'
-import { DerivedSkillPanel } from '../../components/organisms/DerivedSkillPanel'
-import { SuitePanel } from '../../components/organisms/SuitePanel'
-import { WorkshopLayout } from '../../components/templates/WorkshopLayout'
+import { Link, createFileRoute } from '@tanstack/react-router'
+import { useCapability } from '../capabilities/useCapability'
+import { useCapabilityChat } from '../capabilities/useCapabilityChat'
+import { useEvalRuns } from '../capabilities/useEvalRuns'
+import { AskDocument } from '../components/organisms/AskDocument'
+import { CapabilityChatPanel } from '../components/organisms/CapabilityChatPanel'
+import { CapabilityVersionPanel } from '../components/organisms/CapabilityVersionPanel'
+import { DerivedSkillPanel } from '../components/organisms/DerivedSkillPanel'
+import { SuitePanel } from '../components/organisms/SuitePanel'
+import { PageLayout } from '../components/templates/PageLayout'
 
 const CapabilityPage = () => {
   const { capabilityId } = Route.useParams()
@@ -18,17 +18,27 @@ const CapabilityPage = () => {
 
   if (state.status === 'loading') {
     return (
-      <WorkshopLayout title="Capability" subtitle="Loading…">
+      <PageLayout title="Capability" subtitle="Loading…" current="skills">
+        <p className="text-sm">
+          <Link to="/skills" className="text-muted hover:text-fg">
+            ← Capability library
+          </Link>
+        </p>
         <p className="text-sm text-muted">Loading capability…</p>
-      </WorkshopLayout>
+      </PageLayout>
     )
   }
 
   if (state.status === 'error') {
     return (
-      <WorkshopLayout title="Capability" subtitle="Could not load">
+      <PageLayout title="Capability" subtitle="Could not load" current="skills">
+        <p className="text-sm">
+          <Link to="/skills" className="text-muted hover:text-fg">
+            ← Capability library
+          </Link>
+        </p>
         <p className="border border-line bg-surface px-5 py-6 text-sm text-signal">{state.message}</p>
-      </WorkshopLayout>
+      </PageLayout>
     )
   }
 
@@ -40,12 +50,18 @@ const CapabilityPage = () => {
   }
 
   return (
-    <WorkshopLayout
+    <PageLayout
       title={capability.name}
       subtitle={
         capability.hasPublishedSkill ? 'Published skill available' : 'Never published'
       }
+      current="skills"
     >
+      <p className="text-sm">
+        <Link to="/skills" className="text-muted hover:text-fg">
+          ← Capability library
+        </Link>
+      </p>
       <CapabilityChatPanel
         messages={chat.state.status === 'ready' ? chat.state.messages : []}
         pendingProposals={chat.state.status === 'ready' ? chat.state.pendingProposals : []}
@@ -108,11 +124,11 @@ const CapabilityPage = () => {
           await evalRuns.reload()
         }}
       />
-    </WorkshopLayout>
+    </PageLayout>
   )
 }
 
-export const Route = createFileRoute('/capabilities/$capabilityId')({
+export const Route = createFileRoute('/skills/$capabilityId')({
   component: CapabilityPage,
   remountDeps: ({ params }) => [params.capabilityId],
 })

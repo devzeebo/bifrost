@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
 
 type AppNavProps = {
-  readonly current: 'status' | 'usage'
+  readonly current: 'status' | 'usage' | 'skills'
 }
 
 export const AppNav = ({ current }: AppNavProps) => (
@@ -17,6 +17,12 @@ export const AppNav = ({ current }: AppNavProps) => (
       className={current === 'usage' ? 'text-signal' : 'text-muted hover:text-fg'}
     >
       Usage
+    </Link>
+    <Link
+      to="/skills"
+      className={current === 'skills' ? 'text-signal' : 'text-muted hover:text-fg'}
+    >
+      Skills
     </Link>
   </nav>
 )

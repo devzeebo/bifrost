@@ -10,7 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SkillsRouteImport } from './routes/skills'
 import { Route as UsageRouteImport } from './routes/usage'
+import { Route as SkillsIndexRouteImport } from './routes/skills.index'
+import { Route as SkillsCapabilityIdRouteImport } from './routes/skills.$capabilityId'
+import { Route as SkillsNewRouteImport } from './routes/skills.new'
 import { Route as WorkItemsWorkItemIdRouteImport } from './routes/work-items.$workItemId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -18,10 +22,30 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SkillsRoute = SkillsRouteImport.update({
+  id: '/skills',
+  path: '/skills',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const UsageRoute = UsageRouteImport.update({
   id: '/usage',
   path: '/usage',
   getParentRoute: () => rootRouteImport,
+} as any)
+const SkillsIndexRoute = SkillsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SkillsRoute,
+} as any)
+const SkillsCapabilityIdRoute = SkillsCapabilityIdRouteImport.update({
+  id: '/$capabilityId',
+  path: '/$capabilityId',
+  getParentRoute: () => SkillsRoute,
+} as any)
+const SkillsNewRoute = SkillsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => SkillsRoute,
 } as any)
 const WorkItemsWorkItemIdRoute = WorkItemsWorkItemIdRouteImport.update({
   id: '/work-items/$workItemId',
@@ -31,30 +55,63 @@ const WorkItemsWorkItemIdRoute = WorkItemsWorkItemIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/skills': typeof SkillsRouteWithChildren
   '/usage': typeof UsageRoute
+  '/skills/$capabilityId': typeof SkillsCapabilityIdRoute
+  '/skills/new': typeof SkillsNewRoute
   '/work-items/$workItemId': typeof WorkItemsWorkItemIdRoute
+  '/skills/': typeof SkillsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/usage': typeof UsageRoute
+  '/skills/$capabilityId': typeof SkillsCapabilityIdRoute
+  '/skills/new': typeof SkillsNewRoute
   '/work-items/$workItemId': typeof WorkItemsWorkItemIdRoute
+  '/skills': typeof SkillsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/skills': typeof SkillsRouteWithChildren
   '/usage': typeof UsageRoute
+  '/skills/$capabilityId': typeof SkillsCapabilityIdRoute
+  '/skills/new': typeof SkillsNewRoute
   '/work-items/$workItemId': typeof WorkItemsWorkItemIdRoute
+  '/skills/': typeof SkillsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/usage' | '/work-items/$workItemId'
+  fullPaths:
+    | '/'
+    | '/skills'
+    | '/usage'
+    | '/skills/$capabilityId'
+    | '/skills/new'
+    | '/work-items/$workItemId'
+    | '/skills/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/usage' | '/work-items/$workItemId'
-  id: '__root__' | '/' | '/usage' | '/work-items/$workItemId'
+  to:
+    | '/'
+    | '/usage'
+    | '/skills/$capabilityId'
+    | '/skills/new'
+    | '/work-items/$workItemId'
+    | '/skills'
+  id:
+    | '__root__'
+    | '/'
+    | '/skills'
+    | '/usage'
+    | '/skills/$capabilityId'
+    | '/skills/new'
+    | '/work-items/$workItemId'
+    | '/skills/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SkillsRoute: typeof SkillsRouteWithChildren
   UsageRoute: typeof UsageRoute
   WorkItemsWorkItemIdRoute: typeof WorkItemsWorkItemIdRoute
 }
@@ -68,12 +125,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/skills': {
+      id: '/skills'
+      path: '/skills'
+      fullPath: '/skills'
+      preLoaderRoute: typeof SkillsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/usage': {
       id: '/usage'
       path: '/usage'
       fullPath: '/usage'
       preLoaderRoute: typeof UsageRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/skills/': {
+      id: '/skills/'
+      path: '/'
+      fullPath: '/skills/'
+      preLoaderRoute: typeof SkillsIndexRouteImport
+      parentRoute: typeof SkillsRoute
+    }
+    '/skills/$capabilityId': {
+      id: '/skills/$capabilityId'
+      path: '/$capabilityId'
+      fullPath: '/skills/$capabilityId'
+      preLoaderRoute: typeof SkillsCapabilityIdRouteImport
+      parentRoute: typeof SkillsRoute
+    }
+    '/skills/new': {
+      id: '/skills/new'
+      path: '/new'
+      fullPath: '/skills/new'
+      preLoaderRoute: typeof SkillsNewRouteImport
+      parentRoute: typeof SkillsRoute
     }
     '/work-items/$workItemId': {
       id: '/work-items/$workItemId'
@@ -85,8 +170,24 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface SkillsRouteChildren {
+  SkillsCapabilityIdRoute: typeof SkillsCapabilityIdRoute
+  SkillsNewRoute: typeof SkillsNewRoute
+  SkillsIndexRoute: typeof SkillsIndexRoute
+}
+
+const SkillsRouteChildren: SkillsRouteChildren = {
+  SkillsCapabilityIdRoute: SkillsCapabilityIdRoute,
+  SkillsNewRoute: SkillsNewRoute,
+  SkillsIndexRoute: SkillsIndexRoute,
+}
+
+const SkillsRouteWithChildren =
+  SkillsRoute._addFileChildren(SkillsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SkillsRoute: SkillsRouteWithChildren,
   UsageRoute: UsageRoute,
   WorkItemsWorkItemIdRoute: WorkItemsWorkItemIdRoute,
 }

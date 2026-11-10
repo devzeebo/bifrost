@@ -37,10 +37,10 @@ describe('CapabilityChatPanel', () => {
 type Context = {
   messages: readonly ChatMessage[]
   pendingProposals: readonly Proposal[]
-  onSend: ReturnType<typeof vi.fn>
-  onApply: ReturnType<typeof vi.fn>
-  onDismiss: ReturnType<typeof vi.fn>
-  onReread: ReturnType<typeof vi.fn>
+  onSend: Parameters<typeof CapabilityChatPanel>[0]['onSend']
+  onApply: Parameters<typeof CapabilityChatPanel>[0]['onApply']
+  onDismiss: Parameters<typeof CapabilityChatPanel>[0]['onDismiss']
+  onReread: Parameters<typeof CapabilityChatPanel>[0]['onReread']
 }
 
 function reset_page(this: Context) {

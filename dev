@@ -108,12 +108,7 @@ ensure_pnpm() {
   fi
 }
 
-ensure_pnpm workshop
 ensure_pnpm orchestrator
-
-echo "Starting workshop UI on http://127.0.0.1:5173 …"
-setsid pnpm --dir "$ROOT/web/workshop" run dev --host 127.0.0.1 --port 5173 --strictPort </dev/null &
-PIDS+=($!)
 
 echo "Starting orchestrator UI on http://127.0.0.1:5174 …"
 setsid pnpm --dir "$ROOT/web/orchestrator" run dev --host 127.0.0.1 --port 5174 --strictPort </dev/null &
@@ -123,14 +118,13 @@ cat <<EOF
 
 Bifrost local stack is up.
 
-  Workshop UI      http://127.0.0.1:5173
   Orchestrator UI  http://127.0.0.1:5174
   Work items API   http://127.0.0.1:8080
   Orchestrator API http://127.0.0.1:8081
   Skills API       http://127.0.0.1:8082
   RabbitMQ mgmt    http://127.0.0.1:15672  (bifrost / bifrost)
 
-Ctrl+C stops the frontends and the Docker stack (volumes are kept).
+Ctrl+C stops the frontend and the Docker stack (volumes are kept).
 
 EOF
 
