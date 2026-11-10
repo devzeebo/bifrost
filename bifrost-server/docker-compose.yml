@@ -165,6 +165,40 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  workflows:
+    build:
+      context: ..
+      dockerfile: net/Domains/Bifrost.Workflows/Dockerfile
+    environment:
+      ConnectionStrings__Marten: Host=postgres;Port=5432;Database=bifrost;Username=bifrost;Password=bifrost
+      Bifrost__BusSocket: /run/bifrost/bus.sock
+      ASPNETCORE_URLS: http://+:8080
+    ports:
+      - "8083:8080"
+    volumes:
+      - workflows_bus_sock:/run/bifrost
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  workflows-bus:
+    build:
+      context: ..
+      dockerfile: net/Infrastructure/Bifrost.MessageBus.RabbitMq/Dockerfile
+    environment:
+      Rpc__SocketPath: /run/bifrost/bus.sock
+      Rpc__InstanceId: workflows
+      Rpc__Role: primary
+      Bus__Address: workflows
+    volumes:
+      - workflows_bus_sock:/run/bifrost
+    depends_on:
+      workflows:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   bifrost_pgdata:
   rabbitmq_data:
@@ -173,3 +207,4 @@ volumes:
   worker_bus_sock:
   worker_outbox:
   skills_bus_sock:
+  workflows_bus_sock:

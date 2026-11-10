@@ -12,6 +12,8 @@ Thanks for contributing to Bifrost.
 | `net/Domains/Bifrost.Orchestrator` | Decides where work executes — HTTP, Marten, and Wolverine. Marten schema `orchestrator` |
 | `net/Domains/Bifrost.Skills.Contracts` | Skills API contracts: capabilities, criteria, evals, publishing |
 | `net/Domains/Bifrost.Skills` | Skills bounded context — workshop domain. Marten schema `skills` |
+| `net/Domains/Bifrost.Workflows.Contracts` | Workflow API contracts: create/save/get/list with nested nodes |
+| `net/Domains/Bifrost.Workflows` | Workflow bounded context — node graph domain. Marten schema `workflows` |
 | `net/Domains/Bifrost.WorkerNode` | Registers itself and heartbeats. Wolverine with a local SQLite outbox, no Postgres or Marten. Sends through `IBifrostBus` |
 | `web/orchestrator` | Orchestrator UI (cluster status, usage, and skills workshop) |
 | `net/Infrastructure/Bifrost.MessageBus.Abstractions` | `IBifrostBus`, envelopes, RPC wire contracts, provider surface |
@@ -27,7 +29,7 @@ Thanks for contributing to Bifrost.
 
 RPC protocol: [docs/rpc.md](docs/rpc.md).
 
-Each context uses its own Marten schema (`work_items`, `orchestrator`, `skills`) in the shared Postgres database. The worker node does not use that database; its durable outbox is a local SQLite file. The Work Item host shares a message bus sidecar over a unix-socket volume. The orchestrator and the worker each have their own sidecar. Compose connects those sidecars to RabbitMQ, which keeps a durable queue per service until the sidecar acks. Host images never reference NetMQ or RabbitMQ.Client. The ZeroMQ sidecar remains in the repo.
+Each context uses its own Marten schema (`work_items`, `orchestrator`, `skills`, `workflows`) in the shared Postgres database. The worker node does not use that database; its durable outbox is a local SQLite file. The Work Item host shares a message bus sidecar over a unix-socket volume. The orchestrator and the worker each have their own sidecar. Compose connects those sidecars to RabbitMQ, which keeps a durable queue per service until the sidecar acks. Host images never reference NetMQ or RabbitMQ.Client. The ZeroMQ sidecar remains in the repo.
 
 Domain work is organized by **aggregate root**. How to structure and extend an aggregate is documented in [docs/ddd-aggregate-roots.md](docs/ddd-aggregate-roots.md).
 

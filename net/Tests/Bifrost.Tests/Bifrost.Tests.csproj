@@ -40,6 +40,11 @@
       <Aliases>Skills</Aliases>
     </ProjectReference>
     <ProjectReference Include="..\..\Domains\Bifrost.Skills.Contracts\Bifrost.Skills.Contracts.csproj" />
+    <ProjectReference Include="..\..\Domains\Bifrost.Workflows\Bifrost.Workflows.csproj">
+      <Aliases>Workflows</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Domains\Bifrost.Workflows.Contracts\Bifrost.Workflows.Contracts.csproj" />
+
     <ProjectReference Include="..\..\Infrastructure\Bifrost.Ai\Bifrost.Ai.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Bifrost.Configuration\Bifrost.Configuration.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Bifrost.MessageBus.Abstractions\Bifrost.MessageBus.Abstractions.csproj" />
