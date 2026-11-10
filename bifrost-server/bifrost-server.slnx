@@ -7,6 +7,8 @@
     <Project Path="../net/Domains/Bifrost.WorkerNode/Bifrost.WorkerNode.csproj" />
     <Project Path="../net/Domains/Bifrost.Skills.Contracts/Bifrost.Skills.Contracts.csproj" />
     <Project Path="../net/Domains/Bifrost.Skills/Bifrost.Skills.csproj" />
+    <Project Path="../net/Domains/Bifrost.Workflows.Contracts/Bifrost.Workflows.Contracts.csproj" />
+    <Project Path="../net/Domains/Bifrost.Workflows/Bifrost.Workflows.csproj" />
   </Folder>
   <Folder Name="/Infrastructure/">
     <Project Path="../net/Infrastructure/Bifrost.Ai/Bifrost.Ai.csproj" />

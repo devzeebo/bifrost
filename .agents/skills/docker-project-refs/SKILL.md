@@ -43,6 +43,7 @@ succeeding does **not** mean the image will build.
 | `net/Domains/Bifrost.Skills/Dockerfile` | Skills |
 | `net/Domains/Bifrost.Orchestrator/Dockerfile` | Orchestrator |
 | `net/Domains/Bifrost.WorkItems/Dockerfile` | WorkItems |
+| `net/Domains/Bifrost.Workflows/Dockerfile` | Workflows |
 | `net/Domains/Bifrost.WorkerNode/Dockerfile` | WorkerNode |
 | `net/Infrastructure/Bifrost.MessageBus.RabbitMq/Dockerfile` | Message bus |
 
