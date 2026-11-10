@@ -172,6 +172,7 @@ public class Capability
                 || left[i].Statement != right[i].Statement
                 || !string.Equals(left[i].Kind, right[i].Kind, StringComparison.Ordinal)
                 || !string.Equals(left[i].Script, right[i].Script, StringComparison.Ordinal)
+                || left[i].TimeoutMs != right[i].TimeoutMs
             )
             {
                 return false;

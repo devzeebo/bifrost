@@ -603,11 +603,13 @@ const parseCheckSnapshot = (value: unknown): CheckSnapshot => {
     throw new CapabilityApiError('Check snapshot was invalid')
   }
   const script = value['script']
+  const timeoutMs = value['timeoutMs']
   return {
     id: value['id'],
     statement: value['statement'],
     kind: parseCheckKind(value['kind']),
     script: typeof script === 'string' ? script : null,
+    timeoutMs: typeof timeoutMs === 'number' && Number.isFinite(timeoutMs) ? timeoutMs : null,
   }
 }
 

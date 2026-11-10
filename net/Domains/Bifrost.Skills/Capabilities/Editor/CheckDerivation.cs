@@ -12,7 +12,8 @@ public static class CheckDerivation
     public static CheckSnapshot ScriptCheck(
         Guid id,
         string criterionStatement,
-        string scenario
+        string scenario,
+        int? timeoutMs = null
     ) =>
         new()
         {
@@ -20,15 +21,21 @@ public static class CheckDerivation
             Kind = CheckKinds.Script,
             Statement = PlainSentence(criterionStatement),
             Script = TypeScriptBody(scenario, criterionStatement),
+            TimeoutMs = timeoutMs,
         };
 
-    public static CheckSnapshot HumanReviewCheck(Guid id, string criterionStatement) =>
+    public static CheckSnapshot HumanReviewCheck(
+        Guid id,
+        string criterionStatement,
+        int? timeoutMs = null
+    ) =>
         new()
         {
             Id = id,
             Kind = CheckKinds.HumanReview,
             Statement = PlainSentence(criterionStatement),
             Script = null,
+            TimeoutMs = timeoutMs,
         };
 
     public static IReadOnlyList<CheckSnapshot> ReDerive(
@@ -46,8 +53,8 @@ public static class CheckDerivation
         [
             .. existing.Select(check =>
                 string.Equals(check.Kind, CheckKinds.HumanReview, StringComparison.Ordinal)
-                    ? HumanReviewCheck(check.Id, criterionStatement)
-                    : ScriptCheck(check.Id, criterionStatement, scenario)
+                    ? HumanReviewCheck(check.Id, criterionStatement, check.TimeoutMs)
+                    : ScriptCheck(check.Id, criterionStatement, scenario, check.TimeoutMs)
             ),
         ];
     }
@@ -69,9 +76,12 @@ public static class CheckDerivation
         foreach (var request in requested)
         {
             var kind = RequireKind(request.Kind);
+            var timeoutMs = request.TimeoutMs ?? (byId.TryGetValue(request.Id, out var kept)
+                ? kept.TimeoutMs
+                : null);
             if (kind == CheckKinds.HumanReview)
             {
-                result.Add(HumanReviewCheck(request.Id, criterionStatement));
+                result.Add(HumanReviewCheck(request.Id, criterionStatement, timeoutMs));
                 continue;
             }
 
@@ -89,12 +99,13 @@ public static class CheckDerivation
                     prior with
                     {
                         Kind = CheckKinds.Script,
+                        TimeoutMs = timeoutMs,
                     }
                 );
                 continue;
             }
 
-            result.Add(ScriptCheck(request.Id, criterionStatement, scenario));
+            result.Add(ScriptCheck(request.Id, criterionStatement, scenario, timeoutMs));
         }
 
         return result;

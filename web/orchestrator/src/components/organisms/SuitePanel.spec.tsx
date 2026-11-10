@@ -162,6 +162,7 @@ function one_covered_and_one_uncovered_criterion(this: Context) {
           kind: 'Script',
           script:
             "export default function check(transcript: string, context: string): boolean {\n  return true;\n}\n",
+          timeoutMs: null,
         },
       ],
     },

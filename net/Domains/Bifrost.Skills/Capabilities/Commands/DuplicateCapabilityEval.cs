@@ -50,6 +50,7 @@ public static class DuplicateCapabilityEvalHandler
                         Statement = check.Statement,
                         Kind = check.Kind,
                         Script = check.Script,
+                        TimeoutMs = check.TimeoutMs,
                     }),
                 ],
             }

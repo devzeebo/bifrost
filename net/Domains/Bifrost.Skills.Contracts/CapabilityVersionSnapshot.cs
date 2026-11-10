@@ -16,6 +16,11 @@ public sealed record CheckSnapshot
 
     /// <summary>TypeScript source when Kind is Script; null/empty for HumanReview.</summary>
     public string? Script { get; init; }
+
+    /// <summary>
+    /// Optional per-check execution ceiling in milliseconds. Null uses the skills-service default.
+    /// </summary>
+    public int? TimeoutMs { get; init; }
 }
 
 public sealed record EvalSnapshot

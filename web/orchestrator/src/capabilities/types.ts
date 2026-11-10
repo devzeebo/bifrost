@@ -16,6 +16,7 @@ export type CheckSnapshot = {
   readonly statement: string
   readonly kind: CheckKind
   readonly script: string | null
+  readonly timeoutMs: number | null
 }
 
 export type EvalOutcomeStatus =
