@@ -17,20 +17,25 @@ public static class CreateWorkflowHandler
             throw new CommandValidationException($"Workflow {command.Id} already exists.");
         }
 
-        WorkflowGraphValidation.Validate(command.Name, command.Nodes);
+        WorkflowGraphValidation.Validate(command.Name, command.Nodes, command.Connections);
     }
 
     [WolverinePost("/create-workflow"), EmptyResponse]
     public static IStartStream Handle(CreateWorkflowApi.Command command)
     {
-        var nodes = WorkflowGraphValidation.Validate(command.Name, command.Nodes);
+        var graph = WorkflowGraphValidation.Validate(
+            command.Name,
+            command.Nodes,
+            command.Connections
+        );
         return MartenOps.StartStream<Workflow>(
             command.Id,
             new WorkflowCreated
             {
                 Id = command.Id,
                 Name = command.Name.Trim(),
-                Nodes = nodes,
+                Nodes = graph.Nodes,
+                Connections = graph.Connections,
             }
         );
     }

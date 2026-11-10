@@ -6,4 +6,5 @@ public sealed record WorkflowSaved
 {
     public required string Name { get; init; }
     public required IReadOnlyList<WorkflowNode> Nodes { get; init; }
+    public IReadOnlyList<WorkflowConnection> Connections { get; init; } = [];
 }

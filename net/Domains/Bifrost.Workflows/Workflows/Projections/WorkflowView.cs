@@ -11,6 +11,7 @@ public class WorkflowView : SingleStreamProjection<WorkflowView.Model, Guid>
         public Guid Id { get; init; }
         public required string Name { get; init; }
         public required IReadOnlyList<WorkflowNode> Nodes { get; init; }
+        public IReadOnlyList<WorkflowConnection> Connections { get; init; } = [];
     }
 
     public Model Create(WorkflowCreated e) =>
@@ -19,6 +20,7 @@ public class WorkflowView : SingleStreamProjection<WorkflowView.Model, Guid>
             Id = e.Id,
             Name = e.Name,
             Nodes = e.Nodes,
+            Connections = e.Connections,
         };
 
     public Model Apply(WorkflowSaved e, Model view) =>
@@ -26,5 +28,6 @@ public class WorkflowView : SingleStreamProjection<WorkflowView.Model, Guid>
         {
             Name = e.Name,
             Nodes = e.Nodes,
+            Connections = e.Connections,
         };
 }
