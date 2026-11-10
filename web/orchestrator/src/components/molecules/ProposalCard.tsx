@@ -113,10 +113,15 @@ const describeEffect = (effect: ProposalEffect): string => {
         : `Eval — ${label}`
     case 'RetireEval':
       return effect.evalId ? `Eval — ${label} (${effect.evalId})` : `Eval — ${label}`
-    case 'ReplaceSkill':
+    case 'ReplaceSkill': {
+      const served =
+        effect.servedCriterionIds && effect.servedCriterionIds.length > 0
+          ? ` (serves ${effect.servedCriterionIds.length} criterion${effect.servedCriterionIds.length === 1 ? '' : 'a'})`
+          : ''
       return effect.markdown?.trim()
-        ? `Skill — ${label}: ${summarizeMarkdown(effect.markdown)}`
-        : `Skill — ${label}`
+        ? `Skill — ${label}${served}: ${summarizeMarkdown(effect.markdown)}`
+        : `Skill — ${label}${served}`
+    }
     default:
       return label
   }

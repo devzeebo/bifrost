@@ -4,8 +4,12 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using Bifrost.Ai;
 using Bifrost.Skills.Contracts;
+using Marten;
+using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
+using Skills::Bifrost.Capabilities.Evals;
 
 namespace Bifrost.Tests.Api;
 
@@ -21,6 +25,7 @@ public class SkillsChatTests
     public SkillsChatTests(SkillsApiFactory factory)
     {
         _factory = factory;
+        _factory.ModelClient.Handler = null;
     }
 
     [Fact]
@@ -337,31 +342,40 @@ public class SkillsChatTests
             $"/list-capability-versions/{id}"
         );
 
-        // Keep the criterion wording in the scenario so this is a mechanical amend (no sync proposal).
+        // Keep the criterion wording in the scenario so ask/criterion stay put; skill still drafts.
         var scenario = $"{detail.Criteria[0].Statement} — Amended scenario statement";
-        (
-            await Post(
-                client,
-                "/amend-capability-eval",
-                new
+        var amended = await PostJson<AmendCapabilityEvalApi.Response>(
+            client,
+            "/amend-capability-eval",
+            new
+            {
+                id,
+                evalId,
+                scenario,
+                prompt = "Amended prompt",
+                context = "Amended context",
+                checks = new[]
                 {
-                    id,
-                    evalId,
-                    scenario,
-                    prompt = "Amended prompt",
-                    context = "Amended context",
-                    checks = new[]
+                    new
                     {
-                        new
-                        {
-                            id = detail.Evals[0].Checks[0].Id,
-                            kind = detail.Evals[0].Checks[0].Kind,
-                            statement = detail.Evals[0].Checks[0].Statement,
-                        },
+                        id = detail.Evals[0].Checks[0].Id,
+                        kind = detail.Evals[0].Checks[0].Kind,
+                        statement = detail.Evals[0].Checks[0].Statement,
                     },
-                }
+                },
+            }
+        );
+        amended.ShouldNotBeNull();
+        amended.Outcome.ShouldBe("Proposed");
+        amended.Proposal.ShouldNotBeNull();
+        amended.Proposal!.Effects.ShouldContain(e => e.Kind == "ReplaceSkill");
+        (
+            await PostJson<ApplyCapabilityProposalApi.Response>(
+                client,
+                "/apply-capability-proposal",
+                new { id, proposalId = amended.Proposal.Id }
             )
-        ).StatusCode.ShouldBe(HttpStatusCode.OK);
+        ).ShouldNotBeNull();
 
         var after = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
         after.ShouldNotBeNull();
@@ -448,7 +462,7 @@ public class SkillsChatTests
     }
 
     [Fact]
-    public async Task retire_last_eval_via_chat_calls_out_uncovered_criterion()
+    public async Task retire_last_eval_via_chat_retires_criterion_too()
     {
         var client = _factory.CreateClient();
         var id = await SeedCriterionAndEval(client, "Retire via chat ask");
@@ -456,7 +470,6 @@ public class SkillsChatTests
         var detail = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
         detail.ShouldNotBeNull();
         var evalId = detail.Evals[0].Id;
-        var criterionStatement = detail.Criteria[0].Statement;
 
         var posted = await PostJson<PostCapabilityChatMessageApi.Response>(
             client,
@@ -465,7 +478,9 @@ public class SkillsChatTests
         );
         posted.ShouldNotBeNull();
         posted.Proposal.ShouldNotBeNull();
-        posted.Proposal!.Summary.ShouldContain("last eval");
+        posted.Proposal!.Effects.ShouldContain(e => e.Kind == "RetireEval");
+        posted.Proposal.Effects.ShouldContain(e => e.Kind == "RetireCriterion");
+        posted.Proposal.Effects.ShouldContain(e => e.Kind == "ReplaceSkill");
 
         var applied = await PostJson<ApplyCapabilityProposalApi.Response>(
             client,
@@ -474,10 +489,12 @@ public class SkillsChatTests
         );
         applied.ShouldNotBeNull();
         applied.Outcome.ShouldBe("Applied");
-        var note = applied.Note.ShouldNotBeNull();
-        note.ShouldContain("uncovered");
-        note.ShouldContain(criterionStatement);
-        note.ShouldNotContain(detail.Criteria[0].Id.ToString());
+        applied.Note!.ShouldNotContain("uncovered");
+
+        var after = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
+        after.ShouldNotBeNull();
+        after.Evals.ShouldBeEmpty();
+        after.Criteria.ShouldBeEmpty();
     }
 
     [Fact]
@@ -506,6 +523,221 @@ public class SkillsChatTests
         applied.ShouldNotBeNull();
         applied.Outcome.ShouldBe("Applied");
         applied.Note!.ShouldNotContain("uncovered");
+    }
+
+    [Fact]
+    public async Task derive_skill_run_less_records_no_suite_run_and_states_first_run_failures()
+    {
+        var client = _factory.CreateClient();
+        var id = await SeedCriterionAndEvalWithoutSkill(client, "Derive run-less ask");
+
+        var posted = await PostJson<PostCapabilityChatMessageApi.Response>(
+            client,
+            "/post-capability-chat-message",
+            new { id, message = "derive skill" }
+        );
+        posted.ShouldNotBeNull();
+        posted.Proposal.ShouldNotBeNull();
+        posted.Proposal!.Effects.ShouldContain(e => e.Kind == "ReplaceSkill");
+        posted.Proposal.Summary.ShouldContain("first run");
+        posted.Proposal.BasisSuiteRunId.ShouldBeNull();
+
+        var applied = await PostJson<ApplyCapabilityProposalApi.Response>(
+            client,
+            "/apply-capability-proposal",
+            new { id, proposalId = posted.Proposal.Id }
+        );
+        applied.ShouldNotBeNull();
+        applied.Outcome.ShouldBe("Applied");
+
+        var detail = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
+        detail.ShouldNotBeNull();
+        detail.SkillMarkdown.ShouldContain("Derive run-less ask");
+        detail.DerivedAgainstSuiteRunId.ShouldBeNull();
+        detail.IsSkillStale.ShouldBeFalse();
+
+        var versions = await Query<ListSkillVersionsApi.Response>(
+            client,
+            $"/list-skill-versions/{id}"
+        );
+        versions.ShouldNotBeNull();
+        versions.Items.Count.ShouldBe(1);
+        versions.Items[0].DerivedAgainstSuiteRunId.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task rederive_skill_adds_version_of_same_skill_history()
+    {
+        var client = _factory.CreateClient();
+        var id = await SeedCriterionAndEval(client, "Rederive identity ask");
+        var before = await Query<ListSkillVersionsApi.Response>(
+            client,
+            $"/list-skill-versions/{id}"
+        );
+        before.ShouldNotBeNull();
+        before.Items.Count.ShouldBe(1);
+
+        var posted = await PostJson<PostCapabilityChatMessageApi.Response>(
+            client,
+            "/post-capability-chat-message",
+            new { id, message = "re-derive skill" }
+        );
+        posted.ShouldNotBeNull();
+        posted.Proposal.ShouldNotBeNull();
+
+        (
+            await PostJson<ApplyCapabilityProposalApi.Response>(
+                client,
+                "/apply-capability-proposal",
+                new { id, proposalId = posted.Proposal!.Id }
+            )
+        ).ShouldNotBeNull();
+
+        var after = await Query<ListSkillVersionsApi.Response>(
+            client,
+            $"/list-skill-versions/{id}"
+        );
+        after.ShouldNotBeNull();
+        after.Items.Count.ShouldBe(2);
+        after.Items[0].DerivedAgainstCapabilityVersionId.ShouldBe(
+            after.Items[1].DerivedAgainstCapabilityVersionId
+        );
+    }
+
+    [Fact]
+    public async Task derive_skill_with_completed_suite_names_run_and_live_summary_updates()
+    {
+        var client = _factory.CreateClient();
+        var id = await SeedCriterionAndEval(client, "Derive suite basis ask");
+        var detail = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
+        detail.ShouldNotBeNull();
+
+        _factory.ModelClient.Handler = (_, _) =>
+            Task.FromResult(
+                new ModelResponse
+                {
+                    Status = "completed",
+                    OutputText = "capability does what the ask requires",
+                    Output = [],
+                    Usage = new LineUsage
+                    {
+                        InputTokens = 1,
+                        OutputTokens = 1,
+                        TotalTokens = 2,
+                    },
+                }
+            );
+
+        var suite = await PostJson<RunCapabilitySuiteApi.Response>(
+            client,
+            "/run-capability-suite",
+            new { id }
+        );
+        suite.ShouldNotBeNull();
+        await WaitForSuite(client, suite.SuiteRunId);
+
+        var posted = await PostJson<PostCapabilityChatMessageApi.Response>(
+            client,
+            "/post-capability-chat-message",
+            new { id, message = "derive skill" }
+        );
+        posted.ShouldNotBeNull();
+        posted.Proposal.ShouldNotBeNull();
+        posted.Proposal!.BasisSuiteRunId.ShouldBe(suite.SuiteRunId);
+        posted.Proposal.Summary.ShouldContain(suite.SuiteRunId.ToString("N"));
+
+        await using (
+            var session = _factory.Services.GetRequiredService<Marten.IDocumentStore>().LightweightSession()
+        )
+        {
+            var cases = await session
+                .Query<EvalCaseRunDocument>()
+                .Where(r => r.SuiteRunId == suite.SuiteRunId)
+                .ToListAsync();
+            cases.Count.ShouldBeGreaterThan(0);
+            foreach (var run in cases)
+            {
+                run.Outcome = EvalOutcomeStatuses.Failed;
+                run.Checks =
+                [
+                    .. run.Checks.Select(c =>
+                        c with
+                        {
+                            Status = EvalCheckVerdictStatuses.Failed,
+                            Reason = "Flipped for live summary test.",
+                        }
+                    ),
+                ];
+                session.Store(run);
+            }
+
+            await session.SaveChangesAsync();
+        }
+
+        var chat = await Query<GetCapabilityChatApi.Response>(
+            client,
+            $"/get-capability-chat/{id}"
+        );
+        chat.ShouldNotBeNull();
+        var pending = chat.PendingProposals.Single(p => p.Id == posted.Proposal.Id);
+        pending.Summary.ShouldContain("failing");
+        pending.BasisSuiteRunId.ShouldBe(suite.SuiteRunId);
+
+        var applied = await PostJson<ApplyCapabilityProposalApi.Response>(
+            client,
+            "/apply-capability-proposal",
+            new { id, proposalId = posted.Proposal.Id }
+        );
+        applied.ShouldNotBeNull();
+        applied.Outcome.ShouldBe("Applied");
+        applied.Note!.ShouldContain("failing");
+
+        var after = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
+        after.ShouldNotBeNull();
+        after.DerivedAgainstSuiteRunId.ShouldBe(suite.SuiteRunId);
+    }
+
+    static async Task<Guid> SeedCriterionAndEvalWithoutSkill(HttpClient client, string ask)
+    {
+        var id = await CreateCapability(client, ask);
+        var posted = await PostJson<PostCapabilityChatMessageApi.Response>(
+            client,
+            "/post-capability-chat-message",
+            new { id, message = $"add criterion: {ask}" }
+        );
+        posted.ShouldNotBeNull();
+        (
+            await PostJson<ApplyCapabilityProposalApi.Response>(
+                client,
+                "/apply-capability-proposal",
+                new { id, proposalId = posted!.Proposal!.Id }
+            )
+        ).ShouldNotBeNull();
+        return id;
+    }
+
+    static async Task WaitForSuite(HttpClient client, Guid suiteRunId)
+    {
+        for (var i = 0; i < 40; i++)
+        {
+            var suite = await Query<GetEvalSuiteRunApi.Response>(
+                client,
+                $"/get-eval-suite-run/{suiteRunId}"
+            );
+            if (
+                suite is not null
+                && suite.Status
+                    is EvalSuiteRunStatuses.Completed
+                        or EvalSuiteRunStatuses.Canceled
+            )
+            {
+                return;
+            }
+
+            await Task.Delay(100);
+        }
+
+        throw new TimeoutException($"Suite {suiteRunId} did not complete.");
     }
 
     static async Task<Guid> SeedCriterionAndEval(HttpClient client, string ask)

@@ -87,7 +87,8 @@ public static class AmendCapabilityEvalHandler
             command.Scenario,
             command.Prompt,
             command.Context,
-            command.Checks
+            command.Checks,
+            capability.SkillMarkdown
         );
 
         var result = await HandLayerSave.ProposeOrApply(command.Id, composition, session);

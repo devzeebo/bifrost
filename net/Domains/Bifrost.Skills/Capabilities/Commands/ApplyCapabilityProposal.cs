@@ -59,6 +59,12 @@ public static class ApplyCapabilityProposalHandler
             return await StalePath(capability, chat, proposal, session, editor, ct);
         }
 
+        proposal = await CapabilityChatStore.RefreshProposalSummary(
+            proposal,
+            currentSnapshot,
+            session
+        );
+
         var (nextCapability, skillMarkdown, capabilityChanged, skillChanged) =
             ProposalApplicator.Apply(currentSnapshot, capability.SkillMarkdown, proposal);
 
@@ -109,6 +115,7 @@ public static class ApplyCapabilityProposalHandler
             {
                 Markdown = skillMarkdown,
                 DerivedAgainstCapabilityVersionId = against,
+                DerivedAgainstSuiteRunId = proposal.BasisSuiteRunId,
             };
 
             stream.AppendMany(
@@ -116,6 +123,7 @@ public static class ApplyCapabilityProposalHandler
                 {
                     Markdown = skillMarkdown,
                     DerivedAgainstCapabilityVersionId = against,
+                    DerivedAgainstSuiteRunId = proposal.BasisSuiteRunId,
                 }
             );
 
@@ -190,10 +198,16 @@ public static class ApplyCapabilityProposalHandler
             CurrentCapabilityVersionId = capability.CurrentCapabilityVersionId,
             CurrentSkillVersionId = capability.CurrentSkillVersionId,
             DerivedAgainstCapabilityVersionId = capability.DerivedAgainstCapabilityVersionId,
+            DerivedAgainstSuiteRunId = capability.DerivedAgainstSuiteRunId,
         };
 
+        var suiteBasis = await DerivationSuiteBasis.Load(
+            session,
+            capability.Id,
+            capability.DraftCapabilitySnapshot()
+        );
         var turn = await editor.Reread(
-            CapabilityChatStore.ToEditorContext(view, chat),
+            CapabilityChatStore.ToEditorContext(view, chat, suiteBasis),
             proposal with
             {
                 IsStale = true,
@@ -231,7 +245,9 @@ public static class ApplyCapabilityProposalHandler
             var reoffered = CapabilityChatStore.OfferProposal(
                 view,
                 turn.ProposalSummary,
-                turn.Effects
+                turn.Effects,
+                turn.CompositionSummary ?? proposal.CompositionSummary,
+                turn.BasisSuiteRunId ?? proposal.BasisSuiteRunId
             );
             chat.PendingProposals.Add(reoffered);
             chat.Messages.Add(

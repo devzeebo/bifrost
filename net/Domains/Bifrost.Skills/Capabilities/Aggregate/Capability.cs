@@ -11,6 +11,7 @@ public class Capability
     public Guid? CurrentCapabilityVersionId { get; set; }
     public Guid? CurrentSkillVersionId { get; set; }
     public Guid? DerivedAgainstCapabilityVersionId { get; set; }
+    public Guid? DerivedAgainstSuiteRunId { get; set; }
     public List<CriterionSnapshot> Criteria { get; set; } = [];
     public List<EvalSnapshot> Evals { get; set; } = [];
     public CapabilityVersionSnapshot? LastRecordedCapabilitySnapshot { get; set; }
@@ -30,6 +31,7 @@ public class Capability
             {
                 Markdown = SkillMarkdown,
                 DerivedAgainstCapabilityVersionId = against,
+                DerivedAgainstSuiteRunId = DerivedAgainstSuiteRunId,
             }
             : null;
 
@@ -80,6 +82,7 @@ public class Capability
     {
         SkillMarkdown = e.Markdown;
         DerivedAgainstCapabilityVersionId = e.DerivedAgainstCapabilityVersionId;
+        DerivedAgainstSuiteRunId = e.DerivedAgainstSuiteRunId;
     }
 
     public void Apply(SkillVersionRecorded e)
@@ -88,6 +91,7 @@ public class Capability
         LastRecordedSkillSnapshot = e.Snapshot;
         SkillMarkdown = e.Snapshot.Markdown;
         DerivedAgainstCapabilityVersionId = e.Snapshot.DerivedAgainstCapabilityVersionId;
+        DerivedAgainstSuiteRunId = e.Snapshot.DerivedAgainstSuiteRunId;
     }
 
     public void Apply(CapabilityRestored e)
@@ -101,6 +105,7 @@ public class Capability
     {
         SkillMarkdown = e.Snapshot.Markdown;
         DerivedAgainstCapabilityVersionId = e.Snapshot.DerivedAgainstCapabilityVersionId;
+        DerivedAgainstSuiteRunId = e.Snapshot.DerivedAgainstSuiteRunId;
     }
 
     static bool SnapshotEquals(CapabilityVersionSnapshot left, CapabilityVersionSnapshot right) =>
@@ -110,7 +115,8 @@ public class Capability
 
     static bool SkillSnapshotEquals(SkillVersionSnapshot left, SkillVersionSnapshot right) =>
         left.Markdown == right.Markdown
-        && left.DerivedAgainstCapabilityVersionId == right.DerivedAgainstCapabilityVersionId;
+        && left.DerivedAgainstCapabilityVersionId == right.DerivedAgainstCapabilityVersionId
+        && left.DerivedAgainstSuiteRunId == right.DerivedAgainstSuiteRunId;
 
     static bool CriteriaEqual(
         IReadOnlyList<CriterionSnapshot> left,

@@ -34,12 +34,19 @@ public static class PostCapabilityChatMessageHandler
     {
         var capability = (await session.LoadAsync<CapabilityView.Model>(command.Id))!;
         var chat = await CapabilityChatStore.LoadOrCreate(session, command.Id);
+        var current = new CapabilityVersionSnapshot
+        {
+            Ask = capability.Ask,
+            Criteria = capability.Criteria,
+            Evals = capability.Evals,
+        };
+        var suiteBasis = await DerivationSuiteBasis.Load(session, capability.Id, current);
 
         var userMessage = CapabilityChatStore.Message("user", command.Message.Trim());
         chat.Messages.Add(userMessage);
 
         var turn = await editor.Compose(
-            CapabilityChatStore.ToEditorContext(capability, chat),
+            CapabilityChatStore.ToEditorContext(capability, chat, suiteBasis),
             command.Message.Trim(),
             ct
         );
@@ -51,19 +58,39 @@ public static class PostCapabilityChatMessageHandler
             try
             {
                 ProposalApplicator.ValidateEffects(
-                    new CapabilityVersionSnapshot
-                    {
-                        Ask = capability.Ask,
-                        Criteria = capability.Criteria,
-                        Evals = capability.Evals,
-                    },
+                    current,
                     capability.SkillMarkdown,
                     turn.Effects
                 );
+
+                var compositionSummary = turn.CompositionSummary ?? turn.ProposalSummary;
+                var basisRunId = turn.BasisSuiteRunId;
+                // Derive turns that omit basis inherit the compose-time suite basis when they draft skill.
+                if (
+                    basisRunId is null
+                    && turn.CompositionSummary is not null
+                    && suiteBasis.SuiteRunId is not null
+                )
+                {
+                    basisRunId = suiteBasis.SuiteRunId;
+                }
+
+                var display =
+                    basisRunId is not null
+                        ? DerivationSummary.Display(
+                            compositionSummary,
+                            await DerivationSuiteBasis.LoadNamed(session, basisRunId.Value, current)
+                        )
+                        : turn.CompositionSummary is not null
+                            ? DerivationSummary.WithRunLessPlain(compositionSummary)
+                            : turn.ProposalSummary!;
+
                 proposal = CapabilityChatStore.OfferProposal(
                     capability,
-                    turn.ProposalSummary,
-                    turn.Effects
+                    display,
+                    turn.Effects,
+                    turn.CompositionSummary is not null ? compositionSummary : null,
+                    basisRunId
                 );
                 chat.PendingProposals.Add(proposal);
             }

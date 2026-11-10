@@ -41,7 +41,8 @@ public static class AmendCapabilityAskHandler
                 Criteria = capability.Criteria,
                 Evals = capability.Evals,
             },
-            command.Ask
+            command.Ask,
+            capability.SkillMarkdown
         );
 
         var result = await HandLayerSave.ProposeOrApply(command.Id, composition, session);

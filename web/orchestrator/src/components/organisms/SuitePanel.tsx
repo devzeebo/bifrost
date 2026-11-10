@@ -271,7 +271,7 @@ export const SuitePanel = ({
                               onClick={() => {
                                 const confirmed = isLast
                                   ? window.confirm(
-                                      'This is the last eval behind its criterion. Retiring it leaves the criterion uncovered. Continue?',
+                                      'This is the last eval behind its criterion. Retiring it should retire the criterion too so the layers stay one agreement. Continue?',
                                     )
                                   : window.confirm('Retire this eval?')
                                 if (confirmed) {

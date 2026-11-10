@@ -34,6 +34,7 @@ public static class ListSkillVersionsHandler
                     VersionId = x.Id,
                     RecordedAt = x.RecordedAt,
                     DerivedAgainstCapabilityVersionId = x.Snapshot.DerivedAgainstCapabilityVersionId,
+                    DerivedAgainstSuiteRunId = x.Snapshot.DerivedAgainstSuiteRunId,
                 }),
             ],
         };

@@ -48,7 +48,8 @@ public static class AmendCapabilityCriterionHandler
                 Evals = capability.Evals,
             },
             command.CriterionId,
-            command.Statement
+            command.Statement,
+            capability.SkillMarkdown
         );
 
         var result = await HandLayerSave.ProposeOrApply(command.Id, composition, session);

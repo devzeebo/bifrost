@@ -155,44 +155,42 @@ public class SkillsEvalRunTests
         var checkError = Guid.NewGuid();
         var checkFail = Guid.NewGuid();
         var checkPass = Guid.NewGuid();
-        (
-            await Post(
-                client,
-                "/amend-capability-eval",
-                new
+        await AmendEvalAndApply(
+            client,
+            id,
+            new
+            {
+                id,
+                evalId = eval.Id,
+                scenario = eval.Scenario,
+                prompt = eval.Prompt,
+                context = eval.Context,
+                checks = new object[]
                 {
-                    id,
-                    evalId = eval.Id,
-                    scenario = eval.Scenario,
-                    prompt = eval.Prompt,
-                    context = eval.Context,
-                    checks = new object[]
+                    new
                     {
-                        new
-                        {
-                            id = checkError,
-                            statement = eval.Checks[0].Statement,
-                            kind = CheckKinds.Script,
-                            script = (string?)null,
-                        },
-                        new
-                        {
-                            id = checkFail,
-                            statement = eval.Checks[0].Statement,
-                            kind = CheckKinds.Script,
-                            script = (string?)null,
-                        },
-                        new
-                        {
-                            id = checkPass,
-                            statement = eval.Checks[0].Statement,
-                            kind = CheckKinds.Script,
-                            script = (string?)null,
-                        },
+                        id = checkError,
+                        statement = eval.Checks[0].Statement,
+                        kind = CheckKinds.Script,
+                        script = (string?)null,
                     },
-                }
-            )
-        ).StatusCode.ShouldBe(HttpStatusCode.OK);
+                    new
+                    {
+                        id = checkFail,
+                        statement = eval.Checks[0].Statement,
+                        kind = CheckKinds.Script,
+                        script = (string?)null,
+                    },
+                    new
+                    {
+                        id = checkPass,
+                        statement = eval.Checks[0].Statement,
+                        kind = CheckKinds.Script,
+                        script = (string?)null,
+                    },
+                },
+            }
+        );
 
         _factory.ModelClient.Handler = (_, _) =>
             Task.FromResult(
@@ -237,30 +235,28 @@ public class SkillsEvalRunTests
         var eval = detail!.Evals[0];
         var check = eval.Checks[0];
 
-        (
-            await Post(
-                client,
-                "/amend-capability-eval",
-                new
+        await AmendEvalAndApply(
+            client,
+            id,
+            new
+            {
+                id,
+                evalId = eval.Id,
+                scenario = eval.Scenario,
+                prompt = eval.Prompt,
+                context = eval.Context,
+                checks = new object[]
                 {
-                    id,
-                    evalId = eval.Id,
-                    scenario = eval.Scenario,
-                    prompt = eval.Prompt,
-                    context = eval.Context,
-                    checks = new object[]
+                    new
                     {
-                        new
-                        {
-                            id = check.Id,
-                            statement = check.Statement,
-                            kind = CheckKinds.HumanReview,
-                            script = (string?)null,
-                        },
+                        id = check.Id,
+                        statement = check.Statement,
+                        kind = CheckKinds.HumanReview,
+                        script = (string?)null,
                     },
-                }
-            )
-        ).StatusCode.ShouldBe(HttpStatusCode.OK);
+                },
+            }
+        );
 
         _factory.ModelClient.Handler = (_, _) =>
             Task.FromResult(
@@ -539,6 +535,30 @@ public class SkillsEvalRunTests
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
         return id;
+    }
+
+    static async Task AmendEvalAndApply(HttpClient client, Guid capabilityId, object body)
+    {
+        var amended = await PostJson<AmendCapabilityEvalApi.Response>(
+            client,
+            "/amend-capability-eval",
+            body
+        );
+        amended.ShouldNotBeNull();
+        if (amended.Outcome == "Proposed" && amended.Proposal is not null)
+        {
+            (
+                await PostJson<ApplyCapabilityProposalApi.Response>(
+                    client,
+                    "/apply-capability-proposal",
+                    new { id = capabilityId, proposalId = amended.Proposal.Id }
+                )
+            ).ShouldNotBeNull();
+        }
+        else
+        {
+            amended.Outcome.ShouldBeOneOf("Applied", "Unchanged");
+        }
     }
 
     static async Task<HttpResponseMessage> Post(HttpClient client, string path, object body)

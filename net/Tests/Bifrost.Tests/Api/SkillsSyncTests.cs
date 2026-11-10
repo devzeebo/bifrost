@@ -66,7 +66,7 @@ public class SkillsSyncTests
     }
 
     [Fact]
-    public async Task hand_eval_detach_accept_versions_once_and_marks_skill_stale()
+    public async Task hand_eval_detach_accept_versions_once_and_drafts_skill()
     {
         var client = _factory.CreateClient();
         var id = await SeedCriterionAndEval(client, "Sync accept ask");
@@ -75,6 +75,10 @@ public class SkillsSyncTests
         before.IsSkillStale.ShouldBeFalse();
         var evalId = before.Evals[0].Id;
         var versionBefore = before.CurrentCapabilityVersionId;
+        var skillVersionsBefore = await Query<ListSkillVersionsApi.Response>(
+            client,
+            $"/list-skill-versions/{id}"
+        );
 
         var proposed = await PostJson<AmendCapabilityEvalApi.Response>(
             client,
@@ -90,6 +94,7 @@ public class SkillsSyncTests
         );
         proposed.ShouldNotBeNull();
         proposed.Outcome.ShouldBe("Proposed");
+        proposed.Proposal!.Effects.ShouldContain(e => e.Kind == "ReplaceSkill");
 
         var applied = await PostJson<ApplyCapabilityProposalApi.Response>(
             client,
@@ -104,10 +109,8 @@ public class SkillsSyncTests
         after.Evals[0].Scenario.ShouldBe("Brand new detached scenario for the criterion");
         after.Criteria[0].Statement.ShouldBe("Brand new detached scenario for the criterion");
         after.CurrentCapabilityVersionId.ShouldNotBe(versionBefore);
-        after.IsSkillStale.ShouldBeTrue();
-        after.SkillStaleLayers.CriteriaChanged.ShouldBeTrue();
-        after.SkillStaleLayers.EvalsChanged.ShouldBeTrue();
-        after.SkillMarkdown.ShouldContain("Sync accept ask");
+        after.IsSkillStale.ShouldBeFalse();
+        after.SkillMarkdown.ShouldContain("Brand new detached scenario");
 
         var versions = await Query<ListCapabilityVersionsApi.Response>(
             client,
@@ -116,6 +119,13 @@ public class SkillsSyncTests
         versions.ShouldNotBeNull();
         // create + bundle + sync accept
         versions.Items.Count.ShouldBe(3);
+
+        var skillVersions = await Query<ListSkillVersionsApi.Response>(
+            client,
+            $"/list-skill-versions/{id}"
+        );
+        skillVersions.ShouldNotBeNull();
+        skillVersions.Items.Count.ShouldBe(skillVersionsBefore!.Items.Count + 1);
     }
 
     [Fact]
@@ -147,6 +157,7 @@ public class SkillsSyncTests
         proposed.Proposal.ShouldNotBeNull();
         proposed.Proposal!.Effects.ShouldContain(e => e.Kind == "AmendAsk");
         proposed.Proposal.Effects.ShouldContain(e => e.Kind == "SharpenCriterion");
+        // No skill yet — add-criterion path has not derived one.
         proposed.Proposal.Effects.Count(e => e.Kind == "ReplaceSkill").ShouldBe(0);
     }
 
@@ -197,35 +208,33 @@ public class SkillsSyncTests
     }
 
     [Fact]
-    public async Task save_skill_against_current_version_clears_stale()
+    public async Task ask_edit_with_existing_skill_proposes_skill_draft()
     {
         var client = _factory.CreateClient();
         var id = await SeedCriterionAndEval(client, "Stale clear ask");
-        (
-            await Post(
-                client,
-                "/amend-capability-ask",
-                new { id, ask = "Stale clear ask — amended without criterion sync" }
-            )
-        ).EnsureSuccessStatusCode();
+        var proposed = await PostJson<AmendCapabilityAskApi.Response>(
+            client,
+            "/amend-capability-ask",
+            new { id, ask = "Stale clear ask — amended without criterion sync" }
+        );
+        proposed.ShouldNotBeNull();
+        proposed.Outcome.ShouldBe("Proposed");
+        proposed.Proposal.ShouldNotBeNull();
+        proposed.Proposal!.Effects.ShouldContain(e => e.Kind == "ReplaceSkill");
 
-        // Ask-only with criterion that doesn't share wording applies directly and stales skill.
-        var mid = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
-        mid.ShouldNotBeNull();
-        mid.IsSkillStale.ShouldBeTrue();
-
-        (
-            await Post(
-                client,
-                "/save-derived-skill",
-                new { id, markdown = "# Skill\n\nRe-derived against current." }
-            )
-        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        var applied = await PostJson<ApplyCapabilityProposalApi.Response>(
+            client,
+            "/apply-capability-proposal",
+            new { id, proposalId = proposed.Proposal.Id }
+        );
+        applied.ShouldNotBeNull();
+        applied.Outcome.ShouldBe("Applied");
 
         var after = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
         after.ShouldNotBeNull();
         after.IsSkillStale.ShouldBeFalse();
-        after.SkillMarkdown.ShouldContain("Re-derived against current");
+        after.Ask.ShouldBe("Stale clear ask — amended without criterion sync");
+        after.SkillMarkdown.ShouldContain("Stale clear ask — amended without criterion sync");
     }
 
     [Fact]

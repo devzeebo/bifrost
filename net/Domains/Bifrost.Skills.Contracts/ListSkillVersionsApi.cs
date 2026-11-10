@@ -15,6 +15,7 @@ public static class ListSkillVersionsApi
         public required Guid VersionId { get; init; }
         public required DateTimeOffset RecordedAt { get; init; }
         public required Guid DerivedAgainstCapabilityVersionId { get; init; }
+        public Guid? DerivedAgainstSuiteRunId { get; init; }
     }
 
     public sealed record Response
