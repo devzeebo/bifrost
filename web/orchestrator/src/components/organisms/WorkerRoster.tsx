@@ -1,7 +1,8 @@
-import { WorkerRow, type WorkerRowProps } from './WorkerRow'
+import type { ClusterWorker } from '../../status/useClusterStatus'
+import { WorkerRow } from './WorkerRow'
 
 type WorkerRosterProps = {
-  readonly workers: readonly WorkerRowProps[]
+  readonly workers: readonly ClusterWorker[]
 }
 
 export const WorkerRoster = ({ workers }: WorkerRosterProps) => (
@@ -20,6 +21,7 @@ export const WorkerRoster = ({ workers }: WorkerRosterProps) => (
               isAvailable={worker.isAvailable}
               freshness={worker.freshness}
               lastHeartbeatAt={worker.lastHeartbeatAt}
+              held={worker.held}
             />
           </li>
         ))}

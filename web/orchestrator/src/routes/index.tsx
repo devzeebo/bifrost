@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { OrchestratorPanel } from '../components/organisms/OrchestratorPanel'
+import { PendingQueue } from '../components/organisms/PendingQueue'
 import { WorkerRoster } from '../components/organisms/WorkerRoster'
 import { PageLayout } from '../components/templates/PageLayout'
 import { useClusterStatus } from '../status/useClusterStatus'
@@ -13,6 +14,7 @@ const StatusPage = () => {
       current="status"
     >
       <OrchestratorPanel reachable={status.reachable} lastSuccessAt={status.lastSuccessAt} />
+      <PendingQueue items={status.pending} />
       <WorkerRoster workers={status.workers} />
     </PageLayout>
   )

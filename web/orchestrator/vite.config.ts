@@ -21,6 +21,30 @@ export default defineConfig({
         target: 'http://127.0.0.1:8081',
         changeOrigin: true,
       },
+      '/list-pending-tracked-work-items': {
+        target: 'http://127.0.0.1:8081',
+        changeOrigin: true,
+      },
+      '/list-tracked-work-items-held-by': {
+        target: 'http://127.0.0.1:8081',
+        changeOrigin: true,
+      },
+      '/get-tracked-work-item': {
+        target: 'http://127.0.0.1:8081',
+        changeOrigin: true,
+      },
+      '/list-runs-for-work-item': {
+        target: 'http://127.0.0.1:8081',
+        changeOrigin: true,
+      },
+      '/cancel-tracked-work-item': {
+        target: 'http://127.0.0.1:8081',
+        changeOrigin: true,
+      },
+      '/release-tracked-work-item': {
+        target: 'http://127.0.0.1:8081',
+        changeOrigin: true,
+      },
       '/get-virtual-key-quota': {
         target: 'http://127.0.0.1:8081',
         changeOrigin: true,

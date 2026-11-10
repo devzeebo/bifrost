@@ -3,9 +3,12 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { describe, expect, vi } from 'vitest'
 import test, { withAspect } from 'vitest-gwt'
 import type { WorkerNode } from '../status/workerNodes'
+import type { TrackedWorkItem } from '../workItems/types'
 import { routeTree } from '../routeTree.gen'
 
 const nodeId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+const pendingId = '11111111-1111-1111-1111-111111111111'
+const heldId = '22222222-2222-2222-2222-222222222222'
 
 describe('status route', () => {
   withAspect(reset_page, reset_page)
@@ -47,10 +50,25 @@ describe('status route', () => {
       roster_is_empty,
     },
   })
+
+  test('shows pending queue and held work', {
+    given: {
+      a_worker_with_pending_and_held_work,
+    },
+    when: {
+      the_status_page_opens,
+    },
+    then: {
+      pending_item_is_listed,
+      held_item_is_listed,
+    },
+  })
 })
 
 type Context = {
   nodes: readonly WorkerNode[]
+  pending: readonly TrackedWorkItem[]
+  held: readonly TrackedWorkItem[]
   pollFails: boolean
 }
 
@@ -59,6 +77,8 @@ function reset_page(this: Context) {
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
   this.nodes = []
+  this.pending = []
+  this.held = []
   this.pollFails = false
 }
 
@@ -72,31 +92,72 @@ function a_live_worker(this: Context) {
       lastHeartbeatAt: new Date().toISOString(),
     },
   ]
+  this.pending = []
+  this.held = []
 }
 
 function the_poll_fails(this: Context) {
   this.pollFails = true
   this.nodes = []
+  this.pending = []
+  this.held = []
 }
 
 function no_workers(this: Context) {
   this.pollFails = false
   this.nodes = []
+  this.pending = []
+  this.held = []
+}
+
+function a_worker_with_pending_and_held_work(this: Context) {
+  this.pollFails = false
+  this.nodes = [
+    {
+      id: nodeId,
+      isAvailable: true,
+      isOnline: true,
+      lastHeartbeatAt: new Date().toISOString(),
+    },
+  ]
+  this.pending = [
+    {
+      id: pendingId,
+      status: 'pending',
+      holderId: null,
+    },
+  ]
+  this.held = [
+    {
+      id: heldId,
+      status: 'claimed',
+      holderId: nodeId,
+    },
+  ]
 }
 
 async function the_status_page_opens(this: Context) {
   const pollFails = this.pollFails
   const nodes = this.nodes
+  const pending = this.pending
+  const held = this.held
   vi.stubGlobal(
     'fetch',
-    vi.fn(async () => {
+    vi.fn(async (input: RequestInfo | URL) => {
       if (pollFails) {
         throw new Error('network down')
       }
-      return new Response(JSON.stringify(nodes), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      })
+      const url = String(input)
+      if (url.includes('/list-worker-nodes')) {
+        return jsonResponse(nodes)
+      }
+      if (url.includes('/list-pending-tracked-work-items')) {
+        return jsonResponse({ items: pending })
+      }
+      if (url.includes('/list-tracked-work-items-held-by/')) {
+        return jsonResponse({ items: held })
+      }
+      throw new Error(`unexpected fetch ${url}`)
     }),
   )
 
@@ -129,3 +190,19 @@ async function orchestrator_is_unreachable() {
 async function roster_is_empty() {
   expect(await screen.findByText('No worker nodes are registered.')).toBeInTheDocument()
 }
+
+async function pending_item_is_listed() {
+  expect(await screen.findByText('Pending queue')).toBeInTheDocument()
+  expect(screen.getByText('11111111')).toBeInTheDocument()
+}
+
+async function held_item_is_listed() {
+  expect(await screen.findByText('Held work')).toBeInTheDocument()
+  expect(screen.getByText('22222222')).toBeInTheDocument()
+}
+
+const jsonResponse = (body: unknown): Response =>
+  new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  })

@@ -68,6 +68,31 @@ public class WorkItemDispatchTests
     }
 
     [Fact]
+    public async Task pending_query_lists_pending_and_excludes_claimed()
+    {
+        var client = _factory.CreateClient();
+        var workerId = await RegisterWorker();
+        var pendingId = Guid.NewGuid();
+        var claimedId = Guid.NewGuid();
+        _factory.WorkItemLedger.Seed(pendingId);
+        _factory.WorkItemLedger.Seed(claimedId);
+
+        (await Post(client, "/create-tracked-work-item", Body(pendingId, "accept")))
+            .StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        (await Post(client, "/create-tracked-work-item", Body(claimedId, "accept")))
+            .StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        (
+            await Post(client, "/claim-tracked-work-item", Body(claimedId, "dispatch", workerId))
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var pending = await ListPending(client);
+        pending.Items.ShouldContain(i => i.Id == pendingId);
+        pending.Items.ShouldNotContain(i => i.Id == claimedId);
+        pending.Items.Single(i => i.Id == pendingId).Status.ShouldBe(TrackedWorkItemStatuses.Pending);
+        pending.Items.Single(i => i.Id == pendingId).HolderId.ShouldBeNull();
+    }
+
+    [Fact]
     public async Task holder_query_lists_claimed_and_running_and_clears_on_release()
     {
         var client = _factory.CreateClient();
@@ -435,6 +460,24 @@ public class WorkItemDispatchTests
         response.EnsureSuccessStatusCode();
         return (
             await response.Content.ReadFromJsonAsync<ListTrackedWorkItemsHeldByWorkerApi.Response>(
+                JsonOptions
+            )
+        )!;
+    }
+
+    static async Task<ListPendingTrackedWorkItemsApi.Response> ListPending(HttpClient client)
+    {
+        var request = new HttpRequestMessage(
+            new HttpMethod("QUERY"),
+            "/list-pending-tracked-work-items"
+        )
+        {
+            Content = JsonContent.Create(new { }),
+        };
+        var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        return (
+            await response.Content.ReadFromJsonAsync<ListPendingTrackedWorkItemsApi.Response>(
                 JsonOptions
             )
         )!;

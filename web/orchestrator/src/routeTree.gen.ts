@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as UsageRouteImport } from './routes/usage'
+import { Route as WorkItemsWorkItemIdRouteImport } from './routes/work-items.$workItemId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +23,40 @@ const UsageRoute = UsageRouteImport.update({
   path: '/usage',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WorkItemsWorkItemIdRoute = WorkItemsWorkItemIdRouteImport.update({
+  id: '/work-items/$workItemId',
+  path: '/work-items/$workItemId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/usage': typeof UsageRoute
+  '/work-items/$workItemId': typeof WorkItemsWorkItemIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/usage': typeof UsageRoute
+  '/work-items/$workItemId': typeof WorkItemsWorkItemIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/usage': typeof UsageRoute
+  '/work-items/$workItemId': typeof WorkItemsWorkItemIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/usage'
+  fullPaths: '/' | '/usage' | '/work-items/$workItemId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/usage'
-  id: '__root__' | '/' | '/usage'
+  to: '/' | '/usage' | '/work-items/$workItemId'
+  id: '__root__' | '/' | '/usage' | '/work-items/$workItemId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   UsageRoute: typeof UsageRoute
+  WorkItemsWorkItemIdRoute: typeof WorkItemsWorkItemIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +75,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UsageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/work-items/$workItemId': {
+      id: '/work-items/$workItemId'
+      path: '/work-items/$workItemId'
+      fullPath: '/work-items/$workItemId'
+      preLoaderRoute: typeof WorkItemsWorkItemIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   UsageRoute: UsageRoute,
+  WorkItemsWorkItemIdRoute: WorkItemsWorkItemIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
