@@ -54,7 +54,22 @@ function one_criterion(this: Context) {
 }
 
 function the_panel_renders(this: Context) {
-  render(<CriteriaPanel criteria={this.criteria} />)
+  render(
+    <CriteriaPanel
+      criteria={this.criteria}
+      currentCapabilityVersionId="cap-1"
+      onSaveCriterion={async (): Promise<import('../../capabilities/types').HandSaveResult> => ({
+        outcome: 'Applied',
+        proposal: null,
+        messages: [],
+        pendingProposals: [],
+      })}
+      onApplyProposal={async () => undefined}
+      onDismissProposal={async () => undefined}
+      onRereadProposal={async () => undefined}
+      proposalBusy={false}
+    />,
+  )
 }
 
 function the_statement_is_shown() {

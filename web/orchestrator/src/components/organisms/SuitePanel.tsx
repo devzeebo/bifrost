@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import {
   formatCriterionRollup,
   formatSuiteSummary,
@@ -15,9 +15,12 @@ import type {
   EvalCaseRun,
   EvalLatestOutcome,
   EvalSnapshot,
+  HandSaveResult,
+  Proposal,
   SkillVersionSummary,
   SuiteEvalSummary,
 } from '../../capabilities/types'
+import { ProposalCard } from '../molecules/ProposalCard'
 
 const emptyBusyEvalIds: ReadonlySet<string> = new Set()
 
@@ -46,9 +49,13 @@ type SuitePanelProps = {
     readonly prompt: string
     readonly context: string
     readonly checks?: readonly CheckSnapshot[] | null
-  }) => Promise<void>
+  }) => Promise<HandSaveResult>
   readonly onDuplicate: (evalId: string) => Promise<void>
   readonly onRetire: (evalId: string) => Promise<void>
+  readonly onApplyProposal: (proposalId: string) => Promise<void>
+  readonly onDismissProposal: (proposalId: string) => Promise<void>
+  readonly onRereadProposal: (proposalId: string) => Promise<void>
+  readonly proposalBusy: boolean
 }
 
 export const SuitePanel = ({
@@ -73,6 +80,10 @@ export const SuitePanel = ({
   onAmend,
   onDuplicate,
   onRetire,
+  onApplyProposal,
+  onDismissProposal,
+  onRereadProposal,
+  proposalBusy,
 }: SuitePanelProps) => {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -278,14 +289,19 @@ export const SuitePanel = ({
                               <EvalEditor
                                 key={item.id}
                                 evalItem={item}
+                                currentCapabilityVersionId={currentCapabilityVersionId}
+                                proposalBusy={proposalBusy}
                                 onCancel={() => setEditingId(null)}
-                                onSave={async (draft) => {
-                                  await onAmend({
+                                onSave={async (draft) =>
+                                  onAmend({
                                     evalId: item.id,
                                     ...draft,
                                   })
-                                  setEditingId(null)
-                                }}
+                                }
+                                onApplied={() => setEditingId(null)}
+                                onApplyProposal={onApplyProposal}
+                                onDismissProposal={onDismissProposal}
+                                onRereadProposal={onRereadProposal}
                               />
                             ) : (
                               <>
@@ -470,18 +486,61 @@ type EvalDraft = {
 
 const EvalEditor = ({
   evalItem,
+  currentCapabilityVersionId,
+  proposalBusy,
   onCancel,
   onSave,
+  onApplied,
+  onApplyProposal,
+  onDismissProposal,
+  onRereadProposal,
 }: {
   readonly evalItem: EvalSnapshot
+  readonly currentCapabilityVersionId: string | null
+  readonly proposalBusy: boolean
   readonly onCancel: () => void
-  readonly onSave: (draft: EvalDraft) => Promise<void>
+  readonly onSave: (draft: EvalDraft) => Promise<HandSaveResult>
+  readonly onApplied: () => void
+  readonly onApplyProposal: (proposalId: string) => Promise<void>
+  readonly onDismissProposal: (proposalId: string) => Promise<void>
+  readonly onRereadProposal: (proposalId: string) => Promise<void>
 }) => {
   const [scenario, setScenario] = useState(evalItem.scenario)
   const [prompt, setPrompt] = useState(evalItem.prompt)
   const [context, setContext] = useState(evalItem.context)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [pendingProposal, setPendingProposal] = useState<Proposal | null>(null)
+  const [loadedVersionId, setLoadedVersionId] = useState(currentCapabilityVersionId)
+  const [layerMoved, setLayerMoved] = useState(false)
+
+  useEffect(() => {
+    if (pendingProposal) {
+      return
+    }
+    const draftDirty =
+      scenario !== evalItem.scenario
+      || prompt !== evalItem.prompt
+      || context !== evalItem.context
+    if (!draftDirty) {
+      setLoadedVersionId(currentCapabilityVersionId)
+      setLayerMoved(false)
+      return
+    }
+    if (loadedVersionId !== currentCapabilityVersionId) {
+      setLayerMoved(true)
+    }
+  }, [
+    context,
+    currentCapabilityVersionId,
+    evalItem.context,
+    evalItem.prompt,
+    evalItem.scenario,
+    loadedVersionId,
+    pendingProposal,
+    prompt,
+    scenario,
+  ])
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -492,7 +551,13 @@ const EvalEditor = ({
     }
     setSaving(true)
     try {
-      await onSave({ scenario, prompt, context })
+      const result = await onSave({ scenario, prompt, context })
+      if (result.outcome === 'Proposed' && result.proposal) {
+        setPendingProposal(result.proposal)
+      } else {
+        setPendingProposal(null)
+        onApplied()
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save eval')
     } finally {
@@ -502,6 +567,12 @@ const EvalEditor = ({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      {layerMoved ? (
+        <p className="border border-signal-dim bg-surface px-3 py-2 text-sm text-signal">
+          This eval moved underneath your draft — the words on screen are no longer the agreement.
+          Your draft is kept; save to re-read, or cancel.
+        </p>
+      ) : null}
       <label className="flex flex-col gap-1">
         <span className="text-xs tracking-[0.16em] text-muted uppercase">Scenario</span>
         <textarea
@@ -531,12 +602,32 @@ const EvalEditor = ({
       </label>
       <p className="text-xs text-muted">
         Checks are authored behind the scenes. Changing the scenario re-derives script checks.
+        If the scenario detaches from its criterion, save proposes sync before anything records.
       </p>
+      {pendingProposal ? (
+        <ProposalCard
+          proposal={pendingProposal}
+          busy={proposalBusy || saving}
+          onApply={async (proposalId) => {
+            await onApplyProposal(proposalId)
+            setPendingProposal(null)
+            onApplied()
+          }}
+          onDismiss={async (proposalId) => {
+            await onDismissProposal(proposalId)
+            setPendingProposal(null)
+          }}
+          onReread={async (proposalId) => {
+            await onRereadProposal(proposalId)
+            setPendingProposal(null)
+          }}
+        />
+      ) : null}
       {error ? <p className="text-sm text-signal">{error}</p> : null}
       <div className="flex gap-2">
         <button
           type="submit"
-          disabled={saving}
+          disabled={saving || pendingProposal !== null}
           className="border border-signal-dim px-4 py-2 text-xs tracking-[0.16em] text-signal uppercase disabled:opacity-50"
         >
           {saving ? 'Saving…' : 'Save'}

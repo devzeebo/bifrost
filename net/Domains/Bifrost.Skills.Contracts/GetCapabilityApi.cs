@@ -34,6 +34,13 @@ public static class GetCapabilityApi
         public IReadOnlyList<CheckSummary> Checks { get; init; } = [];
     }
 
+    public sealed record SkillStaleLayersSummary
+    {
+        public bool AskChanged { get; init; }
+        public bool CriteriaChanged { get; init; }
+        public bool EvalsChanged { get; init; }
+    }
+
     public sealed record Response
     {
         public required Guid Id { get; init; }
@@ -48,5 +55,13 @@ public static class GetCapabilityApi
         public Guid? DerivedAgainstCapabilityVersionId { get; init; }
         public bool HasUnsavedCapabilityDraft { get; init; }
         public bool HasUnsavedSkillDraft { get; init; }
+
+        /// <summary>
+        /// Computed: skill markdown exists and was derived against a capability version
+        /// that is no longer current. Not a stored flag.
+        /// </summary>
+        public bool IsSkillStale { get; init; }
+        public SkillStaleLayersSummary SkillStaleLayers { get; init; } = new();
     }
 }
+

@@ -119,6 +119,12 @@ function a_capability_detail_response(this: Context) {
         derivedAgainstCapabilityVersionId: null,
         hasUnsavedCapabilityDraft: false,
         hasUnsavedSkillDraft: false,
+        isSkillStale: false,
+        skillStaleLayers: {
+          askChanged: false,
+          criteriaChanged: false,
+          evalsChanged: false,
+        },
       }),
       { status: 200, headers: { 'content-type': 'application/json' } },
     ),
@@ -199,6 +205,12 @@ function the_detail_is_returned(this: Context) {
     derivedAgainstCapabilityVersionId: null,
     hasUnsavedCapabilityDraft: false,
     hasUnsavedSkillDraft: false,
+    isSkillStale: false,
+    skillStaleLayers: {
+      askChanged: false,
+      criteriaChanged: false,
+      evalsChanged: false,
+    },
   })
 }
 

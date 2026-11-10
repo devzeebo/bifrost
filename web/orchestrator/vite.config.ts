@@ -73,6 +73,10 @@ export default defineConfig({
         target: 'http://127.0.0.1:8082',
         changeOrigin: true,
       },
+      '/amend-capability-criterion': {
+        target: 'http://127.0.0.1:8082',
+        changeOrigin: true,
+      },
       '/amend-capability-eval': {
         target: 'http://127.0.0.1:8082',
         changeOrigin: true,

@@ -60,7 +60,7 @@ public class SkillsVersioningTests
 
         (
             await Post(client, "/amend-capability-ask", new { id, ask = "Stable ask" })
-        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        ).StatusCode.ShouldBe(HttpStatusCode.OK);
 
         var versions = await Query<ListCapabilityVersionsApi.Response>(
             client,
@@ -78,7 +78,7 @@ public class SkillsVersioningTests
 
         (
             await Post(client, "/amend-capability-ask", new { id, ask = "Second ask" })
-        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        ).StatusCode.ShouldBe(HttpStatusCode.OK);
 
         var versions = await Query<ListCapabilityVersionsApi.Response>(
             client,
@@ -103,7 +103,7 @@ public class SkillsVersioningTests
         var id = await CreateCapability(client, "Left ask");
         (
             await Post(client, "/amend-capability-ask", new { id, ask = "Right ask" })
-        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        ).StatusCode.ShouldBe(HttpStatusCode.OK);
 
         var versions = await Query<ListCapabilityVersionsApi.Response>(
             client,
@@ -129,7 +129,7 @@ public class SkillsVersioningTests
         var id = await CreateCapability(client, "Original ask");
         (
             await Post(client, "/amend-capability-ask", new { id, ask = "Amended ask" })
-        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        ).StatusCode.ShouldBe(HttpStatusCode.OK);
 
         var versionsBefore = await Query<ListCapabilityVersionsApi.Response>(
             client,
@@ -160,7 +160,7 @@ public class SkillsVersioningTests
 
         (
             await Post(client, "/amend-capability-ask", new { id, ask = "Original ask" })
-        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        ).StatusCode.ShouldBe(HttpStatusCode.OK);
 
         var versionsAfterSave = await Query<ListCapabilityVersionsApi.Response>(
             client,

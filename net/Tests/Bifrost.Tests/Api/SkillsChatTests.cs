@@ -225,7 +225,7 @@ public class SkillsChatTests
 
         (
             await Post(client, "/amend-capability-ask", new { id, ask = "Hand-edited ask meanwhile" })
-        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        ).StatusCode.ShouldBe(HttpStatusCode.OK);
 
         var applied = await PostJson<ApplyCapabilityProposalApi.Response>(
             client,
@@ -337,6 +337,8 @@ public class SkillsChatTests
             $"/list-capability-versions/{id}"
         );
 
+        // Keep the criterion wording in the scenario so this is a mechanical amend (no sync proposal).
+        var scenario = $"{detail.Criteria[0].Statement} — Amended scenario statement";
         (
             await Post(
                 client,
@@ -345,7 +347,7 @@ public class SkillsChatTests
                 {
                     id,
                     evalId,
-                    scenario = "Amended scenario statement",
+                    scenario,
                     prompt = "Amended prompt",
                     context = "Amended context",
                     checks = new[]
@@ -359,13 +361,13 @@ public class SkillsChatTests
                     },
                 }
             )
-        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        ).StatusCode.ShouldBe(HttpStatusCode.OK);
 
         var after = await Query<GetCapabilityApi.Response>(client, $"/get-capability/{id}");
         after.ShouldNotBeNull();
         after.Evals.Count.ShouldBe(1);
         after.Evals[0].Id.ShouldBe(evalId);
-        after.Evals[0].Scenario.ShouldBe("Amended scenario statement");
+        after.Evals[0].Scenario.ShouldBe(scenario);
         after.Evals[0].Prompt.ShouldBe("Amended prompt");
         after.Evals[0].Context.ShouldBe("Amended context");
         after.Evals[0].Checks[0].Id.ShouldBe(detail.Evals[0].Checks[0].Id);

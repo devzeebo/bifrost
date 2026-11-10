@@ -17,9 +17,11 @@ import type {
   EvalSnapshot,
   EvalSpend,
   EvalSuiteRunResult,
+  HandSaveResult,
   Proposal,
   ProposalEffect,
   RereadProposalResult,
+  SkillStaleLayers,
   SkillVersionDetail,
   SkillVersionSnapshot,
   SkillVersionSummary,
@@ -75,8 +77,18 @@ export const createCapability = async (input: {
 export const amendCapabilityAsk = async (input: {
   readonly id: string
   readonly ask: string
-}): Promise<void> => {
-  await postEmpty('/amend-capability-ask', input)
+}): Promise<HandSaveResult> => {
+  const response = await postJson('/amend-capability-ask', input)
+  return parseHandSaveResult(response)
+}
+
+export const amendCapabilityCriterion = async (input: {
+  readonly id: string
+  readonly criterionId: string
+  readonly statement: string
+}): Promise<HandSaveResult> => {
+  const response = await postJson('/amend-capability-criterion', input)
+  return parseHandSaveResult(response)
 }
 
 export const amendCapabilityEval = async (input: {
@@ -86,8 +98,9 @@ export const amendCapabilityEval = async (input: {
   readonly prompt: string
   readonly context: string
   readonly checks?: readonly CheckSnapshot[] | null
-}): Promise<void> => {
-  await postEmpty('/amend-capability-eval', input)
+}): Promise<HandSaveResult> => {
+  const response = await postJson('/amend-capability-eval', input)
+  return parseHandSaveResult(response)
 }
 
 export const duplicateCapabilityEval = async (input: {
@@ -424,6 +437,7 @@ const parseCapabilityDetail = (value: unknown): CapabilityDetail => {
   const skillMarkdown = value['skillMarkdown']
   const hasUnsavedCapabilityDraft = value['hasUnsavedCapabilityDraft']
   const hasUnsavedSkillDraft = value['hasUnsavedSkillDraft']
+  const isSkillStale = value['isSkillStale']
   if (
     typeof id !== 'string' ||
     typeof name !== 'string' ||
@@ -433,7 +447,8 @@ const parseCapabilityDetail = (value: unknown): CapabilityDetail => {
     !Array.isArray(evals) ||
     typeof skillMarkdown !== 'string' ||
     typeof hasUnsavedCapabilityDraft !== 'boolean' ||
-    typeof hasUnsavedSkillDraft !== 'boolean'
+    typeof hasUnsavedSkillDraft !== 'boolean' ||
+    typeof isSkillStale !== 'boolean'
   ) {
     throw new CapabilityApiError('Capability detail response was invalid')
   }
@@ -450,6 +465,37 @@ const parseCapabilityDetail = (value: unknown): CapabilityDetail => {
     derivedAgainstCapabilityVersionId: optionalGuid(value['derivedAgainstCapabilityVersionId']),
     hasUnsavedCapabilityDraft,
     hasUnsavedSkillDraft,
+    isSkillStale,
+    skillStaleLayers: parseSkillStaleLayers(value['skillStaleLayers']),
+  }
+}
+
+const parseSkillStaleLayers = (value: unknown): SkillStaleLayers => {
+  if (!isRecord(value)) {
+    return { askChanged: false, criteriaChanged: false, evalsChanged: false }
+  }
+  return {
+    askChanged: value['askChanged'] === true,
+    criteriaChanged: value['criteriaChanged'] === true,
+    evalsChanged: value['evalsChanged'] === true,
+  }
+}
+
+const parseHandSaveResult = (value: unknown): HandSaveResult => {
+  if (!isRecord(value) || typeof value['outcome'] !== 'string') {
+    throw new CapabilityApiError('Hand save response was invalid')
+  }
+  const outcome = value['outcome']
+  if (outcome !== 'Applied' && outcome !== 'Proposed' && outcome !== 'Unchanged') {
+    throw new CapabilityApiError('Hand save response was invalid')
+  }
+  return {
+    outcome,
+    proposal: value['proposal'] == null ? null : parseProposal(value['proposal']),
+    messages: Array.isArray(value['messages']) ? parseMessages(value['messages']) : [],
+    pendingProposals: Array.isArray(value['pendingProposals'])
+      ? parseProposals(value['pendingProposals'])
+      : [],
   }
 }
 

@@ -24,27 +24,16 @@ namespace Internal.Generated.WolverineHandlers
             // The actual message body
             var command = (Bifrost.Skills.Contracts.AmendCapabilityEvalApi.Command)context.Envelope.Message;
 
-            var capability_Id = command.Id;
-            // Application-specific Open Telemetry auditing
-            System.Diagnostics.Activity.Current?.SetTag("id", command.Id);
-            // Loading Marten aggregate as part of the aggregate handler workflow
-            var eventStreamOfCapability = await documentSession.Events.FetchForWriting<Bifrost.Capabilities.Aggregate.Capability>(capability_Id, cancellation);
-            Bifrost.Capabilities.Commands.AmendCapabilityEvalHandler.Validate(command, eventStreamOfCapability.Aggregate);
+            await Bifrost.Capabilities.Commands.AmendCapabilityEvalHandler.Validate(command, ((Marten.IQuerySession)documentSession)).ConfigureAwait(false);
             System.Diagnostics.Activity.Current?.SetTag("message.handler", "Bifrost.Capabilities.Commands.AmendCapabilityEvalHandler");
             System.Diagnostics.Activity.Current?.SetTag("handler.type", "Bifrost.Capabilities.Commands.AmendCapabilityEvalHandler");
-            System.Diagnostics.Activity.Current?.SetTag("wolverine.stream.id", capability_Id);
-            System.Diagnostics.Activity.Current?.SetTag("wolverine.stream.type", "Bifrost.Capabilities.Aggregate.Capability");
             
             // The actual message execution
-            var outgoing1 = Bifrost.Capabilities.Commands.AmendCapabilityEvalHandler.Handle(command, eventStreamOfCapability.Aggregate);
+            var outgoing1 = await Bifrost.Capabilities.Commands.AmendCapabilityEvalHandler.Handle(command, documentSession).ConfigureAwait(false);
 
-            if (outgoing1 != null)
-            {
-                
-                // Capturing any possible events returned from the command handlers
-                eventStreamOfCapability.AppendMany(outgoing1);
-
-            }
+            
+            // Outgoing, cascaded message
+            await context.EnqueueCascadingAsync(outgoing1).ConfigureAwait(false);
 
             
             // Save all pending changes to this Marten session

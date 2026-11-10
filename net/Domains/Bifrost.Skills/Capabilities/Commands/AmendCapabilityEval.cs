@@ -1,15 +1,19 @@
-using Bifrost.Capabilities.Aggregate;
+using Bifrost.Capabilities.Chat;
 using Bifrost.Capabilities.Editor;
-using Bifrost.Capabilities.Events;
-using Wolverine.Marten;
-using MartenEvents = Wolverine.Marten.Events;
+using Bifrost.Capabilities.Projections;
+using Bifrost.Skills.Contracts;
+using Marten;
 
 namespace Bifrost.Capabilities.Commands;
 
 public static class AmendCapabilityEvalHandler
 {
-    public static void Validate(AmendCapabilityEvalApi.Command command, Capability? capability)
+    public static async Task Validate(
+        AmendCapabilityEvalApi.Command command,
+        IQuerySession session
+    )
     {
+        var capability = await session.LoadAsync<CapabilityView.Model>(command.Id);
         if (capability is null)
         {
             throw new CommandValidationException($"Capability {command.Id} not found.");
@@ -62,116 +66,37 @@ public static class AmendCapabilityEvalHandler
         }
     }
 
-    [WolverinePost("/amend-capability-eval"), EmptyResponse]
-    [AggregateHandler]
-    public static MartenEvents Handle(AmendCapabilityEvalApi.Command command, Capability capability)
-    {
-        var evals = capability.Evals.ToList();
-        var index = evals.FindIndex(e => e.Id == command.EvalId);
-        var existing = evals[index];
-        var criterion =
-            capability.Criteria.FirstOrDefault(c => c.Id == existing.CriterionId)
-            ?? throw new CommandValidationException(
-                $"Criterion {existing.CriterionId} not found."
-            );
-
-        var scenario = command.Scenario.Trim();
-        var scenarioChanged = !string.Equals(existing.Scenario, scenario, StringComparison.Ordinal);
-        var checks = ResolveChecks(
-            existing.Checks,
-            command.Checks,
-            criterion.Statement,
-            scenario,
-            scenarioChanged
-        );
-
-        evals[index] = new EvalSnapshot
-        {
-            Id = existing.Id,
-            CriterionId = existing.CriterionId,
-            Scenario = scenario,
-            Prompt = command.Prompt.Trim(),
-            Context = command.Context.Trim(),
-            Checks = checks,
-        };
-
-        var snapshot = new CapabilityVersionSnapshot
-        {
-            Ask = capability.Ask,
-            Criteria = capability.Criteria.ToArray(),
-            Evals = evals,
-        };
-
-        if (capability.CapabilityContentEquals(snapshot))
-        {
-            return [];
-        }
-
-        return
-        [
-            new CapabilityLayersAmended
-            {
-                Ask = snapshot.Ask,
-                Criteria = snapshot.Criteria,
-                Evals = snapshot.Evals,
-            },
-            new CapabilityVersionRecorded
-            {
-                VersionId = Guid.NewGuid(),
-                CapabilityId = capability.Id,
-                RecordedAt = DateTimeOffset.UtcNow,
-                Snapshot = snapshot,
-            },
-        ];
-    }
-
-    static IReadOnlyList<CheckSnapshot> ResolveChecks(
-        IReadOnlyList<CheckSnapshot> existing,
-        IReadOnlyList<CheckSnapshot>? requested,
-        string criterionStatement,
-        string scenario,
-        bool scenarioChanged
+    [WolverinePost("/amend-capability-eval")]
+    public static async Task<AmendCapabilityEvalApi.Response> Handle(
+        AmendCapabilityEvalApi.Command command,
+        IDocumentSession session
     )
     {
-        if (requested is null)
-        {
-            return scenarioChanged
-                ? CheckDerivation.ReDerive(existing, criterionStatement, scenario)
-                : existing.ToArray();
-        }
+        var capability =
+            await session.LoadAsync<CapabilityView.Model>(command.Id)
+            ?? throw new CommandValidationException($"Capability {command.Id} not found.");
 
-        if (scenarioChanged)
-        {
-            // Keep ids and kinds from the request; re-author Script bodies behind the scenes.
-            var withKinds = requested
-                .Select(check =>
-                {
-                    var timeoutMs =
-                        check.TimeoutMs
-                        ?? existing.FirstOrDefault(c => c.Id == check.Id)?.TimeoutMs;
-                    var kind = CheckDerivation.RequireKind(check.Kind);
-                    return kind == CheckKinds.HumanReview
-                        ? CheckDerivation.HumanReviewCheck(
-                            check.Id,
-                            criterionStatement,
-                            timeoutMs
-                        )
-                        : CheckDerivation.ScriptCheck(
-                            check.Id,
-                            criterionStatement,
-                            scenario,
-                            timeoutMs
-                        );
-                })
-                .ToArray();
-            return withKinds;
-        }
-
-        return CheckDerivation.ApplyKindOverrides(
-            existing,
-            requested,
-            criterionStatement,
-            scenario
+        var composition = LayerSyncComposer.FromEvalEdit(
+            new CapabilityVersionSnapshot
+            {
+                Ask = capability.Ask,
+                Criteria = capability.Criteria,
+                Evals = capability.Evals,
+            },
+            command.EvalId,
+            command.Scenario,
+            command.Prompt,
+            command.Context,
+            command.Checks
         );
+
+        var result = await HandLayerSave.ProposeOrApply(command.Id, composition, session);
+        return new AmendCapabilityEvalApi.Response
+        {
+            Outcome = result.Outcome,
+            Proposal = result.Proposal,
+            Messages = result.Messages,
+            PendingProposals = result.PendingProposals,
+        };
     }
 }
