@@ -6,13 +6,19 @@ import {
   restoreSkillVersion,
 } from '../../capabilities/api'
 import { diffLines } from '../../capabilities/diff'
-import type { SkillVersionDetail, SkillVersionSummary } from '../../capabilities/types'
+import type {
+  SkillStaleLayers,
+  SkillVersionDetail,
+  SkillVersionSummary,
+} from '../../capabilities/types'
 
 type DerivedSkillPanelProps = {
   readonly capabilityId: string
   readonly hasPublishedSkill: boolean
   readonly skillMarkdown: string
   readonly hasUnsavedSkillDraft: boolean
+  readonly isSkillStale: boolean
+  readonly skillStaleLayers: SkillStaleLayers
   readonly onRestored: () => Promise<void>
 }
 
@@ -21,6 +27,8 @@ export const DerivedSkillPanel = ({
   hasPublishedSkill,
   skillMarkdown,
   hasUnsavedSkillDraft,
+  isSkillStale,
+  skillStaleLayers,
   onRestored,
 }: DerivedSkillPanelProps) => {
   const [versions, setVersions] = useState<readonly SkillVersionSummary[]>([])
@@ -104,8 +112,16 @@ export const DerivedSkillPanel = ({
             ? 'A skill version has been published for real work.'
             : versions.length === 0
               ? 'No derived skill yet. The skill is the workshop’s output after evals exist.'
-              : 'Skill draft is edited through chat proposals; versions below are read-only.'}
+              : 'Skill draft is derived from the agreement; ask chat to re-derive when it goes stale. Versions below are read-only.'}
         </p>
+
+        {isSkillStale ? (
+          <p className="border border-signal-dim bg-ink px-3 py-2 text-sm text-signal">
+            Derived skill is stale
+            {formatStaleLayers(skillStaleLayers)}. Ask chat to re-derive it against the current
+            agreement — it is never rewritten silently by a spec change.
+          </p>
+        ) : null}
 
         {skillMarkdown || hasUnsavedSkillDraft ? (
           <div className="flex flex-col gap-2">
@@ -250,3 +266,17 @@ const formatTimestamp = (value: string) => {
 }
 
 const shortId = (value: string) => value.slice(0, 8)
+
+const formatStaleLayers = (layers: SkillStaleLayers): string => {
+  const parts: string[] = []
+  if (layers.askChanged) {
+    parts.push('ask changed')
+  }
+  if (layers.criteriaChanged) {
+    parts.push('criteria changed')
+  }
+  if (layers.evalsChanged) {
+    parts.push('evals changed')
+  }
+  return parts.length === 0 ? '' : ` — ${parts.join(', ')}`
+}

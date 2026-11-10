@@ -5,14 +5,23 @@ import { useEvalRuns } from '../capabilities/useEvalRuns'
 import { AskDocument } from '../components/organisms/AskDocument'
 import { CapabilityChatPanel } from '../components/organisms/CapabilityChatPanel'
 import { CapabilityVersionPanel } from '../components/organisms/CapabilityVersionPanel'
+import { CriteriaPanel } from '../components/organisms/CriteriaPanel'
 import { DerivedSkillPanel } from '../components/organisms/DerivedSkillPanel'
 import { SuitePanel } from '../components/organisms/SuitePanel'
 import { PageLayout } from '../components/templates/PageLayout'
 
 const CapabilityPage = () => {
   const { capabilityId } = Route.useParams()
-  const { state, saveAsk, saveName, saveEval, duplicateEval, retireEval, reload } =
-    useCapability(capabilityId)
+  const {
+    state,
+    saveAsk,
+    saveCriterion,
+    saveName,
+    saveEval,
+    duplicateEval,
+    retireEval,
+    reload,
+  } = useCapability(capabilityId)
   const chat = useCapabilityChat(capabilityId, reload)
   const evalRuns = useEvalRuns(capabilityId)
 
@@ -49,6 +58,17 @@ const CapabilityPage = () => {
     await evalRuns.reload()
   }
 
+  const afterHandSave = async (
+    save: () => Promise<{ readonly outcome: string }>,
+  ) => {
+    const result = await save()
+    await chat.reload()
+    if (result.outcome !== 'Proposed') {
+      await evalRuns.reload()
+    }
+    return result
+  }
+
   return (
     <PageLayout
       title={capability.name}
@@ -81,8 +101,30 @@ const CapabilityPage = () => {
         ask={capability.ask}
         name={capability.name}
         hasUnsavedDraft={capability.hasUnsavedCapabilityDraft}
-        onSaveAsk={saveAsk}
+        currentCapabilityVersionId={capability.currentCapabilityVersionId}
+        onSaveAsk={(ask) => afterHandSave(() => saveAsk(ask))}
         onSaveName={saveName}
+        onApplyProposal={async (proposalId) => {
+          await chat.applyProposal(proposalId)
+          await evalRuns.reload()
+        }}
+        onDismissProposal={chat.dismissProposal}
+        onRereadProposal={chat.rereadProposal}
+        proposalBusy={chat.busy}
+      />
+      <CriteriaPanel
+        criteria={capability.criteria}
+        currentCapabilityVersionId={capability.currentCapabilityVersionId}
+        onSaveCriterion={(criterionId, statement) =>
+          afterHandSave(() => saveCriterion(criterionId, statement))
+        }
+        onApplyProposal={async (proposalId) => {
+          await chat.applyProposal(proposalId)
+          await evalRuns.reload()
+        }}
+        onDismissProposal={chat.dismissProposal}
+        onRereadProposal={chat.rereadProposal}
+        proposalBusy={chat.busy}
       />
       <SuitePanel
         criteria={capability.criteria}
@@ -103,15 +145,24 @@ const CapabilityPage = () => {
         onRunCase={evalRuns.runCase}
         onRunSuite={evalRuns.runSuite}
         onCancelSuite={evalRuns.cancelSuite}
-        onAmend={saveEval}
+        onAmend={(input) => afterHandSave(() => saveEval(input))}
         onDuplicate={(evalId) => refreshAfterMutation(() => duplicateEval(evalId))}
         onRetire={(evalId) => refreshAfterMutation(() => retireEval(evalId))}
+        onApplyProposal={async (proposalId) => {
+          await chat.applyProposal(proposalId)
+          await evalRuns.reload()
+        }}
+        onDismissProposal={chat.dismissProposal}
+        onRereadProposal={chat.rereadProposal}
+        proposalBusy={chat.busy}
       />
       <DerivedSkillPanel
         capabilityId={capability.id}
         hasPublishedSkill={capability.hasPublishedSkill}
         skillMarkdown={capability.skillMarkdown}
         hasUnsavedSkillDraft={capability.hasUnsavedSkillDraft}
+        isSkillStale={capability.isSkillStale}
+        skillStaleLayers={capability.skillStaleLayers}
         onRestored={async () => {
           await reload()
           await evalRuns.reload()

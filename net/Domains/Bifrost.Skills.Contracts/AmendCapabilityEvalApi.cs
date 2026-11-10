@@ -12,11 +12,21 @@ public static class AmendCapabilityEvalApi
         public required string Scenario { get; init; }
         public required string Prompt { get; init; }
         public required string Context { get; init; }
+
         /// <summary>
         /// Optional. When omitted, existing checks are kept (re-derived if Scenario changed).
         /// When provided, ids/kinds drive identity and Script↔HumanReview swap; Script bodies
         /// are authored behind the scenes when needed — never person-written.
         /// </summary>
         public IReadOnlyList<CheckSnapshot>? Checks { get; init; }
+    }
+
+    public sealed record Response
+    {
+        /// <summary>Applied | Proposed | Unchanged</summary>
+        public required string Outcome { get; init; }
+        public Proposal? Proposal { get; init; }
+        public IReadOnlyList<ChatMessage> Messages { get; init; } = [];
+        public IReadOnlyList<Proposal> PendingProposals { get; init; } = [];
     }
 }

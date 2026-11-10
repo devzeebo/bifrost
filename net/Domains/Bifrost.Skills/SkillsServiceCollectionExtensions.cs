@@ -23,6 +23,7 @@ public static class SkillsServiceCollectionExtensions
 
             services.Command<CreateCapabilityApi.Command>();
             services.Command<AmendCapabilityAskApi.Command>();
+            services.Command<AmendCapabilityCriterionApi.Command>();
             services.Command<AmendCapabilityEvalApi.Command>();
             services.Command<DuplicateCapabilityEvalApi.Command>();
             services.Command<RetireCapabilityEvalApi.Command>();

@@ -19,6 +19,7 @@ public static class GetCapabilityHandler
             ?? throw new CommandValidationException($"Capability {query.Id} not found.");
 
         var index = await session.LoadAsync<CapabilityIndex.Model>(query.Id);
+        var (isSkillStale, staleLayers) = await SkillStaleness.Read(item, session);
 
         return new GetCapabilityApi.Response
         {
@@ -61,6 +62,13 @@ public static class GetCapabilityHandler
             DerivedAgainstCapabilityVersionId = item.DerivedAgainstCapabilityVersionId,
             HasUnsavedCapabilityDraft = item.HasUnsavedCapabilityDraft,
             HasUnsavedSkillDraft = item.HasUnsavedSkillDraft,
+            IsSkillStale = isSkillStale,
+            SkillStaleLayers = new GetCapabilityApi.SkillStaleLayersSummary
+            {
+                AskChanged = staleLayers.AskChanged,
+                CriteriaChanged = staleLayers.CriteriaChanged,
+                EvalsChanged = staleLayers.EvalsChanged,
+            },
         };
     }
 }

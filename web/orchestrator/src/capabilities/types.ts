@@ -128,6 +128,12 @@ export type SkillVersionSnapshot = {
   readonly derivedAgainstCapabilityVersionId: string
 }
 
+export type SkillStaleLayers = {
+  readonly askChanged: boolean
+  readonly criteriaChanged: boolean
+  readonly evalsChanged: boolean
+}
+
 export type CapabilityDetail = {
   readonly id: string
   readonly name: string
@@ -141,6 +147,15 @@ export type CapabilityDetail = {
   readonly derivedAgainstCapabilityVersionId: string | null
   readonly hasUnsavedCapabilityDraft: boolean
   readonly hasUnsavedSkillDraft: boolean
+  readonly isSkillStale: boolean
+  readonly skillStaleLayers: SkillStaleLayers
+}
+
+export type HandSaveResult = {
+  readonly outcome: 'Applied' | 'Proposed' | 'Unchanged'
+  readonly proposal: Proposal | null
+  readonly messages: readonly ChatMessage[]
+  readonly pendingProposals: readonly Proposal[]
 }
 
 export type VersionSummary = {

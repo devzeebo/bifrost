@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   amendCapabilityAsk,
+  amendCapabilityCriterion,
   amendCapabilityEval,
   duplicateCapabilityEval,
   getCapability,
   renameCapability,
   retireCapabilityEval,
 } from './api'
-import type { CapabilityDetail, CheckSnapshot } from './types'
+import type { CapabilityDetail, CheckSnapshot, HandSaveResult } from './types'
 
 export type CapabilityState =
   | { readonly status: 'loading' }
@@ -35,9 +36,23 @@ export const useCapability = (id: string) => {
   }, [reload])
 
   const saveAsk = useCallback(
-    async (ask: string) => {
-      await amendCapabilityAsk({ id, ask })
-      await reload()
+    async (ask: string): Promise<HandSaveResult> => {
+      const result = await amendCapabilityAsk({ id, ask })
+      if (result.outcome !== 'Proposed') {
+        await reload()
+      }
+      return result
+    },
+    [id, reload],
+  )
+
+  const saveCriterion = useCallback(
+    async (criterionId: string, statement: string): Promise<HandSaveResult> => {
+      const result = await amendCapabilityCriterion({ id, criterionId, statement })
+      if (result.outcome !== 'Proposed') {
+        await reload()
+      }
+      return result
     },
     [id, reload],
   )
@@ -57,9 +72,12 @@ export const useCapability = (id: string) => {
       readonly prompt: string
       readonly context: string
       readonly checks?: readonly CheckSnapshot[] | null
-    }) => {
-      await amendCapabilityEval({ id, ...input })
-      await reload()
+    }): Promise<HandSaveResult> => {
+      const result = await amendCapabilityEval({ id, ...input })
+      if (result.outcome !== 'Proposed') {
+        await reload()
+      }
+      return result
     },
     [id, reload],
   )
@@ -84,5 +102,14 @@ export const useCapability = (id: string) => {
     [id, reload],
   )
 
-  return { state, saveAsk, saveName, saveEval, duplicateEval, retireEval, reload }
+  return {
+    state,
+    saveAsk,
+    saveCriterion,
+    saveName,
+    saveEval,
+    duplicateEval,
+    retireEval,
+    reload,
+  }
 }

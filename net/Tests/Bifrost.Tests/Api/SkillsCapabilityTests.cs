@@ -184,7 +184,7 @@ public class SkillsCapabilityTests
                 "/amend-capability-ask",
                 new { id, ask = "  Amended ask for the capability.  " }
             )
-        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        ).StatusCode.ShouldBe(HttpStatusCode.OK);
 
         (
             await Post(client, "/rename-capability", new { id, name = "  Renamed capability  " })

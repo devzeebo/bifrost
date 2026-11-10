@@ -1,15 +1,19 @@
-using Bifrost.Capabilities.Aggregate;
-using Bifrost.Capabilities.Events;
-using Wolverine.Marten;
-using MartenEvents = Wolverine.Marten.Events;
+using Bifrost.Capabilities.Chat;
+using Bifrost.Capabilities.Editor;
+using Bifrost.Capabilities.Projections;
+using Bifrost.Skills.Contracts;
+using Marten;
 
 namespace Bifrost.Capabilities.Commands;
 
 public static class AmendCapabilityAskHandler
 {
-    public static void Validate(AmendCapabilityAskApi.Command command, Capability? capability)
+    public static async Task Validate(
+        AmendCapabilityAskApi.Command command,
+        IQuerySession session
+    )
     {
-        if (capability is null)
+        if (await session.LoadAsync<CapabilityView.Model>(command.Id) is null)
         {
             throw new CommandValidationException($"Capability {command.Id} not found.");
         }
@@ -20,33 +24,33 @@ public static class AmendCapabilityAskHandler
         }
     }
 
-    [WolverinePost("/amend-capability-ask"), EmptyResponse]
-    [AggregateHandler]
-    public static MartenEvents Handle(AmendCapabilityAskApi.Command command, Capability capability)
+    [WolverinePost("/amend-capability-ask")]
+    public static async Task<AmendCapabilityAskApi.Response> Handle(
+        AmendCapabilityAskApi.Command command,
+        IDocumentSession session
+    )
     {
-        var ask = command.Ask.Trim();
-        var snapshot = new CapabilityVersionSnapshot
-        {
-            Ask = ask,
-            Criteria = capability.Criteria.ToArray(),
-            Evals = capability.Evals.ToArray(),
-        };
+        var capability =
+            await session.LoadAsync<CapabilityView.Model>(command.Id)
+            ?? throw new CommandValidationException($"Capability {command.Id} not found.");
 
-        if (capability.CapabilityContentEquals(snapshot))
-        {
-            return [];
-        }
-
-        return
-        [
-            new CapabilityAskAmended { Ask = ask },
-            new CapabilityVersionRecorded
+        var composition = LayerSyncComposer.FromAskEdit(
+            new CapabilityVersionSnapshot
             {
-                VersionId = Guid.NewGuid(),
-                CapabilityId = capability.Id,
-                RecordedAt = DateTimeOffset.UtcNow,
-                Snapshot = snapshot,
+                Ask = capability.Ask,
+                Criteria = capability.Criteria,
+                Evals = capability.Evals,
             },
-        ];
+            command.Ask
+        );
+
+        var result = await HandLayerSave.ProposeOrApply(command.Id, composition, session);
+        return new AmendCapabilityAskApi.Response
+        {
+            Outcome = result.Outcome,
+            Proposal = result.Proposal,
+            Messages = result.Messages,
+            PendingProposals = result.PendingProposals,
+        };
     }
 }

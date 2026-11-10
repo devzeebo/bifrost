@@ -217,6 +217,12 @@ public sealed class HttpCapabilityEditor(
             "When SplitCriterion or RetireCriterion would leave evals behind, include RetireEval effects for each affected eval in the same proposal. Retiring the last eval behind a criterion must say so in the proposal summary."
         );
         sb.AppendLine("List every layer an edit touches in effects before the person applies.");
+        sb.AppendLine(
+            "Sync contract: ask, criteria, and evals are one agreement. Rewording the ask must re-read affected criteria and update their evals in the same proposal. Sharpening a criterion must amend the ask when the ask's wording came from it, and re-derive linked eval checks. Amending an eval scenario that detaches from its criterion must carry the criterion (and ask) edit too. Adding a criterion should amend the ask so it reads as if the criterion was always there, and include proving eval(s). Never silently rewrite the derived skill in ordinary sync — omit ReplaceSkill unless the person asked to edit the skill; the skill goes stale until they re-derive."
+        );
+        sb.AppendLine(
+            "Ambiguity always proposes a choice; never silently retire wording or pick between contradictory sync updates."
+        );
         sb.AppendLine($"Capability id: {context.CapabilityId}");
         sb.AppendLine($"Name: {context.Name}");
         sb.AppendLine($"Ask: {context.Ask}");

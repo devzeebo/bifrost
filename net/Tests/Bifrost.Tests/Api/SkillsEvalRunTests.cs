@@ -192,7 +192,7 @@ public class SkillsEvalRunTests
                     },
                 }
             )
-        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        ).StatusCode.ShouldBe(HttpStatusCode.OK);
 
         _factory.ModelClient.Handler = (_, _) =>
             Task.FromResult(
@@ -260,7 +260,7 @@ public class SkillsEvalRunTests
                     },
                 }
             )
-        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        ).StatusCode.ShouldBe(HttpStatusCode.OK);
 
         _factory.ModelClient.Handler = (_, _) =>
             Task.FromResult(

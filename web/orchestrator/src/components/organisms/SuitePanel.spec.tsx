@@ -110,7 +110,12 @@ function reset_page(this: Context) {
   cleanup()
   this.criteria = []
   this.evals = []
-  this.onAmend = vi.fn(async () => undefined)
+  this.onAmend = vi.fn(async () => ({
+    outcome: 'Applied' as const,
+    proposal: null,
+    messages: [],
+    pendingProposals: [],
+  }))
   this.onDuplicate = vi.fn(async () => undefined)
   this.onRetire = vi.fn(async () => undefined)
   this.onRunCase = undefined
@@ -186,6 +191,10 @@ function the_panel_renders(this: Context) {
       onAmend={this.onAmend}
       onDuplicate={this.onDuplicate}
       onRetire={this.onRetire}
+      onApplyProposal={async () => undefined}
+      onDismissProposal={async () => undefined}
+      onRereadProposal={async () => undefined}
+      proposalBusy={false}
     />,
   )
 }

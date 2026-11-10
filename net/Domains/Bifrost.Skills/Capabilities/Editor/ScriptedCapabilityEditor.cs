@@ -61,27 +61,22 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
         if (text.StartsWith("add criterion:", StringComparison.OrdinalIgnoreCase))
         {
             var statement = text["add criterion:".Length..].Trim();
-            var criterionId = Guid.NewGuid();
+            var composition = LayerSyncComposer.FromAddCriterion(Snapshot(context), statement);
             return new EditorTurn
             {
-                AssistantText = "Proposed adding a criterion.",
-                ProposalSummary = "Add criterion",
-                Effects =
-                [
-                    new ProposalEffect
-                    {
-                        Kind = ProposalEffectKinds.AddCriterion,
-                        Description = "Add criterion",
-                        CriterionId = criterionId,
-                        Statement = statement,
-                    },
-                ],
+                AssistantText =
+                    "Proposed adding a criterion with a proving eval"
+                    + (composition.RequiresProposal && composition.Effects.Any(e => e.Kind == ProposalEffectKinds.AmendAsk)
+                        ? ", and amending the ask so it reads as if the criterion was always there."
+                        : "."),
+                ProposalSummary = composition.Summary,
+                Effects = composition.Effects,
             };
         }
 
         if (text.StartsWith("sharpen ", StringComparison.OrdinalIgnoreCase))
         {
-            return Sharpen(context, text["sharpen ".Length..].Trim());
+            return SharpenWithAskSync(context, text["sharpen ".Length..].Trim());
         }
 
         if (text.StartsWith("split ", StringComparison.OrdinalIgnoreCase))
@@ -111,25 +106,25 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
 
         if (text.StartsWith("amend eval ", StringComparison.OrdinalIgnoreCase))
         {
-            return AmendEval(context, text["amend eval ".Length..].Trim());
+            return AmendEvalWithSync(context, text["amend eval ".Length..].Trim());
+        }
+
+        if (text.StartsWith("edge case ", StringComparison.OrdinalIgnoreCase))
+        {
+            return EdgeCase(context, text["edge case ".Length..].Trim());
         }
 
         if (text.StartsWith("reword ask:", StringComparison.OrdinalIgnoreCase))
         {
             var ask = text["reword ask:".Length..].Trim();
+            var composition = LayerSyncComposer.FromAskEdit(Snapshot(context), ask);
             return new EditorTurn
             {
-                AssistantText = "Proposed a rewording of the ask.",
-                ProposalSummary = "Amend ask",
-                Effects =
-                [
-                    new ProposalEffect
-                    {
-                        Kind = ProposalEffectKinds.AmendAsk,
-                        Description = "Reword the ask",
-                        Ask = ask,
-                    },
-                ],
+                AssistantText = composition.RequiresProposal
+                    ? "Proposed rewording the ask and syncing the criteria (and evals) that depend on it."
+                    : "Proposed a rewording of the ask.",
+                ProposalSummary = composition.Summary,
+                Effects = composition.Effects,
             };
         }
 
@@ -176,11 +171,19 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
         return new EditorTurn
         {
             AssistantText =
-                "I can help edit this capability. Try: add criterion: …, sharpen <criterion-id>:<statement>, split <criterion-id>, retire <criterion-id>, add eval <criterion-id>:<scenario>, amend eval <eval-id>:<scenario>, duplicate eval <eval-id>, retire eval <eval-id>, set check kind <eval-id>:<check-id>:Script|HumanReview, reword ask: …, replace skill: …, or bundle: …",
+                "I can help edit this capability. Try: add criterion: …, sharpen <criterion-id>:<statement>, split <criterion-id>, retire <criterion-id>, add eval <criterion-id>:<scenario>, edge case <criterion-id>:<scenario>, amend eval <eval-id>:<scenario>, duplicate eval <eval-id>, retire eval <eval-id>, set check kind <eval-id>:<check-id>:Script|HumanReview, reword ask: …, replace skill: …, or bundle: …",
         };
     }
 
-    static EditorTurn Sharpen(EditorContext context, string rest)
+    static CapabilityVersionSnapshot Snapshot(EditorContext context) =>
+        new()
+        {
+            Ask = context.Ask,
+            Criteria = context.Criteria,
+            Evals = context.Evals,
+        };
+
+    static EditorTurn SharpenWithAskSync(EditorContext context, string rest)
     {
         var parts = rest.Split(':', 2, StringSplitOptions.TrimEntries);
         if (
@@ -195,43 +198,20 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
             };
         }
 
-        var statement = parts[1];
-        var effects = new List<ProposalEffect>
-        {
-            new()
-            {
-                Kind = ProposalEffectKinds.SharpenCriterion,
-                Description = "Sharpen criterion wording",
-                CriterionId = criterionId,
-                Statement = statement,
-            },
-        };
-
-        foreach (var eval in context.Evals.Where(e => e.CriterionId == criterionId))
-        {
-            effects.Add(
-                new ProposalEffect
-                {
-                    Kind = ProposalEffectKinds.AmendEval,
-                    Description = "Re-derive checks for sharpened criterion",
-                    EvalId = eval.Id,
-                    CriterionId = eval.CriterionId,
-                    Scenario = eval.Scenario,
-                    Prompt = eval.Prompt,
-                    Context = eval.Context,
-                    Checks = CheckDerivation.ReDerive(eval.Checks, statement, eval.Scenario),
-                }
-            );
-        }
-
+        var composition = LayerSyncComposer.FromCriterionEdit(
+            Snapshot(context),
+            criterionId,
+            parts[1]
+        );
         return new EditorTurn
         {
-            AssistantText =
-                effects.Count > 1
+            AssistantText = composition.RequiresProposal
+                ? "Proposed sharpening a criterion, amending the ask, and re-deriving linked eval checks."
+                : composition.Effects.Count > 1
                     ? "Proposed sharpening a criterion and re-deriving its script checks."
                     : "Proposed sharpening a criterion in place.",
-            ProposalSummary = "Sharpen criterion",
-            Effects = effects,
+            ProposalSummary = composition.Summary,
+            Effects = composition.Effects,
         };
     }
 
@@ -367,13 +347,13 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
         };
     }
 
-    static EditorTurn AmendEval(EditorContext context, string rest)
+    static EditorTurn AmendEvalWithSync(EditorContext context, string rest)
     {
         var parts = rest.Split(':', 2, StringSplitOptions.TrimEntries);
         if (
             parts.Length != 2
             || !Guid.TryParse(parts[0], out var evalId)
-            || context.Evals.FirstOrDefault(e => e.Id == evalId) is not { } existing
+            || context.Evals.All(e => e.Id != evalId)
         )
         {
             return new EditorTurn
@@ -382,30 +362,107 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
             };
         }
 
+        var existing = context.Evals.First(e => e.Id == evalId);
+        var composition = LayerSyncComposer.FromEvalEdit(
+            Snapshot(context),
+            evalId,
+            parts[1],
+            parts[1],
+            existing.Context,
+            requestedChecks: null
+        );
+        return new EditorTurn
+        {
+            AssistantText = composition.RequiresProposal
+                ? "Proposed amending an eval and syncing the criterion (and ask when needed) so the agreement stays honest."
+                : "Proposed amending an eval in place. Script checks were re-derived and are ready to run.",
+            ProposalSummary = composition.Summary,
+            Effects = composition.Effects,
+        };
+    }
+
+    static EditorTurn EdgeCase(EditorContext context, string rest)
+    {
+        var parts = rest.Split(':', 2, StringSplitOptions.TrimEntries);
+        if (
+            parts.Length != 2
+            || !Guid.TryParse(parts[0], out var criterionId)
+            || context.Criteria.FirstOrDefault(c => c.Id == criterionId) is not { } criterion
+        )
+        {
+            return new EditorTurn
+            {
+                AssistantText =
+                    "Edge case needs criterion id and scenario: edge case <criterion-id>:<scenario>",
+            };
+        }
+
         var scenario = parts[1];
-        var criterion =
-            context.Criteria.FirstOrDefault(c => c.Id == existing.CriterionId)
-            ?? new CriterionSnapshot { Id = existing.CriterionId, Statement = scenario };
-        var checks = CheckDerivation.ReDerive(existing.Checks, criterion.Statement, scenario);
+        var effects = new List<ProposalEffect>();
+        // Edge cases always add an eval; when the scenario detaches, also sharpen criterion + ask.
+        if (LayerSyncComposer.DetachesFromCriterion(criterion.Statement, scenario))
+        {
+            var newStatement = LayerSyncComposer.AlignCriterionToScenario(
+                criterion.Statement,
+                scenario
+            );
+            var ask = LayerSyncComposer.AlignAskToCriterion(
+                context.Ask,
+                criterion.Statement,
+                newStatement
+            );
+            if (ask is not null)
+            {
+                effects.Add(
+                    new ProposalEffect
+                    {
+                        Kind = ProposalEffectKinds.AmendAsk,
+                        Description = "Amend ask for edge case",
+                        Ask = ask,
+                    }
+                );
+            }
+
+            effects.Add(
+                new ProposalEffect
+                {
+                    Kind = ProposalEffectKinds.SharpenCriterion,
+                    Description = "Sharpen criterion for edge case",
+                    CriterionId = criterionId,
+                    Statement = newStatement,
+                }
+            );
+            criterion = criterion with { Statement = newStatement };
+        }
+
+        var checkId = Guid.NewGuid();
+        effects.Add(
+            new ProposalEffect
+            {
+                Kind = ProposalEffectKinds.AddEval,
+                Description = "Add edge-case eval",
+                EvalId = Guid.NewGuid(),
+                CriterionId = criterionId,
+                Scenario = scenario,
+                Prompt = scenario,
+                Context = "",
+                Checks =
+                [
+                    CheckDerivation.ScriptCheck(checkId, criterion.Statement, scenario),
+                ],
+            }
+        );
+
         return new EditorTurn
         {
             AssistantText =
-                "Proposed amending an eval in place. Script checks were re-derived and are ready to run.",
-            ProposalSummary = "Amend eval",
-            Effects =
-            [
-                new ProposalEffect
-                {
-                    Kind = ProposalEffectKinds.AmendEval,
-                    Description = "Amend eval scenario",
-                    EvalId = evalId,
-                    CriterionId = existing.CriterionId,
-                    Scenario = scenario,
-                    Prompt = scenario,
-                    Context = existing.Context,
-                    Checks = checks,
-                },
-            ],
+                effects.Any(e => e.Kind is ProposalEffectKinds.AmendAsk or ProposalEffectKinds.SharpenCriterion)
+                    ? "Proposed an edge-case eval and synced the criterion and ask upward."
+                    : "Proposed an edge-case eval behind the criterion.",
+            ProposalSummary = effects.Any(e => e.Kind == ProposalEffectKinds.AmendAsk)
+                ? "Add edge-case eval and sync upward"
+                : "Add edge-case eval",
+            Effects = effects,
         };
     }
 

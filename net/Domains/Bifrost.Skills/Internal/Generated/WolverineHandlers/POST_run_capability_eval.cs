@@ -37,10 +37,10 @@ namespace Internal.Generated.WolverineHandlers
 
         public override async System.Threading.Tasks.Task Handle(Microsoft.AspNetCore.Http.HttpContext httpContext)
         {
-            var evalRunExecutor = new Bifrost.Capabilities.Evals.EvalRunExecutor(_modelClient, _optionsMonitorOfAiClientOptions, _scriptCheckRunner);
             var messageContext = new Wolverine.Runtime.MessageContext(_wolverineRuntime);
             // Building the Marten session
             await using var documentSession = _outboxedSessionFactory.OpenSession(messageContext);
+            var evalRunExecutor = new Bifrost.Capabilities.Evals.EvalRunExecutor(_modelClient, _optionsMonitorOfAiClientOptions, _scriptCheckRunner);
             System.Diagnostics.Activity.Current?.SetTag("handler.type", "Bifrost.Capabilities.Commands.RunCapabilityEvalHandler");
             // Reading the request body via JSON deserialization
             var (command, jsonContinue) = await ReadJsonAsync<Bifrost.Skills.Contracts.RunCapabilityEvalApi.Command>(httpContext);

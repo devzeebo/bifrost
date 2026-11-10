@@ -31,29 +31,14 @@ namespace Internal.Generated.WolverineHandlers
             var messageContext = new Wolverine.Runtime.MessageContext(_wolverineRuntime);
             // Building the Marten session
             await using var documentSession = _outboxedSessionFactory.OpenSession(messageContext);
+            System.Diagnostics.Activity.Current?.SetTag("handler.type", "Bifrost.Capabilities.Commands.AmendCapabilityEvalHandler");
             // Reading the request body via JSON deserialization
             var (command, jsonContinue) = await ReadJsonAsync<Bifrost.Skills.Contracts.AmendCapabilityEvalApi.Command>(httpContext);
             if (jsonContinue == Wolverine.HandlerContinuation.Stop) return;
-            var capability_Id = command.Id;
-            // Application-specific Open Telemetry auditing
-            System.Diagnostics.Activity.Current?.SetTag("id", command.Id);
-            System.Diagnostics.Activity.Current?.SetTag("handler.type", "Bifrost.Capabilities.Commands.AmendCapabilityEvalHandler");
-            // Loading Marten aggregate as part of the aggregate handler workflow
-            var eventStreamOfCapability = await documentSession.Events.FetchForWriting<Bifrost.Capabilities.Aggregate.Capability>(capability_Id, httpContext.RequestAborted);
-            System.Diagnostics.Activity.Current?.SetTag("wolverine.stream.id", capability_Id);
-            System.Diagnostics.Activity.Current?.SetTag("wolverine.stream.type", "Bifrost.Capabilities.Aggregate.Capability");
-            Bifrost.Capabilities.Commands.AmendCapabilityEvalHandler.Validate(command, eventStreamOfCapability.Aggregate);
+            await Bifrost.Capabilities.Commands.AmendCapabilityEvalHandler.Validate(command, ((Marten.IQuerySession)documentSession)).ConfigureAwait(false);
             
             // The actual HTTP request handler execution
-            var events = Bifrost.Capabilities.Commands.AmendCapabilityEvalHandler.Handle(command, eventStreamOfCapability.Aggregate);
-
-            if (events != null)
-            {
-                
-                // Capturing any possible events returned from the command handlers
-                eventStreamOfCapability.AppendMany(events);
-
-            }
+            var response_response = await Bifrost.Capabilities.Commands.AmendCapabilityEvalHandler.Handle(command, documentSession).ConfigureAwait(false);
 
             
             // Save all pending changes to this Marten session
@@ -63,8 +48,8 @@ namespace Internal.Generated.WolverineHandlers
             // Have to flush outgoing messages just in case Marten did nothing because of https://github.com/JasperFx/wolverine/issues/536
             await messageContext.FlushOutgoingMessagesAsync().ConfigureAwait(false);
 
-            // Wolverine automatically sets the status code to 204 for empty responses
-            if (httpContext.Response is { HasStarted: false, StatusCode: 200 }) httpContext.Response.StatusCode = 204;
+            // Writing the response body to JSON because this was the first 'return variable' in the method signature
+            await WriteJsonAsync(httpContext, response_response, 404);
         }
 
     }
