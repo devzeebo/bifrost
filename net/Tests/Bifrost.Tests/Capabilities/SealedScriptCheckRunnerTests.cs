@@ -137,8 +137,97 @@ public class SealedScriptCheckRunnerTests
         js.ShouldNotContain(": boolean");
     }
 
-    static SealedScriptCheckRunner CreateRunner(int defaultTimeoutMs = 5_000) =>
-        new(new StaticOptionsMonitor(new ScriptCheckOptions { DefaultTimeoutMs = defaultTimeoutMs }));
+    [Fact]
+    public void to_runnable_javascript_preserves_colon_sequences_inside_string_literals()
+    {
+        var js = SealedScriptCheckRunner.ToRunnableJavaScript(
+            """
+            export default function check(transcript: string, context: string): boolean {
+              const needle = 'responds in two parts: summary, then detail';
+              return transcript.includes(needle);
+            }
+            """
+        );
+
+        js.ShouldContain("responds in two parts: summary, then detail");
+        js.ShouldContain("function check(transcript, context)");
+    }
+
+    [Fact]
+    public async Task colon_in_criterion_string_still_matches_transcript()
+    {
+        var runner = CreateRunner();
+        var result = await runner.Run(
+            Request(
+                """
+                export default function check(transcript: string, context: string): boolean {
+                  const needle = 'responds in two parts: summary, then detail';
+                  return transcript.toLowerCase().includes(needle);
+                }
+                """,
+                transcript: "assistant: responds in two parts: summary, then detail"
+            ),
+            CancellationToken.None
+        );
+
+        result.Status.ShouldBe(EvalCheckVerdictStatuses.Passed);
+    }
+
+    [Fact]
+    public async Task requested_timeout_is_clamped_to_service_max()
+    {
+        var runner = CreateRunner(defaultTimeoutMs: 5_000, maxTimeoutMs: 75);
+        var result = await runner.Run(
+            Request(
+                """
+                export default function check(transcript: string, context: string): boolean {
+                  while (true) {}
+                  return true;
+                }
+                """,
+                timeoutMs: 1_000_000
+            ),
+            CancellationToken.None
+        );
+
+        result.Status.ShouldBe(EvalCheckVerdictStatuses.Failed);
+        result.Reason.ShouldBe("Timed out after 75ms");
+    }
+
+    [Fact]
+    public async Task caller_cancellation_propagates_instead_of_failing_the_check()
+    {
+        var runner = CreateRunner(defaultTimeoutMs: 5_000);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Should.ThrowAsync<OperationCanceledException>(async () =>
+            await runner.Run(
+                Request(
+                    """
+                    export default function check(transcript: string, context: string): boolean {
+                      return true;
+                    }
+                    """
+                ),
+                cts.Token
+            )
+        );
+    }
+
+    static SealedScriptCheckRunner CreateRunner(
+        int defaultTimeoutMs = 5_000,
+        int maxTimeoutMs = 60_000
+    ) =>
+        new(
+            new StaticOptionsMonitor(
+                new ScriptCheckOptions
+                {
+                    DefaultTimeoutMs = defaultTimeoutMs,
+                    MaxTimeoutMs = maxTimeoutMs,
+                }
+            )
+        );
 
     static ScriptCheckRequest Request(
         string script,

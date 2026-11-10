@@ -575,8 +575,17 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
                 }
 
                 return kind == CheckKinds.HumanReview
-                    ? CheckDerivation.HumanReviewCheck(check.Id, criterion.Statement)
-                    : CheckDerivation.ScriptCheck(check.Id, criterion.Statement, existing.Scenario);
+                    ? CheckDerivation.HumanReviewCheck(
+                        check.Id,
+                        criterion.Statement,
+                        check.TimeoutMs
+                    )
+                    : CheckDerivation.ScriptCheck(
+                        check.Id,
+                        criterion.Statement,
+                        existing.Scenario,
+                        check.TimeoutMs
+                    );
             })
             .ToArray();
 

@@ -15,9 +15,9 @@ namespace Bifrost.Capabilities.Evals;
 public sealed class SealedScriptCheckRunner(IOptionsMonitor<ScriptCheckOptions> options)
     : IScriptCheckRunner
 {
-    static readonly Regex ExportDefaultFunction = new(
-        @"^\s*export\s+default\s+function\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*\((?<params>[^)]*)\)\s*(?::\s*[^{]+)?\{",
-        RegexOptions.Compiled | RegexOptions.Multiline | RegexOptions.CultureInvariant
+    static readonly Regex FunctionHeader = new(
+        @"(?:export\s+default\s+)?function\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*\((?<params>[^)]*)\)\s*(?::\s*[^{]+)?\{",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant
     );
 
     static readonly Regex ParamTypeAnnotation = new(
@@ -25,6 +25,10 @@ public sealed class SealedScriptCheckRunner(IOptionsMonitor<ScriptCheckOptions> 
         RegexOptions.Compiled | RegexOptions.CultureInvariant
     );
 
+    /// <summary>
+    /// Executes one sealed script check and never throws for script failures.
+    /// Propagates <see cref="OperationCanceledException"/> only when the caller token cancels.
+    /// </summary>
     public Task<ScriptCheckResult> Run(ScriptCheckRequest request, CancellationToken ct)
     {
         try
@@ -39,6 +43,36 @@ public sealed class SealedScriptCheckRunner(IOptionsMonitor<ScriptCheckOptions> 
         {
             return Task.FromResult(Failed(ex.Message));
         }
+    }
+
+    /// <summary>
+    /// Strips the constrained authoring TypeScript shape into plain JS for Jint,
+    /// without rewriting string-literal contents in the script body.
+    /// </summary>
+    public static string ToRunnableJavaScript(string script)
+    {
+        var withoutComments = StripLineComments(script);
+        var match = FunctionHeader.Match(withoutComments);
+        if (!match.Success)
+        {
+            return withoutComments.Replace("export default ", "", StringComparison.Ordinal);
+        }
+
+        // Strip types only from the parameter list — never from the function body,
+        // where criterion wording may contain ": word" sequences inside string literals.
+        // Append ')' so the last parameter's type still matches the lookahead (params group
+        // excludes the closing paren).
+        var name = match.Groups["name"].Value;
+        var parameters = ParamTypeAnnotation
+            .Replace(match.Groups["params"].Value + ")", "")
+            .TrimEnd(')')
+            .Trim();
+        var opener = $"function {name}({parameters}) {{";
+        return string.Concat(
+            withoutComments.AsSpan(0, match.Index),
+            opener,
+            withoutComments.AsSpan(match.Index + match.Length)
+        );
     }
 
     ScriptCheckResult RunSync(ScriptCheckRequest request, CancellationToken ct)
@@ -113,6 +147,15 @@ public sealed class SealedScriptCheckRunner(IOptionsMonitor<ScriptCheckOptions> 
         {
             return Failed($"Timed out after {timeoutMs}ms");
         }
+        catch (ExecutionCanceledException)
+        {
+            if (ct.IsCancellationRequested)
+            {
+                throw new OperationCanceledException(ct);
+            }
+
+            return Failed($"Timed out after {timeoutMs}ms");
+        }
         catch (JavaScriptException ex)
         {
             return Failed(ex.Message);
@@ -123,15 +166,15 @@ public sealed class SealedScriptCheckRunner(IOptionsMonitor<ScriptCheckOptions> 
         }
     }
 
+    /// <summary>
+    /// Resolves the effective ceiling: requested timeout, else service default, capped by max.
+    /// </summary>
     int ResolveTimeoutMs(int requested)
     {
-        if (requested > 0)
-        {
-            return requested;
-        }
-
-        var fallback = options.CurrentValue.DefaultTimeoutMs;
-        return fallback > 0 ? fallback : 5000;
+        var settings = options.CurrentValue;
+        var max = settings.MaxTimeoutMs > 0 ? settings.MaxTimeoutMs : 60_000;
+        var fallback = settings.DefaultTimeoutMs > 0 ? settings.DefaultTimeoutMs : 5000;
+        return Math.Min(requested > 0 ? requested : fallback, max);
     }
 
     static ScriptCheckResult Failed(string reason) =>
@@ -140,32 +183,6 @@ public sealed class SealedScriptCheckRunner(IOptionsMonitor<ScriptCheckOptions> 
             Status = EvalCheckVerdictStatuses.Failed,
             Reason = string.IsNullOrWhiteSpace(reason) ? "Script check failed." : reason.Trim(),
         };
-
-    public static string ToRunnableJavaScript(string script)
-    {
-        var withoutComments = StripLineComments(script);
-        var match = ExportDefaultFunction.Match(withoutComments);
-        string body;
-        if (match.Success)
-        {
-            var name = match.Groups["name"].Value;
-            var parameters = ParamTypeAnnotation.Replace(match.Groups["params"].Value, "");
-            var opener = $"function {name}({parameters.Trim()}) {{";
-            body = string.Concat(
-                withoutComments.AsSpan(0, match.Index),
-                opener,
-                withoutComments.AsSpan(match.Index + match.Length)
-            );
-        }
-        else
-        {
-            body = withoutComments;
-        }
-
-        body = ParamTypeAnnotation.Replace(body, "");
-        body = body.Replace("export default ", "", StringComparison.Ordinal);
-        return body;
-    }
 
     static string StripLineComments(string script)
     {

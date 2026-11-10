@@ -146,10 +146,22 @@ public static class AmendCapabilityEvalHandler
             var withKinds = requested
                 .Select(check =>
                 {
-            var kind = CheckDerivation.RequireKind(check.Kind);
-            return kind == CheckKinds.HumanReview
-                ? CheckDerivation.HumanReviewCheck(check.Id, criterionStatement)
-                : CheckDerivation.ScriptCheck(check.Id, criterionStatement, scenario);
+                    var timeoutMs =
+                        check.TimeoutMs
+                        ?? existing.FirstOrDefault(c => c.Id == check.Id)?.TimeoutMs;
+                    var kind = CheckDerivation.RequireKind(check.Kind);
+                    return kind == CheckKinds.HumanReview
+                        ? CheckDerivation.HumanReviewCheck(
+                            check.Id,
+                            criterionStatement,
+                            timeoutMs
+                        )
+                        : CheckDerivation.ScriptCheck(
+                            check.Id,
+                            criterionStatement,
+                            scenario,
+                            timeoutMs
+                        );
                 })
                 .ToArray();
             return withKinds;
