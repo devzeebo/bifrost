@@ -46,7 +46,7 @@ type Context = {
 
 function reset_page(this: Context) {
   cleanup()
-  this.onSaveAsk = vi.fn(async () => ({
+  this.onSaveAsk = vi.fn(async (): Promise<HandSaveResult> => ({
     outcome: 'Applied',
     proposal: null,
     messages: [],
@@ -78,7 +78,7 @@ function a_save_that_proposes_sync(this: Context) {
     ],
     isStale: false,
   }
-  this.onSaveAsk = vi.fn(async () => ({
+  this.onSaveAsk = vi.fn(async (): Promise<HandSaveResult> => ({
     outcome: 'Proposed',
     proposal,
     messages: [],
@@ -87,7 +87,7 @@ function a_save_that_proposes_sync(this: Context) {
 }
 
 function a_direct_apply_save(this: Context) {
-  this.onSaveAsk = vi.fn(async () => ({
+  this.onSaveAsk = vi.fn(async (): Promise<HandSaveResult> => ({
     outcome: 'Applied',
     proposal: null,
     messages: [],

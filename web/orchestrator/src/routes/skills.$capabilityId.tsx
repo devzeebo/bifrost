@@ -58,9 +58,9 @@ const CapabilityPage = () => {
     await evalRuns.reload()
   }
 
-  const afterHandSave = async (
-    save: () => Promise<{ readonly outcome: string }>,
-  ) => {
+  const afterHandSave = async <T extends { readonly outcome: string }>(
+    save: () => Promise<T>,
+  ): Promise<T> => {
     const result = await save()
     await chat.reload()
     if (result.outcome !== 'Proposed') {

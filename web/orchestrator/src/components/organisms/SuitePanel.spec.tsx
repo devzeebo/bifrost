@@ -110,8 +110,8 @@ function reset_page(this: Context) {
   cleanup()
   this.criteria = []
   this.evals = []
-  this.onAmend = vi.fn(async () => ({
-    outcome: 'Applied' as const,
+  this.onAmend = vi.fn(async (): Promise<import('../../capabilities/types').HandSaveResult> => ({
+    outcome: 'Applied',
     proposal: null,
     messages: [],
     pendingProposals: [],

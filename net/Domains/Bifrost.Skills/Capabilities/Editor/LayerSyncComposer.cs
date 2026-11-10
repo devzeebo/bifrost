@@ -328,11 +328,8 @@ public static class LayerSyncComposer
             return ReplaceIgnoreCase(ask, oldStatement, newStatement);
         }
 
-        if (!ask.Contains(newStatement, StringComparison.OrdinalIgnoreCase))
-        {
-            return AppendToAsk(ask, newStatement);
-        }
-
+        // Ask never carried this criterion's wording — leave it alone.
+        // (Adding a new criterion amends the ask via FromAddCriterion instead.)
         return null;
     }
 

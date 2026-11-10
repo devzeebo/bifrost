@@ -176,7 +176,10 @@ const CriterionEditor = ({
             await onDismissProposal(proposalId)
             setPendingProposal(null)
           }}
-          onReread={onRereadProposal}
+          onReread={async (proposalId) => {
+            await onRereadProposal(proposalId)
+            setPendingProposal(null)
+          }}
         />
       ) : null}
       {error ? <p className="text-sm text-signal">{error}</p> : null}

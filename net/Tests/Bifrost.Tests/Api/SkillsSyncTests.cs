@@ -192,7 +192,8 @@ public class SkillsSyncTests
         posted.Proposal.ShouldNotBeNull();
         posted.Proposal!.Effects.ShouldContain(e => e.Kind == "AddEval");
         posted.Proposal.Effects.ShouldContain(e => e.Kind == "SharpenCriterion");
-        posted.Proposal.Effects.ShouldContain(e => e.Kind == "AmendAsk");
+        // Bundle ask does not embed the criterion statement, so ask is left alone.
+        posted.Proposal.Effects.ShouldNotContain(e => e.Kind == "AmendAsk");
     }
 
     [Fact]

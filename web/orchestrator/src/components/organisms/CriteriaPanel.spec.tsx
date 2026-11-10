@@ -58,7 +58,7 @@ function the_panel_renders(this: Context) {
     <CriteriaPanel
       criteria={this.criteria}
       currentCapabilityVersionId="cap-1"
-      onSaveCriterion={async () => ({
+      onSaveCriterion={async (): Promise<import('../../capabilities/types').HandSaveResult> => ({
         outcome: 'Applied',
         proposal: null,
         messages: [],

@@ -142,6 +142,8 @@ export const AskDocument = ({
             }}
             onReread={async (proposalId) => {
               await onRereadProposal(proposalId)
+              // Chat panel owns the reoffered/withdrawn card; drop the stale local copy.
+              setPendingProposal(null)
             }}
           />
         ) : null}

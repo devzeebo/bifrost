@@ -511,15 +511,23 @@ const EvalEditor = ({
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [pendingProposal, setPendingProposal] = useState<Proposal | null>(null)
-  const [loadedVersionId] = useState(currentCapabilityVersionId)
+  const [loadedVersionId, setLoadedVersionId] = useState(currentCapabilityVersionId)
   const [layerMoved, setLayerMoved] = useState(false)
 
   useEffect(() => {
+    if (pendingProposal) {
+      return
+    }
     const draftDirty =
       scenario !== evalItem.scenario
       || prompt !== evalItem.prompt
       || context !== evalItem.context
-    if (loadedVersionId !== currentCapabilityVersionId && draftDirty) {
+    if (!draftDirty) {
+      setLoadedVersionId(currentCapabilityVersionId)
+      setLayerMoved(false)
+      return
+    }
+    if (loadedVersionId !== currentCapabilityVersionId) {
       setLayerMoved(true)
     }
   }, [
@@ -529,6 +537,7 @@ const EvalEditor = ({
     evalItem.prompt,
     evalItem.scenario,
     loadedVersionId,
+    pendingProposal,
     prompt,
     scenario,
   ])
@@ -608,7 +617,10 @@ const EvalEditor = ({
             await onDismissProposal(proposalId)
             setPendingProposal(null)
           }}
-          onReread={onRereadProposal}
+          onReread={async (proposalId) => {
+            await onRereadProposal(proposalId)
+            setPendingProposal(null)
+          }}
         />
       ) : null}
       {error ? <p className="text-sm text-signal">{error}</p> : null}
