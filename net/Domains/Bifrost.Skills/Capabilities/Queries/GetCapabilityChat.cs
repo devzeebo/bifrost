@@ -16,7 +16,7 @@ public static class GetCapabilityChatHandler
         IQuerySession session
     )
     {
-        _ =
+        var capability =
             await session.LoadAsync<CapabilityView.Model>(query.Id)
             ?? throw new CommandValidationException($"Capability {query.Id} not found.");
 
@@ -24,6 +24,6 @@ public static class GetCapabilityChatHandler
             await session.LoadAsync<CapabilityChatDocument>(query.Id)
             ?? new CapabilityChatDocument { Id = query.Id };
 
-        return CapabilityChatStore.ToResponse(chat);
+        return await CapabilityChatStore.ToResponseLive(chat, capability, session);
     }
 }

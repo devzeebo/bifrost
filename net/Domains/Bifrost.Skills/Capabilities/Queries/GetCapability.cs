@@ -60,6 +60,7 @@ public static class GetCapabilityHandler
             CurrentCapabilityVersionId = item.CurrentCapabilityVersionId,
             CurrentSkillVersionId = item.CurrentSkillVersionId,
             DerivedAgainstCapabilityVersionId = item.DerivedAgainstCapabilityVersionId,
+            DerivedAgainstSuiteRunId = item.DerivedAgainstSuiteRunId,
             HasUnsavedCapabilityDraft = item.HasUnsavedCapabilityDraft,
             HasUnsavedSkillDraft = item.HasUnsavedSkillDraft,
             IsSkillStale = isSkillStale,

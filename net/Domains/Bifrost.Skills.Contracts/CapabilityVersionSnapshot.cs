@@ -44,4 +44,9 @@ public sealed record SkillVersionSnapshot
 {
     public required string Markdown { get; init; }
     public required Guid DerivedAgainstCapabilityVersionId { get; init; }
+
+    /// <summary>
+    /// Suite run the derivation summary read when this skill version was saved; null when run-less.
+    /// </summary>
+    public Guid? DerivedAgainstSuiteRunId { get; init; }
 }

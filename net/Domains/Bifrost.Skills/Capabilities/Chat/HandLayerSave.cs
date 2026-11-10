@@ -137,5 +137,6 @@ public static class HandLayerSave
             CurrentCapabilityVersionId = capability.CurrentCapabilityVersionId,
             CurrentSkillVersionId = capability.CurrentSkillVersionId,
             DerivedAgainstCapabilityVersionId = capability.DerivedAgainstCapabilityVersionId,
+            DerivedAgainstSuiteRunId = capability.DerivedAgainstSuiteRunId,
         };
 }

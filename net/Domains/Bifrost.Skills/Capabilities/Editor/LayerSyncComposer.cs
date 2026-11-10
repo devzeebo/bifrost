@@ -1,10 +1,11 @@
+using Bifrost.Capabilities.Chat;
 using Bifrost.Skills.Contracts;
 
 namespace Bifrost.Capabilities.Editor;
 
 /// <summary>
-/// Builds cross-layer proposal effects for an intended layer edit so ask, criteria, and evals
-/// stay one agreement. Never emits ReplaceSkill — skill staleness is a read comparison.
+/// Builds cross-layer proposal effects for an intended layer edit so ask, criteria, evals,
+/// and skill stay one agreement. When a skill draft already exists, sync includes ReplaceSkill.
 /// </summary>
 public static class LayerSyncComposer
 {
@@ -20,7 +21,11 @@ public static class LayerSyncComposer
         public required bool RequiresProposal { get; init; }
     }
 
-    public static Composition FromAskEdit(CapabilityVersionSnapshot current, string newAsk)
+    public static Composition FromAskEdit(
+        CapabilityVersionSnapshot current,
+        string newAsk,
+        string skillMarkdown = ""
+    )
     {
         var ask = newAsk.Trim();
         var effects = new List<ProposalEffect>
@@ -59,20 +64,25 @@ public static class LayerSyncComposer
             }
         }
 
-        return new Composition
-        {
-            Summary = wordingChanged
-                ? "Amend ask and sync criteria"
-                : "Amend ask",
-            Effects = effects,
-            RequiresProposal = wordingChanged,
-        };
+        return IncludeSkillDraft(
+            new Composition
+            {
+                Summary = wordingChanged
+                    ? "Amend ask and sync criteria"
+                    : "Amend ask",
+                Effects = effects,
+                RequiresProposal = wordingChanged,
+            },
+            current,
+            skillMarkdown
+        );
     }
 
     public static Composition FromCriterionEdit(
         CapabilityVersionSnapshot current,
         Guid criterionId,
-        string newStatement
+        string newStatement,
+        string skillMarkdown = ""
     )
     {
         var criterion =
@@ -111,14 +121,18 @@ public static class LayerSyncComposer
             effects.Add(AmendEvalEffect(eval, statement, eval.Scenario, eval.Prompt, eval.Context));
         }
 
-        return new Composition
-        {
-            Summary = askChanged
-                ? "Sharpen criterion and amend ask"
-                : "Sharpen criterion",
-            Effects = effects,
-            RequiresProposal = askChanged,
-        };
+        return IncludeSkillDraft(
+            new Composition
+            {
+                Summary = askChanged
+                    ? "Sharpen criterion and amend ask"
+                    : "Sharpen criterion",
+                Effects = effects,
+                RequiresProposal = askChanged,
+            },
+            current,
+            skillMarkdown
+        );
     }
 
     public static Composition FromEvalEdit(
@@ -127,7 +141,8 @@ public static class LayerSyncComposer
         string scenario,
         string prompt,
         string context,
-        IReadOnlyList<CheckSnapshot>? requestedChecks
+        IReadOnlyList<CheckSnapshot>? requestedChecks,
+        string skillMarkdown = ""
     )
     {
         var existing =
@@ -208,19 +223,24 @@ public static class LayerSyncComposer
             }
         );
 
-        return new Composition
-        {
-            Summary = wordingChanged
-                ? "Amend eval and sync criterion"
-                : "Amend eval",
-            Effects = effects,
-            RequiresProposal = wordingChanged,
-        };
+        return IncludeSkillDraft(
+            new Composition
+            {
+                Summary = wordingChanged
+                    ? "Amend eval and sync criterion"
+                    : "Amend eval",
+                Effects = effects,
+                RequiresProposal = wordingChanged,
+            },
+            current,
+            skillMarkdown
+        );
     }
 
     public static Composition FromAddCriterion(
         CapabilityVersionSnapshot current,
-        string statement
+        string statement,
+        string skillMarkdown = ""
     )
     {
         var trimmed = statement.Trim();
@@ -269,11 +289,67 @@ public static class LayerSyncComposer
             }
         );
 
+        return IncludeSkillDraft(
+            new Composition
+            {
+                Summary = askChanged
+                    ? "Add criterion, eval, and amend ask"
+                    : "Add criterion and eval",
+                Effects = effects,
+                RequiresProposal = true,
+            },
+            current,
+            skillMarkdown
+        );
+    }
+
+    /// <summary>
+    /// When a skill draft already exists, append ReplaceSkill so the proposal drafts all four layers.
+    /// </summary>
+    public static Composition IncludeSkillDraft(
+        Composition composition,
+        CapabilityVersionSnapshot current,
+        string skillMarkdown
+    )
+    {
+        if (string.IsNullOrEmpty(skillMarkdown))
+        {
+            return composition;
+        }
+
+        var probe = new Proposal
+        {
+            Id = Guid.Empty,
+            CreatedAt = DateTimeOffset.UtcNow,
+            Summary = composition.Summary,
+            ExpectedSkillMarkdown = skillMarkdown,
+            Effects = composition.Effects,
+        };
+        var (next, _, _, _) = ProposalApplicator.Apply(current, skillMarkdown, probe);
+        var draft = SkillAgreementDraft.From(next);
+        if (string.Equals(draft, skillMarkdown, StringComparison.Ordinal))
+        {
+            return composition;
+        }
+
+        var effects = composition
+            .Effects.Where(e => e.Kind != ProposalEffectKinds.ReplaceSkill)
+            .Append(
+                new ProposalEffect
+                {
+                    Kind = ProposalEffectKinds.ReplaceSkill,
+                    Description = "Draft skill against the synced agreement",
+                    Markdown = draft,
+                    ServedCriterionIds = SkillAgreementDraft.ServedCriterionIds(next),
+                }
+            )
+            .ToArray();
+
         return new Composition
         {
-            Summary = askChanged
-                ? "Add criterion, eval, and amend ask"
-                : "Add criterion and eval",
+            Summary = composition.Summary.Contains("skill", StringComparison.OrdinalIgnoreCase)
+                ? composition.Summary
+                : composition.Summary + " and draft skill",
             Effects = effects,
             RequiresProposal = true,
         };

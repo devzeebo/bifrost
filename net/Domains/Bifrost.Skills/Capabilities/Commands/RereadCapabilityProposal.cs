@@ -37,8 +37,15 @@ public static class RereadCapabilityProposalHandler
 
         chat.PendingProposals.RemoveAll(p => p.Id == command.ProposalId);
 
+        var current = new CapabilityVersionSnapshot
+        {
+            Ask = capability.Ask,
+            Criteria = capability.Criteria,
+            Evals = capability.Evals,
+        };
+        var suiteBasis = await DerivationSuiteBasis.Load(session, capability.Id, current);
         var turn = await editor.Reread(
-            CapabilityChatStore.ToEditorContext(capability, chat),
+            CapabilityChatStore.ToEditorContext(capability, chat, suiteBasis),
             stale,
             ct
         );
@@ -48,12 +55,7 @@ public static class RereadCapabilityProposalHandler
             try
             {
                 ProposalApplicator.ValidateEffects(
-                    new CapabilityVersionSnapshot
-                    {
-                        Ask = capability.Ask,
-                        Criteria = capability.Criteria,
-                        Evals = capability.Evals,
-                    },
+                    current,
                     capability.SkillMarkdown,
                     turn.Effects
                 );
@@ -77,7 +79,9 @@ public static class RereadCapabilityProposalHandler
             var reoffered = CapabilityChatStore.OfferProposal(
                 capability,
                 turn.ProposalSummary,
-                turn.Effects
+                turn.Effects,
+                turn.CompositionSummary ?? stale.CompositionSummary,
+                turn.BasisSuiteRunId ?? stale.BasisSuiteRunId
             );
             chat.PendingProposals.Add(reoffered);
             chat.Messages.Add(

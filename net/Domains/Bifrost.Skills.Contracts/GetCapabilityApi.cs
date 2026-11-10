@@ -53,6 +53,7 @@ public static class GetCapabilityApi
         public Guid? CurrentCapabilityVersionId { get; init; }
         public Guid? CurrentSkillVersionId { get; init; }
         public Guid? DerivedAgainstCapabilityVersionId { get; init; }
+        public Guid? DerivedAgainstSuiteRunId { get; init; }
         public bool HasUnsavedCapabilityDraft { get; init; }
         public bool HasUnsavedSkillDraft { get; init; }
 

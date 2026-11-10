@@ -111,15 +111,15 @@ export const DerivedSkillPanel = ({
           {hasPublishedSkill
             ? 'A skill version has been published for real work.'
             : versions.length === 0
-              ? 'No derived skill yet. The skill is the workshop’s output after evals exist.'
-              : 'Skill draft is derived from the agreement; ask chat to re-derive when it goes stale. Versions below are read-only.'}
+              ? 'No derived skill yet. Ask chat to derive one from the criteria and evals.'
+              : 'Skill draft is one view of the agreement with ask, criteria, and evals. Ask chat to derive or re-derive; layer edits draft the skill in the same proposal. Versions below are read-only.'}
         </p>
 
         {isSkillStale ? (
           <p className="border border-signal-dim bg-ink px-3 py-2 text-sm text-signal">
-            Derived skill is stale
-            {formatStaleLayers(skillStaleLayers)}. Ask chat to re-derive it against the current
-            agreement — it is never rewritten silently by a spec change.
+            Derived skill drifted from the agreement
+            {formatStaleLayers(skillStaleLayers)}. Ask chat to re-derive — ordinary edits should
+            have drafted the skill with the other layers.
           </p>
         ) : null}
 

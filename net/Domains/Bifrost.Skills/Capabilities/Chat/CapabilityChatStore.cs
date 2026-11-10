@@ -23,7 +23,8 @@ public static class CapabilityChatStore
 
     public static EditorContext ToEditorContext(
         CapabilityView.Model capability,
-        CapabilityChatDocument chat
+        CapabilityChatDocument chat,
+        DerivationSuiteBasis? suiteBasis = null
     ) =>
         new()
         {
@@ -35,18 +36,23 @@ public static class CapabilityChatStore
             SkillMarkdown = capability.SkillMarkdown,
             CurrentCapabilityVersionId = capability.CurrentCapabilityVersionId,
             Messages = chat.Messages,
+            SuiteBasis = suiteBasis ?? new DerivationSuiteBasis(),
         };
 
     public static Proposal OfferProposal(
         CapabilityView.Model capability,
         string summary,
-        IReadOnlyList<ProposalEffect> effects
+        IReadOnlyList<ProposalEffect> effects,
+        string? compositionSummary = null,
+        Guid? basisSuiteRunId = null
     ) =>
         new()
         {
             Id = Guid.NewGuid(),
             CreatedAt = DateTimeOffset.UtcNow,
             Summary = summary,
+            CompositionSummary = compositionSummary,
+            BasisSuiteRunId = basisSuiteRunId,
             ExpectedCapabilityVersionId = capability.CurrentCapabilityVersionId,
             ExpectedCapabilitySnapshot = new CapabilityVersionSnapshot
             {
@@ -75,4 +81,79 @@ public static class CapabilityChatStore
             Messages = chat.Messages,
             PendingProposals = chat.PendingProposals,
         };
+
+    public static async Task<GetCapabilityChatApi.Response> ToResponseLive(
+        CapabilityChatDocument chat,
+        CapabilityView.Model capability,
+        IQuerySession session
+    )
+    {
+        var current = new CapabilityVersionSnapshot
+        {
+            Ask = capability.Ask,
+            Criteria = capability.Criteria,
+            Evals = capability.Evals,
+        };
+        var refreshed = new List<Proposal>();
+        foreach (var proposal in chat.PendingProposals)
+        {
+            refreshed.Add(await RefreshProposalSummary(proposal, current, session));
+        }
+
+        return new GetCapabilityChatApi.Response
+        {
+            CapabilityId = chat.Id,
+            Messages = chat.Messages,
+            PendingProposals = refreshed,
+        };
+    }
+
+    public static async Task<Proposal> RefreshProposalSummary(
+        Proposal proposal,
+        CapabilityVersionSnapshot current,
+        IQuerySession session
+    )
+    {
+        if (proposal.CompositionSummary is null && proposal.BasisSuiteRunId is null)
+        {
+            return proposal;
+        }
+
+        var composition =
+            proposal.CompositionSummary
+            ?? StripLiveAccount(proposal.Summary);
+
+        if (proposal.BasisSuiteRunId is { } runId)
+        {
+            var basis = await DerivationSuiteBasis.LoadNamed(session, runId, current);
+            if (basis.SuiteRunId is null)
+            {
+                // Named run gone or no longer completed — keep composition, note absence.
+                return proposal with
+                {
+                    Summary = DerivationSummary.WithRunLessPlain(composition),
+                    CompositionSummary = composition,
+                };
+            }
+
+            return proposal with
+            {
+                Summary = DerivationSummary.Display(composition, basis),
+                CompositionSummary = composition,
+            };
+        }
+
+        return proposal with
+        {
+            Summary = DerivationSummary.WithRunLessPlain(composition),
+            CompositionSummary = composition,
+        };
+    }
+
+    static string StripLiveAccount(string summary)
+    {
+        const string marker = " Basis suite run ";
+        var index = summary.IndexOf(marker, StringComparison.Ordinal);
+        return index < 0 ? summary : summary[..index];
+    }
 }

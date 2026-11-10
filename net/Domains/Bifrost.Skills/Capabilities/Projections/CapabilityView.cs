@@ -14,6 +14,7 @@ public class CapabilityView : SingleStreamProjection<CapabilityView.Model, Guid>
         public Guid? CurrentCapabilityVersionId { get; init; }
         public Guid? CurrentSkillVersionId { get; init; }
         public Guid? DerivedAgainstCapabilityVersionId { get; init; }
+        public Guid? DerivedAgainstSuiteRunId { get; init; }
         public IReadOnlyList<CriterionSnapshot> Criteria { get; init; } = [];
         public IReadOnlyList<EvalSnapshot> Evals { get; init; } = [];
         public bool HasUnsavedCapabilityDraft { get; init; }
@@ -74,10 +75,12 @@ public class CapabilityView : SingleStreamProjection<CapabilityView.Model, Guid>
         {
             SkillMarkdown = e.Markdown,
             DerivedAgainstCapabilityVersionId = e.DerivedAgainstCapabilityVersionId,
+            DerivedAgainstSuiteRunId = e.DerivedAgainstSuiteRunId,
             HasUnsavedSkillDraft = !SkillMatches(
                 view.LastRecordedSkillSnapshot,
                 e.Markdown,
-                e.DerivedAgainstCapabilityVersionId
+                e.DerivedAgainstCapabilityVersionId,
+                e.DerivedAgainstSuiteRunId
             ),
         };
 
@@ -86,6 +89,7 @@ public class CapabilityView : SingleStreamProjection<CapabilityView.Model, Guid>
         {
             SkillMarkdown = e.Snapshot.Markdown,
             DerivedAgainstCapabilityVersionId = e.Snapshot.DerivedAgainstCapabilityVersionId,
+            DerivedAgainstSuiteRunId = e.Snapshot.DerivedAgainstSuiteRunId,
             CurrentSkillVersionId = e.VersionId,
             LastRecordedSkillSnapshot = e.Snapshot,
             HasUnsavedSkillDraft = false,
@@ -110,10 +114,12 @@ public class CapabilityView : SingleStreamProjection<CapabilityView.Model, Guid>
         {
             SkillMarkdown = e.Snapshot.Markdown,
             DerivedAgainstCapabilityVersionId = e.Snapshot.DerivedAgainstCapabilityVersionId,
+            DerivedAgainstSuiteRunId = e.Snapshot.DerivedAgainstSuiteRunId,
             HasUnsavedSkillDraft = !SkillMatches(
                 view.LastRecordedSkillSnapshot,
                 e.Snapshot.Markdown,
-                e.Snapshot.DerivedAgainstCapabilityVersionId
+                e.Snapshot.DerivedAgainstCapabilityVersionId,
+                e.Snapshot.DerivedAgainstSuiteRunId
             ),
         };
 
@@ -156,9 +162,11 @@ public class CapabilityView : SingleStreamProjection<CapabilityView.Model, Guid>
     static bool SkillMatches(
         SkillVersionSnapshot? last,
         string markdown,
-        Guid derivedAgainstCapabilityVersionId
+        Guid derivedAgainstCapabilityVersionId,
+        Guid? derivedAgainstSuiteRunId
     ) =>
         last is not null
         && last.Markdown == markdown
-        && last.DerivedAgainstCapabilityVersionId == derivedAgainstCapabilityVersionId;
+        && last.DerivedAgainstCapabilityVersionId == derivedAgainstCapabilityVersionId
+        && last.DerivedAgainstSuiteRunId == derivedAgainstSuiteRunId;
 }

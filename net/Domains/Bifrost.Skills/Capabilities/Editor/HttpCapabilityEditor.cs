@@ -132,11 +132,27 @@ public sealed class HttpCapabilityEditor(
                     "Capability editor returned invalid JSON."
                 );
 
+            var effects = parsed.Effects;
+            Guid? basisSuiteRunId = null;
+            string? compositionSummary = null;
+            // Derivation proposals are ReplaceSkill-only (or skill-first derive). Sync-with-skill
+            // keeps a plain proposal summary without suite-basis live account.
+            if (
+                effects is { Count: > 0 }
+                && effects.All(e => e.Kind == ProposalEffectKinds.ReplaceSkill)
+            )
+            {
+                compositionSummary = parsed.ProposalSummary;
+                basisSuiteRunId = context.SuiteBasis.SuiteRunId;
+            }
+
             return new EditorTurn
             {
                 AssistantText = parsed.AssistantText ?? "",
                 ProposalSummary = parsed.ProposalSummary,
-                Effects = parsed.Effects,
+                CompositionSummary = compositionSummary,
+                BasisSuiteRunId = basisSuiteRunId,
+                Effects = effects,
                 WithdrawNote = parsed.WithdrawNote,
             };
         }
@@ -218,7 +234,10 @@ public sealed class HttpCapabilityEditor(
         );
         sb.AppendLine("List every layer an edit touches in effects before the person applies.");
         sb.AppendLine(
-            "Sync contract: ask, criteria, and evals are one agreement. Rewording the ask must re-read affected criteria and update their evals in the same proposal. Sharpening a criterion must amend the ask when the ask's wording came from it, and re-derive linked eval checks. Amending an eval scenario that detaches from its criterion must carry the criterion (and ask) edit too. Adding a criterion should amend the ask so it reads as if the criterion was always there, and include proving eval(s). Never silently rewrite the derived skill in ordinary sync — omit ReplaceSkill unless the person asked to edit the skill; the skill goes stale until they re-derive."
+            "Sync contract: ask, criteria, evals, and skill are four views of one agreement. Rewording the ask must re-read affected criteria and update their evals in the same proposal. Sharpening a criterion must amend the ask when the ask's wording came from it, and re-derive linked eval checks. Amending an eval scenario that detaches from its criterion must carry the criterion (and ask) edit too. Adding a criterion should amend the ask so it reads as if the criterion was always there, and include proving eval(s). When a skill draft already exists, every sync proposal that changes layers must also include ReplaceSkill drafted against the post-sync agreement — never leave the skill behind. When the person asks to derive or re-derive the skill, emit ReplaceSkill composed to satisfy the criteria and evals (and the suite basis below)."
+        );
+        sb.AppendLine(
+            "Retiring the last eval behind a criterion must also RetireCriterion in the same proposal — do not leave an uncovered criterion."
         );
         sb.AppendLine(
             "Ambiguity always proposes a choice; never silently retire wording or pick between contradictory sync updates."
@@ -229,6 +248,32 @@ public sealed class HttpCapabilityEditor(
         sb.AppendLine($"Criteria: {JsonSerializer.Serialize(context.Criteria, JsonOptions)}");
         sb.AppendLine($"Evals: {JsonSerializer.Serialize(context.Evals, JsonOptions)}");
         sb.AppendLine($"Skill markdown: {context.SkillMarkdown}");
+        if (context.SuiteBasis.SuiteRunId is { } runId)
+        {
+            sb.AppendLine($"Newest completed suite run id: {runId:N}");
+            sb.AppendLine(
+                $"Suite settled failures (eval ids): {JsonSerializer.Serialize(context.SuiteBasis.FailedEvalIds, JsonOptions)}"
+            );
+            sb.AppendLine(
+                $"Suite settled passes (eval ids): {JsonSerializer.Serialize(context.SuiteBasis.PassedEvalIds, JsonOptions)}"
+            );
+            sb.AppendLine(
+                $"Suite unsettled: {JsonSerializer.Serialize(context.SuiteBasis.Unsettled, JsonOptions)}"
+            );
+            sb.AppendLine(
+                $"Eval words moved since that run (eval ids): {JsonSerializer.Serialize(context.SuiteBasis.MovedEvalIds, JsonOptions)}"
+            );
+            sb.AppendLine(
+                "For ReplaceSkill-only derivation, proposalSummary must name only which criteria/evals each skill part serves and what was left out and why. Do not put suite-run ids, fail/pass/unsettled counts, or moved-words notices in proposalSummary — the service appends that live account."
+            );
+        }
+        else
+        {
+            sb.AppendLine(
+                "No completed suite run. For ReplaceSkill-only derivation, proposalSummary must name only served mapping and left-outs; the service appends the plain first-run-failures statement."
+            );
+        }
+
         return sb.ToString();
     }
 

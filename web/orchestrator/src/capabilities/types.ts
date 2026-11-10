@@ -126,6 +126,7 @@ export type CapabilityVersionSnapshot = {
 export type SkillVersionSnapshot = {
   readonly markdown: string
   readonly derivedAgainstCapabilityVersionId: string
+  readonly derivedAgainstSuiteRunId?: string | null
 }
 
 export type SkillStaleLayers = {
@@ -145,6 +146,7 @@ export type CapabilityDetail = {
   readonly currentCapabilityVersionId: string | null
   readonly currentSkillVersionId: string | null
   readonly derivedAgainstCapabilityVersionId: string | null
+  readonly derivedAgainstSuiteRunId: string | null
   readonly hasUnsavedCapabilityDraft: boolean
   readonly hasUnsavedSkillDraft: boolean
   readonly isSkillStale: boolean
@@ -165,6 +167,7 @@ export type VersionSummary = {
 
 export type SkillVersionSummary = VersionSummary & {
   readonly derivedAgainstCapabilityVersionId: string
+  readonly derivedAgainstSuiteRunId?: string | null
 }
 
 export type CapabilityVersionDetail = {
@@ -202,6 +205,8 @@ export type Proposal = {
   readonly id: string
   readonly createdAt: string
   readonly summary: string
+  readonly compositionSummary?: string | null
+  readonly basisSuiteRunId?: string | null
   readonly expectedCapabilityVersionId: string | null
   readonly expectedCapabilitySnapshot?: CapabilityVersionSnapshot | null
   readonly expectedSkillMarkdown: string

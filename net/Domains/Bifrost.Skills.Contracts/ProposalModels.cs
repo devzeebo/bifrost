@@ -27,6 +27,17 @@ public sealed record Proposal
     public required Guid Id { get; init; }
     public required DateTimeOffset CreatedAt { get; init; }
     public required string Summary { get; init; }
+
+    /// <summary>
+    /// Fixed composition text (served mapping / left-outs). Live run account is merged into Summary.
+    /// </summary>
+    public string? CompositionSummary { get; init; }
+
+    /// <summary>
+    /// Newest completed suite run named at compose; null for run-less derivation.
+    /// </summary>
+    public Guid? BasisSuiteRunId { get; init; }
+
     public Guid? ExpectedCapabilityVersionId { get; init; }
     public CapabilityVersionSnapshot? ExpectedCapabilitySnapshot { get; init; }
     public required string ExpectedSkillMarkdown { get; init; }

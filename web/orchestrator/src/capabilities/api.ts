@@ -463,6 +463,7 @@ const parseCapabilityDetail = (value: unknown): CapabilityDetail => {
     currentCapabilityVersionId: optionalGuid(value['currentCapabilityVersionId']),
     currentSkillVersionId: optionalGuid(value['currentSkillVersionId']),
     derivedAgainstCapabilityVersionId: optionalGuid(value['derivedAgainstCapabilityVersionId']),
+    derivedAgainstSuiteRunId: optionalGuid(value['derivedAgainstSuiteRunId']),
     hasUnsavedCapabilityDraft,
     hasUnsavedSkillDraft,
     isSkillStale,
@@ -534,7 +535,11 @@ const parseSkillVersionSummary = (value: unknown): SkillVersionSummary => {
   if (typeof derivedAgainstCapabilityVersionId !== 'string') {
     throw new CapabilityApiError('Skill version list response was invalid')
   }
-  return { ...base, derivedAgainstCapabilityVersionId }
+  return {
+    ...base,
+    derivedAgainstCapabilityVersionId,
+    derivedAgainstSuiteRunId: optionalGuid(value['derivedAgainstSuiteRunId']),
+  }
 }
 
 const parseCapabilityVersionDetail = (value: unknown): CapabilityVersionDetail => {
@@ -627,6 +632,7 @@ const parseSkillVersionSnapshot = (value: unknown): SkillVersionSnapshot => {
   return {
     markdown: value['markdown'],
     derivedAgainstCapabilityVersionId: value['derivedAgainstCapabilityVersionId'],
+    derivedAgainstSuiteRunId: optionalGuid(value['derivedAgainstSuiteRunId']),
   }
 }
 
@@ -804,6 +810,8 @@ const parseProposal = (value: unknown): Proposal => {
     id: value['id'],
     createdAt: value['createdAt'],
     summary: value['summary'],
+    compositionSummary: optionalString(value['compositionSummary']),
+    basisSuiteRunId: optionalGuid(value['basisSuiteRunId']),
     expectedCapabilityVersionId: optionalGuid(value['expectedCapabilityVersionId']),
     expectedCapabilitySnapshot:
       value['expectedCapabilitySnapshot'] == null

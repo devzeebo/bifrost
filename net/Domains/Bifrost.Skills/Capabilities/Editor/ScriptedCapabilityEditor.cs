@@ -50,6 +50,8 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
                 AssistantText =
                     "The capability changed while I was working. Here is an updated proposal against the current material.",
                 ProposalSummary = stale.Summary + " (re-read)",
+                CompositionSummary = stale.CompositionSummary,
+                BasisSuiteRunId = stale.BasisSuiteRunId,
                 Effects = rebuilt,
             }
         );
@@ -61,7 +63,11 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
         if (text.StartsWith("add criterion:", StringComparison.OrdinalIgnoreCase))
         {
             var statement = text["add criterion:".Length..].Trim();
-            var composition = LayerSyncComposer.FromAddCriterion(Snapshot(context), statement);
+            var composition = LayerSyncComposer.FromAddCriterion(
+                Snapshot(context),
+                statement,
+                context.SkillMarkdown
+            );
             return new EditorTurn
             {
                 AssistantText =
@@ -72,6 +78,15 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
                 ProposalSummary = composition.Summary,
                 Effects = composition.Effects,
             };
+        }
+
+        if (
+            text.Equals("derive skill", StringComparison.OrdinalIgnoreCase)
+            || text.Equals("re-derive skill", StringComparison.OrdinalIgnoreCase)
+            || text.Equals("rederive skill", StringComparison.OrdinalIgnoreCase)
+        )
+        {
+            return DeriveSkill(context);
         }
 
         if (text.StartsWith("sharpen ", StringComparison.OrdinalIgnoreCase))
@@ -117,7 +132,11 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
         if (text.StartsWith("reword ask:", StringComparison.OrdinalIgnoreCase))
         {
             var ask = text["reword ask:".Length..].Trim();
-            var composition = LayerSyncComposer.FromAskEdit(Snapshot(context), ask);
+            var composition = LayerSyncComposer.FromAskEdit(
+                Snapshot(context),
+                ask,
+                context.SkillMarkdown
+            );
             return new EditorTurn
             {
                 AssistantText = composition.RequiresProposal
@@ -171,7 +190,70 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
         return new EditorTurn
         {
             AssistantText =
-                "I can help edit this capability. Try: add criterion: …, sharpen <criterion-id>:<statement>, split <criterion-id>, retire <criterion-id>, add eval <criterion-id>:<scenario>, edge case <criterion-id>:<scenario>, amend eval <eval-id>:<scenario>, duplicate eval <eval-id>, retire eval <eval-id>, set check kind <eval-id>:<check-id>:Script|HumanReview, reword ask: …, replace skill: …, or bundle: …",
+                "I can help edit this capability. Try: add criterion: …, sharpen <criterion-id>:<statement>, split <criterion-id>, retire <criterion-id>, add eval <criterion-id>:<scenario>, edge case <criterion-id>:<scenario>, amend eval <eval-id>:<scenario>, duplicate eval <eval-id>, retire eval <eval-id>, set check kind <eval-id>:<check-id>:Script|HumanReview, reword ask: …, derive skill, replace skill: …, or bundle: …",
+        };
+    }
+
+    static EditorTurn DeriveSkill(EditorContext context)
+    {
+        var agreement = Snapshot(context);
+        if (agreement.Criteria.Count == 0)
+        {
+            return new EditorTurn
+            {
+                AssistantText =
+                    "There are no criteria yet. Add criteria and evals before deriving a skill.",
+            };
+        }
+
+        var leftOut = new List<DerivationSummary.LeftOut>();
+        var served = new List<Guid>();
+        foreach (var criterion in agreement.Criteria)
+        {
+            var hasEvals = agreement.Evals.Any(e => e.CriterionId == criterion.Id);
+            if (!hasEvals)
+            {
+                leftOut.Add(
+                    new DerivationSummary.LeftOut(
+                        criterion.Statement,
+                        "no evals to satisfy it yet"
+                    )
+                );
+                continue;
+            }
+
+            served.Add(criterion.Id);
+        }
+
+        var markdown = SkillAgreementDraft.From(agreement);
+        var composition = DerivationSummary.Composition(agreement, served, leftOut);
+        var basis = context.SuiteBasis;
+        var display = DerivationSummary.Display(
+            basis.SuiteRunId is null
+                ? DerivationSummary.WithRunLessPlain(composition)
+                : composition,
+            basis.SuiteRunId is null ? null : basis
+        );
+
+        return new EditorTurn
+        {
+            AssistantText =
+                basis.SuiteRunId is null
+                    ? "Proposed a skill draft from the criteria and evals. No suite has completed yet — first-run failures are expected."
+                    : "Proposed a skill draft composed to satisfy the suite.",
+            ProposalSummary = display,
+            CompositionSummary = composition,
+            BasisSuiteRunId = basis.SuiteRunId,
+            Effects =
+            [
+                new ProposalEffect
+                {
+                    Kind = ProposalEffectKinds.ReplaceSkill,
+                    Description = "Derive skill from criteria and evals",
+                    Markdown = markdown,
+                    ServedCriterionIds = served,
+                },
+            ],
         };
     }
 
@@ -201,7 +283,8 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
         var composition = LayerSyncComposer.FromCriterionEdit(
             Snapshot(context),
             criterionId,
-            parts[1]
+            parts[1],
+            context.SkillMarkdown
         );
         return new EditorTurn
         {
@@ -252,11 +335,21 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
                 ],
             }
         );
+        var split = LayerSyncComposer.IncludeSkillDraft(
+            new LayerSyncComposer.Composition
+            {
+                Summary = "Split criterion",
+                Effects = effects,
+                RequiresProposal = true,
+            },
+            Snapshot(context),
+            context.SkillMarkdown
+        );
         return new EditorTurn
         {
             AssistantText = "Proposed splitting a criterion into two.",
-            ProposalSummary = "Split criterion",
-            Effects = effects,
+            ProposalSummary = split.Summary,
+            Effects = split.Effects,
         };
     }
 
@@ -282,11 +375,21 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
                 CriterionId = criterionId,
             }
         );
+        var retire = LayerSyncComposer.IncludeSkillDraft(
+            new LayerSyncComposer.Composition
+            {
+                Summary = "Retire criterion",
+                Effects = effects,
+                RequiresProposal = true,
+            },
+            Snapshot(context),
+            context.SkillMarkdown
+        );
         return new EditorTurn
         {
             AssistantText = "Proposed retiring a criterion.",
-            ProposalSummary = "Retire criterion",
-            Effects = effects,
+            ProposalSummary = retire.Summary,
+            Effects = retire.Effects,
         };
     }
 
@@ -369,7 +472,8 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
             parts[1],
             parts[1],
             existing.Context,
-            requestedChecks: null
+            requestedChecks: null,
+            context.SkillMarkdown
         );
         return new EditorTurn
         {
@@ -453,16 +557,26 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
             }
         );
 
+        var composition = LayerSyncComposer.IncludeSkillDraft(
+            new LayerSyncComposer.Composition
+            {
+                Summary = effects.Any(e => e.Kind == ProposalEffectKinds.AmendAsk)
+                    ? "Add edge-case eval and sync upward"
+                    : "Add edge-case eval",
+                Effects = effects,
+                RequiresProposal = true,
+            },
+            Snapshot(context),
+            context.SkillMarkdown
+        );
         return new EditorTurn
         {
             AssistantText =
                 effects.Any(e => e.Kind is ProposalEffectKinds.AmendAsk or ProposalEffectKinds.SharpenCriterion)
                     ? "Proposed an edge-case eval and synced the criterion and ask upward."
                     : "Proposed an edge-case eval behind the criterion.",
-            ProposalSummary = effects.Any(e => e.Kind == ProposalEffectKinds.AmendAsk)
-                ? "Add edge-case eval and sync upward"
-                : "Add edge-case eval",
-            Effects = effects,
+            ProposalSummary = composition.Summary,
+            Effects = composition.Effects,
         };
     }
 
@@ -510,29 +624,54 @@ public sealed class ScriptedCapabilityEditor : ICapabilityEditor
         }
 
         var remaining = context.Evals.Count(e => e.CriterionId == existing.CriterionId);
-        var callout =
-            remaining == 1
-                ? " This is the last eval behind its criterion; retiring it leaves the criterion uncovered."
-                : "";
+        var effects = new List<ProposalEffect>
+        {
+            new()
+            {
+                Kind = ProposalEffectKinds.RetireEval,
+                Description =
+                    remaining == 1
+                        ? "Retire last eval — and retire the criterion with it"
+                        : "Retire eval",
+                EvalId = evalId,
+                CriterionId = existing.CriterionId,
+                Scenario = existing.Scenario,
+            },
+        };
+        if (remaining == 1)
+        {
+            effects.Add(
+                new ProposalEffect
+                {
+                    Kind = ProposalEffectKinds.RetireCriterion,
+                    Description = "Retire criterion left without evals",
+                    CriterionId = existing.CriterionId,
+                }
+            );
+        }
+
+        var composition = LayerSyncComposer.IncludeSkillDraft(
+            new LayerSyncComposer.Composition
+            {
+                Summary =
+                    remaining == 1
+                        ? "Retire last eval and its criterion"
+                        : "Retire eval",
+                Effects = effects,
+                RequiresProposal = true,
+            },
+            Snapshot(context),
+            context.SkillMarkdown
+        );
 
         return new EditorTurn
         {
-            AssistantText = $"Proposed retiring an eval.{callout}",
-            ProposalSummary = remaining == 1 ? "Retire last eval for criterion" : "Retire eval",
-            Effects =
-            [
-                new ProposalEffect
-                {
-                    Kind = ProposalEffectKinds.RetireEval,
-                    Description =
-                        remaining == 1
-                            ? "Retire last eval — criterion will be uncovered"
-                            : "Retire eval",
-                    EvalId = evalId,
-                    CriterionId = existing.CriterionId,
-                    Scenario = existing.Scenario,
-                },
-            ],
+            AssistantText =
+                remaining == 1
+                    ? "Proposed retiring the last eval and its criterion so the layers stay one agreement."
+                    : "Proposed retiring an eval.",
+            ProposalSummary = composition.Summary,
+            Effects = composition.Effects,
         };
     }
 
