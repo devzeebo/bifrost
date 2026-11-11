@@ -57,6 +57,22 @@ public static class WorkflowsServiceCollectionExtensions
                             new BusError { Code = BusErrorCodes.NotFound, Message = ex.Message }
                         );
                     }
+                    catch (ConcurrencyConflictException ex)
+                    {
+                        throw new BusException(
+                            new BusError { Code = BusErrorCodes.Conflict, Message = ex.Message }
+                        );
+                    }
+                    catch (JasperFx.Events.EventStreamUnexpectedMaxEventIdException)
+                    {
+                        throw new BusException(
+                            new BusError
+                            {
+                                Code = BusErrorCodes.Conflict,
+                                Message = "Workflow changed since it was opened.",
+                            }
+                        );
+                    }
                 }
             );
         }
@@ -90,6 +106,12 @@ public static class WorkflowsServiceCollectionExtensions
                     {
                         throw new BusException(
                             new BusError { Code = BusErrorCodes.NotFound, Message = ex.Message }
+                        );
+                    }
+                    catch (ConcurrencyConflictException ex)
+                    {
+                        throw new BusException(
+                            new BusError { Code = BusErrorCodes.Conflict, Message = ex.Message }
                         );
                     }
                 }

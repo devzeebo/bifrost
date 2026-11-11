@@ -101,6 +101,8 @@ public class WorkflowTests
                         new
                         {
                             id = nodeId,
+                            name = "start",
+                            position = new { x = 12.5, y = 40 },
                             inputs = new[]
                             {
                                 new
@@ -130,9 +132,13 @@ public class WorkflowTests
         got.ShouldNotBeNull();
         got.Id.ShouldBe(workflowId);
         got.Name.ShouldBe("bdd workflow");
+        got.Version.ShouldBe(1);
         got.Connections.ShouldBeEmpty();
         got.Nodes.Count.ShouldBe(1);
         got.Nodes[0].Id.ShouldBe(nodeId);
+        got.Nodes[0].Name.ShouldBe("start");
+        got.Nodes[0].Position.X.ShouldBe(12.5);
+        got.Nodes[0].Position.Y.ShouldBe(40);
         var definition = got.Nodes[0].Definition;
         definition.ShouldNotBeNull();
         definition!.Style.ShouldBe("harness");
@@ -294,6 +300,7 @@ public class WorkflowTests
             {
                 id = workflowId,
                 name = "bad-types",
+                    expectedVersion = 1L,
                 nodes = new[]
                 {
                     Node(
@@ -349,6 +356,7 @@ public class WorkflowTests
             {
                 id = workflowId,
                 name = "missing-port",
+                    expectedVersion = 1L,
                 nodes = new[]
                 {
                     Node(
@@ -393,6 +401,7 @@ public class WorkflowTests
             {
                 id = workflowId,
                 name = "wrong-kind-output",
+                    expectedVersion = 1L,
                 nodes = new[]
                 {
                     Node(
@@ -444,6 +453,7 @@ public class WorkflowTests
             {
                 id = workflowId,
                 name = "wrong-kind-input",
+                    expectedVersion = 1L,
                 nodes = new[]
                 {
                     Node(
@@ -495,6 +505,7 @@ public class WorkflowTests
             {
                 id = workflowId,
                 name = "fan-in",
+                    expectedVersion = 1L,
                 nodes = new[]
                 {
                     Node(
@@ -559,6 +570,7 @@ public class WorkflowTests
             {
                 id = workflowId,
                 name = "cycle",
+                    expectedVersion = 1L,
                 nodes = new[]
                 {
                     Node(
@@ -656,6 +668,7 @@ public class WorkflowTests
                 {
                     id = workflowId,
                     name = "unlinked",
+                    expectedVersion = 1L,
                     nodes,
                     connections = Array.Empty<object>(),
                 }
@@ -665,6 +678,7 @@ public class WorkflowTests
         var got = await Query<GetWorkflowApi.Response>(client, $"/get-workflow/{workflowId}");
         got.ShouldNotBeNull();
         got.Name.ShouldBe("unlinked");
+        got.Version.ShouldBe(2);
         got.Connections.ShouldBeEmpty();
     }
 
@@ -684,11 +698,14 @@ public class WorkflowTests
             {
                 id = workflowId,
                 name = "no-schema",
+                    expectedVersion = 1L,
                 nodes = new[]
                 {
                     new
                     {
                         id = nodeId,
+                        name = "broken",
+                        position = new { x = 0, y = 0 },
                         inputs = new[]
                         {
                             new
@@ -748,6 +765,7 @@ public class WorkflowTests
                 {
                     id = workflowId,
                     name = "saved",
+                    expectedVersion = 1L,
                     nodes = new[]
                     {
                         Node(
@@ -765,6 +783,7 @@ public class WorkflowTests
         var got = await Query<GetWorkflowApi.Response>(client, $"/get-workflow/{workflowId}");
         got.ShouldNotBeNull();
         got.Name.ShouldBe("saved");
+        got.Version.ShouldBe(2);
         got.Nodes.Count.ShouldBe(1);
         got.Nodes[0].Id.ShouldBe(secondNodeId);
         got.Nodes[0].Definition!.Style.ShouldBe("harness");
@@ -787,11 +806,14 @@ public class WorkflowTests
             {
                 id = workflowId,
                 name = "draft",
+                    expectedVersion = 1L,
                 nodes = new[]
                 {
                     new
                     {
                         id = nodeId,
+                        name = "unnamed-def",
+                        position = new { x = 0, y = 0 },
                         inputs = Array.Empty<object>(),
                         outputs = Array.Empty<object>(),
                     },
@@ -801,7 +823,44 @@ public class WorkflowTests
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         var body = await response.Content.ReadAsStringAsync();
-        body.ShouldContain($"Node '{nodeId}' is missing a definition.");
+        body.ShouldContain($"Node 'unnamed-def ({nodeId})' is missing a definition.");
+    }
+
+    [Fact]
+    public async Task save_rejects_null_position_with_clear_reason()
+    {
+        var client = _factory.CreateClient();
+        var workflowId = Guid.NewGuid();
+        var nodeId = Guid.NewGuid();
+
+        await CreateEmpty(client, workflowId);
+
+        var response = await Post(
+            client,
+            "/save-workflow",
+            new
+            {
+                id = workflowId,
+                name = "draft",
+                expectedVersion = 1L,
+                nodes = new[]
+                {
+                    new
+                    {
+                        id = nodeId,
+                        name = "no-position",
+                        position = (object?)null,
+                        inputs = Array.Empty<object>(),
+                        outputs = Array.Empty<object>(),
+                        definition = new { style = "script", spec = new { body = "" } },
+                    },
+                },
+            }
+        );
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        var body = await response.Content.ReadAsStringAsync();
+        body.ShouldContain($"Node 'no-position ({nodeId})' is missing a position.");
     }
 
     [Fact]
@@ -820,11 +879,14 @@ public class WorkflowTests
             {
                 id = workflowId,
                 name = "draft",
+                    expectedVersion = 1L,
                 nodes = new[]
                 {
                     new
                     {
                         id = nodeId,
+                        name = "bad-style",
+                        position = new { x = 0, y = 0 },
                         inputs = Array.Empty<object>(),
                         outputs = Array.Empty<object>(),
                         definition = new { style = "container", spec = new { } },
@@ -878,6 +940,115 @@ public class WorkflowTests
         body.ShouldContain($"Workflow {missingId} not found.");
     }
 
+    [Fact]
+    public async Task save_with_stale_version_returns_conflict_and_leaves_record()
+    {
+        var client = _factory.CreateClient();
+        var workflowId = Guid.NewGuid();
+        await CreateEmpty(client, workflowId);
+
+        (
+            await Post(
+                client,
+                "/save-workflow",
+                new
+                {
+                    id = workflowId,
+                    name = "first",
+                    expectedVersion = 1L,
+                    nodes = new[]
+                    {
+                        Node(Guid.NewGuid(), "script", inputs: [], outputs: [], name: "a", x: 1, y: 2),
+                    },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var conflict = await Post(
+            client,
+            "/save-workflow",
+            new
+            {
+                id = workflowId,
+                name = "stale",
+                expectedVersion = 1L,
+                nodes = Array.Empty<object>(),
+            }
+        );
+        conflict.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        (await conflict.Content.ReadAsStringAsync()).ShouldContain(
+            "Workflow changed since it was opened."
+        );
+
+        var got = await Query<GetWorkflowApi.Response>(client, $"/get-workflow/{workflowId}");
+        got.ShouldNotBeNull();
+        got.Name.ShouldBe("first");
+        got.Version.ShouldBe(2);
+        got.Nodes.Count.ShouldBe(1);
+        got.Nodes[0].Name.ShouldBe("a");
+        got.Nodes[0].Position.X.ShouldBe(1);
+        got.Nodes[0].Position.Y.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task save_overwrite_replaces_despite_stale_version()
+    {
+        var client = _factory.CreateClient();
+        var workflowId = Guid.NewGuid();
+        await CreateEmpty(client, workflowId);
+
+        (
+            await Post(
+                client,
+                "/save-workflow",
+                new
+                {
+                    id = workflowId,
+                    name = "first",
+                    expectedVersion = 1L,
+                    nodes = new[]
+                    {
+                        Node(Guid.NewGuid(), "script", inputs: [], outputs: [], name: "old"),
+                    },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (
+            await Post(
+                client,
+                "/save-workflow",
+                new
+                {
+                    id = workflowId,
+                    name = "overwritten",
+                    expectedVersion = 1L,
+                    overwrite = true,
+                    nodes = new[]
+                    {
+                        Node(
+                            Guid.NewGuid(),
+                            "harness",
+                            inputs: [],
+                            outputs: [],
+                            name: "new",
+                            x: 9,
+                            y: 8
+                        ),
+                    },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var got = await Query<GetWorkflowApi.Response>(client, $"/get-workflow/{workflowId}");
+        got.ShouldNotBeNull();
+        got.Name.ShouldBe("overwritten");
+        got.Version.ShouldBe(3);
+        got.Nodes.Single().Name.ShouldBe("new");
+        got.Nodes.Single().Position.X.ShouldBe(9);
+        got.Nodes.Single().Position.Y.ShouldBe(8);
+    }
+
     static async Task CreateEmpty(HttpClient client, Guid workflowId)
     {
         (
@@ -899,11 +1070,16 @@ public class WorkflowTests
         string style,
         object[] inputs,
         object[] outputs,
-        object? spec = null
+        object? spec = null,
+        string? name = null,
+        double x = 0,
+        double y = 0
     ) =>
         new
         {
             id,
+            name = name ?? $"node-{id.ToString()[..8]}",
+            position = new { x, y },
             inputs,
             outputs,
             definition = new
@@ -933,6 +1109,7 @@ public class WorkflowTests
             !response.IsSuccessStatusCode
             && response.StatusCode != HttpStatusCode.BadRequest
             && response.StatusCode != HttpStatusCode.NotFound
+            && response.StatusCode != HttpStatusCode.Conflict
         )
         {
             var content = await response.Content.ReadAsStringAsync();

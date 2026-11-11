@@ -185,6 +185,22 @@ export default defineConfig({
         target: 'http://127.0.0.1:8082',
         changeOrigin: true,
       },
+      '/create-workflow': {
+        target: 'http://127.0.0.1:8083',
+        changeOrigin: true,
+      },
+      '/save-workflow': {
+        target: 'http://127.0.0.1:8083',
+        changeOrigin: true,
+      },
+      '/get-workflow': {
+        target: 'http://127.0.0.1:8083',
+        changeOrigin: true,
+      },
+      '/list-workflows': {
+        target: 'http://127.0.0.1:8083',
+        changeOrigin: true,
+      },
     },
   },
 

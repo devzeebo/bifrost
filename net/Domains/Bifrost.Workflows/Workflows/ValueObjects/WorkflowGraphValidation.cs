@@ -36,17 +36,31 @@ public static class WorkflowGraphValidation
                 throw new CommandValidationException($"Duplicate node id '{node.Id}'.");
             }
 
+            if (string.IsNullOrWhiteSpace(node.Name))
+            {
+                throw new CommandValidationException(
+                    $"Node '{node.Id}' is missing a name."
+                );
+            }
+
+            if (node.Position is null)
+            {
+                throw new CommandValidationException(
+                    $"Node '{Describe(node)}' is missing a position."
+                );
+            }
+
             if (node.Definition is null)
             {
                 throw new CommandValidationException(
-                    $"Node '{node.Id}' is missing a definition."
+                    $"Node '{Describe(node)}' is missing a definition."
                 );
             }
 
             if (string.IsNullOrWhiteSpace(node.Definition.Style))
             {
                 throw new CommandValidationException(
-                    $"Node '{node.Id}' is missing a definition style."
+                    $"Node '{Describe(node)}' is missing a definition style."
                 );
             }
 
@@ -66,6 +80,8 @@ public static class WorkflowGraphValidation
             normalizedNodes.Add(
                 node with
                 {
+                    Name = node.Name.Trim(),
+                    Position = node.Position,
                     Definition = new NodeDefinition
                     {
                         Style = style.Value,
@@ -99,7 +115,7 @@ public static class WorkflowGraphValidation
             if (string.IsNullOrWhiteSpace(port.Name))
             {
                 throw new CommandValidationException(
-                    $"Node '{node.Id}' has a port with an empty name."
+                    $"Node '{Describe(node)}' has a port with an empty name."
                 );
             }
 
@@ -207,6 +223,9 @@ public static class WorkflowGraphValidation
         RejectCycles(adjacency);
         return normalized;
     }
+
+    static string Describe(WorkflowNode node) =>
+        string.IsNullOrWhiteSpace(node.Name) ? node.Id.ToString() : $"{node.Name.Trim()} ({node.Id})";
 
     static string DescribeMissingOrWrongKind(
         Guid connectionId,

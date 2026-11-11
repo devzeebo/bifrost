@@ -1,11 +1,11 @@
 import { Link } from '@tanstack/react-router'
 
 type AppNavProps = {
-  readonly current: 'status' | 'usage' | 'skills'
+  readonly current: 'status' | 'usage' | 'skills' | 'workflows'
 }
 
 export const AppNav = ({ current }: AppNavProps) => (
-  <nav className="flex gap-4 text-sm">
+  <nav className="flex flex-wrap gap-4 text-sm">
     <Link
       to="/"
       className={current === 'status' ? 'text-signal' : 'text-muted hover:text-fg'}
@@ -23,6 +23,12 @@ export const AppNav = ({ current }: AppNavProps) => (
       className={current === 'skills' ? 'text-signal' : 'text-muted hover:text-fg'}
     >
       Skills
+    </Link>
+    <Link
+      to="/workflows"
+      className={current === 'workflows' ? 'text-signal' : 'text-muted hover:text-fg'}
+    >
+      Workflows
     </Link>
   </nav>
 )

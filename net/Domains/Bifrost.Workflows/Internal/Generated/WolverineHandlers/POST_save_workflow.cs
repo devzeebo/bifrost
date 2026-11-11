@@ -31,26 +31,13 @@ namespace Internal.Generated.WolverineHandlers
             var messageContext = new Wolverine.Runtime.MessageContext(_wolverineRuntime);
             // Building the Marten session
             await using var documentSession = _outboxedSessionFactory.OpenSession(messageContext);
+            System.Diagnostics.Activity.Current?.SetTag("handler.type", "Bifrost.Workflows.Commands.SaveWorkflowHandler");
             // Reading the request body via JSON deserialization
             var (command, jsonContinue) = await ReadJsonAsync<Bifrost.Workflows.Contracts.SaveWorkflowApi.Command>(httpContext);
             if (jsonContinue == Wolverine.HandlerContinuation.Stop) return;
-            var workflow_Id = command.Id;
-            // Application-specific Open Telemetry auditing
-            System.Diagnostics.Activity.Current?.SetTag("id", command.Id);
-            System.Diagnostics.Activity.Current?.SetTag("handler.type", "Bifrost.Workflows.Commands.SaveWorkflowHandler");
-            // Loading Marten aggregate as part of the aggregate handler workflow
-            var eventStreamOfWorkflow = await documentSession.Events.FetchForWriting<Bifrost.Workflows.Aggregate.Workflow>(workflow_Id, httpContext.RequestAborted);
-            System.Diagnostics.Activity.Current?.SetTag("wolverine.stream.id", workflow_Id);
-            System.Diagnostics.Activity.Current?.SetTag("wolverine.stream.type", "Bifrost.Workflows.Aggregate.Workflow");
-            Bifrost.Workflows.Commands.SaveWorkflowHandler.Validate(command, eventStreamOfWorkflow.Aggregate);
             
             // The actual HTTP request handler execution
-            var workflowSaved = Bifrost.Workflows.Commands.SaveWorkflowHandler.Handle(command, eventStreamOfWorkflow.Aggregate);
-
-            if (workflowSaved != null)
-            {
-                eventStreamOfWorkflow.AppendOne(workflowSaved);
-            }
+            await Bifrost.Workflows.Commands.SaveWorkflowHandler.Handle(command, documentSession).ConfigureAwait(false);
 
             
             // Save all pending changes to this Marten session

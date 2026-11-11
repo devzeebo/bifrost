@@ -23,6 +23,7 @@ public static class GetWorkflowHandler
         {
             Id = workflow.Id,
             Name = workflow.Name,
+            Version = workflow.Version,
             Nodes = workflow.Nodes,
             Connections = workflow.Connections,
         };

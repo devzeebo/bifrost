@@ -19,29 +19,16 @@ namespace Internal.Generated.WolverineHandlers
 
         public override async System.Threading.Tasks.Task HandleAsync(Wolverine.Runtime.MessageContext context, System.Threading.CancellationToken cancellation)
         {
+            // Building the Marten session
+            await using var documentSession = _outboxedSessionFactory.OpenSession(context);
             // The actual message body
             var command = (Bifrost.Workflows.Contracts.SaveWorkflowApi.Command)context.Envelope.Message;
 
-            var workflow_Id = command.Id;
-            // Building the Marten session
-            await using var documentSession = _outboxedSessionFactory.OpenSession(context);
-            // Application-specific Open Telemetry auditing
-            System.Diagnostics.Activity.Current?.SetTag("id", command.Id);
-            // Loading Marten aggregate as part of the aggregate handler workflow
-            var eventStreamOfWorkflow = await documentSession.Events.FetchForWriting<Bifrost.Workflows.Aggregate.Workflow>(workflow_Id, cancellation);
-            Bifrost.Workflows.Commands.SaveWorkflowHandler.Validate(command, eventStreamOfWorkflow.Aggregate);
             System.Diagnostics.Activity.Current?.SetTag("message.handler", "Bifrost.Workflows.Commands.SaveWorkflowHandler");
             System.Diagnostics.Activity.Current?.SetTag("handler.type", "Bifrost.Workflows.Commands.SaveWorkflowHandler");
-            System.Diagnostics.Activity.Current?.SetTag("wolverine.stream.id", workflow_Id);
-            System.Diagnostics.Activity.Current?.SetTag("wolverine.stream.type", "Bifrost.Workflows.Aggregate.Workflow");
             
             // The actual message execution
-            var outgoing1 = Bifrost.Workflows.Commands.SaveWorkflowHandler.Handle(command, eventStreamOfWorkflow.Aggregate);
-
-            if (outgoing1 != null)
-            {
-                eventStreamOfWorkflow.AppendOne(outgoing1);
-            }
+            await Bifrost.Workflows.Commands.SaveWorkflowHandler.Handle(command, documentSession).ConfigureAwait(false);
 
             
             // Save all pending changes to this Marten session
