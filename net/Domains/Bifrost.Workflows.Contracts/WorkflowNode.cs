@@ -6,6 +6,7 @@ public sealed record WorkflowPort
 {
     public required Guid Id { get; init; }
     public required string Name { get; init; }
+    public required JsonNode Schema { get; init; }
 }
 
 public sealed record NodeDefinition
@@ -22,5 +23,9 @@ public sealed record WorkflowNode
     public NodeDefinition? Definition { get; init; }
 }
 
-/// <summary>Reserved for #118; Get returns an empty list until connections land.</summary>
-public sealed record WorkflowConnection;
+public sealed record WorkflowConnection
+{
+    public required Guid Id { get; init; }
+    public required Guid OutputPortId { get; init; }
+    public required Guid InputPortId { get; init; }
+}
