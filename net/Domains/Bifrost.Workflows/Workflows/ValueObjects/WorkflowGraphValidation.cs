@@ -43,6 +43,13 @@ public static class WorkflowGraphValidation
                 );
             }
 
+            if (node.Position is null)
+            {
+                throw new CommandValidationException(
+                    $"Node '{Describe(node)}' is missing a position."
+                );
+            }
+
             if (node.Definition is null)
             {
                 throw new CommandValidationException(

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { WorkflowEditor } from '../components/organisms/WorkflowEditor'
 import { EditorLayout } from '../components/templates/EditorLayout'
@@ -8,6 +8,14 @@ const NewWorkflowPage = () => {
   const navigate = useNavigate()
   const workflowId = useMemo(() => crypto.randomUUID(), [])
   const editor = useWorkflowEditor(workflowId, 'new')
+  const mountedRef = useRef(true)
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   if (editor.state.status !== 'ready') {
     return (
@@ -40,7 +48,7 @@ const NewWorkflowPage = () => {
         onChangeName={editor.setName}
         onSave={async () => {
           const saved = await editor.save()
-          if (saved) {
+          if (saved && mountedRef.current) {
             await navigate({
               to: '/workflows/$workflowId',
               params: { workflowId },

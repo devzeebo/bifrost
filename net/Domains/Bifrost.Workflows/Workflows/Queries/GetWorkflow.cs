@@ -19,15 +19,11 @@ public static class GetWorkflowHandler
             await session.LoadAsync<WorkflowView.Model>(query.Id)
             ?? throw new NotFoundException($"Workflow {query.Id} not found.");
 
-        var state =
-            await session.Events.FetchStreamStateAsync(query.Id)
-            ?? throw new NotFoundException($"Workflow {query.Id} not found.");
-
         return new GetWorkflowApi.Response
         {
             Id = workflow.Id,
             Name = workflow.Name,
-            Version = state.Version,
+            Version = workflow.Version,
             Nodes = workflow.Nodes,
             Connections = workflow.Connections,
         };

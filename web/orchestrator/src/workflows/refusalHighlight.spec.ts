@@ -30,6 +30,19 @@ describe('refusalHighlight', () => {
       the_node_is_highlighted,
     },
   })
+
+  test('does not highlight a shorter name prefix of another node', {
+    given: {
+      a_drawing_with_prefixed_node_names,
+      a_build_staging_refusal_message,
+    },
+    when: {
+      highlighting,
+    },
+    then: {
+      only_build_staging_is_highlighted,
+    },
+  })
 })
 
 type Context = {
@@ -79,6 +92,35 @@ function a_node_refusal_message(this: Context) {
     "Node 'Producer (22222222-2222-2222-2222-222222222222)' is missing a definition."
 }
 
+function a_drawing_with_prefixed_node_names(this: Context) {
+  this.drawing = {
+    ...emptyDrawing('11111111-1111-1111-1111-111111111111'),
+    nodes: [
+      {
+        id: '22222222-2222-2222-2222-222222222222',
+        name: 'Build',
+        position: { x: 0, y: 0 },
+        inputs: [],
+        outputs: [],
+        definition: { style: 'script', spec: {} },
+      },
+      {
+        id: '33333333-3333-3333-3333-333333333333',
+        name: 'Build staging',
+        position: { x: 200, y: 0 },
+        inputs: [],
+        outputs: [],
+        definition: { style: 'script', spec: {} },
+      },
+    ],
+  }
+}
+
+function a_build_staging_refusal_message(this: Context) {
+  this.message =
+    "Node 'Build staging (33333333-3333-3333-3333-333333333333)' is missing a definition."
+}
+
 function highlighting(this: Context) {
   this.highlight = highlightFromRefusal(this.message, this.drawing)
 }
@@ -89,4 +131,8 @@ function the_connection_is_highlighted(this: Context) {
 
 function the_node_is_highlighted(this: Context) {
   expect(this.highlight.nodeIds).toEqual(['22222222-2222-2222-2222-222222222222'])
+}
+
+function only_build_staging_is_highlighted(this: Context) {
+  expect(this.highlight.nodeIds).toEqual(['33333333-3333-3333-3333-333333333333'])
 }

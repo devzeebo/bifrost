@@ -6,6 +6,7 @@ import {
   moveNode,
   removeConnection,
   removeNode,
+  removePort,
   upsertNode,
 } from '../../workflows/drawing'
 import type { WorkflowDrawing, WorkflowNode } from '../../workflows/types'
@@ -51,17 +52,19 @@ export const WorkflowEditor = ({
   onDismissConflict,
 }: WorkflowEditorProps) => {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [draftDirty, setDraftDirty] = useState(false)
   const selectedNode =
     drawing.nodes.find((node) => node.id === selectedNodeId) ?? null
+  const leaveDirty = dirty || draftDirty
 
   useBlocker({
     shouldBlockFn: () => {
-      if (!dirty) {
+      if (!leaveDirty) {
         return false
       }
       return !window.confirm('You have an unsaved drawing. Leave anyway?')
     },
-    enableBeforeUnload: dirty,
+    enableBeforeUnload: leaveDirty,
   })
 
   const updateSelected = (node: WorkflowNode) => {
@@ -75,17 +78,19 @@ export const WorkflowEditor = ({
           <label className="flex min-w-0 flex-1 flex-col gap-2">
             <span className="text-xs tracking-[0.16em] text-muted uppercase">
               Workflow name
-              {dirty ? <span className="ml-1 font-bold text-signal">*</span> : null}
+              {leaveDirty ? <span className="ml-1 font-bold text-signal">*</span> : null}
             </span>
             <input
               value={drawing.name}
+              disabled={saving}
               onChange={(event) => onChangeName(event.target.value)}
-              className="h-10 border border-line bg-ink px-3 text-fg outline-none focus:border-signal-dim"
+              className="h-10 border border-line bg-ink px-3 text-fg outline-none focus:border-signal-dim disabled:opacity-50"
             />
           </label>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
+              disabled={saving}
               onClick={() => {
                 const node = createBlankNode({
                   x: 80 + drawing.nodes.length * 24,
@@ -94,13 +99,13 @@ export const WorkflowEditor = ({
                 onChangeDrawing((current) => upsertNode(current, node))
                 setSelectedNodeId(node.id)
               }}
-              className="h-10 border border-line px-4 text-xs tracking-[0.16em] text-fg uppercase"
+              className="h-10 border border-line px-4 text-xs tracking-[0.16em] text-fg uppercase disabled:opacity-50"
             >
               Add node
             </button>
             <button
               type="button"
-              disabled={saving || !dirty}
+              disabled={saving || !leaveDirty}
               onClick={() => void onSave()}
               className="h-10 border border-signal-dim px-4 text-xs tracking-[0.16em] text-signal uppercase disabled:opacity-50"
             >
@@ -118,6 +123,7 @@ export const WorkflowEditor = ({
           drawing={drawing}
           selectedNodeId={selectedNodeId}
           highlight={highlight}
+          disabled={saving}
           onSelectNode={setSelectedNodeId}
           onMoveNode={(nodeId, x, y) =>
             onChangeDrawing((current) => moveNode(current, nodeId, x, y))
@@ -131,7 +137,15 @@ export const WorkflowEditor = ({
         />
         <WorkflowNodePanel
           node={selectedNode}
+          disabled={saving}
+          onDraftDirty={setDraftDirty}
           onChange={updateSelected}
+          onRemovePort={(portId) => {
+            if (!selectedNodeId) {
+              return
+            }
+            onChangeDrawing((current) => removePort(current, selectedNodeId, portId))
+          }}
           onDelete={(nodeId) => {
             onChangeDrawing((current) => removeNode(current, nodeId))
             setSelectedNodeId(null)
@@ -142,6 +156,7 @@ export const WorkflowEditor = ({
       {conflictOpen ? (
         <WorkflowSaveConflictDialog
           message={saveError ?? 'Workflow changed since it was opened.'}
+          busy={saving}
           onOverwrite={() => void onOverwrite()}
           onDiscard={() => void onDiscardRemote()}
           onCancel={onDismissConflict}

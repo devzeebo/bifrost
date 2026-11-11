@@ -113,6 +113,9 @@ export const useWorkflowEditor = (
 
   const setDrawing = (updater: (current: WorkflowDrawing) => WorkflowDrawing) => {
     withReady((ready) => {
+      if (ready.saving) {
+        return ready
+      }
       const drawing = updater(ready.drawing)
       return {
         ...ready,
@@ -133,10 +136,19 @@ export const useWorkflowEditor = (
       return false
     }
     const ready = state
+    let exists = ready.exists
     setState({ ...ready, saving: true, saveError: null, refusal: null })
     try {
-      if (!ready.exists) {
+      if (!exists) {
         await createWorkflow(ready.drawing)
+        exists = true
+        setState({
+          ...ready,
+          exists: true,
+          saving: true,
+          saveError: null,
+          refusal: null,
+        })
       } else {
         await saveWorkflow({
           drawing: ready.drawing,
@@ -169,6 +181,7 @@ export const useWorkflowEditor = (
       if (error instanceof WorkflowValidationError) {
         setState({
           ...ready,
+          exists,
           saving: false,
           refusal: highlightFromRefusal(error.message, ready.drawing),
         })
@@ -177,6 +190,7 @@ export const useWorkflowEditor = (
       if (error instanceof WorkflowConflictError) {
         setState({
           ...ready,
+          exists,
           saving: false,
           conflictOpen: true,
           saveError: error.message,
@@ -185,10 +199,52 @@ export const useWorkflowEditor = (
       }
       setState({
         ...ready,
+        exists,
         saving: false,
         saveError: error instanceof Error ? error.message : 'Could not save workflow',
       })
       return false
+    }
+  }
+
+  const discardRemote = async () => {
+    if (state.status !== 'ready' || state.saving) {
+      return
+    }
+    const ready = state
+    setState({ ...ready, saving: true, saveError: null })
+    try {
+      const detail = await getWorkflow(workflowId)
+      const drawing: WorkflowDrawing = {
+        id: detail.id,
+        name: detail.name,
+        nodes: detail.nodes,
+        connections: detail.connections,
+      }
+      const snap = snapshotDrawing(drawing)
+      setBaseline(snap)
+      setState({
+        status: 'ready',
+        drawing,
+        version: detail.version,
+        exists: true,
+        dirty: false,
+        saving: false,
+        refusal: null,
+        conflictOpen: false,
+        saveError: null,
+      })
+    } catch (error) {
+      if (error instanceof WorkflowNotFoundError) {
+        setState({ status: 'not-found', message: error.message })
+        return
+      }
+      setState({
+        ...ready,
+        saving: false,
+        conflictOpen: true,
+        saveError: error instanceof Error ? error.message : 'Could not reload workflow',
+      })
     }
   }
 
@@ -198,9 +254,14 @@ export const useWorkflowEditor = (
     setName,
     save: () => persist(false),
     overwrite: () => persist(true),
-    discardRemote: loadExisting,
+    discardRemote,
     dismissConflict: () => {
-      withReady((ready) => ({ ...ready, conflictOpen: false }))
+      withReady((ready) => {
+        if (ready.saving) {
+          return ready
+        }
+        return { ...ready, conflictOpen: false }
+      })
     },
     clearRefusal: () => {
       withReady((ready) => ({ ...ready, refusal: null }))

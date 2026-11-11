@@ -827,6 +827,43 @@ public class WorkflowTests
     }
 
     [Fact]
+    public async Task save_rejects_null_position_with_clear_reason()
+    {
+        var client = _factory.CreateClient();
+        var workflowId = Guid.NewGuid();
+        var nodeId = Guid.NewGuid();
+
+        await CreateEmpty(client, workflowId);
+
+        var response = await Post(
+            client,
+            "/save-workflow",
+            new
+            {
+                id = workflowId,
+                name = "draft",
+                expectedVersion = 1L,
+                nodes = new[]
+                {
+                    new
+                    {
+                        id = nodeId,
+                        name = "no-position",
+                        position = (object?)null,
+                        inputs = Array.Empty<object>(),
+                        outputs = Array.Empty<object>(),
+                        definition = new { style = "script", spec = new { body = "" } },
+                    },
+                },
+            }
+        );
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        var body = await response.Content.ReadAsStringAsync();
+        body.ShouldContain($"Node 'no-position ({nodeId})' is missing a position.");
+    }
+
+    [Fact]
     public async Task save_rejects_unknown_definition_style_with_clear_reason()
     {
         var client = _factory.CreateClient();

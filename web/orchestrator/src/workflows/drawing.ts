@@ -83,6 +83,31 @@ export const removeNode = (drawing: WorkflowDrawing, nodeId: string): WorkflowDr
   }
 }
 
+export const removePort = (
+  drawing: WorkflowDrawing,
+  nodeId: string,
+  portId: string,
+): WorkflowDrawing => {
+  const node = drawing.nodes.find((candidate) => candidate.id === nodeId)
+  if (!node) {
+    return drawing
+  }
+  const nextNode: WorkflowNode = {
+    ...node,
+    inputs: node.inputs.filter((port) => port.id !== portId),
+    outputs: node.outputs.filter((port) => port.id !== portId),
+  }
+  if (nextNode.inputs.length === node.inputs.length && nextNode.outputs.length === node.outputs.length) {
+    return drawing
+  }
+  return {
+    ...upsertNode(drawing, nextNode),
+    connections: drawing.connections.filter(
+      (connection) => connection.inputPortId !== portId && connection.outputPortId !== portId,
+    ),
+  }
+}
+
 export const moveNode = (
   drawing: WorkflowDrawing,
   nodeId: string,

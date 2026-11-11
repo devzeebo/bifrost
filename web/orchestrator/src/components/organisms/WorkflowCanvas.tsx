@@ -3,6 +3,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import type { SaveRefusalHighlight, WorkflowDrawing, WorkflowNode } from '../../workflows/types'
@@ -11,11 +12,13 @@ const NODE_WIDTH = 200
 const PORT_SIZE = 12
 const HEADER_HEIGHT = 36
 const PORT_ROW = 28
+const KEYBOARD_NUDGE = 8
 
 type WorkflowCanvasProps = {
   readonly drawing: WorkflowDrawing
   readonly selectedNodeId: string | null
   readonly highlight: SaveRefusalHighlight | null
+  readonly disabled?: boolean
   readonly onSelectNode: (nodeId: string | null) => void
   readonly onMoveNode: (nodeId: string, x: number, y: number) => void
   readonly onConnect: (outputPortId: string, inputPortId: string) => void
@@ -41,6 +44,7 @@ export const WorkflowCanvas = ({
   drawing,
   selectedNodeId,
   highlight,
+  disabled = false,
   onSelectNode,
   onMoveNode,
   onConnect,
@@ -68,9 +72,50 @@ export const WorkflowCanvas = ({
     return { x: clientX - rect.left, y: clientY - rect.top }
   }
 
+  const clampPosition = (node: WorkflowNode, x: number, y: number) => {
+    const surface = surfaceRef.current
+    const height = nodeHeight(node)
+    if (!surface) {
+      return { x: Math.max(0, x), y: Math.max(0, y) }
+    }
+    const maxX = Math.max(0, surface.clientWidth - NODE_WIDTH)
+    const maxY = Math.max(0, surface.clientHeight - Math.min(height, HEADER_HEIGHT))
+    return {
+      x: Math.min(maxX, Math.max(0, x)),
+      y: Math.min(maxY, Math.max(0, y)),
+    }
+  }
+
+  const moveClamped = (nodeId: string, x: number, y: number) => {
+    const node = drawing.nodes.find((candidate) => candidate.id === nodeId)
+    if (!node) {
+      return
+    }
+    const next = clampPosition(node, x, y)
+    onMoveNode(nodeId, next.x, next.y)
+  }
+
   const clearLinkDraft = () => {
     linkDraftRef.current = null
     setLinkDraft(null)
+  }
+
+  const connectPorts = (
+    fromPortId: string,
+    fromKind: 'input' | 'output',
+    targetPortId: string,
+    targetKind: 'input' | 'output',
+  ) => {
+    if (fromPortId === targetPortId) {
+      return
+    }
+    if (fromKind === 'output' && targetKind === 'input') {
+      onConnect(fromPortId, targetPortId)
+      return
+    }
+    if (fromKind === 'input' && targetKind === 'output') {
+      onConnect(targetPortId, fromPortId)
+    }
   }
 
   const finishLinkAt = (clientX: number, clientY: number) => {
@@ -82,21 +127,41 @@ export const WorkflowCanvas = ({
     const target = portUnderPoint(clientX, clientY)
     clearLinkDraft()
 
-    if (!target || target.portId === draft.fromPortId) {
+    if (!target) {
       return
     }
 
-    if (draft.fromKind === 'output' && target.kind === 'input') {
-      onConnect(draft.fromPortId, target.portId)
+    connectPorts(draft.fromPortId, draft.fromKind, target.portId, target.kind)
+  }
+
+  const startLinkDraft = (portId: string, kind: 'input' | 'output') => {
+    const center = portCenters.get(portId)
+    const draft = {
+      fromPortId: portId,
+      fromKind: kind,
+      x: center?.x ?? 0,
+      y: center?.y ?? 0,
+    }
+    linkDraftRef.current = draft
+    setLinkDraft(draft)
+  }
+
+  const activatePort = (portId: string, kind: 'input' | 'output') => {
+    const draft = linkDraftRef.current
+    if (!draft) {
+      startLinkDraft(portId, kind)
       return
     }
-    if (draft.fromKind === 'input' && target.kind === 'output') {
-      onConnect(target.portId, draft.fromPortId)
+    if (draft.fromPortId === portId) {
+      clearLinkDraft()
+      return
     }
+    connectPorts(draft.fromPortId, draft.fromKind, portId, kind)
+    clearLinkDraft()
   }
 
   const onNodePointerDown = (event: ReactPointerEvent, node: WorkflowNode) => {
-    if (isPortTarget(event.target)) {
+    if (disabled || isPortTarget(event.target)) {
       return
     }
     event.preventDefault()
@@ -111,11 +176,41 @@ export const WorkflowCanvas = ({
     })
   }
 
+  const onNodeKeyDown = (event: ReactKeyboardEvent, node: WorkflowNode) => {
+    if (disabled) {
+      return
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      onSelectNode(node.id)
+      return
+    }
+    let dx = 0
+    let dy = 0
+    if (event.key === 'ArrowLeft') {
+      dx = -KEYBOARD_NUDGE
+    } else if (event.key === 'ArrowRight') {
+      dx = KEYBOARD_NUDGE
+    } else if (event.key === 'ArrowUp') {
+      dy = -KEYBOARD_NUDGE
+    } else if (event.key === 'ArrowDown') {
+      dy = KEYBOARD_NUDGE
+    } else {
+      return
+    }
+    event.preventDefault()
+    onSelectNode(node.id)
+    moveClamped(node.id, node.position.x + dx, node.position.y + dy)
+  }
+
   const onSurfacePointerMove = (event: ReactPointerEvent) => {
+    if (disabled) {
+      return
+    }
     if (drag) {
       const dx = event.clientX - drag.pointerStartX
       const dy = event.clientY - drag.pointerStartY
-      onMoveNode(drag.nodeId, drag.originX + dx, drag.originY + dy)
+      moveClamped(drag.nodeId, drag.originX + dx, drag.originY + dy)
       return
     }
     const draft = linkDraftRef.current
@@ -142,6 +237,9 @@ export const WorkflowCanvas = ({
     portId: string,
     kind: 'input' | 'output',
   ) => {
+    if (disabled) {
+      return
+    }
     event.preventDefault()
     event.stopPropagation()
     const point = toLocal(event.clientX, event.clientY)
@@ -152,9 +250,10 @@ export const WorkflowCanvas = ({
   }
 
   const onSurfacePointerDown = (event: ReactPointerEvent) => {
-    if (event.target !== surfaceRef.current) {
+    if (disabled || event.target !== surfaceRef.current) {
       return
     }
+    clearLinkDraft()
     onSelectNode(null)
   }
 
@@ -188,10 +287,25 @@ export const WorkflowCanvas = ({
                 fill="none"
                 stroke="transparent"
                 strokeWidth={12}
-                className="cursor-pointer"
+                role="button"
+                tabIndex={disabled ? -1 : 0}
+                aria-label="Remove connection"
+                className="cursor-pointer outline-none focus:stroke-signal"
                 onClick={(event) => {
                   event.stopPropagation()
-                  onRemoveConnection(connection.id)
+                  if (!disabled) {
+                    onRemoveConnection(connection.id)
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (disabled) {
+                    return
+                  }
+                  if (event.key === 'Enter' || event.key === ' ' || event.key === 'Delete') {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    onRemoveConnection(connection.id)
+                  }
                 }}
               />
             </g>
@@ -228,16 +342,17 @@ export const WorkflowCanvas = ({
           <div
             key={node.id}
             role="button"
-            tabIndex={0}
+            tabIndex={disabled ? -1 : 0}
             data-workflow-node={node.id}
             onPointerDown={(event) => onNodePointerDown(event, node)}
+            onKeyDown={(event) => onNodeKeyDown(event, node)}
             className={`absolute flex cursor-grab flex-col border bg-surface select-none ${
               hot
                 ? 'border-signal'
                 : selected
                   ? 'border-signal-dim'
                   : 'border-line'
-            }`}
+            } ${disabled ? 'opacity-60' : ''}`}
             style={{
               left: node.position.x,
               top: node.position.y,
@@ -255,7 +370,9 @@ export const WorkflowCanvas = ({
                     kind="input"
                     label={port.name}
                     side="left"
+                    disabled={disabled}
                     onPointerDown={(event) => onPortPointerDown(event, port.id, 'input')}
+                    onActivate={() => activatePort(port.id, 'input')}
                   />
                 ))}
               </div>
@@ -267,7 +384,9 @@ export const WorkflowCanvas = ({
                     kind="output"
                     label={port.name}
                     side="right"
+                    disabled={disabled}
                     onPointerDown={(event) => onPortPointerDown(event, port.id, 'output')}
+                    onActivate={() => activatePort(port.id, 'output')}
                   />
                 ))}
               </div>
@@ -293,10 +412,20 @@ type PortHandleProps = {
   readonly kind: 'input' | 'output'
   readonly label: string
   readonly side: 'left' | 'right'
+  readonly disabled: boolean
   readonly onPointerDown: (event: ReactPointerEvent) => void
+  readonly onActivate: () => void
 }
 
-const PortHandle = ({ portId, kind, label, side, onPointerDown }: PortHandleProps) => (
+const PortHandle = ({
+  portId,
+  kind,
+  label,
+  side,
+  disabled,
+  onPointerDown,
+  onActivate,
+}: PortHandleProps) => (
   <div
     className={`flex items-center gap-2 ${side === 'right' ? 'flex-row-reverse' : 'flex-row'}`}
   >
@@ -305,8 +434,16 @@ const PortHandle = ({ portId, kind, label, side, onPointerDown }: PortHandleProp
       data-workflow-port={portId}
       data-workflow-port-kind={kind}
       aria-label={label}
+      disabled={disabled}
       onPointerDown={onPointerDown}
-      className="-m-2 flex items-center justify-center rounded-full p-2"
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          event.stopPropagation()
+          onActivate()
+        }
+      }}
+      className="-m-2 flex items-center justify-center rounded-full p-2 disabled:opacity-50"
     >
       <span
         className="block rounded-full border border-signal-dim bg-ink"

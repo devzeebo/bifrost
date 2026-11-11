@@ -63,6 +63,16 @@ public static class WorkflowsServiceCollectionExtensions
                             new BusError { Code = BusErrorCodes.Conflict, Message = ex.Message }
                         );
                     }
+                    catch (JasperFx.Events.EventStreamUnexpectedMaxEventIdException)
+                    {
+                        throw new BusException(
+                            new BusError
+                            {
+                                Code = BusErrorCodes.Conflict,
+                                Message = "Workflow changed since it was opened.",
+                            }
+                        );
+                    }
                 }
             );
         }

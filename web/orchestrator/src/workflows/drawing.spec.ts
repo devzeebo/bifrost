@@ -6,6 +6,7 @@ import {
   isDrawingDirty,
   moveNode,
   removeNode,
+  removePort,
   snapshotDrawing,
 } from './drawing'
 import type { WorkflowDrawing, WorkflowNode } from './types'
@@ -47,6 +48,18 @@ describe('workflow drawing', () => {
     },
     then: {
       connections_are_gone,
+    },
+  })
+
+  test('removePort drops connections that touch that port', {
+    given: {
+      a_drawing_with_linked_nodes,
+    },
+    when: {
+      removing_the_producer_output,
+    },
+    then: {
+      connections_are_gone_but_nodes_remain,
     },
   })
 
@@ -161,6 +174,10 @@ function removing_the_producer(this: Context) {
   this.drawing = removeNode(this.drawing, this.producer.id)
 }
 
+function removing_the_producer_output(this: Context) {
+  this.drawing = removePort(this.drawing, this.producer.id, 'out-1')
+}
+
 function a_drawing_with_two_producers_and_one_linked_input(this: Context) {
   a_drawing_with_linked_nodes.call(this)
   this.otherProducer = {
@@ -214,6 +231,12 @@ function dirty_is_true(this: Context) {
 
 function connections_are_gone(this: Context) {
   expect(this.drawing.nodes).toHaveLength(1)
+  expect(this.drawing.connections).toEqual([])
+}
+
+function connections_are_gone_but_nodes_remain(this: Context) {
+  expect(this.drawing.nodes).toHaveLength(2)
+  expect(this.drawing.nodes.find((node) => node.id === this.producer.id)?.outputs).toEqual([])
   expect(this.drawing.connections).toEqual([])
 }
 

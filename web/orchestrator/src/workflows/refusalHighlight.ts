@@ -29,7 +29,7 @@ export const highlightFromRefusal = (
         return true
       }
       const nameNeedle = node.name.trim().toLowerCase()
-      return nameNeedle !== '' && message.toLowerCase().includes(`'${nameNeedle}`)
+      return nameNeedle !== '' && message.toLowerCase().includes(`'${nameNeedle} (`)
     })
     .map((node) => node.id)
 
