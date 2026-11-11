@@ -18,7 +18,9 @@ public interface IHarnessProcessRunner
     Task<HarnessProcessResult> Run(
         string workingDirectory,
         IReadOnlyDictionary<string, string> extraEnvironment,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        string? executable = null,
+        IReadOnlyList<string>? arguments = null
     );
 }
 
@@ -29,11 +31,14 @@ public sealed class HarnessProcessRunner(IOptions<HarnessHostOptions> options) :
     public async Task<HarnessProcessResult> Run(
         string workingDirectory,
         IReadOnlyDictionary<string, string> extraEnvironment,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        string? executable = null,
+        IReadOnlyList<string>? arguments = null
     )
     {
         var opts = options.Value;
-        if (string.IsNullOrWhiteSpace(opts.Executable))
+        var fileName = string.IsNullOrWhiteSpace(executable) ? opts.Executable : executable;
+        if (string.IsNullOrWhiteSpace(fileName))
         {
             return new HarnessProcessResult
             {
@@ -44,7 +49,7 @@ public sealed class HarnessProcessRunner(IOptions<HarnessHostOptions> options) :
 
         var startInfo = new ProcessStartInfo
         {
-            FileName = opts.Executable,
+            FileName = fileName,
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -52,7 +57,7 @@ public sealed class HarnessProcessRunner(IOptions<HarnessHostOptions> options) :
             WorkingDirectory = workingDirectory,
         };
 
-        foreach (var arg in opts.Arguments)
+        foreach (var arg in arguments ?? opts.Arguments)
         {
             startInfo.ArgumentList.Add(arg);
         }
@@ -73,7 +78,7 @@ public sealed class HarnessProcessRunner(IOptions<HarnessHostOptions> options) :
             process =
                 Process.Start(startInfo)
                 ?? throw new InvalidOperationException(
-                    $"Failed to start harness process '{opts.Executable}'."
+                    $"Failed to start harness process '{fileName}'."
                 );
         }
         catch (Exception ex)

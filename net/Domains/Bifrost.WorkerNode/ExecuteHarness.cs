@@ -18,6 +18,8 @@ public sealed record ExecuteHarness
 
 public static class ExecuteHarnessHandler
 {
+    public const string BifrostNodeImage = "bifrost/node";
+
     public static async Task Handle(
         ExecuteHarness command,
         IBifrostBus bus,
@@ -27,6 +29,7 @@ public static class ExecuteHarnessHandler
         HarnessExecutionSlot slot,
         IHarnessProcessRunner runner,
         IOptions<HarnessHostOptions> harnessOptions,
+        IOptions<DockerHostOptions> dockerOptions,
         CancellationToken cancellationToken
     )
     {
@@ -98,6 +101,7 @@ public static class ExecuteHarnessHandler
 
             var opts = harnessOptions.Value;
             var workspace = PrepareWorkspace(opts.WorkingDirectory, command.RunId);
+            var script = TryReadScriptWorkload(workItem.Data);
 
             var spec = new JsonObject
             {
@@ -113,13 +117,95 @@ public static class ExecuteHarnessHandler
                 )
                 .ConfigureAwait(false);
 
+            string? processExecutable = null;
+            IReadOnlyList<string>? processArguments = null;
+            var startReason = "harness started";
+            var metadataReason = "record harness and workspace";
+            var runMetadata = new JsonObject
+            {
+                ["harness"] = opts.Identity,
+                ["workspace"] = workspace,
+                ["specFingerprint"] = Fingerprint(workItem.Data),
+            };
+
+            if (script is not null)
+            {
+                if (string.IsNullOrWhiteSpace(script.Body))
+                {
+                    await Fail(
+                            bus,
+                            command,
+                            actor,
+                            "script failed to start: body is missing",
+                            runToken,
+                            expectedItemStatus: TrackedWorkItemStatuses.Claimed
+                        )
+                        .ConfigureAwait(false);
+                    accepts.MarkConcluded(command.WorkItemId, command.RunId);
+                    return;
+                }
+
+                var image = string.IsNullOrWhiteSpace(script.Image)
+                    ? BifrostNodeImage
+                    : script.Image.Trim();
+                if (image != BifrostNodeImage)
+                {
+                    await Fail(
+                            bus,
+                            command,
+                            actor,
+                            $"script failed to start: image '{image}' is not supported",
+                            runToken,
+                            expectedItemStatus: TrackedWorkItemStatuses.Claimed
+                        )
+                        .ConfigureAwait(false);
+                    accepts.MarkConcluded(command.WorkItemId, command.RunId);
+                    return;
+                }
+
+                await File.WriteAllTextAsync(
+                        Path.Combine(workspace, "body.mjs"),
+                        script.Body,
+                        runToken
+                    )
+                    .ConfigureAwait(false);
+
+                var hostRoot = string.IsNullOrWhiteSpace(dockerOptions.Value.HostWorkspaceRoot)
+                    ? opts.WorkingDirectory
+                    : dockerOptions.Value.HostWorkspaceRoot;
+                var hostWorkspace = Path.Combine(hostRoot, command.RunId.ToString("D"));
+
+                processExecutable = "docker";
+                processArguments =
+                [
+                    "run",
+                    "--rm",
+                    "-v",
+                    $"{hostWorkspace}:/workspace",
+                    "-w",
+                    "/workspace",
+                    "-e",
+                    "BIFROST_WORKSPACE=/workspace",
+                    image,
+                ];
+                startReason = "script started";
+                metadataReason = "record script image and workspace";
+                runMetadata = new JsonObject
+                {
+                    ["image"] = image,
+                    ["workspace"] = workspace,
+                    ["hostWorkspace"] = hostWorkspace,
+                    ["specFingerprint"] = Fingerprint(workItem.Data),
+                };
+            }
+
             await bus.Request<StartTrackedWorkItemApi.Command, Unit>(
                     new StartTrackedWorkItemApi.Command
                     {
                         Id = command.WorkItemId,
                         RunId = command.RunId,
                         Actor = actor,
-                        Reason = "harness started",
+                        Reason = startReason,
                         Expected = new JsonObject { ["status"] = TrackedWorkItemStatuses.Claimed },
                     },
                     runToken
@@ -131,13 +217,8 @@ public static class ExecuteHarnessHandler
                     {
                         Id = command.RunId,
                         Actor = actor,
-                        Reason = "record harness and workspace",
-                        Metadata = new JsonObject
-                        {
-                            ["harness"] = opts.Identity,
-                            ["workspace"] = workspace,
-                            ["specFingerprint"] = Fingerprint(workItem.Data),
-                        },
+                        Reason = metadataReason,
+                        Metadata = runMetadata,
                     },
                     runToken
                 )
@@ -158,7 +239,9 @@ public static class ExecuteHarnessHandler
                         ["BIFROST_RUN_ID"] = command.RunId.ToString("D"),
                         ["BIFROST_WORKSPACE"] = workspace,
                     },
-                    runToken
+                    runToken,
+                    processExecutable,
+                    processArguments
                 )
                 .ConfigureAwait(false);
 
@@ -234,6 +317,62 @@ public static class ExecuteHarnessHandler
             TrackedWorkItemStatuses.Running => RecoveryAction.FailInterrupted,
             _ => RecoveryAction.Skip,
         };
+    }
+
+    sealed record ScriptWorkload(string Image, string Body);
+
+    static ScriptWorkload? TryReadScriptWorkload(JsonNode data)
+    {
+        if (data is not JsonObject root)
+        {
+            return null;
+        }
+
+        if (
+            !root.TryGetPropertyValue("node", out var nodeNode)
+            || nodeNode is not JsonObject node
+        )
+        {
+            return null;
+        }
+
+        if (
+            !node.TryGetPropertyValue("style", out var styleNode)
+            || styleNode is null
+            || styleNode.GetValueKind() != JsonValueKind.String
+            || !string.Equals(
+                styleNode.GetValue<string>(),
+                "script",
+                StringComparison.OrdinalIgnoreCase
+            )
+        )
+        {
+            return null;
+        }
+
+        if (
+            !node.TryGetPropertyValue("spec", out var specNode)
+            || specNode is not JsonObject spec
+        )
+        {
+            return new ScriptWorkload(BifrostNodeImage, "");
+        }
+
+        var image =
+            spec.TryGetPropertyValue("image", out var imageNode)
+            && imageNode is not null
+            && imageNode.GetValueKind() == JsonValueKind.String
+                ? imageNode.GetValue<string>()
+                : BifrostNodeImage;
+
+        var body =
+            spec.TryGetPropertyValue("body", out var bodyNode)
+            && bodyNode is not null
+            && bodyNode.GetValueKind() == JsonValueKind.String
+                ? bodyNode.GetValue<string>()
+                : "";
+
+        return new ScriptWorkload(image, body);
     }
 
     static string PrepareWorkspace(string baseDirectory, Guid runId)
@@ -329,7 +468,8 @@ public static class ExecuteHarnessHandler
         ExecuteHarness command,
         string actor,
         string reason,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        string expectedItemStatus = TrackedWorkItemStatuses.Running
     )
     {
         await bus.Publish(
@@ -350,7 +490,7 @@ public static class ExecuteHarnessHandler
                     RunId = command.RunId,
                     Actor = actor,
                     Reason = reason,
-                    Expected = new JsonObject { ["status"] = TrackedWorkItemStatuses.Running },
+                    Expected = new JsonObject { ["status"] = expectedItemStatus },
                 },
                 cancellationToken
             )

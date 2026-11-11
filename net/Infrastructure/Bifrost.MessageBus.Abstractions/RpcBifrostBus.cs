@@ -50,17 +50,19 @@ sealed class RpcBifrostBus(IRpc<IBusTransport> transport) : IBifrostBus
         return BusJson.Deserialize<TResponse>(reply.Payload);
     }
 
-    public Task Publish<TEvent>(TEvent @event, CancellationToken cancellationToken = default)
+    public async Task Publish<TEvent>(TEvent @event, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(@event);
-        return transport.Object.Publish(
-            new BusMessage
-            {
-                MessageType = BusJson.MessageTypeOf(typeof(TEvent)),
-                Payload = BusJson.Serialize(@event),
-                CorrelationId = Guid.NewGuid().ToString("N"),
-            }
-        );
+        await transport
+            .Object.Publish(
+                new BusMessage
+                {
+                    MessageType = BusJson.MessageTypeOf(typeof(TEvent)),
+                    Payload = BusJson.Serialize(@event),
+                    CorrelationId = Guid.NewGuid().ToString("N"),
+                }
+            )
+            .ConfigureAwait(false);
     }
 
     static string AddressOf<TRequest>(TRequest request)

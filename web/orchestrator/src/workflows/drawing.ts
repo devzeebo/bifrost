@@ -42,7 +42,7 @@ export const createBlankNode = (input: {
     outputs: [blankPort(outputPortId, 'out')],
     definition: {
       style: 'script',
-      spec: { body: '' },
+      spec: { image: 'bifrost/node', body: '' },
     },
   }
 }

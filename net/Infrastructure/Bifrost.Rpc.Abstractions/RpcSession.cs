@@ -482,50 +482,65 @@ public sealed class RpcSession : IAsyncDisposable
             return;
         }
 
-        if (id is null)
-        {
-            try
+        // Run handlers off the read loop. A long-running Handle (e.g. ExecuteClaimedWork)
+        // must not block reading Publish responses on the same socket — that deadlocks
+        // request/response Publish (Task<Unit>) while the handler is in flight.
+        var requestId = id;
+        var requestParams = paramsElement;
+        _ = Task.Run(
+            async () =>
             {
-                await handler(paramsElement, cancellationToken).ConfigureAwait(false);
-            }
-            catch { }
-
-            return;
-        }
-
-        try
-        {
-            var result = await handler(paramsElement, cancellationToken).ConfigureAwait(false);
-            await WriteMessage(
-                    new Dictionary<string, object?>
+                if (requestId is null)
+                {
+                    try
                     {
-                        ["jsonrpc"] = "2.0",
-                        ["result"] = result is null
-                            ? null
-                            : JsonSerializer.SerializeToElement(result, SerializerOptions),
-                        ["id"] = IdToObject(id.Value),
-                    },
-                    cancellationToken
-                )
-                .ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            await WriteMessage(
-                    new Dictionary<string, object?>
-                    {
-                        ["jsonrpc"] = "2.0",
-                        ["error"] = new
-                        {
-                            code = JsonRpcErrorCodes.InternalError,
-                            message = ex.Message,
-                        },
-                        ["id"] = IdToObject(id.Value),
-                    },
-                    cancellationToken
-                )
-                .ConfigureAwait(false);
-        }
+                        await handler(requestParams, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch { }
+
+                    return;
+                }
+
+                try
+                {
+                    var result = await handler(requestParams, cancellationToken)
+                        .ConfigureAwait(false);
+                    await WriteMessage(
+                            new Dictionary<string, object?>
+                            {
+                                ["jsonrpc"] = "2.0",
+                                ["result"] = result is null
+                                    ? null
+                                    : JsonSerializer.SerializeToElement(
+                                        result,
+                                        SerializerOptions
+                                    ),
+                                ["id"] = IdToObject(requestId.Value),
+                            },
+                            cancellationToken
+                        )
+                        .ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    await WriteMessage(
+                            new Dictionary<string, object?>
+                            {
+                                ["jsonrpc"] = "2.0",
+                                ["error"] = new
+                                {
+                                    code = JsonRpcErrorCodes.InternalError,
+                                    message = ex.Message,
+                                },
+                                ["id"] = IdToObject(requestId.Value),
+                            },
+                            cancellationToken
+                        )
+                        .ConfigureAwait(false);
+                }
+            },
+            CancellationToken.None
+        );
     }
 
     static object? IdToObject(JsonElement id) =>

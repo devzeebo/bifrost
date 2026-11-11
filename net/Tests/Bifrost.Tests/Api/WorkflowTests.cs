@@ -716,7 +716,11 @@ public class WorkflowTests
                             },
                         },
                         outputs = Array.Empty<object>(),
-                        definition = new { style = "script", spec = new { body = "x" } },
+                        definition = new
+                        {
+                            style = "script",
+                            spec = new { image = "bifrost/node", body = "x" },
+                        },
                     },
                 },
             }
@@ -750,7 +754,7 @@ public class WorkflowTests
                             "script",
                             inputs: [],
                             outputs: [],
-                            spec: new { body = "console.log(1)" }
+                            spec: new { image = "bifrost/node", body = "console.log(1)" }
                         ),
                     },
                 }
@@ -852,7 +856,11 @@ public class WorkflowTests
                         position = (object?)null,
                         inputs = Array.Empty<object>(),
                         outputs = Array.Empty<object>(),
-                        definition = new { style = "script", spec = new { body = "" } },
+                        definition = new
+                        {
+                            style = "script",
+                            spec = new { image = "bifrost/node", body = "x" },
+                        },
                     },
                 },
             }
@@ -900,6 +908,89 @@ public class WorkflowTests
         body.ShouldContain("Unknown definition style 'container'");
         body.ShouldContain("harness");
         body.ShouldContain("script");
+    }
+
+    [Fact]
+    public async Task save_rejects_unsupported_script_image_with_clear_reason()
+    {
+        var client = _factory.CreateClient();
+        var workflowId = Guid.NewGuid();
+        var nodeId = Guid.NewGuid();
+
+        await CreateEmpty(client, workflowId);
+
+        var response = await Post(
+            client,
+            "/save-workflow",
+            new
+            {
+                id = workflowId,
+                name = "draft",
+                expectedVersion = 1L,
+                nodes = new[]
+                {
+                    new
+                    {
+                        id = nodeId,
+                        name = "bad-image",
+                        position = new { x = 0, y = 0 },
+                        inputs = Array.Empty<object>(),
+                        outputs = Array.Empty<object>(),
+                        definition = new
+                        {
+                            style = "script",
+                            spec = new { image = "bifrost/python", body = "export const handler = () => ({})" },
+                        },
+                    },
+                },
+            }
+        );
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        var body = await response.Content.ReadAsStringAsync();
+        body.ShouldContain("script image 'bifrost/python' is not supported");
+        body.ShouldContain("bifrost/node");
+    }
+
+    [Fact]
+    public async Task save_rejects_empty_script_body_with_clear_reason()
+    {
+        var client = _factory.CreateClient();
+        var workflowId = Guid.NewGuid();
+        var nodeId = Guid.NewGuid();
+
+        await CreateEmpty(client, workflowId);
+
+        var response = await Post(
+            client,
+            "/save-workflow",
+            new
+            {
+                id = workflowId,
+                name = "draft",
+                expectedVersion = 1L,
+                nodes = new[]
+                {
+                    new
+                    {
+                        id = nodeId,
+                        name = "empty-body",
+                        position = new { x = 0, y = 0 },
+                        inputs = Array.Empty<object>(),
+                        outputs = Array.Empty<object>(),
+                        definition = new
+                        {
+                            style = "script",
+                            spec = new { image = "bifrost/node", body = "" },
+                        },
+                    },
+                },
+            }
+        );
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        var body = await response.Content.ReadAsStringAsync();
+        body.ShouldContain("requires a non-empty 'body'");
     }
 
     [Fact]
@@ -1147,7 +1238,7 @@ public class WorkflowTests
                     ?? (
                         style == "harness"
                             ? (object)new { identity = "agent" }
-                            : new { body = "return 1" }
+                            : new { image = "bifrost/node", body = "return 1" }
                     ),
             },
         };

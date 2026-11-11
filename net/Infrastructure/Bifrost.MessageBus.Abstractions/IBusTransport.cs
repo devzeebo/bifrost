@@ -7,7 +7,11 @@ public interface IBusTransport : IRpcContract
 {
     Task<BusReply> Send(BusMessage message, CancellationToken cancellationToken = default);
 
-    Task Publish(BusMessage message);
+    /// <summary>
+    /// Returns <see cref="Unit"/> so the call is a request (not a fire-and-forget
+    /// notification) and the plane awaits broker publish completion.
+    /// </summary>
+    Task<Unit> Publish(BusMessage message);
 
     Task<Unit> Subscribe(string topic, CancellationToken cancellationToken = default);
 }
@@ -17,5 +21,6 @@ public interface IBusDispatch : IRpcContract
 {
     Task<BusReply> Handle(BusMessage message, CancellationToken cancellationToken = default);
 
+    /// <summary>Fire-and-forget notification — event fan-in must not block the broker consumer.</summary>
     Task Deliver(BusMessage message);
 }

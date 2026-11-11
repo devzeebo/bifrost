@@ -59,7 +59,7 @@ sealed class RabbitMqBusOptions
         string[] subscribers;
         if (!subscribersSection.Exists())
         {
-            subscribers = ["work-items", "orchestrator", "worker"];
+            subscribers = ["work-items", "orchestrator", "worker", "skills", "workflows"];
         }
         else
         {

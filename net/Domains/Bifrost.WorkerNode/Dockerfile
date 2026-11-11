@@ -12,6 +12,13 @@ RUN dotnet publish net/Domains/Bifrost.WorkerNode/Bifrost.WorkerNode.csproj -c R
 
 FROM mcr.microsoft.com/dotnet/runtime:10.0
 WORKDIR /app
+# Docker CLI only — daemon is the host via mounted docker.sock (DoD).
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates curl \
+  && curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-27.3.1.tgz \
+    | tar -xz -C /tmp \
+  && mv /tmp/docker/docker /usr/local/bin/docker \
+  && rm -rf /tmp/docker /var/lib/apt/lists/*
 COPY --from=build /app .
 ENV Bifrost__OutboxPath=/var/lib/bifrost/worker-node.db
 ENTRYPOINT ["dotnet", "Bifrost.WorkerNode.dll"]

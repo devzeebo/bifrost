@@ -25,6 +25,7 @@ public class ExecuteHarnessTests
             ctx.Slot,
             ctx.Runner,
             ctx.Options,
+            ctx.DockerOptions,
             CancellationToken.None
         );
 
@@ -56,6 +57,7 @@ public class ExecuteHarnessTests
             ctx.Slot,
             ctx.Runner,
             ctx.Options,
+            ctx.DockerOptions,
             CancellationToken.None
         );
 
@@ -84,6 +86,7 @@ public class ExecuteHarnessTests
             ctx.Slot,
             ctx.Runner,
             ctx.Options,
+            ctx.DockerOptions,
             CancellationToken.None
         );
 
@@ -132,6 +135,7 @@ public class ExecuteHarnessTests
             slot,
             runner,
             options,
+            Options.Create(new DockerHostOptions()),
             CancellationToken.None
         );
         await WaitUntil(() => order.Contains(first.RunId));
@@ -145,6 +149,7 @@ public class ExecuteHarnessTests
             slot,
             runner,
             options,
+            Options.Create(new DockerHostOptions()),
             CancellationToken.None
         );
         await Task.Delay(50);
@@ -154,6 +159,54 @@ public class ExecuteHarnessTests
         await Task.WhenAll(firstTask, secondTask);
         order.ShouldBe([first.RunId, second.RunId]);
         bus.Requests.OfType<StartTrackedWorkItemApi.Command>().Count().ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task script_node_writes_body_and_runs_docker_image()
+    {
+        var ctx = Create(new HarnessProcessResult { Started = true, ExitCode = 0 });
+        var body = "export const handler = () => ({ outVar: 'Hello World!' });";
+        ctx.Bus.SeedWorkItemData(
+            ctx.Command.WorkItemId,
+            new JsonObject
+            {
+                ["node"] = new JsonObject
+                {
+                    ["style"] = "script",
+                    ["spec"] = new JsonObject
+                    {
+                        ["image"] = "bifrost/node",
+                        ["body"] = body,
+                    },
+                },
+            }
+        );
+
+        var hostRoot = Path.Combine(Path.GetTempPath(), $"host-ws-{Guid.NewGuid():N}");
+        var dockerOptions = Options.Create(new DockerHostOptions { HostWorkspaceRoot = hostRoot });
+
+        await ExecuteHarnessHandler.Handle(
+            ctx.Command,
+            ctx.Bus,
+            ctx.Identity,
+            ctx.Accepts,
+            ctx.Runs,
+            ctx.Slot,
+            ctx.Runner,
+            ctx.Options,
+            dockerOptions,
+            CancellationToken.None
+        );
+
+        ctx.Runner.LastExecutable.ShouldBe("docker");
+        ctx.Runner.LastArguments.ShouldNotBeNull();
+        ctx.Runner.LastArguments![0].ShouldBe("run");
+        ctx.Runner.LastArguments.ShouldContain("bifrost/node");
+        ctx.Runner.LastArguments.ShouldContain($"{hostRoot}/{ctx.Command.RunId:D}:/workspace");
+
+        var bodyPath = Path.Combine(ctx.Runner.LastWorkingDirectory!, "body.mjs");
+        (await File.ReadAllTextAsync(bodyPath)).ShouldBe(body);
+        ctx.Bus.Published.OfType<SucceedTrackedWorkItemApi.Command>().ShouldHaveSingleItem();
     }
 
     [Fact]
@@ -189,6 +242,7 @@ public class ExecuteHarnessTests
                     WorkingDirectory = Path.Combine(Path.GetTempPath(), $"ws-{Guid.NewGuid():N}"),
                 }
             ),
+            Options.Create(new DockerHostOptions()),
             CancellationToken.None
         );
 
@@ -232,6 +286,7 @@ public class ExecuteHarnessTests
                     WorkingDirectory = Path.Combine(Path.GetTempPath(), $"ws-{Guid.NewGuid():N}"),
                 }
             ),
+            Options.Create(new DockerHostOptions()),
             CancellationToken.None
         );
 
@@ -267,7 +322,8 @@ public class ExecuteHarnessTests
                     Identity = "test-harness",
                     WorkingDirectory = Path.Combine(Path.GetTempPath(), $"ws-{Guid.NewGuid():N}"),
                 }
-            )
+            ),
+            Options.Create(new DockerHostOptions())
         );
     }
 
@@ -295,19 +351,29 @@ public class ExecuteHarnessTests
         ExecuteHarness Command,
         RecordingBus Bus,
         FixedRunner Runner,
-        IOptions<HarnessHostOptions> Options
+        IOptions<HarnessHostOptions> Options,
+        IOptions<DockerHostOptions> DockerOptions
     );
 
     sealed class FixedRunner(HarnessProcessResult result) : IHarnessProcessRunner
     {
         public Action? OnRun { get; set; }
 
+        public string? LastExecutable { get; private set; }
+        public IReadOnlyList<string>? LastArguments { get; private set; }
+        public string? LastWorkingDirectory { get; private set; }
+
         public Task<HarnessProcessResult> Run(
             string workingDirectory,
             IReadOnlyDictionary<string, string> extraEnvironment,
-            CancellationToken cancellationToken
+            CancellationToken cancellationToken,
+            string? executable = null,
+            IReadOnlyList<string>? arguments = null
         )
         {
+            LastWorkingDirectory = workingDirectory;
+            LastExecutable = executable;
+            LastArguments = arguments;
             OnRun?.Invoke();
             return Task.FromResult(result);
         }
@@ -319,7 +385,9 @@ public class ExecuteHarnessTests
         public async Task<HarnessProcessResult> Run(
             string workingDirectory,
             IReadOnlyDictionary<string, string> extraEnvironment,
-            CancellationToken cancellationToken
+            CancellationToken cancellationToken,
+            string? executable = null,
+            IReadOnlyList<string>? arguments = null
         )
         {
             var runId = Guid.Parse(extraEnvironment["BIFROST_RUN_ID"]);
@@ -338,9 +406,13 @@ public class ExecuteHarnessTests
         public List<object> Requests { get; } = [];
         public List<object> Published { get; } = [];
         readonly Dictionary<Guid, string> _statusByItem = new();
+        readonly Dictionary<Guid, JsonObject> _dataByItem = new();
 
         public void SeedStatus(Guid workItemId, string status) =>
             _statusByItem[workItemId] = status;
+
+        public void SeedWorkItemData(Guid workItemId, JsonObject data) =>
+            _dataByItem[workItemId] = data;
 
         public Task<TResponse> Request<TRequest, TResponse>(
             TRequest request,
@@ -369,7 +441,9 @@ public class ExecuteHarnessTests
                 GetWorkItemApi.Query q => new GetWorkItemApi.Response
                 {
                     Id = q.Id,
-                    Data = new JsonObject { ["goal"] = "do it" },
+                    Data = _dataByItem.TryGetValue(q.Id, out var data)
+                        ? data.DeepClone()
+                        : new JsonObject { ["goal"] = "do it" },
                     Status = "pending",
                     Metadata = new JsonObject(),
                     Relationships = [],

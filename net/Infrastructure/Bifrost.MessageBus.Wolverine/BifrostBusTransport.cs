@@ -50,9 +50,22 @@ sealed class BifrostBusSender(IWolverineRuntime runtime) : ISender
 
     public async ValueTask SendAsync(Envelope envelope)
     {
-        var message =
-            envelope.Message ?? throw new InvalidOperationException("Envelope has no message.");
+        // Durable outbox relays with Data + MessageType and Message null (Wolverine transport model).
+        // Broker senders only need envelope.Data; we need the object for IBifrostBus.Publish.
+        // Same rehydrate path as RabbitMqSender when Message is null (TryDeserializeEnvelope).
+        // See: https://wolverinefx.net/guide/messaging/transports/ and HandlerPipeline.TryDeserializeEnvelope
+        if (envelope.Message is null)
+        {
+            var result = await runtime.Pipeline.TryDeserializeEnvelope(envelope).ConfigureAwait(false);
+            if (envelope.Message is null)
+            {
+                throw new InvalidOperationException(
+                    $"Envelope has no message after deserialize (MessageType='{envelope.MessageType}', Result={result.GetType().Name})."
+                );
+            }
+        }
+
         var bus = runtime.Services.GetRequiredService<IBifrostBus>();
-        await bus.Publish((dynamic)message).ConfigureAwait(false);
+        await bus.Publish((dynamic)envelope.Message).ConfigureAwait(false);
     }
 }

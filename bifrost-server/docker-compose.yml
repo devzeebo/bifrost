@@ -106,9 +106,13 @@ services:
       Bifrost__BusSocket: /run/bifrost/bus.sock
       Bifrost__OutboxPath: /var/lib/bifrost/worker-node.db
       Bifrost__NodeId: 11111111-1111-1111-1111-111111111111
+      Bifrost__Harness__WorkingDirectory: /workspaces
+      Bifrost__Docker__HostWorkspaceRoot: ${BIFROST_WORKSPACES_HOST_PATH:-}
     volumes:
       - worker_bus_sock:/run/bifrost
       - worker_outbox:/var/lib/bifrost
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${BIFROST_WORKSPACES_HOST_PATH:-../.bifrost-workspaces}:/workspaces
     depends_on:
       - worker-bus
 

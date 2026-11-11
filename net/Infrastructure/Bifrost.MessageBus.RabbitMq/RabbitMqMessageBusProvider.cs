@@ -42,6 +42,11 @@ sealed class RabbitMqMessageBusProvider : IMessageBusProvider, IHostedService, I
             .CreateChannelAsync(cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         await _consume.BasicQosAsync(0, 1, false, cancellationToken).ConfigureAwait(false);
+        // Replies must not share _consume: OnCommand with concurrency=1 that nested-Sends
+        // would deadlock waiting for OnReply on the same channel.
+        _reply = await _connection
+            .CreateChannelAsync(cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
 
         await DeclareTopology(cancellationToken).ConfigureAwait(false);
         await Consume(cancellationToken).ConfigureAwait(false);
@@ -164,6 +169,9 @@ sealed class RabbitMqMessageBusProvider : IMessageBusProvider, IHostedService, I
         }
 
         _connection?.Dispose();
+        _publish?.Dispose();
+        _consume?.Dispose();
+        _reply?.Dispose();
         _publishGate.Dispose();
         foreach (var pending in _pending.Values)
         {
@@ -184,7 +192,14 @@ sealed class RabbitMqMessageBusProvider : IMessageBusProvider, IHostedService, I
             )
             .ConfigureAwait(false);
 
-        foreach (var address in _options.Subscribers)
+        var addresses = _options.Subscribers.Contains(
+            _options.Address,
+            StringComparer.Ordinal
+        )
+            ? _options.Subscribers
+            : [.._options.Subscribers, _options.Address];
+
+        foreach (var address in addresses)
         {
             var queue = RabbitMqBusOptions.EventQueue(address);
             await DeclareQueue(publish, queue, cancellationToken).ConfigureAwait(false);
@@ -214,7 +229,8 @@ sealed class RabbitMqMessageBusProvider : IMessageBusProvider, IHostedService, I
     async Task Consume(CancellationToken cancellationToken)
     {
         var consume = Channel(_consume);
-        var reply = await consume
+        var replyChannel = Channel(_reply);
+        var reply = await replyChannel
             .QueueDeclareAsync(
                 queue: "",
                 durable: false,
@@ -225,6 +241,12 @@ sealed class RabbitMqMessageBusProvider : IMessageBusProvider, IHostedService, I
             .ConfigureAwait(false);
         _replyQueue = reply.QueueName;
 
+        var replyConsumer = new AsyncEventingBasicConsumer(replyChannel);
+        replyConsumer.ReceivedAsync += OnReply;
+        await replyChannel
+            .BasicConsumeAsync(_replyQueue, autoAck: true, replyConsumer, cancellationToken)
+            .ConfigureAwait(false);
+
         await Listen(
                 RabbitMqBusOptions.EventQueue(_options.Address),
                 autoAck: false,
@@ -232,7 +254,6 @@ sealed class RabbitMqMessageBusProvider : IMessageBusProvider, IHostedService, I
                 cancellationToken
             )
             .ConfigureAwait(false);
-        await Listen(_replyQueue!, autoAck: true, OnReply, cancellationToken).ConfigureAwait(false);
         await Listen(
                 RabbitMqBusOptions.CommandQueue(_options.Address),
                 autoAck: false,
@@ -432,6 +453,7 @@ sealed class RabbitMqMessageBusProvider : IMessageBusProvider, IHostedService, I
     IConnection? _connection;
     IChannel? _publish;
     IChannel? _consume;
+    IChannel? _reply;
     string? _replyQueue;
     int _disposed;
 

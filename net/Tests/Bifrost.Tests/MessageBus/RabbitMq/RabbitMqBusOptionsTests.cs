@@ -42,7 +42,9 @@ public class RabbitMqBusOptionsTests
         var options = RabbitMqBusOptions.FromConfiguration(configuration);
 
         options.Endpoint.ShouldBe("amqp://bifrost:bifrost@rabbitmq:5672/");
-        options.Subscribers.ShouldBe(["work-items", "orchestrator", "worker"]);
+        options.Subscribers.ShouldBe(
+            ["work-items", "orchestrator", "worker", "skills", "workflows"]
+        );
         options.NodeId.ShouldBeNull();
 
         Should.Throw<InvalidOperationException>(

@@ -120,7 +120,7 @@ function a_drawing_with_one_node(this: Context) {
     position: { x: 0, y: 0 },
     inputs: [],
     outputs: [{ id: 'out-1', name: 'out', schema: true }],
-    definition: { style: 'script', spec: { body: '' } },
+    definition: { style: 'script', spec: { image: 'bifrost/node', body: '' } },
   }
   this.drawing = {
     ...emptyDrawing('11111111-1111-1111-1111-111111111111'),
@@ -135,7 +135,7 @@ function a_drawing_with_linked_nodes(this: Context) {
     position: { x: 0, y: 0 },
     inputs: [],
     outputs: [{ id: 'out-1', name: 'out', schema: true }],
-    definition: { style: 'script', spec: { body: '' } },
+    definition: { style: 'script', spec: { image: 'bifrost/node', body: '' } },
   }
   this.consumer = {
     id: '33333333-3333-3333-3333-333333333333',
@@ -143,7 +143,7 @@ function a_drawing_with_linked_nodes(this: Context) {
     position: { x: 200, y: 0 },
     inputs: [{ id: 'in-1', name: 'in', schema: true }],
     outputs: [],
-    definition: { style: 'script', spec: { body: '' } },
+    definition: { style: 'script', spec: { image: 'bifrost/node', body: '' } },
   }
   this.drawing = {
     ...emptyDrawing('11111111-1111-1111-1111-111111111111'),
@@ -186,7 +186,7 @@ function a_drawing_with_two_producers_and_one_linked_input(this: Context) {
     position: { x: 0, y: 120 },
     inputs: [],
     outputs: [{ id: 'out-2', name: 'out', schema: true }],
-    definition: { style: 'script', spec: { body: '' } },
+    definition: { style: 'script', spec: { image: 'bifrost/node', body: '' } },
   }
   this.drawing = {
     ...this.drawing,
@@ -209,7 +209,7 @@ function a_drawing_with_one_self_connectable_node(this: Context) {
     position: { x: 0, y: 0 },
     inputs: [{ id: 'in-1', name: 'in', schema: true }],
     outputs: [{ id: 'out-1', name: 'out', schema: true }],
-    definition: { style: 'script', spec: { body: '' } },
+    definition: { style: 'script', spec: { image: 'bifrost/node', body: '' } },
   }
   this.drawing = {
     ...emptyDrawing('11111111-1111-1111-1111-111111111111'),

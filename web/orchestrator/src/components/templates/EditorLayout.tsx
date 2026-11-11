@@ -9,7 +9,7 @@ type EditorLayoutProps = {
 }
 
 export const EditorLayout = ({ title, subtitle, actions, children }: EditorLayoutProps) => (
-  <main className="mx-auto flex h-dvh w-full max-w-[1600px] flex-col gap-4 overflow-hidden px-4 py-4 sm:px-6">
+  <main className="flex h-dvh w-full flex-col gap-4 overflow-hidden px-4 py-4 sm:px-6">
     <header className="flex shrink-0 flex-col gap-3">
       <AppNav current="workflows" />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

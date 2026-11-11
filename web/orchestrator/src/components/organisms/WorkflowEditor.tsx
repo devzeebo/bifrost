@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useBlocker } from '@tanstack/react-router'
 import {
   addConnection,
@@ -66,6 +66,34 @@ export const WorkflowEditor = ({
     },
     enableBeforeUnload: leaveDirty,
   })
+
+  const deleteNode = (nodeId: string) => {
+    onChangeDrawing((current) => removeNode(current, nodeId))
+    setSelectedNodeId(null)
+  }
+
+  useEffect(() => {
+    if (!selectedNodeId || saving) {
+      return
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Delete' && event.key !== 'Backspace') {
+        return
+      }
+      if (isEditableTarget(event.target)) {
+        return
+      }
+      event.preventDefault()
+      onChangeDrawing((current) => removeNode(current, selectedNodeId))
+      setSelectedNodeId(null)
+    }
+
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [selectedNodeId, saving, onChangeDrawing])
 
   const updateSelected = (node: WorkflowNode) => {
     onChangeDrawing((current) => upsertNode(current, node))
@@ -146,10 +174,7 @@ export const WorkflowEditor = ({
             }
             onChangeDrawing((current) => removePort(current, selectedNodeId, portId))
           }}
-          onDelete={(nodeId) => {
-            onChangeDrawing((current) => removeNode(current, nodeId))
-            setSelectedNodeId(null)
-          }}
+          onDelete={deleteNode}
         />
       </div>
 
@@ -164,4 +189,15 @@ export const WorkflowEditor = ({
       ) : null}
     </div>
   )
+}
+
+const isEditableTarget = (target: EventTarget | null): boolean => {
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+  if (target.isContentEditable) {
+    return true
+  }
+  const tag = target.tagName
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
 }

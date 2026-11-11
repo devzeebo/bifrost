@@ -29,7 +29,9 @@ public static class RecordWorkerHeartbeatHandler
 
         // Presence-only: a beat never judges the worker offline. Coming back from a
         // recorded offline is an observation — the first fresh beat speaks online.
-        if (view is not { IsOnline: false })
+        // Treat a missing view like offline so a beat still brings the node online when
+        // the stream exists but the read model has not caught up yet.
+        if (view is { IsOnline: true })
         {
             return null;
         }

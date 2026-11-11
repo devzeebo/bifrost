@@ -13,7 +13,11 @@ sealed class ProviderTransportAdapter(IMessageBusProvider provider) : IBusTransp
         CancellationToken cancellationToken = default
     ) => provider.Send(message, cancellationToken);
 
-    public Task Publish(BusMessage message) => provider.Publish(message, CancellationToken.None);
+    public async Task<Unit> Publish(BusMessage message)
+    {
+        await provider.Publish(message, CancellationToken.None).ConfigureAwait(false);
+        return Unit.Value;
+    }
 
     public async Task<Unit> Subscribe(
         string topic,

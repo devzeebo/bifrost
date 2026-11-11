@@ -9,3 +9,6 @@ obj/
 *.db-shm
 *.db-wal
 .worktrees/
+
+.bifrost-workspaces/
+bifrost-server/.env

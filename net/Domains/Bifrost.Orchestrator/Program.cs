@@ -48,7 +48,12 @@ builder.Host.UseWolverine(opts =>
     // the claim/create/release commit — a crash after commit still reloads and flushes them.
     opts.UseBifrostBus()
         .ListenFor<WorkerNodeRegistered.Command>()
-        .ListenFor<WolverineHeartbeat>();
+        .ListenFor<WolverineHeartbeat>()
+        .ListenFor<ReplaceRunMetadataApi.Command>()
+        .ListenFor<SucceedRunApi.Command>()
+        .ListenFor<FailRunApi.Command>()
+        .ListenFor<SucceedTrackedWorkItemApi.Command>()
+        .ListenFor<FailTrackedWorkItemApi.Command>();
 });
 
 builder.Services.AddRpcHost(options =>

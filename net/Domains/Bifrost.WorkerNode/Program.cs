@@ -24,6 +24,9 @@ var nodeId = WorkerNodeIdentityStore.Resolve(
 builder.Services.Configure<HarnessHostOptions>(
     builder.Configuration.GetSection(HarnessHostOptions.SectionName)
 );
+builder.Services.Configure<DockerHostOptions>(
+    builder.Configuration.GetSection(DockerHostOptions.SectionName)
+);
 builder.Services.AddSingleton(new WorkerNodeIdentity { Id = nodeId });
 builder.Services.AddSingleton<IHarnessAcceptStore>(_ => new HarnessAcceptStore(outboxPath));
 builder.Services.AddSingleton<IHarnessRunGate, HarnessRunGate>();

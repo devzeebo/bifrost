@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Bifrost.Workflows.Contracts;
 
@@ -74,6 +75,8 @@ public static class WorkflowGraphValidation
                 throw new CommandValidationException(ex.Message);
             }
 
+            var normalizedSpec = NormalizeDefinitionSpec(node, style, node.Definition.Spec);
+
             var normalizedInputs = NormalizePorts(node, node.Inputs, inputPorts, portIds);
             var normalizedOutputs = NormalizePorts(node, node.Outputs, outputPorts, portIds);
 
@@ -85,7 +88,7 @@ public static class WorkflowGraphValidation
                     Definition = new NodeDefinition
                     {
                         Style = style.Value,
-                        Spec = node.Definition.Spec?.DeepClone(),
+                        Spec = normalizedSpec,
                     },
                     Inputs = normalizedInputs,
                     Outputs = normalizedOutputs,
@@ -100,6 +103,70 @@ public static class WorkflowGraphValidation
         );
 
         return new Result(normalizedNodes, normalizedConnections);
+    }
+
+    public const string BifrostNodeImage = "bifrost/node";
+
+    static JsonNode? NormalizeDefinitionSpec(
+        WorkflowNode node,
+        DefinitionStyle style,
+        JsonNode? spec
+    )
+    {
+        if (style.Value != DefinitionStyle.Script)
+        {
+            return spec?.DeepClone();
+        }
+
+        if (spec is not JsonObject scriptSpec)
+        {
+            throw new CommandValidationException(
+                $"Node '{Describe(node)}' script definition requires a spec object with 'image' and 'body'."
+            );
+        }
+
+        if (
+            !scriptSpec.TryGetPropertyValue("body", out var bodyNode)
+            || bodyNode is null
+            || bodyNode.GetValueKind() != JsonValueKind.String
+        )
+        {
+            throw new CommandValidationException(
+                $"Node '{Describe(node)}' script definition requires a string 'body'."
+            );
+        }
+
+        var body = bodyNode.GetValue<string>();
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            throw new CommandValidationException(
+                $"Node '{Describe(node)}' script definition requires a non-empty 'body'."
+            );
+        }
+
+        if (
+            !scriptSpec.TryGetPropertyValue("image", out var imageNode)
+            || imageNode is null
+            || imageNode.GetValueKind() != JsonValueKind.String
+        )
+        {
+            throw new CommandValidationException(
+                $"Node '{Describe(node)}' script definition requires a string 'image'."
+            );
+        }
+
+        var image = imageNode.GetValue<string>().Trim();
+        if (image != BifrostNodeImage)
+        {
+            throw new CommandValidationException(
+                $"Node '{Describe(node)}' script image '{image}' is not supported. Expected '{BifrostNodeImage}'."
+            );
+        }
+
+        var normalized = scriptSpec.DeepClone()!.AsObject();
+        normalized["image"] = BifrostNodeImage;
+        normalized["body"] = body;
+        return normalized;
     }
 
     static IReadOnlyList<WorkflowPort> NormalizePorts(

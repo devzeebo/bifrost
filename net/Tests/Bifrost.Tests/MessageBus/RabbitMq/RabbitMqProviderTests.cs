@@ -167,6 +167,76 @@ public sealed class RabbitMqProviderTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Command_handler_nested_Send_completes_without_deadlock()
+    {
+        var endpoint = _rabbit.GetConnectionString();
+        var subscribers = new[] { "outer-nest", "inner-nest", "client-nest" };
+        var innerInbound = new RecordingInbound
+        {
+            OnHandle = message =>
+                Task.FromResult(
+                    new BusReply
+                    {
+                        Payload = BusJson.Serialize(
+                            new { echo = BusJson.Deserialize<EchoBody>(message.Payload).Text }
+                        ),
+                    }
+                ),
+        };
+
+        RabbitMqMessageBusProvider? outer = null;
+        var outerInbound = new RecordingInbound
+        {
+            OnHandle = async message =>
+            {
+                // Nested Send while OnCommand is still running — replies must land on a
+                // dedicated channel or ConsumerDispatchConcurrency=1 deadlocks.
+                var nested = await outer!.Send(
+                    new BusMessage
+                    {
+                        MessageType = "EchoApi",
+                        Address = "inner-nest",
+                        Payload = message.Payload,
+                        CorrelationId = Guid.NewGuid().ToString("N"),
+                    }
+                );
+                nested.Error.ShouldBeNull();
+                return nested;
+            },
+        };
+
+        await using var innerClient = Client(endpoint, "inner-nest", subscribers, innerInbound);
+        await using var outerClient = Client(endpoint, "outer-nest", subscribers, outerInbound);
+        outer = outerClient;
+        await using var client = Client(
+            endpoint,
+            "client-nest",
+            subscribers,
+            new RecordingInbound()
+        );
+        await innerClient.StartAsync(CancellationToken.None);
+        await outerClient.StartAsync(CancellationToken.None);
+        await client.StartAsync(CancellationToken.None);
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var reply = await client.Send(
+            new BusMessage
+            {
+                MessageType = "EchoApi",
+                Address = "outer-nest",
+                Payload = BusJson.Serialize(new EchoBody("nested-ok")),
+                CorrelationId = Guid.NewGuid().ToString("N"),
+            },
+            timeout.Token
+        );
+
+        reply.Error.ShouldBeNull();
+        BusJson.Deserialize<EchoResult>(reply.Payload!).Echo.ShouldBe("nested-ok");
+        outerInbound.Handled.Count.ShouldBe(1);
+        innerInbound.Handled.Count.ShouldBe(1);
+    }
+
+    [Fact]
     public async Task Send_with_node_affinity_reaches_only_that_node()
     {
         var endpoint = _rabbit.GetConnectionString();

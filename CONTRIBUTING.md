@@ -53,6 +53,31 @@ Integration tests start a Postgres container; Docker must be available. API test
 docker compose -f bifrost-server/docker-compose.yml up --build
 ```
 
+### Script-node smoke
+
+Against a running stack, submit a one-off script work item (interim `data.node` contract — not a full workflow run):
+
+```bash
+# ./dev builds bifrost/node (standalone) then brings the compose stack up.
+# Or manually:
+docker build -f docker/cleanroom-base.Dockerfile -t clanker-cleanroom/base .
+docker build -f docker/node.Dockerfile -t bifrost/node .
+docker compose -f bifrost-server/docker-compose.yml up --build -d
+./scripts/run-script-node.mjs
+# or pull the body from a saved workflow:
+./scripts/run-script-node.mjs --workflow-id 293c56ab-f5cc-410d-a289-e455af0de080
+# or pass a handler file:
+./scripts/run-script-node.mjs --body-file ./path/to/handler.mjs
+```
+
+The Node smoke script loads `bifrost-server/.env` via `dotenv` (from `web/orchestrator`’s devDependencies) and uses `WORK_ITEMS_URL`, `ORCHESTRATOR_URL`, `WORKFLOWS_URL`, `TIMEOUT_SECS`, and `BIFROST_WORKSPACES_HOST_PATH` from that file (shell env still wins). If the workspaces path is missing, it writes an absolute default (`<repo>/.bifrost-workspaces`) into `.env`. Recreate `worker-node` after the first write if compose was already up without that env:
+
+```bash
+docker compose -f bifrost-server/docker-compose.yml up -d worker-node
+```
+
+It creates a pending work item, tracks it, polls until succeed/fail, and prints `outputs.json` from the workspace root.
+
 ## Domain conventions (short)
 
 - **API contracts** live in `Bifrost.WorkItems.Contracts` as `static class {Operation}Api` with nested `Command` / `Query` / `Response`.

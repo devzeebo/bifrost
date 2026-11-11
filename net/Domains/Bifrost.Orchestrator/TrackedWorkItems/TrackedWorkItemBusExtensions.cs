@@ -10,7 +10,8 @@ public static class TrackedWorkItemBusExtensions
     extension(IServiceCollection services)
     {
         /// <summary>
-        /// Exposes holder/status reads on the bus so workers can re-check at handoff accept.
+        /// Exposes holder/status/run reads and start command on the bus so workers can
+        /// re-check and transition items during harness execution.
         /// </summary>
         public IServiceCollection AddTrackedWorkItemBusQueries()
         {
@@ -21,7 +22,36 @@ public static class TrackedWorkItemBusExtensions
                 ListTrackedWorkItemsHeldByWorkerApi.Query,
                 ListTrackedWorkItemsHeldByWorkerApi.Response
             >();
+            services.Query<GetRunApi.Query, GetRunApi.Response>();
+            services.Command<StartTrackedWorkItemApi.Command>();
             return services;
+        }
+
+        void Command<TCommand>()
+            where TCommand : class
+        {
+            services.AddMessageBusHandler<TCommand>(
+                async (sp, command, ct) =>
+                {
+                    await using var scope = sp.CreateAsyncScope();
+                    try
+                    {
+                        await scope
+                            .ServiceProvider.GetRequiredService<IMessageBus>()
+                            .InvokeAsync(command, ct);
+                    }
+                    catch (CommandValidationException ex)
+                    {
+                        throw new BusException(
+                            new BusError
+                            {
+                                Code = BusErrorCodes.Validation,
+                                Message = ex.Message,
+                            }
+                        );
+                    }
+                }
+            );
         }
 
         void Query<TQuery, TResponse>()
