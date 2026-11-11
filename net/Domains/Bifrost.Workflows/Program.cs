@@ -94,6 +94,18 @@ app.Use(
                 }
             );
         }
+        catch (ConcurrencyConflictException ex)
+        {
+            context.Response.StatusCode = StatusCodes.Status409Conflict;
+            await context.Response.WriteAsJsonAsync(
+                new ProblemDetails
+                {
+                    Status = StatusCodes.Status409Conflict,
+                    Title = "Conflict",
+                    Detail = ex.Message,
+                }
+            );
+        }
     }
 );
 

@@ -25,3 +25,8 @@ body {
   color: var(--color-fg);
   font-family: var(--font-sans);
 }
+
+button {
+  cursor: pointer;
+  user-select: none;
+}

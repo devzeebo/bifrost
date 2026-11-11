@@ -41,5 +41,6 @@ public static class BusErrorCodes
 {
     public const string Validation = "validation";
     public const string NotFound = "not_found";
+    public const string Conflict = "conflict";
     public const string Internal = "internal";
 }

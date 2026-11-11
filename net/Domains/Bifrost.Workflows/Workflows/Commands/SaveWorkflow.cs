@@ -2,29 +2,41 @@ using Bifrost.Workflows.Aggregate;
 using Bifrost.Workflows.Contracts;
 using Bifrost.Workflows.Events;
 using Bifrost.Workflows.ValueObjects;
-using Wolverine.Marten;
+using Marten;
 
 namespace Bifrost.Workflows.Commands;
 
 public static class SaveWorkflowHandler
 {
-    public static void Validate(SaveWorkflowApi.Command command, Workflow workflow) =>
-        WorkflowGraphValidation.Validate(command.Name, command.Nodes, command.Connections);
-
     [WolverinePost("/save-workflow"), EmptyResponse]
-    [AggregateHandler]
-    public static WorkflowSaved Handle(SaveWorkflowApi.Command command, Workflow workflow)
+    public static async Task Handle(SaveWorkflowApi.Command command, IDocumentSession session)
     {
         var graph = WorkflowGraphValidation.Validate(
             command.Name,
             command.Nodes,
             command.Connections
         );
-        return new WorkflowSaved
+
+        var stream = await session.Events.FetchForWriting<Workflow>(command.Id);
+        if (stream.Aggregate is null)
         {
-            Name = command.Name.Trim(),
-            Nodes = graph.Nodes,
-            Connections = graph.Connections,
-        };
+            throw new NotFoundException($"Workflow {command.Id} not found.");
+        }
+
+        if (!command.Overwrite && stream.CurrentVersion != command.ExpectedVersion)
+        {
+            throw new ConcurrencyConflictException(
+                "Workflow changed since it was opened."
+            );
+        }
+
+        stream.AppendOne(
+            new WorkflowSaved
+            {
+                Name = command.Name.Trim(),
+                Nodes = graph.Nodes,
+                Connections = graph.Connections,
+            }
+        );
     }
 }

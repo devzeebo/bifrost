@@ -15,9 +15,17 @@ public sealed record NodeDefinition
     public JsonNode? Spec { get; init; }
 }
 
+public sealed record NodePosition
+{
+    public required double X { get; init; }
+    public required double Y { get; init; }
+}
+
 public sealed record WorkflowNode
 {
     public required Guid Id { get; init; }
+    public required string Name { get; init; }
+    public required NodePosition Position { get; init; }
     public required IReadOnlyList<WorkflowPort> Inputs { get; init; }
     public required IReadOnlyList<WorkflowPort> Outputs { get; init; }
     public NodeDefinition? Definition { get; init; }

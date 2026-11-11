@@ -4,7 +4,7 @@ import { AppNav } from '../molecules/AppNav'
 type PageLayoutProps = {
   readonly title: string
   readonly subtitle: string
-  readonly current: 'status' | 'usage' | 'skills'
+  readonly current: 'status' | 'usage' | 'skills' | 'workflows'
   readonly actions?: ReactNode
   readonly children: ReactNode
 }

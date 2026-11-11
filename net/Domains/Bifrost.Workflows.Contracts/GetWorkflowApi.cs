@@ -14,6 +14,7 @@ public static class GetWorkflowApi
     {
         public required Guid Id { get; init; }
         public required string Name { get; init; }
+        public required long Version { get; init; }
         public required IReadOnlyList<WorkflowNode> Nodes { get; init; }
         public required IReadOnlyList<WorkflowConnection> Connections { get; init; }
     }
