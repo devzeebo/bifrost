@@ -144,14 +144,26 @@ public static class WorkflowGraphValidation
             if (!outputPorts.TryGetValue(connection.OutputPortId, out var output))
             {
                 throw new CommandValidationException(
-                    $"Connection '{connection.Id}' output port '{connection.OutputPortId}' is not an output of a node in this workflow."
+                    DescribeMissingOrWrongKind(
+                        connection.Id,
+                        connection.OutputPortId,
+                        expectedKind: "output",
+                        otherRolePorts: inputPorts,
+                        otherKind: "input"
+                    )
                 );
             }
 
             if (!inputPorts.TryGetValue(connection.InputPortId, out var input))
             {
                 throw new CommandValidationException(
-                    $"Connection '{connection.Id}' input port '{connection.InputPortId}' is not an input of a node in this workflow."
+                    DescribeMissingOrWrongKind(
+                        connection.Id,
+                        connection.InputPortId,
+                        expectedKind: "input",
+                        otherRolePorts: outputPorts,
+                        otherKind: "output"
+                    )
                 );
             }
 
@@ -196,29 +208,51 @@ public static class WorkflowGraphValidation
         return normalized;
     }
 
+    static string DescribeMissingOrWrongKind(
+        Guid connectionId,
+        Guid portId,
+        string expectedKind,
+        Dictionary<Guid, (WorkflowNode Node, WorkflowPort Port)> otherRolePorts,
+        string otherKind
+    )
+    {
+        if (otherRolePorts.TryGetValue(portId, out var wrongKind))
+        {
+            return $"Connection '{connectionId}' {expectedKind} port '{portId}' ('{wrongKind.Port.Name}') exists as an {otherKind} on node '{wrongKind.Node.Id}', not an {expectedKind}.";
+        }
+
+        return $"Connection '{connectionId}' {expectedKind} port '{portId}' is not an {expectedKind} of a node in this workflow.";
+    }
+
     static void RejectCycles(Dictionary<Guid, List<Guid>> adjacency)
     {
         var visiting = new HashSet<Guid>();
         var visited = new HashSet<Guid>();
+        var stack = new List<Guid>();
 
         foreach (var nodeId in adjacency.Keys)
         {
-            if (HasCycle(nodeId, adjacency, visiting, visited))
+            if (TryFindCycle(nodeId, adjacency, visiting, visited, stack, out var cycle))
             {
+                var chain = string.Join(" -> ", cycle.Select(id => $"'{id}'"));
                 throw new CommandValidationException(
-                    "Workflow connections form a cycle; cycles are rejected at save."
+                    $"Workflow connections form a cycle involving nodes {chain}; cycles are rejected at save."
                 );
             }
         }
     }
 
-    static bool HasCycle(
+    static bool TryFindCycle(
         Guid nodeId,
         Dictionary<Guid, List<Guid>> adjacency,
         HashSet<Guid> visiting,
-        HashSet<Guid> visited
+        HashSet<Guid> visited,
+        List<Guid> stack,
+        out List<Guid> cycle
     )
     {
+        cycle = [];
+
         if (visited.Contains(nodeId))
         {
             return false;
@@ -226,20 +260,25 @@ public static class WorkflowGraphValidation
 
         if (!visiting.Add(nodeId))
         {
+            var start = stack.IndexOf(nodeId);
+            cycle = [.. stack.Skip(start), nodeId];
             return true;
         }
+
+        stack.Add(nodeId);
 
         if (adjacency.TryGetValue(nodeId, out var targets))
         {
             foreach (var target in targets)
             {
-                if (HasCycle(target, adjacency, visiting, visited))
+                if (TryFindCycle(target, adjacency, visiting, visited, stack, out cycle))
                 {
                     return true;
                 }
             }
         }
 
+        stack.RemoveAt(stack.Count - 1);
         visiting.Remove(nodeId);
         visited.Add(nodeId);
         return false;

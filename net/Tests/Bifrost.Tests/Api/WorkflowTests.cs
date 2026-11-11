@@ -377,6 +377,108 @@ public class WorkflowTests
     }
 
     [Fact]
+    public async Task save_rejects_wrong_kind_port_as_output()
+    {
+        var client = _factory.CreateClient();
+        var workflowId = Guid.NewGuid();
+        await CreateEmpty(client, workflowId);
+        var nodeId = Guid.NewGuid();
+        var inputId = Guid.NewGuid();
+        var otherInputId = Guid.NewGuid();
+
+        var response = await Post(
+            client,
+            "/save-workflow",
+            new
+            {
+                id = workflowId,
+                name = "wrong-kind-output",
+                nodes = new[]
+                {
+                    Node(
+                        nodeId,
+                        "script",
+                        inputs:
+                        [
+                            Port(inputId, "source", AnySchema),
+                            Port(otherInputId, "sink", AnySchema),
+                        ],
+                        outputs: []
+                    ),
+                },
+                connections = new[]
+                {
+                    new
+                    {
+                        id = Guid.NewGuid(),
+                        outputPortId = inputId,
+                        inputPortId = otherInputId,
+                    },
+                },
+            }
+        );
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        var body = await response.Content.ReadAsStringAsync();
+        body.ShouldContain(inputId.ToString());
+        body.ShouldContain("'source'");
+        body.ShouldContain("exists as an input");
+        body.ShouldContain($"node '{nodeId}'");
+        body.ShouldContain("not an output");
+    }
+
+    [Fact]
+    public async Task save_rejects_wrong_kind_port_as_input()
+    {
+        var client = _factory.CreateClient();
+        var workflowId = Guid.NewGuid();
+        await CreateEmpty(client, workflowId);
+        var nodeId = Guid.NewGuid();
+        var outputA = Guid.NewGuid();
+        var outputB = Guid.NewGuid();
+
+        var response = await Post(
+            client,
+            "/save-workflow",
+            new
+            {
+                id = workflowId,
+                name = "wrong-kind-input",
+                nodes = new[]
+                {
+                    Node(
+                        nodeId,
+                        "script",
+                        inputs: [],
+                        outputs:
+                        [
+                            Port(outputA, "a", AnySchema),
+                            Port(outputB, "b", AnySchema),
+                        ]
+                    ),
+                },
+                connections = new[]
+                {
+                    new
+                    {
+                        id = Guid.NewGuid(),
+                        outputPortId = outputA,
+                        inputPortId = outputB,
+                    },
+                },
+            }
+        );
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        var body = await response.Content.ReadAsStringAsync();
+        body.ShouldContain(outputB.ToString());
+        body.ShouldContain("'b'");
+        body.ShouldContain("exists as an output");
+        body.ShouldContain($"node '{nodeId}'");
+        body.ShouldContain("not an input");
+    }
+
+    [Fact]
     public async Task save_rejects_fan_in_on_same_input()
     {
         var client = _factory.CreateClient();
@@ -493,6 +595,77 @@ public class WorkflowTests
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         var body = await response.Content.ReadAsStringAsync();
         body.ShouldContain("cycle");
+        body.ShouldContain($"'{nodeA}'");
+        body.ShouldContain($"'{nodeB}'");
+        body.ShouldContain("involving nodes");
+    }
+
+    [Fact]
+    public async Task save_can_remove_connections()
+    {
+        var client = _factory.CreateClient();
+        var workflowId = Guid.NewGuid();
+        var producerId = Guid.NewGuid();
+        var consumerId = Guid.NewGuid();
+        var outputId = Guid.NewGuid();
+        var inputId = Guid.NewGuid();
+        var connectionId = Guid.NewGuid();
+        var nodes = new[]
+        {
+            Node(
+                producerId,
+                "script",
+                inputs: [],
+                outputs: [Port(outputId, "out", AnySchema)]
+            ),
+            Node(
+                consumerId,
+                "script",
+                inputs: [Port(inputId, "in", AnySchema)],
+                outputs: []
+            ),
+        };
+
+        (
+            await Post(
+                client,
+                "/create-workflow",
+                new
+                {
+                    id = workflowId,
+                    name = "linked",
+                    nodes,
+                    connections = new[]
+                    {
+                        new
+                        {
+                            id = connectionId,
+                            outputPortId = outputId,
+                            inputPortId = inputId,
+                        },
+                    },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (
+            await Post(
+                client,
+                "/save-workflow",
+                new
+                {
+                    id = workflowId,
+                    name = "unlinked",
+                    nodes,
+                    connections = Array.Empty<object>(),
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var got = await Query<GetWorkflowApi.Response>(client, $"/get-workflow/{workflowId}");
+        got.ShouldNotBeNull();
+        got.Name.ShouldBe("unlinked");
+        got.Connections.ShouldBeEmpty();
     }
 
     [Fact]
