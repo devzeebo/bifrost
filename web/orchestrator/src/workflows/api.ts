@@ -84,6 +84,10 @@ export const saveWorkflow = async (input: {
   })
 }
 
+export const deleteWorkflow = async (id: string): Promise<void> => {
+  await postEmpty('/delete-workflow', { id })
+}
+
 const serializeDrawing = (drawing: WorkflowDrawing) => ({
   id: drawing.id,
   name: drawing.name,

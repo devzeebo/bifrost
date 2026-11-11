@@ -26,7 +26,14 @@ const WorkflowLibraryPage = () => {
       {library.status === 'error' ? (
         <p className="border border-line bg-surface px-5 py-6 text-sm text-signal">{library.message}</p>
       ) : null}
-      {library.status === 'ready' ? <WorkflowLibrary items={library.items} /> : null}
+      {library.status === 'ready' ? (
+        <div className="flex flex-col gap-3">
+          {library.deleteError ? (
+            <p className="text-sm text-signal">{library.deleteError}</p>
+          ) : null}
+          <WorkflowLibrary items={library.items} onDelete={(id) => void library.deleteWorkflow(id)} />
+        </div>
+      ) : null}
     </PageLayout>
   )
 }

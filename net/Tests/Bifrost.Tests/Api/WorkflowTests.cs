@@ -941,6 +941,64 @@ public class WorkflowTests
     }
 
     [Fact]
+    public async Task delete_workflow_removes_it_from_list_and_get()
+    {
+        var client = _factory.CreateClient();
+        var workflowId = Guid.NewGuid();
+        await CreateEmpty(client, workflowId);
+
+        (
+            await Post(client, "/delete-workflow", new { id = workflowId })
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var list = await Query<ListWorkflowsApi.Response>(client, "/list-workflows");
+        list.ShouldNotBeNull();
+        list.Items.ShouldNotContain(x => x.Id == workflowId);
+
+        var get = await QueryRaw(client, $"/get-workflow/{workflowId}");
+        get.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task delete_missing_workflow_returns_not_found()
+    {
+        var client = _factory.CreateClient();
+        var missingId = Guid.NewGuid();
+
+        var response = await Post(client, "/delete-workflow", new { id = missingId });
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        var body = await response.Content.ReadAsStringAsync();
+        body.ShouldContain($"Workflow {missingId} not found.");
+    }
+
+    [Fact]
+    public async Task save_after_delete_returns_not_found()
+    {
+        var client = _factory.CreateClient();
+        var workflowId = Guid.NewGuid();
+        await CreateEmpty(client, workflowId);
+
+        (
+            await Post(client, "/delete-workflow", new { id = workflowId })
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var response = await Post(
+            client,
+            "/save-workflow",
+            new
+            {
+                id = workflowId,
+                name = "gone",
+                expectedVersion = 1L,
+                nodes = Array.Empty<object>(),
+            }
+        );
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        var body = await response.Content.ReadAsStringAsync();
+        body.ShouldContain($"Workflow {workflowId} not found.");
+    }
+
+    [Fact]
     public async Task save_with_stale_version_returns_conflict_and_leaves_record()
     {
         var client = _factory.CreateClient();

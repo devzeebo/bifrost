@@ -18,7 +18,7 @@ public static class SaveWorkflowHandler
         );
 
         var stream = await session.Events.FetchForWriting<Workflow>(command.Id);
-        if (stream.Aggregate is null)
+        if (stream.Aggregate is null || stream.Aggregate.IsDeleted)
         {
             throw new NotFoundException($"Workflow {command.Id} not found.");
         }

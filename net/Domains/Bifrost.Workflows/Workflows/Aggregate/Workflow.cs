@@ -9,6 +9,7 @@ public class Workflow
     public required string Name { get; set; }
     public IReadOnlyList<WorkflowNode> Nodes { get; set; } = [];
     public IReadOnlyList<WorkflowConnection> Connections { get; set; } = [];
+    public bool IsDeleted { get; set; }
 
     public void Apply(WorkflowCreated e)
     {
@@ -16,6 +17,7 @@ public class Workflow
         Name = e.Name;
         Nodes = e.Nodes;
         Connections = e.Connections;
+        IsDeleted = false;
     }
 
     public void Apply(WorkflowSaved e)
@@ -23,5 +25,10 @@ public class Workflow
         Name = e.Name;
         Nodes = e.Nodes;
         Connections = e.Connections;
+    }
+
+    public void Apply(WorkflowDeleted _)
+    {
+        IsDeleted = true;
     }
 }

@@ -15,9 +15,11 @@ public static class GetWorkflowHandler
         IQuerySession session
     )
     {
-        var workflow =
-            await session.LoadAsync<WorkflowView.Model>(query.Id)
-            ?? throw new NotFoundException($"Workflow {query.Id} not found.");
+        var workflow = await session.LoadAsync<WorkflowView.Model>(query.Id);
+        if (workflow is null || workflow.IsDeleted)
+        {
+            throw new NotFoundException($"Workflow {query.Id} not found.");
+        }
 
         return new GetWorkflowApi.Response
         {

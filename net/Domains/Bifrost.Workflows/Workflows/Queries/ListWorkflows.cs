@@ -12,7 +12,10 @@ public static class ListWorkflowsHandler
         IQuerySession session
     )
     {
-        var items = await session.Query<WorkflowIndex.Model>().ToListAsync();
+        var items = await session
+            .Query<WorkflowIndex.Model>()
+            .Where(x => !x.IsDeleted)
+            .ToListAsync();
         return new ListWorkflowsApi.Response
         {
             Items =

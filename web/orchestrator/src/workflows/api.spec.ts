@@ -5,6 +5,7 @@ import {
   WorkflowNotFoundError,
   WorkflowValidationError,
   createWorkflow,
+  deleteWorkflow,
   getWorkflow,
   listWorkflows,
   parseWorkflowDetail,
@@ -86,6 +87,30 @@ describe('workflow api', () => {
     },
   })
 
+  test('deleteWorkflow posts the workflow id', {
+    given: {
+      an_empty_success_response,
+    },
+    when: {
+      deleting_a_workflow,
+    },
+    then: {
+      delete_was_posted,
+    },
+  })
+
+  test('deleteWorkflow maps 404 to WorkflowNotFoundError', {
+    given: {
+      a_not_found_response,
+    },
+    when: {
+      deleting_a_workflow_fails,
+    },
+    then: {
+      a_not_found_error_is_thrown,
+    },
+  })
+
   test('parseWorkflowDetail rejects missing position', {
     given: {},
     when: {
@@ -137,7 +162,7 @@ function a_workflow_detail_response(this: Context) {
               schema: true,
             },
           ],
-          definition: { style: 'script', spec: { body: 'x' } },
+          definition: { style: 'script', spec: { image: 'bifrost/node', body: 'x' } },
         },
       ],
       connections: [],
@@ -206,6 +231,18 @@ async function creating_a_workflow(this: Context) {
   })
 }
 
+async function deleting_a_workflow(this: Context) {
+  await deleteWorkflow('11111111-1111-1111-1111-111111111111')
+}
+
+async function deleting_a_workflow_fails(this: Context) {
+  try {
+    await deleteWorkflow('11111111-1111-1111-1111-111111111111')
+  } catch (error) {
+    this.error = error
+  }
+}
+
 function parsing_a_node_without_position(this: Context) {
   try {
     parseWorkflowDetail({
@@ -252,7 +289,7 @@ function the_detail_is_returned(this: Context) {
             schema: true,
           },
         ],
-        definition: { style: 'script', spec: { body: 'x' } },
+        definition: { style: 'script', spec: { image: 'bifrost/node', body: 'x' } },
       },
     ],
     connections: [],
@@ -276,6 +313,16 @@ function create_was_posted(this: Context) {
   expect(this.fetchMock).toHaveBeenCalledWith(
     '/create-workflow',
     expect.objectContaining({ method: 'POST' }),
+  )
+}
+
+function delete_was_posted(this: Context) {
+  expect(this.fetchMock).toHaveBeenCalledWith(
+    '/delete-workflow',
+    expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ id: '11111111-1111-1111-1111-111111111111' }),
+    }),
   )
 }
 

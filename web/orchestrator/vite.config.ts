@@ -193,6 +193,10 @@ export default defineConfig({
         target: 'http://127.0.0.1:8083',
         changeOrigin: true,
       },
+      '/delete-workflow': {
+        target: 'http://127.0.0.1:8083',
+        changeOrigin: true,
+      },
       '/get-workflow': {
         target: 'http://127.0.0.1:8083',
         changeOrigin: true,
