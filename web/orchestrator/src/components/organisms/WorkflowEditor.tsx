@@ -68,8 +68,14 @@ export const WorkflowEditor = ({
   })
 
   const deleteNode = (nodeId: string) => {
-    onChangeDrawing((current) => removeNode(current, nodeId))
-    setSelectedNodeId(null)
+    onChangeDrawing((current) => {
+      const next = removeNode(current, nodeId)
+      if (next === current) {
+        return current
+      }
+      setSelectedNodeId(null)
+      return next
+    })
   }
 
   useEffect(() => {
@@ -85,8 +91,14 @@ export const WorkflowEditor = ({
         return
       }
       event.preventDefault()
-      onChangeDrawing((current) => removeNode(current, selectedNodeId))
-      setSelectedNodeId(null)
+      onChangeDrawing((current) => {
+        const next = removeNode(current, selectedNodeId)
+        if (next === current) {
+          return current
+        }
+        setSelectedNodeId(null)
+        return next
+      })
     }
 
     document.addEventListener('keydown', onKeyDown)

@@ -11,5 +11,6 @@ public static class CreateWorkItemApi
         public required Guid Id { get; init; }
         public required JsonNode Data { get; init; }
         public required WorkItemStatus Status { get; init; }
+        public JsonObject? Metadata { get; init; }
     }
 }

@@ -1,3 +1,4 @@
+import type { AttachedWorkflow } from '../../workItems/useTrackedWorkItemDetail'
 import type { TrackedWorkItem } from '../../workItems/types'
 import { isActiveStatus, isHeldStatus } from '../../workItems/types'
 import { NodeId } from '../atoms/NodeId'
@@ -6,6 +7,7 @@ import { Fact } from '../molecules/Fact'
 
 type WorkItemDetailProps = {
   readonly item: TrackedWorkItem
+  readonly attachedWorkflow: AttachedWorkflow
   readonly actionPending: boolean
   readonly actionError: string | null
   readonly onCancel: () => void
@@ -28,6 +30,7 @@ const toneForStatus = (status: TrackedWorkItem['status']) => {
 
 export const WorkItemDetail = ({
   item,
+  attachedWorkflow,
   actionPending,
   actionError,
   onCancel,
@@ -45,6 +48,7 @@ export const WorkItemDetail = ({
       <div className="flex flex-wrap gap-6">
         <Fact label="Status" value={item.status} />
         <Fact label="Holder" value={item.holderId === null ? '—' : item.holderId.slice(0, 8)} />
+        <Fact label="Workflow" value={formatAttachedWorkflow(attachedWorkflow)} />
       </div>
       {canCancel || canRelease ? (
         <div className="flex flex-wrap gap-3 border-t border-line pt-4">
@@ -73,4 +77,17 @@ export const WorkItemDetail = ({
       {actionError !== null ? <p className="text-sm text-muted">{actionError}</p> : null}
     </section>
   )
+}
+
+const formatAttachedWorkflow = (attached: AttachedWorkflow): string => {
+  switch (attached.kind) {
+    case 'none':
+      return '—'
+    case 'resolved':
+      return `${attached.name} (${attached.id.slice(0, 8)})`
+    case 'unresolved':
+      return `${attached.id.slice(0, 8)} (unavailable)`
+    case 'id-only':
+      return attached.id.slice(0, 8)
+  }
 }

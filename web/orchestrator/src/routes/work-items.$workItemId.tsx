@@ -31,6 +31,7 @@ const WorkItemDetailPage = () => {
         <>
           <WorkItemDetail
             item={detail.item}
+            attachedWorkflow={detail.attachedWorkflow}
             actionPending={detail.actionPending}
             actionError={detail.actionError}
             onCancel={() => {

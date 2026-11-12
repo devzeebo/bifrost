@@ -55,6 +55,8 @@ docker compose -f bifrost-server/docker-compose.yml up --build
 
 ### Script-node smoke
 
+To submit a work item attached to a workflow, POST `/create-attached-work-item` on the workflows host (port 8083). That command validates the workflow is startable and creates the work item with `metadata.workflowId` set; Work Items itself stays workflow-agnostic.
+
 Against a running stack, submit a one-off script work item (interim `data.node` contract — not a full workflow run):
 
 ```bash

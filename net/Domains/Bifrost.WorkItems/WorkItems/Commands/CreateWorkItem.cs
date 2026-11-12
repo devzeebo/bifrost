@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Bifrost.WorkItems.Aggregate;
 using Bifrost.WorkItems.Events;
 using Bifrost.WorkItems.Projections;
@@ -30,6 +31,9 @@ public static class CreateWorkItemHandler
                 Id = command.Id,
                 Data = command.Data,
                 Status = command.Status,
+                Metadata = command.Metadata is null
+                    ? null
+                    : (JsonObject)command.Metadata.DeepClone()!,
                 Actor = command.Actor,
                 Reason = command.Reason,
             }

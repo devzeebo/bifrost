@@ -98,6 +98,27 @@ describe('workflow drawing', () => {
       no_connections_exist,
     },
   })
+
+  test('emptyDrawing seeds a work-item-input node', {
+    given: {
+      an_empty_drawing,
+    },
+    then: {
+      drawing_has_only_the_work_item_input,
+    },
+  })
+
+  test('removeNode leaves the work-item-input in place', {
+    given: {
+      an_empty_drawing,
+    },
+    when: {
+      removing_the_work_item_input,
+    },
+    then: {
+      drawing_has_only_the_work_item_input,
+    },
+  })
 })
 
 type Context = {
@@ -111,6 +132,17 @@ type Context = {
 
 function an_empty_drawing(this: Context) {
   this.drawing = emptyDrawing('11111111-1111-1111-1111-111111111111')
+}
+
+function removing_the_work_item_input(this: Context) {
+  const entry = this.drawing.nodes[0]
+  this.drawing = removeNode(this.drawing, entry.id)
+}
+
+function drawing_has_only_the_work_item_input(this: Context) {
+  expect(this.drawing.nodes).toHaveLength(1)
+  expect(this.drawing.nodes[0]?.definition?.style).toBe('work-item-input')
+  expect(this.drawing.connections).toEqual([])
 }
 
 function a_drawing_with_one_node(this: Context) {

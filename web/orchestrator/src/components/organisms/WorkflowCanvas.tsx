@@ -6,6 +6,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
+import { isWorkItemInputNode } from '../../workflows/drawing'
 import type { SaveRefusalHighlight, WorkflowDrawing, WorkflowNode } from '../../workflows/types'
 
 const NODE_WIDTH = 200
@@ -338,20 +339,26 @@ export const WorkflowCanvas = ({
         const selected = selectedNodeId === node.id
         const hot = highlightedNodes.has(node.id)
         const height = nodeHeight(node)
+        const entry = isWorkItemInputNode(node)
         return (
           <div
             key={node.id}
             role="button"
             tabIndex={disabled ? -1 : 0}
             data-workflow-node={node.id}
+            data-work-item-input={entry ? 'true' : undefined}
             onPointerDown={(event) => onNodePointerDown(event, node)}
             onKeyDown={(event) => onNodeKeyDown(event, node)}
-            className={`absolute flex cursor-grab flex-col border bg-surface select-none ${
+            className={`absolute flex cursor-grab flex-col border select-none ${
+              entry ? 'bg-ink' : 'bg-surface'
+            } ${
               hot
                 ? 'border-signal'
                 : selected
                   ? 'border-signal-dim'
-                  : 'border-line'
+                  : entry
+                    ? 'border-signal-dim border-dashed'
+                    : 'border-line'
             } ${disabled ? 'opacity-60' : ''}`}
             style={{
               left: node.position.x,
@@ -360,7 +367,15 @@ export const WorkflowCanvas = ({
               minHeight: height,
             }}
           >
-            <div className="border-b border-line px-3 py-2 text-sm text-fg">{node.name}</div>
+            <div
+              className={`border-b px-3 py-2 text-sm text-fg ${
+                entry
+                  ? 'border-signal-dim bg-signal/10 tracking-[0.08em] uppercase'
+                  : 'border-line'
+              }`}
+            >
+              {node.name}
+            </div>
             <div className="flex justify-between gap-2 px-2 py-2">
               <div className="flex flex-col gap-2">
                 {node.inputs.map((port) => (
@@ -392,7 +407,7 @@ export const WorkflowCanvas = ({
               </div>
             </div>
             <p className="px-3 pb-2 text-[10px] tracking-[0.16em] text-muted uppercase">
-              {node.definition?.style ?? 'undefined'}
+              {entry ? 'work item input' : (node.definition?.style ?? 'undefined')}
             </p>
           </div>
         )

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Bifrost.Workflows.Contracts;
 using Json.Schema;
 
 namespace Bifrost.Workflows.ValueObjects;
@@ -45,40 +46,65 @@ public static class PortSchemaCompatibility
         ..AnnotationKeywords,
     ];
 
-    public static void EnsureParseable(JsonNode? schema, Guid nodeId, Guid portId)
+    public static void EnsureParseable(JsonNode? schema, WorkflowNode node, WorkflowPort port)
     {
+        var nodeLabel = Label(node.Name, node.Id);
+        var portLabel = Label(port.Name, port.Id);
+
         if (schema is null)
         {
             throw new CommandValidationException(
-                $"Node '{nodeId}' port '{portId}' is missing a schema."
+                $"Node '{nodeLabel}' port '{portLabel}' is missing a schema."
             );
         }
 
         if (schema is not JsonValue and not JsonObject)
         {
             throw new CommandValidationException(
-                $"Node '{nodeId}' port '{portId}' schema must be a JSON Schema object or boolean."
+                $"Node '{nodeLabel}' port '{portLabel}' schema must be a JSON Schema object or boolean."
             );
         }
 
         if (schema is JsonObject obj && ContainsRef(obj))
         {
             throw new CommandValidationException(
-                $"Node '{nodeId}' port '{portId}' schema must not use '$ref' (unsupported for linking)."
+                $"Node '{nodeLabel}' port '{portLabel}' schema must not use '$ref' (unsupported for linking)."
             );
         }
 
         try
         {
-            JsonSchema.FromText(schema.ToJsonString());
+            ParseWithoutRegistering(schema);
         }
         catch (Exception ex)
         {
             throw new CommandValidationException(
-                $"Node '{nodeId}' port '{portId}' has an invalid JSON Schema: {ex.Message}"
+                $"Node '{nodeLabel}' port '{portLabel}' has an invalid JSON Schema: {ex.Message}"
             );
         }
     }
+
+    /// <summary>
+    /// Parses a schema for validity without registering <c>$id</c>/<c>$anchor</c> into the
+    /// process-wide JsonSchema.Net registry (which rejects overwrites).
+    /// </summary>
+    public static JsonSchema ParseWithoutRegistering(JsonNode schema) =>
+        JsonSchema.FromText(WithoutRegistryIds(schema).ToJsonString());
+
+    static JsonNode WithoutRegistryIds(JsonNode schema)
+    {
+        var clone = schema.DeepClone()!;
+        if (clone is JsonObject obj)
+        {
+            obj.Remove("$id");
+            obj.Remove("$anchor");
+        }
+
+        return clone;
+    }
+
+    static string Label(string? name, Guid id) =>
+        string.IsNullOrWhiteSpace(name) ? id.ToString() : name.Trim();
 
     public static bool OutputSatisfiesInput(JsonNode output, JsonNode input, out string? reason)
     {
@@ -467,7 +493,7 @@ public static class PortSchemaCompatibility
 
     static bool InstanceValidates(JsonNode instance, JsonNode schema)
     {
-        var jsonSchema = JsonSchema.FromText(schema.ToJsonString());
+        var jsonSchema = ParseWithoutRegistering(schema);
         var element = JsonSerializer.SerializeToElement(instance);
         return jsonSchema.Evaluate(element).IsValid;
     }

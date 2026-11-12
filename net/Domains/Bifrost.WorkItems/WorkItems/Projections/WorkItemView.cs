@@ -84,7 +84,9 @@ public class WorkItemView : MultiStreamProjection<WorkItemView.Model, Guid>
             Id = e.Id,
             Data = e.Data.DeepClone()!,
             Status = e.Status,
-            Metadata = new JsonObject(),
+            Metadata = e.Metadata is null
+                ? new JsonObject()
+                : (JsonObject)e.Metadata.DeepClone()!,
             IsDeleted = false,
         };
 

@@ -24,11 +24,17 @@ public static class WorkflowGraphValidation
 
         nodes ??= [];
         connections ??= [];
+        if (nodes.Count == 0)
+        {
+            nodes = [WorkItemInputDefaults.CreateNode()];
+        }
+
         var nodeIds = new HashSet<Guid>();
         var portIds = new HashSet<Guid>();
         var outputPorts = new Dictionary<Guid, (WorkflowNode Node, WorkflowPort Port)>();
         var inputPorts = new Dictionary<Guid, (WorkflowNode Node, WorkflowPort Port)>();
         var normalizedNodes = new List<WorkflowNode>(nodes.Count);
+        var workItemInputCount = 0;
 
         foreach (var node in nodes)
         {
@@ -77,8 +83,22 @@ public static class WorkflowGraphValidation
 
             var normalizedSpec = NormalizeDefinitionSpec(node, style, node.Definition.Spec);
 
-            var normalizedInputs = NormalizePorts(node, node.Inputs, inputPorts, portIds);
-            var normalizedOutputs = NormalizePorts(node, node.Outputs, outputPorts, portIds);
+            IReadOnlyList<WorkflowPort> normalizedInputs;
+            IReadOnlyList<WorkflowPort> normalizedOutputs;
+            if (style.Value == DefinitionStyle.WorkItemInput)
+            {
+                workItemInputCount++;
+                (normalizedInputs, normalizedOutputs) = NormalizeWorkItemInputPorts(
+                    node,
+                    outputPorts,
+                    portIds
+                );
+            }
+            else
+            {
+                normalizedInputs = NormalizePorts(node, node.Inputs, inputPorts, portIds);
+                normalizedOutputs = NormalizePorts(node, node.Outputs, outputPorts, portIds);
+            }
 
             normalizedNodes.Add(
                 node with
@@ -96,6 +116,20 @@ public static class WorkflowGraphValidation
             );
         }
 
+        if (workItemInputCount == 0)
+        {
+            throw new CommandValidationException(
+                "Workflow must include exactly one work-item-input node."
+            );
+        }
+
+        if (workItemInputCount > 1)
+        {
+            throw new CommandValidationException(
+                "Workflow must include exactly one work-item-input node."
+            );
+        }
+
         var normalizedConnections = ValidateConnections(
             connections,
             inputPorts,
@@ -107,12 +141,66 @@ public static class WorkflowGraphValidation
 
     public const string BifrostNodeImage = "bifrost/node";
 
+    static (IReadOnlyList<WorkflowPort> Inputs, IReadOnlyList<WorkflowPort> Outputs) NormalizeWorkItemInputPorts(
+        WorkflowNode node,
+        Dictionary<Guid, (WorkflowNode Node, WorkflowPort Port)> outputPorts,
+        HashSet<Guid> portIds
+    )
+    {
+        if (node.Inputs is { Count: > 0 })
+        {
+            throw new CommandValidationException(
+                $"Node '{Describe(node)}' is a work-item-input and cannot have input ports."
+            );
+        }
+
+        if (node.Outputs is not { Count: 1 })
+        {
+            throw new CommandValidationException(
+                $"Node '{Describe(node)}' is a work-item-input and must have exactly one output port."
+            );
+        }
+
+        var port = node.Outputs[0];
+        if (string.IsNullOrWhiteSpace(port.Name))
+        {
+            throw new CommandValidationException(
+                $"Node '{Describe(node)}' has a port with an empty name."
+            );
+        }
+
+        if (!portIds.Add(port.Id))
+        {
+            throw new CommandValidationException($"Duplicate port id '{port.Id}' in workflow.");
+        }
+
+        if (!JsonNode.DeepEquals(port.Schema, WorkItemInputDefaults.OutputSchema))
+        {
+            throw new CommandValidationException(
+                $"Node '{Describe(node)}' work-item-input output schema is fixed and cannot be changed."
+            );
+        }
+
+        var cloned = port with
+        {
+            Name = port.Name.Trim(),
+            Schema = WorkItemInputDefaults.OutputSchema.DeepClone()!,
+        };
+        outputPorts[cloned.Id] = (node, cloned);
+        return ([], [cloned]);
+    }
+
     static JsonNode? NormalizeDefinitionSpec(
         WorkflowNode node,
         DefinitionStyle style,
         JsonNode? spec
     )
     {
+        if (style.Value == DefinitionStyle.WorkItemInput)
+        {
+            return NormalizeWorkItemInputSpec(node, spec);
+        }
+
         if (style.Value != DefinitionStyle.Script)
         {
             return spec?.DeepClone();
@@ -169,6 +257,47 @@ public static class WorkflowGraphValidation
         return normalized;
     }
 
+    static JsonNode NormalizeWorkItemInputSpec(WorkflowNode node, JsonNode? spec)
+    {
+        if (spec is not JsonObject specObject)
+        {
+            throw new CommandValidationException(
+                $"Node '{Describe(node)}' work-item-input definition requires a spec object with 'inputSchema'."
+            );
+        }
+
+        if (
+            !specObject.TryGetPropertyValue("inputSchema", out var inputSchema)
+            || inputSchema is null
+        )
+        {
+            throw new CommandValidationException(
+                $"Node '{Describe(node)}' work-item-input definition requires 'inputSchema'."
+            );
+        }
+
+        if (inputSchema is not JsonValue and not JsonObject)
+        {
+            throw new CommandValidationException(
+                $"Node '{Describe(node)}' inputSchema must be a JSON Schema object or boolean."
+            );
+        }
+
+        try
+        {
+            _ = PortSchemaCompatibility.ParseWithoutRegistering(inputSchema);
+        }
+        catch (Exception ex)
+        {
+            throw new CommandValidationException(
+                $"Node '{Describe(node)}' inputSchema is not a valid JSON Schema: {ex.Message}"
+            );
+        }
+
+        var normalized = new JsonObject { ["inputSchema"] = inputSchema.DeepClone()! };
+        return normalized;
+    }
+
     static IReadOnlyList<WorkflowPort> NormalizePorts(
         WorkflowNode node,
         IReadOnlyList<WorkflowPort> ports,
@@ -193,7 +322,7 @@ public static class WorkflowGraphValidation
                 );
             }
 
-            PortSchemaCompatibility.EnsureParseable(port.Schema, node.Id, port.Id);
+            PortSchemaCompatibility.EnsureParseable(port.Schema, node, port);
 
             var cloned = port with { Schema = port.Schema.DeepClone() };
             byRole[cloned.Id] = (node, cloned);

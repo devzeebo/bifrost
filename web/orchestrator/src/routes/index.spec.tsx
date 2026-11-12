@@ -1,5 +1,5 @@
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, vi } from 'vitest'
 import test, { withAspect } from 'vitest-gwt'
 import type { WorkerNode } from '../status/workerNodes'
@@ -63,6 +63,22 @@ describe('status route', () => {
       held_item_is_listed,
     },
   })
+
+  test('create workflow work item form attaches then tracks', {
+    given: {
+      a_live_worker,
+      a_workflow_library,
+    },
+    when: {
+      the_status_page_opens,
+      the_create_form_is_opened,
+      a_workflow_work_item_is_submitted,
+    },
+    then: {
+      attach_and_track_were_posted,
+      the_submitted_link_is_shown,
+    },
+  })
 })
 
 type Context = {
@@ -70,6 +86,8 @@ type Context = {
   pending: readonly TrackedWorkItem[]
   held: readonly TrackedWorkItem[]
   pollFails: boolean
+  workflows: readonly { id: string; name: string }[]
+  posts: string[]
 }
 
 function reset_page(this: Context) {
@@ -80,6 +98,12 @@ function reset_page(this: Context) {
   this.pending = []
   this.held = []
   this.pollFails = false
+  this.workflows = []
+  this.posts = []
+}
+
+function a_workflow_library(this: Context) {
+  this.workflows = [{ id: nodeId, name: 'bdd workflow' }]
 }
 
 function a_live_worker(this: Context) {
@@ -141,13 +165,16 @@ async function the_status_page_opens(this: Context) {
   const nodes = this.nodes
   const pending = this.pending
   const held = this.held
+  const workflows = this.workflows
+  const context = this
   vi.stubGlobal(
     'fetch',
-    vi.fn(async (input: RequestInfo | URL) => {
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (pollFails) {
         throw new Error('network down')
       }
       const url = String(input)
+      const method = init?.method ?? 'GET'
       if (url.includes('/list-worker-nodes')) {
         return jsonResponse(nodes)
       }
@@ -157,7 +184,18 @@ async function the_status_page_opens(this: Context) {
       if (url.includes('/list-tracked-work-items-held-by/')) {
         return jsonResponse({ items: held })
       }
-      throw new Error(`unexpected fetch ${url}`)
+      if (url.includes('/list-workflows')) {
+        return jsonResponse({ items: workflows })
+      }
+      if (url.includes('/create-attached-work-item') && method === 'POST') {
+        context.posts.push('attach')
+        return new Response(null, { status: 204 })
+      }
+      if (url.includes('/create-tracked-work-item') && method === 'POST') {
+        context.posts.push('track')
+        return new Response(null, { status: 204 })
+      }
+      throw new Error(`unexpected fetch ${method} ${url}`)
     }),
   )
 
@@ -167,6 +205,26 @@ async function the_status_page_opens(this: Context) {
   })
   render(<RouterProvider router={router} />)
   await router.load()
+}
+
+async function the_create_form_is_opened() {
+  fireEvent.click(await screen.findByRole('button', { name: 'Create workflow work item' }))
+  expect(await screen.findByText('Workflow work item')).toBeInTheDocument()
+}
+
+async function a_workflow_work_item_is_submitted() {
+  fireEvent.click(await screen.findByRole('button', { name: 'Submit' }))
+}
+
+async function attach_and_track_were_posted(this: Context) {
+  await vi.waitFor(() => {
+    expect(this.posts).toEqual(['attach', 'track'])
+  })
+}
+
+async function the_submitted_link_is_shown() {
+  expect(await screen.findByText(/Submitted/)).toBeInTheDocument()
+  expect(screen.queryByText('Workflow work item')).not.toBeInTheDocument()
 }
 
 async function orchestrator_is_reachable() {

@@ -6,10 +6,47 @@ import type {
   WorkflowPort,
 } from './types'
 
+export const WORK_ITEM_INPUT_STYLE = 'work-item-input'
+
+export const WORK_ITEM_OUTPUT_SCHEMA = {
+  $id: 'bifrost://work-item-output',
+  title: 'Work item',
+  type: 'object',
+} as const
+
+export const WORK_ITEM_METADATA_WORKFLOW_ID_KEY = 'workflowId'
+
+export const isWorkItemInputNode = (node: WorkflowNode): boolean =>
+  node.definition?.style === WORK_ITEM_INPUT_STYLE
+
+export const createWorkItemInputNode = (input?: {
+  readonly id?: string
+  readonly outputPortId?: string
+  readonly x?: number
+  readonly y?: number
+  readonly inputSchema?: unknown
+}): WorkflowNode => ({
+  id: input?.id ?? crypto.randomUUID(),
+  name: 'Work item',
+  position: { x: input?.x ?? 40, y: input?.y ?? 40 },
+  inputs: [],
+  outputs: [
+    {
+      id: input?.outputPortId ?? crypto.randomUUID(),
+      name: 'work item',
+      schema: { ...WORK_ITEM_OUTPUT_SCHEMA },
+    },
+  ],
+  definition: {
+    style: WORK_ITEM_INPUT_STYLE,
+    spec: { inputSchema: input?.inputSchema ?? true },
+  },
+})
+
 export const emptyDrawing = (id: string, name = 'Untitled workflow'): WorkflowDrawing => ({
   id,
   name,
-  nodes: [],
+  nodes: [createWorkItemInputNode()],
   connections: [],
 })
 
@@ -65,7 +102,7 @@ export const upsertNode = (
 
 export const removeNode = (drawing: WorkflowDrawing, nodeId: string): WorkflowDrawing => {
   const node = drawing.nodes.find((candidate) => candidate.id === nodeId)
-  if (!node) {
+  if (!node || isWorkItemInputNode(node)) {
     return drawing
   }
   const removedPorts = new Set([
@@ -89,7 +126,7 @@ export const removePort = (
   portId: string,
 ): WorkflowDrawing => {
   const node = drawing.nodes.find((candidate) => candidate.id === nodeId)
-  if (!node) {
+  if (!node || isWorkItemInputNode(node)) {
     return drawing
   }
   const nextNode: WorkflowNode = {

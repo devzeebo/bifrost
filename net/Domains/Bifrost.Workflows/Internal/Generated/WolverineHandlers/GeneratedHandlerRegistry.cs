@@ -11,7 +11,7 @@ namespace Internal.Generated.WolverineHandlers
 
         public override System.Type[] HandlerTypes()
         {
-            return new System.Type[] { typeof(Bifrost.Workflows.Commands.CreateWorkflowHandler), typeof(Bifrost.Workflows.Commands.DeleteWorkflowHandler), typeof(Bifrost.Workflows.Commands.SaveWorkflowHandler), typeof(Bifrost.Workflows.Queries.GetWorkflowHandler), typeof(Bifrost.Workflows.Queries.ListWorkflowsHandler) };
+            return new System.Type[] { typeof(Bifrost.Workflows.Commands.CreateAttachedWorkItemHandler), typeof(Bifrost.Workflows.Commands.CreateWorkflowHandler), typeof(Bifrost.Workflows.Commands.DeleteWorkflowHandler), typeof(Bifrost.Workflows.Commands.SaveWorkflowHandler), typeof(Bifrost.Workflows.Queries.GetWorkflowHandler), typeof(Bifrost.Workflows.Queries.ListWorkflowsHandler) };
         }
 
 

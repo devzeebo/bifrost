@@ -21,6 +21,7 @@ public static class WorkflowsServiceCollectionExtensions
             services.Command<CreateWorkflowApi.Command>();
             services.Command<SaveWorkflowApi.Command>();
             services.Command<DeleteWorkflowApi.Command>();
+            services.Command<CreateAttachedWorkItemApi.Command>();
 
             services.Query<GetWorkflowApi.Query, GetWorkflowApi.Response>();
             services.Query<ListWorkflowsApi.Query, ListWorkflowsApi.Response>();

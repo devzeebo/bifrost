@@ -25,7 +25,9 @@ public class WorkItem
         Id = e.Id;
         Data = e.Data.DeepClone()!;
         Status = e.Status;
-        Metadata = new();
+        Metadata = e.Metadata is null
+            ? new JsonObject()
+            : (JsonObject)e.Metadata.DeepClone()!;
         IsDeleted = false;
     }
 

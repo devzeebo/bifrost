@@ -45,6 +45,10 @@ export default defineConfig({
         target: 'http://127.0.0.1:8081',
         changeOrigin: true,
       },
+      '/create-tracked-work-item': {
+        target: 'http://127.0.0.1:8081',
+        changeOrigin: true,
+      },
       '/get-virtual-key-quota': {
         target: 'http://127.0.0.1:8081',
         changeOrigin: true,
@@ -183,6 +187,14 @@ export default defineConfig({
       },
       '/get-capability-eval-outcomes': {
         target: 'http://127.0.0.1:8082',
+        changeOrigin: true,
+      },
+      '/get-work-item': {
+        target: 'http://127.0.0.1:8080',
+        changeOrigin: true,
+      },
+      '/create-attached-work-item': {
+        target: 'http://127.0.0.1:8083',
         changeOrigin: true,
       },
       '/create-workflow': {

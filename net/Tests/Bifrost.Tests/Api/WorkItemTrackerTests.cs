@@ -647,6 +647,35 @@ public class WorkItemTrackerTests
     );
 
     [Fact]
+    public async Task create_work_item_can_include_initial_metadata()
+    {
+        var client = _factory.CreateClient();
+        var id = Guid.NewGuid();
+        var workflowId = Guid.NewGuid();
+
+        (
+            await Post(
+                client,
+                "/create-work-item",
+                new
+                {
+                    id,
+                    data = new { title = "attached" },
+                    status = "pending",
+                    metadata = new { workflowId = workflowId.ToString() },
+                    actor = "workflows",
+                    reason = "attached",
+                    expected = new { },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var created = await Query<WorkItemResponseDto>(client, $"/get-work-item/{id}");
+        created.ShouldNotBeNull();
+        created.Metadata["workflowId"]!.GetValue<string>().ShouldBe(workflowId.ToString());
+    }
+
+    [Fact]
     public async Task status_and_metadata_are_separate_writes()
     {
         var client = _factory.CreateClient();

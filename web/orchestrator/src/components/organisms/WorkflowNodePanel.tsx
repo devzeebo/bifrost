@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import {
   blankPort,
   definitionSpecText,
+  isWorkItemInputNode,
   parseDefinitionSpecText,
+  WORK_ITEM_OUTPUT_SCHEMA,
 } from '../../workflows/drawing'
 import type { WorkflowNode, WorkflowPort } from '../../workflows/types'
 
@@ -25,11 +27,17 @@ export const WorkflowNodePanel = ({
 }: WorkflowNodePanelProps) => {
   const [specText, setSpecText] = useState('')
   const [specError, setSpecError] = useState<string | null>(null)
+  const [inputSchemaText, setInputSchemaText] = useState('true')
+  const [inputSchemaError, setInputSchemaError] = useState<string | null>(null)
   const [schemaDrafts, setSchemaDrafts] = useState<Readonly<Record<string, string>>>({})
+
+  const workItemInput = node !== null && isWorkItemInputNode(node)
 
   useEffect(() => {
     setSpecText(definitionSpecText(node?.definition ?? null))
     setSpecError(null)
+    setInputSchemaText(schemaText(readInputSchema(node)))
+    setInputSchemaError(null)
     setSchemaDrafts({})
   }, [node?.id, node?.definition])
 
@@ -38,13 +46,17 @@ export const WorkflowNodePanel = ({
       onDraftDirty(false)
       return
     }
+    if (workItemInput) {
+      onDraftDirty(inputSchemaText !== schemaText(readInputSchema(node)))
+      return
+    }
     const specDirty = specText !== definitionSpecText(node.definition ?? null)
     const schemaDirty = Object.entries(schemaDrafts).some(([portId, text]) => {
       const port = [...node.inputs, ...node.outputs].find((candidate) => candidate.id === portId)
       return port !== undefined && text !== schemaText(port.schema)
     })
     onDraftDirty(specDirty || schemaDirty)
-  }, [node, onDraftDirty, schemaDrafts, specText])
+  }, [node, onDraftDirty, schemaDrafts, specText, inputSchemaText, workItemInput])
 
   if (!node) {
     return (
@@ -90,18 +102,41 @@ export const WorkflowNodePanel = ({
     }
   }
 
+  const applyInputSchema = () => {
+    try {
+      const inputSchema = JSON.parse(inputSchemaText) as unknown
+      setInputSchemaError(null)
+      onChange({
+        ...node,
+        definition: {
+          style: 'work-item-input',
+          spec: { inputSchema },
+        },
+        outputs: node.outputs.map((port, index) =>
+          index === 0 ? { ...port, schema: { ...WORK_ITEM_OUTPUT_SCHEMA } } : port,
+        ),
+      })
+    } catch {
+      setInputSchemaError('Input schema must be valid JSON.')
+    }
+  }
+
   return (
     <aside className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto border-l border-line bg-surface px-4 py-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs tracking-[0.16em] text-muted uppercase">Node</p>
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => onDelete(node.id)}
-          className="text-xs tracking-[0.16em] text-signal uppercase disabled:opacity-50"
-        >
-          Delete
-        </button>
+        <p className="text-xs tracking-[0.16em] text-muted uppercase">
+          {workItemInput ? 'Work item input' : 'Node'}
+        </p>
+        {workItemInput ? null : (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onDelete(node.id)}
+            className="text-xs tracking-[0.16em] text-signal uppercase disabled:opacity-50"
+          >
+            Delete
+          </button>
+        )}
       </div>
 
       <label className="flex flex-col gap-2">
@@ -114,64 +149,91 @@ export const WorkflowNodePanel = ({
         />
       </label>
 
-      <label className="flex flex-col gap-2">
-        <span className="text-xs tracking-[0.16em] text-muted uppercase">Definition style</span>
-        <select
-          value={node.definition?.style ?? 'script'}
-          disabled={disabled}
-          onChange={(event) =>
-            onChange({
-              ...node,
-              definition: {
-                style: event.target.value,
-                spec: node.definition?.spec ?? null,
-              },
-            })
-          }
-          className="border border-line bg-ink px-3 py-2 text-fg outline-none focus:border-signal-dim disabled:opacity-50"
-        >
-          <option value="script">script</option>
-          <option value="harness">harness</option>
-        </select>
-      </label>
+      {workItemInput ? (
+        <>
+          <label className="flex flex-col gap-2">
+            <span className="text-xs tracking-[0.16em] text-muted uppercase">Input schema</span>
+            <textarea
+              value={inputSchemaText}
+              disabled={disabled}
+              onChange={(event) => setInputSchemaText(event.target.value)}
+              onBlur={applyInputSchema}
+              rows={8}
+              className="border border-line bg-ink px-3 py-2 font-mono text-xs text-fg outline-none focus:border-signal-dim disabled:opacity-50"
+            />
+            {inputSchemaError ? <p className="text-sm text-signal">{inputSchemaError}</p> : null}
+          </label>
+          <div className="flex flex-col gap-2">
+            <p className="text-xs tracking-[0.16em] text-muted uppercase">Output schema</p>
+            <pre className="border border-line bg-ink px-3 py-2 font-mono text-xs text-muted">
+              {schemaText(WORK_ITEM_OUTPUT_SCHEMA)}
+            </pre>
+          </div>
+        </>
+      ) : (
+        <>
+          <label className="flex flex-col gap-2">
+            <span className="text-xs tracking-[0.16em] text-muted uppercase">Definition style</span>
+            <select
+              value={node.definition?.style ?? 'script'}
+              disabled={disabled}
+              onChange={(event) =>
+                onChange({
+                  ...node,
+                  definition: {
+                    style: event.target.value,
+                    spec: node.definition?.spec ?? null,
+                  },
+                })
+              }
+              className="border border-line bg-ink px-3 py-2 text-fg outline-none focus:border-signal-dim disabled:opacity-50"
+            >
+              <option value="script">script</option>
+              <option value="harness">harness</option>
+            </select>
+          </label>
 
-      <label className="flex flex-col gap-2">
-        <span className="text-xs tracking-[0.16em] text-muted uppercase">Definition spec (JSON)</span>
-        <textarea
-          value={specText}
-          disabled={disabled}
-          onChange={(event) => setSpecText(event.target.value)}
-          onBlur={applySpec}
-          rows={8}
-          className="border border-line bg-ink px-3 py-2 font-mono text-xs text-fg outline-none focus:border-signal-dim disabled:opacity-50"
-        />
-        {specError ? <p className="text-sm text-signal">{specError}</p> : null}
-      </label>
+          <label className="flex flex-col gap-2">
+            <span className="text-xs tracking-[0.16em] text-muted uppercase">
+              Definition spec (JSON)
+            </span>
+            <textarea
+              value={specText}
+              disabled={disabled}
+              onChange={(event) => setSpecText(event.target.value)}
+              onBlur={applySpec}
+              rows={8}
+              className="border border-line bg-ink px-3 py-2 font-mono text-xs text-fg outline-none focus:border-signal-dim disabled:opacity-50"
+            />
+            {specError ? <p className="text-sm text-signal">{specError}</p> : null}
+          </label>
 
-      <PortList
-        title="Inputs"
-        ports={node.inputs}
-        disabled={disabled}
-        schemaDrafts={schemaDrafts}
-        onAdd={() => addPort('inputs')}
-        onChange={(portId, patch) => updatePort('inputs', portId, patch)}
-        onSchemaDraftChange={(portId, text) =>
-          setSchemaDrafts((current) => ({ ...current, [portId]: text }))
-        }
-        onRemove={onRemovePort}
-      />
-      <PortList
-        title="Outputs"
-        ports={node.outputs}
-        disabled={disabled}
-        schemaDrafts={schemaDrafts}
-        onAdd={() => addPort('outputs')}
-        onChange={(portId, patch) => updatePort('outputs', portId, patch)}
-        onSchemaDraftChange={(portId, text) =>
-          setSchemaDrafts((current) => ({ ...current, [portId]: text }))
-        }
-        onRemove={onRemovePort}
-      />
+          <PortList
+            title="Inputs"
+            ports={node.inputs}
+            disabled={disabled}
+            schemaDrafts={schemaDrafts}
+            onAdd={() => addPort('inputs')}
+            onChange={(portId, patch) => updatePort('inputs', portId, patch)}
+            onSchemaDraftChange={(portId, text) =>
+              setSchemaDrafts((current) => ({ ...current, [portId]: text }))
+            }
+            onRemove={onRemovePort}
+          />
+          <PortList
+            title="Outputs"
+            ports={node.outputs}
+            disabled={disabled}
+            schemaDrafts={schemaDrafts}
+            onAdd={() => addPort('outputs')}
+            onChange={(portId, patch) => updatePort('outputs', portId, patch)}
+            onSchemaDraftChange={(portId, text) =>
+              setSchemaDrafts((current) => ({ ...current, [portId]: text }))
+            }
+            onRemove={onRemovePort}
+          />
+        </>
+      )}
     </aside>
   )
 }
@@ -251,6 +313,17 @@ const PortList = ({
     })}
   </div>
 )
+
+const readInputSchema = (node: WorkflowNode | null): unknown => {
+  if (!node || !isWorkItemInputNode(node)) {
+    return true
+  }
+  const spec = node.definition?.spec
+  if (spec && typeof spec === 'object' && !Array.isArray(spec) && 'inputSchema' in spec) {
+    return (spec as { inputSchema: unknown }).inputSchema
+  }
+  return true
+}
 
 const schemaText = (schema: unknown): string => {
   try {

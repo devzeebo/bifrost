@@ -19,7 +19,9 @@ public class WorkItemIndex : SingleStreamProjection<WorkItemIndex.Model, Guid>
         {
             Id = e.Id,
             Status = e.Status.Value,
-            Metadata = new JsonObject(),
+            Metadata = e.Metadata is null
+                ? new JsonObject()
+                : (JsonObject)e.Metadata.DeepClone()!,
             IsDeleted = false,
         };
 

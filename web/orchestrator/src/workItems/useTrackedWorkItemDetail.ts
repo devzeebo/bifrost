@@ -1,9 +1,17 @@
 import { useEffect, useState } from 'react'
+import { getWorkflow, WorkflowNotFoundError } from '../workflows/api'
 import { cancelTrackedWorkItem } from './cancelTrackedWorkItem'
+import { fetchLedgerWorkItem } from './ledgerWorkItem'
 import { releaseTrackedWorkItem } from './releaseTrackedWorkItem'
 import { fetchRunsForWorkItem } from './runs'
 import { fetchTrackedWorkItem } from './trackedWorkItem'
 import type { TrackedWorkItem, WorkItemRun } from './types'
+
+export type AttachedWorkflow =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'id-only'; readonly id: string }
+  | { readonly kind: 'resolved'; readonly id: string; readonly name: string }
+  | { readonly kind: 'unresolved'; readonly id: string }
 
 export type TrackedWorkItemDetailStatus =
   | { readonly kind: 'loading' }
@@ -12,6 +20,7 @@ export type TrackedWorkItemDetailStatus =
       readonly kind: 'ready'
       readonly item: TrackedWorkItem
       readonly runs: readonly WorkItemRun[]
+      readonly attachedWorkflow: AttachedWorkflow
       readonly actionError: string | null
       readonly actionPending: boolean
     }
@@ -27,14 +36,17 @@ export const useTrackedWorkItemDetail = (workItemId: string): TrackedWorkItemDet
 
   const load = async (): Promise<TrackedWorkItemDetailStatus> => {
     try {
-      const [item, runs] = await Promise.all([
+      const [item, runs, ledger] = await Promise.all([
         fetchTrackedWorkItem(workItemId),
         fetchRunsForWorkItem(workItemId),
+        fetchLedgerWorkItem(workItemId).catch(() => null),
       ])
+      const attachedWorkflow = await resolveAttachedWorkflow(ledger?.attachedWorkflowId ?? null)
       return {
         kind: 'ready',
         item,
         runs,
+        attachedWorkflow,
         actionError: null,
         actionPending: false,
       }
@@ -103,5 +115,20 @@ export const useTrackedWorkItemDetail = (workItemId: string): TrackedWorkItemDet
     refresh,
     cancel,
     release,
+  }
+}
+
+const resolveAttachedWorkflow = async (workflowId: string | null): Promise<AttachedWorkflow> => {
+  if (workflowId === null) {
+    return { kind: 'none' }
+  }
+  try {
+    const workflow = await getWorkflow(workflowId)
+    return { kind: 'resolved', id: workflow.id, name: workflow.name }
+  } catch (error) {
+    if (error instanceof WorkflowNotFoundError) {
+      return { kind: 'unresolved', id: workflowId }
+    }
+    return { kind: 'id-only', id: workflowId }
   }
 }

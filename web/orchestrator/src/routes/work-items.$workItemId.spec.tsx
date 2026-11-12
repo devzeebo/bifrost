@@ -108,6 +108,16 @@ async function the_detail_page_opens(this: Context) {
       if (url.includes('/get-tracked-work-item/')) {
         return jsonResponse(context.item)
       }
+      if (url.includes('/get-work-item/')) {
+        return jsonResponse({
+          id: context.item.id,
+          status: context.item.status,
+          data: {},
+          metadata: {},
+          relationships: [],
+          isDeleted: false,
+        })
+      }
       if (url.includes('/list-runs-for-work-item')) {
         return jsonResponse({ items: context.runs })
       }

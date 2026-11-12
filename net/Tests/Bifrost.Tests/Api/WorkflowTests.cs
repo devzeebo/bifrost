@@ -1,11 +1,15 @@
 extern alias Workflows;
 
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using Bifrost.MessageBus;
 using Bifrost.Rpc;
 using Bifrost.Workflows.Contracts;
+using Bifrost.WorkItems.Contracts;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -27,6 +31,8 @@ public sealed class WorkflowApiFactory : WebApplicationFactory<Workflows::Progra
 
     string _connectionString = string.Empty;
 
+    public RecordingWorkItemBus WorkItemBus { get; } = new();
+
     async Task IAsyncLifetime.InitializeAsync()
     {
         await _postgres.StartAsync();
@@ -46,18 +52,59 @@ public sealed class WorkflowApiFactory : WebApplicationFactory<Workflows::Progra
 
         builder.ConfigureTestServices(services =>
         {
+            services.RemoveAll<IBifrostBus>();
             services.RemoveAll<IRpcHost>();
             services.RemoveAll<RpcHost>();
             foreach (var descriptor in services.Where(IsRpcHostedService).ToList())
             {
                 services.Remove(descriptor);
             }
+
+            services.AddSingleton<IBifrostBus>(WorkItemBus);
         });
     }
 
     static bool IsRpcHostedService(ServiceDescriptor descriptor) =>
         descriptor.ServiceType == typeof(IHostedService)
         && descriptor.ImplementationType?.Name is "RpcHostedService";
+}
+
+public sealed class RecordingWorkItemBus : IBifrostBus
+{
+    readonly ConcurrentQueue<CreateWorkItemApi.Command> _created = new();
+
+    public IReadOnlyList<CreateWorkItemApi.Command> Created => [.. _created];
+
+    public Func<CreateWorkItemApi.Command, Exception?>? OnCreate { get; set; }
+
+    public void Clear()
+    {
+        while (_created.TryDequeue(out _)) { }
+        OnCreate = null;
+    }
+
+    public Task Publish<TEvent>(TEvent @event, CancellationToken cancellationToken = default) =>
+        Task.CompletedTask;
+
+    public Task<TResponse> Request<TRequest, TResponse>(
+        TRequest request,
+        CancellationToken cancellationToken = default
+    )
+    {
+        if (request is CreateWorkItemApi.Command create)
+        {
+            var fault = OnCreate?.Invoke(create);
+            if (fault is not null)
+            {
+                throw fault;
+            }
+
+            _created.Enqueue(create);
+            return Task.FromResult((TResponse)(object)default(Unit)!);
+        }
+
+        throw new NotSupportedException($"Unexpected bus request {typeof(TRequest).Name}.");
+    }
 }
 
 [CollectionDefinition("workflows-api")]
@@ -96,9 +143,7 @@ public class WorkflowTests
                 {
                     id = workflowId,
                     name = "bdd workflow",
-                    nodes = new[]
-                    {
-                        new
+                    nodes = WithEntry(new
                         {
                             id = nodeId,
                             name = "start",
@@ -122,8 +167,7 @@ public class WorkflowTests
                                 },
                             },
                             definition = new { style = "harness", spec = new { identity = "agent" } },
-                        },
-                    },
+                        }),
                 }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -134,20 +178,21 @@ public class WorkflowTests
         got.Name.ShouldBe("bdd workflow");
         got.Version.ShouldBe(1);
         got.Connections.ShouldBeEmpty();
-        got.Nodes.Count.ShouldBe(1);
-        got.Nodes[0].Id.ShouldBe(nodeId);
-        got.Nodes[0].Name.ShouldBe("start");
-        got.Nodes[0].Position.X.ShouldBe(12.5);
-        got.Nodes[0].Position.Y.ShouldBe(40);
-        var definition = got.Nodes[0].Definition;
+        got.Nodes.Count.ShouldBe(2);
+        got.Nodes.ShouldContain(n => n.Definition!.Style == DefinitionStyle.WorkItemInput);
+        var start = got.Nodes.Single(n => n.Id == nodeId);
+        start.Name.ShouldBe("start");
+        start.Position.X.ShouldBe(12.5);
+        start.Position.Y.ShouldBe(40);
+        var definition = start.Definition;
         definition.ShouldNotBeNull();
         definition!.Style.ShouldBe("harness");
         definition.Spec.ShouldNotBeNull();
         definition.Spec!["identity"]!.GetValue<string>().ShouldBe("agent");
-        got.Nodes[0].Inputs.Single().Id.ShouldBe(inputId);
-        got.Nodes[0].Inputs.Single().Schema.GetValue<bool>().ShouldBeTrue();
-        got.Nodes[0].Outputs.Single().Id.ShouldBe(outputId);
-        got.Nodes[0].Outputs.Single().Schema["type"]!.GetValue<string>().ShouldBe("object");
+        start.Inputs.Single().Id.ShouldBe(inputId);
+        start.Inputs.Single().Schema.GetValue<bool>().ShouldBeTrue();
+        start.Outputs.Single().Id.ShouldBe(outputId);
+        start.Outputs.Single().Schema["type"]!.GetValue<string>().ShouldBe("object");
 
         var list = await Query<ListWorkflowsApi.Response>(client, "/list-workflows");
         list.ShouldNotBeNull();
@@ -173,9 +218,7 @@ public class WorkflowTests
                 {
                     id = workflowId,
                     name = "linked",
-                    nodes = new[]
-                    {
-                        Node(
+                    nodes = WithEntry(Node(
                             producerId,
                             "harness",
                             inputs: [],
@@ -198,8 +241,7 @@ public class WorkflowTests
                             "script",
                             inputs: [Port(inputId, "in", new { type = "object" })],
                             outputs: []
-                        ),
-                    },
+                        )),
                     connections = new[]
                     {
                         new
@@ -241,9 +283,7 @@ public class WorkflowTests
                 {
                     id = workflowId,
                     name = "fan-out",
-                    nodes = new[]
-                    {
-                        Node(
+                    nodes = WithEntry(Node(
                             producerId,
                             "script",
                             inputs: [],
@@ -260,8 +300,7 @@ public class WorkflowTests
                             "script",
                             inputs: [Port(inputB, "in", AnySchema)],
                             outputs: []
-                        ),
-                    },
+                        )),
                     connections = new[]
                     {
                         new
@@ -301,9 +340,7 @@ public class WorkflowTests
                 id = workflowId,
                 name = "bad-types",
                     expectedVersion = 1L,
-                nodes = new[]
-                {
-                    Node(
+                nodes = WithEntry(Node(
                         Guid.NewGuid(),
                         "script",
                         inputs: [],
@@ -321,8 +358,7 @@ public class WorkflowTests
                             ),
                         ],
                         outputs: []
-                    ),
-                },
+                    )),
                 connections = new[]
                 {
                     new
@@ -357,15 +393,12 @@ public class WorkflowTests
                 id = workflowId,
                 name = "missing-port",
                     expectedVersion = 1L,
-                nodes = new[]
-                {
-                    Node(
+                nodes = WithEntry(Node(
                         Guid.NewGuid(),
                         "script",
                         inputs: [],
                         outputs: [Port(outputId, "out", AnySchema)]
-                    ),
-                },
+                    )),
                 connections = new[]
                 {
                     new
@@ -402,9 +435,7 @@ public class WorkflowTests
                 id = workflowId,
                 name = "wrong-kind-output",
                     expectedVersion = 1L,
-                nodes = new[]
-                {
-                    Node(
+                nodes = WithEntry(Node(
                         nodeId,
                         "script",
                         inputs:
@@ -413,8 +444,7 @@ public class WorkflowTests
                             Port(otherInputId, "sink", AnySchema),
                         ],
                         outputs: []
-                    ),
-                },
+                    )),
                 connections = new[]
                 {
                     new
@@ -454,9 +484,7 @@ public class WorkflowTests
                 id = workflowId,
                 name = "wrong-kind-input",
                     expectedVersion = 1L,
-                nodes = new[]
-                {
-                    Node(
+                nodes = WithEntry(Node(
                         nodeId,
                         "script",
                         inputs: [],
@@ -465,8 +493,7 @@ public class WorkflowTests
                             Port(outputA, "a", AnySchema),
                             Port(outputB, "b", AnySchema),
                         ]
-                    ),
-                },
+                    )),
                 connections = new[]
                 {
                     new
@@ -506,9 +533,7 @@ public class WorkflowTests
                 id = workflowId,
                 name = "fan-in",
                     expectedVersion = 1L,
-                nodes = new[]
-                {
-                    Node(
+                nodes = WithEntry(Node(
                         Guid.NewGuid(),
                         "script",
                         inputs: [],
@@ -525,8 +550,7 @@ public class WorkflowTests
                         "script",
                         inputs: [Port(inputId, "in", AnySchema)],
                         outputs: []
-                    ),
-                },
+                    )),
                 connections = new[]
                 {
                     new
@@ -571,9 +595,7 @@ public class WorkflowTests
                 id = workflowId,
                 name = "cycle",
                     expectedVersion = 1L,
-                nodes = new[]
-                {
-                    Node(
+                nodes = WithEntry(Node(
                         nodeA,
                         "script",
                         inputs: [Port(aIn, "in", AnySchema)],
@@ -584,8 +606,7 @@ public class WorkflowTests
                         "script",
                         inputs: [Port(bIn, "in", AnySchema)],
                         outputs: [Port(bOut, "out", AnySchema)]
-                    ),
-                },
+                    )),
                 connections = new[]
                 {
                     new
@@ -622,9 +643,7 @@ public class WorkflowTests
         var outputId = Guid.NewGuid();
         var inputId = Guid.NewGuid();
         var connectionId = Guid.NewGuid();
-        var nodes = new[]
-        {
-            Node(
+        var nodes = WithEntry(Node(
                 producerId,
                 "script",
                 inputs: [],
@@ -635,8 +654,7 @@ public class WorkflowTests
                 "script",
                 inputs: [Port(inputId, "in", AnySchema)],
                 outputs: []
-            ),
-        };
+            ));
 
         (
             await Post(
@@ -699,9 +717,7 @@ public class WorkflowTests
                 id = workflowId,
                 name = "no-schema",
                     expectedVersion = 1L,
-                nodes = new[]
-                {
-                    new
+                nodes = WithEntry(new
                     {
                         id = nodeId,
                         name = "broken",
@@ -721,14 +737,80 @@ public class WorkflowTests
                             style = "script",
                             spec = new { image = "bifrost/node", body = "x" },
                         },
-                    },
-                },
+                    }),
             }
         );
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         var body = await response.Content.ReadAsStringAsync();
         body.ShouldContain("missing a schema");
+        body.ShouldContain("Node 'broken' port 'in'");
+        body.ShouldNotContain(nodeId.ToString());
+        body.ShouldNotContain(portId.ToString());
+    }
+
+    [Fact]
+    public async Task save_twice_with_work_item_output_schema_id_does_not_collide()
+    {
+        var client = _factory.CreateClient();
+        var workflowId = Guid.NewGuid();
+        var entryOut = Guid.NewGuid();
+        var nodeIn = Guid.NewGuid();
+        var scriptId = Guid.NewGuid();
+
+        var nodes = new object[]
+        {
+            EntryNode(outputId: entryOut),
+            Node(
+                scriptId,
+                "script",
+                inputs: [Port(nodeIn, "in", new { type = "object" })],
+                outputs: [],
+                name: "first"
+            ),
+        };
+        var connections = new[]
+        {
+            new
+            {
+                id = Guid.NewGuid(),
+                outputPortId = entryOut,
+                inputPortId = nodeIn,
+            },
+        };
+
+        (
+            await Post(
+                client,
+                "/create-workflow",
+                new
+                {
+                    id = workflowId,
+                    name = "with-id",
+                    nodes,
+                    connections,
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var first = await Query<GetWorkflowApi.Response>(client, $"/get-workflow/{workflowId}");
+        first.ShouldNotBeNull();
+
+        var secondSave = await Post(
+            client,
+            "/save-workflow",
+            new
+            {
+                id = workflowId,
+                name = "with-id-again",
+                expectedVersion = first!.Version,
+                nodes,
+                connections,
+            }
+        );
+        secondSave.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        var body = await secondSave.Content.ReadAsStringAsync();
+        body.ShouldNotContain("Overwriting registered schemas");
     }
 
     [Fact]
@@ -747,16 +829,13 @@ public class WorkflowTests
                 {
                     id = workflowId,
                     name = "draft",
-                    nodes = new[]
-                    {
-                        Node(
+                    nodes = WithEntry(Node(
                             firstNodeId,
                             "script",
                             inputs: [],
                             outputs: [],
                             spec: new { image = "bifrost/node", body = "console.log(1)" }
-                        ),
-                    },
+                        )),
                 }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -770,16 +849,13 @@ public class WorkflowTests
                     id = workflowId,
                     name = "saved",
                     expectedVersion = 1L,
-                    nodes = new[]
-                    {
-                        Node(
+                    nodes = WithEntry(Node(
                             secondNodeId,
                             "harness",
                             inputs: [Port(Guid.NewGuid(), "work", AnySchema)],
                             outputs: [Port(Guid.NewGuid(), "done", AnySchema)],
                             spec: new { identity = "worker" }
-                        ),
-                    },
+                        )),
                 }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -788,9 +864,9 @@ public class WorkflowTests
         got.ShouldNotBeNull();
         got.Name.ShouldBe("saved");
         got.Version.ShouldBe(2);
-        got.Nodes.Count.ShouldBe(1);
-        got.Nodes[0].Id.ShouldBe(secondNodeId);
-        got.Nodes[0].Definition!.Style.ShouldBe("harness");
+        got.Nodes.Count.ShouldBe(2);
+        got.Nodes.ShouldContain(n => n.Definition!.Style == DefinitionStyle.WorkItemInput);
+        got.Nodes.Single(n => n.Id == secondNodeId).Definition!.Style.ShouldBe("harness");
         got.Connections.ShouldBeEmpty();
     }
 
@@ -811,17 +887,14 @@ public class WorkflowTests
                 id = workflowId,
                 name = "draft",
                     expectedVersion = 1L,
-                nodes = new[]
-                {
-                    new
+                nodes = WithEntry(new
                     {
                         id = nodeId,
                         name = "unnamed-def",
                         position = new { x = 0, y = 0 },
                         inputs = Array.Empty<object>(),
                         outputs = Array.Empty<object>(),
-                    },
-                },
+                    }),
             }
         );
 
@@ -847,9 +920,7 @@ public class WorkflowTests
                 id = workflowId,
                 name = "draft",
                 expectedVersion = 1L,
-                nodes = new[]
-                {
-                    new
+                nodes = WithEntry(new
                     {
                         id = nodeId,
                         name = "no-position",
@@ -861,8 +932,7 @@ public class WorkflowTests
                             style = "script",
                             spec = new { image = "bifrost/node", body = "x" },
                         },
-                    },
-                },
+                    }),
             }
         );
 
@@ -888,9 +958,7 @@ public class WorkflowTests
                 id = workflowId,
                 name = "draft",
                     expectedVersion = 1L,
-                nodes = new[]
-                {
-                    new
+                nodes = WithEntry(new
                     {
                         id = nodeId,
                         name = "bad-style",
@@ -898,8 +966,7 @@ public class WorkflowTests
                         inputs = Array.Empty<object>(),
                         outputs = Array.Empty<object>(),
                         definition = new { style = "container", spec = new { } },
-                    },
-                },
+                    }),
             }
         );
 
@@ -927,9 +994,7 @@ public class WorkflowTests
                 id = workflowId,
                 name = "draft",
                 expectedVersion = 1L,
-                nodes = new[]
-                {
-                    new
+                nodes = WithEntry(new
                     {
                         id = nodeId,
                         name = "bad-image",
@@ -941,8 +1006,7 @@ public class WorkflowTests
                             style = "script",
                             spec = new { image = "bifrost/python", body = "export const handler = () => ({})" },
                         },
-                    },
-                },
+                    }),
             }
         );
 
@@ -969,9 +1033,7 @@ public class WorkflowTests
                 id = workflowId,
                 name = "draft",
                 expectedVersion = 1L,
-                nodes = new[]
-                {
-                    new
+                nodes = WithEntry(new
                     {
                         id = nodeId,
                         name = "empty-body",
@@ -983,8 +1045,7 @@ public class WorkflowTests
                             style = "script",
                             spec = new { image = "bifrost/node", body = "" },
                         },
-                    },
-                },
+                    }),
             }
         );
 
@@ -994,7 +1055,7 @@ public class WorkflowTests
     }
 
     [Fact]
-    public async Task create_allows_empty_nodes()
+    public async Task create_seeds_work_item_input_when_nodes_empty()
     {
         var client = _factory.CreateClient();
         var workflowId = Guid.NewGuid();
@@ -1015,8 +1076,159 @@ public class WorkflowTests
         var got = await Query<GetWorkflowApi.Response>(client, $"/get-workflow/{workflowId}");
         got.ShouldNotBeNull();
         got.Name.ShouldBe("empty");
-        got.Nodes.ShouldBeEmpty();
+        got.Nodes.Count.ShouldBe(1);
+        got.Nodes[0].Definition!.Style.ShouldBe(DefinitionStyle.WorkItemInput);
+        got.Nodes[0].Inputs.ShouldBeEmpty();
+        got.Nodes[0].Outputs.Count.ShouldBe(1);
         got.Connections.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task save_rejects_graph_without_work_item_input()
+    {
+        var client = _factory.CreateClient();
+        var workflowId = Guid.NewGuid();
+        await CreateEmpty(client, workflowId);
+
+        var response = await Post(
+            client,
+            "/save-workflow",
+            new
+            {
+                id = workflowId,
+                name = "no-entry",
+                expectedVersion = 1L,
+                nodes = new[]
+                {
+                    Node(Guid.NewGuid(), "script", inputs: [], outputs: [], name: "alone"),
+                },
+            }
+        );
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await response.Content.ReadAsStringAsync()).ShouldContain("work-item-input");
+    }
+
+    [Fact]
+    public async Task create_attached_work_item_rejects_missing_workflow()
+    {
+        var client = _factory.CreateClient();
+        _factory.WorkItemBus.Clear();
+        var missingId = Guid.NewGuid();
+
+        var response = await Post(
+            client,
+            "/create-attached-work-item",
+            new
+            {
+                workItemId = Guid.NewGuid(),
+                workflowId = missingId,
+                data = new { hello = "world" },
+                status = "pending",
+                actor = "tester",
+                reason = "attach",
+            }
+        );
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await response.Content.ReadAsStringAsync()).ShouldContain(
+            $"Workflow {missingId} does not exist."
+        );
+        _factory.WorkItemBus.Created.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task create_attached_work_item_rejects_unstartable_workflow()
+    {
+        var client = _factory.CreateClient();
+        _factory.WorkItemBus.Clear();
+        var workflowId = Guid.NewGuid();
+        await CreateEmpty(client, workflowId);
+
+        var response = await Post(
+            client,
+            "/create-attached-work-item",
+            new
+            {
+                workItemId = Guid.NewGuid(),
+                workflowId,
+                data = new { hello = "world" },
+                status = "pending",
+                actor = "tester",
+                reason = "attach",
+            }
+        );
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await response.Content.ReadAsStringAsync()).ShouldContain("names nothing to run");
+        _factory.WorkItemBus.Created.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task create_attached_work_item_stamps_metadata_and_forwards_create()
+    {
+        var client = _factory.CreateClient();
+        _factory.WorkItemBus.Clear();
+        var workflowId = Guid.NewGuid();
+        var workItemId = Guid.NewGuid();
+        var entryOut = Guid.NewGuid();
+        var nodeIn = Guid.NewGuid();
+
+        (
+            await Post(
+                client,
+                "/create-workflow",
+                new
+                {
+                    id = workflowId,
+                    name = "attachable",
+                    nodes = new object[]
+                    {
+                        EntryNode(outputId: entryOut),
+                        Node(
+                            Guid.NewGuid(),
+                            "script",
+                            inputs: [Port(nodeIn, "in", new { type = "object" })],
+                            outputs: []
+                        ),
+                    },
+                    connections = new[]
+                    {
+                        new
+                        {
+                            id = Guid.NewGuid(),
+                            outputPortId = entryOut,
+                            inputPortId = nodeIn,
+                        },
+                    },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (
+            await Post(
+                client,
+                "/create-attached-work-item",
+                new
+                {
+                    workItemId,
+                    workflowId,
+                    data = new { feature = "x" },
+                    status = "pending",
+                    actor = "tester",
+                    reason = "attach",
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        _factory.WorkItemBus.Created.Count.ShouldBe(1);
+        var created = _factory.WorkItemBus.Created[0];
+        created.Id.ShouldBe(workItemId);
+        created.Status.Value.ShouldBe("pending");
+        created.Actor.ShouldBe("tester");
+        created.Data["feature"]!.GetValue<string>().ShouldBe("x");
+        created.Metadata.ShouldNotBeNull();
+        WorkItemInputDefaults
+            .TryReadAttachedWorkflowId(created.Metadata, out var attached)
+            .ShouldBeTrue();
+        attached.ShouldBe(workflowId);
     }
 
     [Fact]
@@ -1105,10 +1317,7 @@ public class WorkflowTests
                     id = workflowId,
                     name = "first",
                     expectedVersion = 1L,
-                    nodes = new[]
-                    {
-                        Node(Guid.NewGuid(), "script", inputs: [], outputs: [], name: "a", x: 1, y: 2),
-                    },
+                    nodes = WithEntry(Node(Guid.NewGuid(), "script", inputs: [], outputs: [], name: "a", x: 1, y: 2)),
                 }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -1133,10 +1342,10 @@ public class WorkflowTests
         got.ShouldNotBeNull();
         got.Name.ShouldBe("first");
         got.Version.ShouldBe(2);
-        got.Nodes.Count.ShouldBe(1);
-        got.Nodes[0].Name.ShouldBe("a");
-        got.Nodes[0].Position.X.ShouldBe(1);
-        got.Nodes[0].Position.Y.ShouldBe(2);
+        got.Nodes.Count.ShouldBe(2);
+        var a = got.Nodes.Single(n => n.Name == "a");
+        a.Position.X.ShouldBe(1);
+        a.Position.Y.ShouldBe(2);
     }
 
     [Fact]
@@ -1155,10 +1364,7 @@ public class WorkflowTests
                     id = workflowId,
                     name = "first",
                     expectedVersion = 1L,
-                    nodes = new[]
-                    {
-                        Node(Guid.NewGuid(), "script", inputs: [], outputs: [], name: "old"),
-                    },
+                    nodes = WithEntry(Node(Guid.NewGuid(), "script", inputs: [], outputs: [], name: "old")),
                 }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -1173,9 +1379,7 @@ public class WorkflowTests
                     name = "overwritten",
                     expectedVersion = 1L,
                     overwrite = true,
-                    nodes = new[]
-                    {
-                        Node(
+                    nodes = WithEntry(Node(
                             Guid.NewGuid(),
                             "harness",
                             inputs: [],
@@ -1183,8 +1387,7 @@ public class WorkflowTests
                             name: "new",
                             x: 9,
                             y: 8
-                        ),
-                    },
+                        )),
                 }
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -1193,9 +1396,10 @@ public class WorkflowTests
         got.ShouldNotBeNull();
         got.Name.ShouldBe("overwritten");
         got.Version.ShouldBe(3);
-        got.Nodes.Single().Name.ShouldBe("new");
-        got.Nodes.Single().Position.X.ShouldBe(9);
-        got.Nodes.Single().Position.Y.ShouldBe(8);
+        var created = got.Nodes.Single(n => n.Name == "new");
+        created.Position.X.ShouldBe(9);
+        created.Position.Y.ShouldBe(8);
+        got.Nodes.ShouldContain(n => n.Definition!.Style == DefinitionStyle.WorkItemInput);
     }
 
     static async Task CreateEmpty(HttpClient client, Guid workflowId)
@@ -1213,6 +1417,31 @@ public class WorkflowTests
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
     }
+
+    static object EntryNode(Guid? id = null, Guid? outputId = null, double x = 40, double y = 40) =>
+        new
+        {
+            id = id ?? Guid.NewGuid(),
+            name = WorkItemInputDefaults.DefaultNodeName,
+            position = new { x, y },
+            inputs = Array.Empty<object>(),
+            outputs = new[]
+            {
+                new
+                {
+                    id = outputId ?? Guid.NewGuid(),
+                    name = WorkItemInputDefaults.OutputPortName,
+                    schema = WorkItemInputDefaults.OutputSchema,
+                },
+            },
+            definition = new
+            {
+                style = DefinitionStyle.WorkItemInput,
+                spec = new { inputSchema = true },
+            },
+        };
+
+    static object[] WithEntry(params object[] nodes) => [EntryNode(), .. nodes];
 
     static object Node(
         Guid id,
@@ -1238,7 +1467,9 @@ public class WorkflowTests
                     ?? (
                         style == "harness"
                             ? (object)new { identity = "agent" }
-                            : new { image = "bifrost/node", body = "return 1" }
+                            : style == DefinitionStyle.WorkItemInput
+                                ? (object)new { inputSchema = true }
+                                : new { image = "bifrost/node", body = "return 1" }
                     ),
             },
         };

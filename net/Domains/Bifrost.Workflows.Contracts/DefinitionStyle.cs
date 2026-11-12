@@ -8,6 +8,7 @@ public readonly record struct DefinitionStyle
 {
     public const string Harness = "harness";
     public const string Script = "script";
+    public const string WorkItemInput = "work-item-input";
 
     public string Value { get; }
 
@@ -19,10 +20,10 @@ public readonly record struct DefinitionStyle
         }
 
         var normalized = value.Trim().ToLowerInvariant();
-        if (normalized is not (Harness or Script))
+        if (normalized is not (Harness or Script or WorkItemInput))
         {
             throw new ContractValidationException(
-                $"Unknown definition style '{value.Trim()}'. Expected '{Harness}' or '{Script}'."
+                $"Unknown definition style '{value.Trim()}'. Expected '{Harness}', '{Script}', or '{WorkItemInput}'."
             );
         }
 
