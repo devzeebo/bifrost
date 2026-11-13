@@ -11,7 +11,7 @@ import {
 import { releaseTrackedWorkItem } from './releaseTrackedWorkItem'
 import { fetchRunsForWorkItem } from './runs'
 import { fetchTrackedWorkItem } from './trackedWorkItem'
-import type { TrackedWorkItem, WorkItemRun } from './types'
+import { isActiveStatus, type TrackedWorkItem, type WorkItemRun } from './types'
 
 export type AttachedWorkflow =
   | { readonly kind: 'none' }
@@ -29,15 +29,19 @@ export type TrackedWorkItemDetailStatus =
       readonly attachedWorkflow: AttachedWorkflow
       readonly workflowSnapshot: WorkflowSnapshotSummary | null
       readonly nodeExecutions: readonly NodeExecutionRow[]
+      readonly nodeExecutionsError: string | null
       readonly actionError: string | null
       readonly actionPending: boolean
     }
 
 export type TrackedWorkItemDetail = TrackedWorkItemDetailStatus & {
   readonly refresh: () => Promise<void>
+  readonly retryNodeExecutions: () => Promise<void>
   readonly cancel: () => Promise<void>
   readonly release: () => Promise<void>
 }
+
+const POLL_MS = 2000
 
 export const useTrackedWorkItemDetail = (workItemId: string): TrackedWorkItemDetail => {
   const [status, setStatus] = useState<TrackedWorkItemDetailStatus>({ kind: 'loading' })
@@ -51,10 +55,16 @@ export const useTrackedWorkItemDetail = (workItemId: string): TrackedWorkItemDet
       ])
       const attachedWorkflow = await resolveAttachedWorkflow(ledger?.attachedWorkflowId ?? null)
       const workflowSnapshot = ledger ? readWorkflowSnapshot(ledger.metadata) : null
-      const nodeExecutions =
-        ledger?.attachedWorkflowId !== null && ledger?.attachedWorkflowId !== undefined
-          ? await fetchNodeExecutionsForRoot(workItemId).catch(() => [])
-          : []
+      let nodeExecutions: readonly NodeExecutionRow[] = []
+      let nodeExecutionsError: string | null = null
+      if (ledger?.attachedWorkflowId !== null && ledger?.attachedWorkflowId !== undefined) {
+        try {
+          nodeExecutions = await fetchNodeExecutionsForRoot(workItemId)
+        } catch (error) {
+          nodeExecutionsError =
+            error instanceof Error ? error.message : 'Failed to load node executions'
+        }
+      }
       return {
         kind: 'ready',
         item,
@@ -62,6 +72,7 @@ export const useTrackedWorkItemDetail = (workItemId: string): TrackedWorkItemDet
         attachedWorkflow,
         workflowSnapshot,
         nodeExecutions,
+        nodeExecutionsError,
         actionError: null,
         actionPending: false,
       }
@@ -75,18 +86,54 @@ export const useTrackedWorkItemDetail = (workItemId: string): TrackedWorkItemDet
 
   useEffect(() => {
     let cancelled = false
-    void load().then((next) => {
-      if (!cancelled) {
-        setStatus(next)
+    let timer: ReturnType<typeof setTimeout> | undefined
+
+    const tick = async (): Promise<void> => {
+      const next = await load()
+      if (cancelled) {
+        return
       }
-    })
+      setStatus((prev) => preserveActionState(prev, next))
+      if (next.kind === 'ready' && shouldPoll(next)) {
+        timer = setTimeout(() => {
+          void tick()
+        }, POLL_MS)
+      }
+    }
+
+    void tick()
+
     return () => {
       cancelled = true
+      if (timer !== undefined) {
+        clearTimeout(timer)
+      }
     }
   }, [workItemId])
 
   const refresh = async (): Promise<void> => {
     setStatus(await load())
+  }
+
+  const retryNodeExecutions = async (): Promise<void> => {
+    if (status.kind !== 'ready') {
+      return
+    }
+    const current = status
+    try {
+      const nodeExecutions = await fetchNodeExecutionsForRoot(workItemId)
+      setStatus({
+        ...current,
+        nodeExecutions,
+        nodeExecutionsError: null,
+      })
+    } catch (error) {
+      setStatus({
+        ...current,
+        nodeExecutionsError:
+          error instanceof Error ? error.message : 'Failed to load node executions',
+      })
+    }
   }
 
   const cancel = async (): Promise<void> => {
@@ -128,8 +175,30 @@ export const useTrackedWorkItemDetail = (workItemId: string): TrackedWorkItemDet
   return {
     ...status,
     refresh,
+    retryNodeExecutions,
     cancel,
     release,
+  }
+}
+
+const shouldPoll = (ready: Extract<TrackedWorkItemDetailStatus, { kind: 'ready' }>): boolean => {
+  if (isActiveStatus(ready.item.status)) {
+    return true
+  }
+  return ready.nodeExecutions.some((row) => isActiveStatus(row.status))
+}
+
+const preserveActionState = (
+  prev: TrackedWorkItemDetailStatus,
+  next: TrackedWorkItemDetailStatus,
+): TrackedWorkItemDetailStatus => {
+  if (prev.kind !== 'ready' || next.kind !== 'ready' || !prev.actionPending) {
+    return next
+  }
+  return {
+    ...next,
+    actionPending: prev.actionPending,
+    actionError: prev.actionError,
   }
 }
 

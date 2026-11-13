@@ -31,6 +31,7 @@ public static class DeclareWorkerOfflineHandler
                 && (
                     i.Status == TrackedWorkItemStatuses.Claimed
                     || i.Status == TrackedWorkItemStatuses.Running
+                    || i.Status == TrackedWorkItemStatuses.NeedsAttention
                 )
             )
             .ToListAsync();

@@ -1,3 +1,5 @@
+extern alias Orchestrator;
+
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -9,6 +11,7 @@ using Bifrost.WorkItems.Contracts;
 using Bifrost.Workflows.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
+using NodeExecutionRelationship = Orchestrator::Bifrost.TrackedWorkItems.Workflow.NodeExecutionRelationship;
 
 namespace Bifrost.Tests.Api;
 
@@ -67,10 +70,12 @@ public class WorkflowWorkloadTests
             TrackedWorkItemStatuses.Pending,
             TrackedWorkItemStatuses.Claimed
         );
+        AssertNodeExecutionRelationship(rootId, firstExecution.Ledger.Id);
 
         await ClaimStartSucceed(client, firstExecution.Ledger.Id, workerId, "first done");
 
         var secondExecution = await WaitForNodeExecution(rootId, secondNodeId);
+        AssertNodeExecutionRelationship(rootId, secondExecution.Ledger.Id);
         await ClaimStartSucceed(client, secondExecution.Ledger.Id, workerId, "second done");
 
         await WaitFor(
@@ -78,6 +83,130 @@ public class WorkflowWorkloadTests
             "root succeeded"
         );
         _factory.WorkItemLedger.StatusOf(rootId).ShouldBe(TrackedWorkItemStatuses.Succeeded);
+    }
+
+    [Fact]
+    public async Task create_fails_when_get_work_item_classification_fails()
+    {
+        var client = _factory.CreateClient();
+        var id = Guid.NewGuid();
+        _factory.WorkItemLedger.Seed(id);
+        _factory.WorkItemLedger.FailNextGet(id);
+
+        var response = await Post(client, "/create-tracked-work-item", Body(id, "accept"));
+        response.StatusCode.ShouldNotBe(HttpStatusCode.NoContent);
+
+        _factory.WorkItemLedger.ClearGetFailure(id);
+        (await GetOrNull(client, id)).ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task unreachable_leftover_nodes_fail_the_root()
+    {
+        var client = _factory.CreateClient();
+        var workerId = await RegisterWorker();
+        var workflowId = Guid.NewGuid();
+        var input = WorkItemInputDefaults.CreateNode();
+        var reachable = Runnable("reachable", x: 200);
+        var orphan = Runnable("orphan", x: 200, y: 120);
+        _factory.WorkflowCatalog.Seed(
+            new GetWorkflowApi.Response
+            {
+                Id = workflowId,
+                Name = "orphan-graph",
+                Version = 1,
+                Nodes = [input, reachable, orphan],
+                Connections =
+                [
+                    new WorkflowConnection
+                    {
+                        Id = Guid.NewGuid(),
+                        OutputPortId = input.Outputs[0].Id,
+                        InputPortId = reachable.Inputs[0].Id,
+                    },
+                ],
+            }
+        );
+
+        var rootId = Guid.NewGuid();
+        _factory.WorkItemLedger.Seed(
+            rootId,
+            data: new JsonObject { ["title"] = "feature" },
+            metadata: WorkItemInputDefaults.AttachmentMetadata(workflowId)
+        );
+
+        (await Post(client, "/create-tracked-work-item", Body(rootId, "run")))
+            .StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var execution = await WaitForNodeExecution(rootId, reachable.Id);
+        await ClaimStartSucceed(client, execution.Ledger.Id, workerId, "reachable done");
+
+        await WaitFor(
+            async () => (await Get(client, rootId)).Status == TrackedWorkItemStatuses.Failed,
+            "root failed for unreachable"
+        );
+        _factory
+            .WorkItemLedger.HistoryOf(rootId)
+            .Last()
+            .Reason.ShouldContain("unreachable nodes");
+        _factory.WorkItemLedger.HistoryOf(rootId).Last().Reason.ShouldContain("orphan");
+    }
+
+    [Fact]
+    public async Task hold_twice_in_one_run_mirrors_with_distinct_keys()
+    {
+        var client = _factory.CreateClient();
+        var workerId = await RegisterWorker();
+        var (rootId, firstNodeId, _, _) = SeedLinearWorkflow();
+
+        (await Post(client, "/create-tracked-work-item", Body(rootId, "run")))
+            .StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        var firstExecution = await WaitForNodeExecution(rootId, firstNodeId);
+
+        await EnsureClaimed(client, firstExecution.Ledger.Id, workerId);
+        var held = await Get(client, firstExecution.Ledger.Id);
+        var holder = held.HolderId ?? workerId;
+        var runId = await LatestRunId(client, firstExecution.Ledger.Id);
+        if (held.Status == TrackedWorkItemStatuses.Claimed)
+        {
+            (
+                await Post(
+                    client,
+                    "/start-tracked-work-item",
+                    ReportBody(firstExecution.Ledger.Id, runId, holder, "start")
+                )
+            ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        }
+
+        (
+            await Post(
+                client,
+                "/hold-tracked-work-item",
+                ReportBody(firstExecution.Ledger.Id, runId, holder, "first hold")
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        (
+            await Post(
+                client,
+                "/resume-tracked-work-item",
+                ReportBody(firstExecution.Ledger.Id, runId, holder, "resume")
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        (
+            await Post(
+                client,
+                "/hold-tracked-work-item",
+                ReportBody(firstExecution.Ledger.Id, runId, holder, "second hold")
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var keys = _factory.WorkItemLedger.AppliedRequestKeysOf(firstExecution.Ledger.Id);
+        keys.ShouldContain(k => k.Contains(":hold:", StringComparison.Ordinal) && k.EndsWith(":hold-1"));
+        keys.ShouldContain(k => k.Contains(":hold:", StringComparison.Ordinal) && k.EndsWith(":hold-2"));
+        _factory
+            .WorkItemLedger.HistoryOf(firstExecution.Ledger.Id)
+            .Count(h => h.Status == TrackedWorkItemStatuses.NeedsAttention)
+            .ShouldBe(2);
     }
 
     [Fact]
@@ -508,6 +637,8 @@ public class WorkflowWorkloadTests
     )> WaitForNodeExecution(Guid rootId, Guid nodeId)
     {
         GetWorkItemApi.Response? ledger = null;
+        GetTrackedWorkItemApi.Response? tracked = null;
+        var client = _factory.CreateClient();
         await WaitFor(
             async () =>
             {
@@ -527,14 +658,58 @@ public class WorkflowWorkloadTests
                     return false;
                 }
 
-                ledger = _factory.WorkItemLedger.Get(listed.Items[0].Id);
-                return true;
+                try
+                {
+                    ledger = _factory.WorkItemLedger.Get(listed.Items[0].Id);
+                    tracked = await Get(client, listed.Items[0].Id);
+                    return true;
+                }
+                catch
+                {
+                    return false;
+                }
             },
             $"node {nodeId} drafted"
         );
 
-        var tracked = await Get(_factory.CreateClient(), ledger!.Id);
-        return (ledger, tracked);
+        return (ledger!, tracked!);
+    }
+
+    void AssertNodeExecutionRelationship(Guid rootId, Guid nodeWorkItemId)
+    {
+        var root = _factory.WorkItemLedger.Get(rootId);
+        var node = _factory.WorkItemLedger.Get(nodeWorkItemId);
+        root.Relationships.ShouldContain(r =>
+            r.RelatedWorkItemId == nodeWorkItemId
+            && r.RelationshipTypeId == NodeExecutionRelationship.TypeId
+        );
+        node.Relationships.ShouldContain(r =>
+            r.RelatedWorkItemId == rootId
+            && r.RelationshipTypeId == NodeExecutionRelationship.TypeId
+        );
+    }
+
+    static async Task<GetTrackedWorkItemApi.Response?> GetOrNull(HttpClient client, Guid id)
+    {
+        var request = new HttpRequestMessage(
+            new HttpMethod("QUERY"),
+            $"/get-tracked-work-item/{id}"
+        )
+        {
+            Content = JsonContent.Create(new { }),
+        };
+        var response = await client.SendAsync(request);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        return await response.Content.ReadFromJsonAsync<GetTrackedWorkItemApi.Response>(JsonOptions);
     }
 
     async Task EnsureClaimed(HttpClient client, Guid id, Guid workerId)

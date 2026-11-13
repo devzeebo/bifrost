@@ -91,13 +91,22 @@ public static class AdvanceWorkflowExecutionHandler
             snapshot = WorkflowSnapshot.FromResponse(workflow);
             var workItemInput = WorkflowGraphNavigation.RequireWorkItemInput(snapshot);
             var inputSchema = WorkflowGraphNavigation.RequireInputSchema(workItemInput);
-            if (!WorkflowInputSchema.Satisfies(ledger.Data, inputSchema))
+            if (
+                !WorkflowInputSchema.TryEvaluate(
+                    ledger.Data,
+                    inputSchema,
+                    out var schemaDetail
+                )
+            )
             {
+                var detail = string.IsNullOrWhiteSpace(schemaDetail)
+                    ? "instance does not satisfy schema"
+                    : schemaDetail;
                 await FailRoot(
                         local,
                         session,
                         message.RootWorkItemId,
-                        $"Work item data does not satisfy workflow '{snapshot.Name}' input schema."
+                        $"Work item data does not satisfy workflow '{snapshot.Name}' input schema: {detail}"
                     )
                     .ConfigureAwait(false);
                 return;
@@ -242,6 +251,24 @@ public static class AdvanceWorkflowExecutionHandler
                         session,
                         message.RootWorkItemId,
                         $"Workflow '{snapshot.Name}' has no runnable node after the work-item input."
+                    )
+                    .ConfigureAwait(false);
+                return;
+            }
+
+            var unissued = snapshot
+                .Nodes.Where(n =>
+                    !WorkItemInputDefaults.IsWorkItemInput(n) && !issuedNodeIds.Contains(n.Id)
+                )
+                .Select(n => string.IsNullOrWhiteSpace(n.Name) ? n.Id.ToString("D") : n.Name)
+                .ToArray();
+            if (unissued.Length > 0)
+            {
+                await FailRoot(
+                        local,
+                        session,
+                        message.RootWorkItemId,
+                        $"Workflow '{snapshot.Name}' finished with unreachable nodes: {string.Join(", ", unissued)}."
                     )
                     .ConfigureAwait(false);
                 return;

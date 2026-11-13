@@ -84,24 +84,14 @@ public static class SucceedTrackedWorkItemHandler
         OutgoingMessages cascades
     )
     {
-        try
+        var ledger = await bus.Request<GetWorkItemApi.Query, GetWorkItemApi.Response>(
+            new GetWorkItemApi.Query { Id = workItemId }
+        );
+        if (
+            WorkItemInputDefaults.TryReadRootWorkItemId(ledger.Metadata, out var rootWorkItemId)
+        )
         {
-            var ledger = await bus.Request<GetWorkItemApi.Query, GetWorkItemApi.Response>(
-                new GetWorkItemApi.Query { Id = workItemId }
-            );
-            if (
-                WorkItemInputDefaults.TryReadRootWorkItemId(
-                    ledger.Metadata,
-                    out var rootWorkItemId
-                )
-            )
-            {
-                cascades.Add(new AdvanceWorkflowExecution { RootWorkItemId = rootWorkItemId });
-            }
-        }
-        catch (BusException)
-        {
-            // Parent advance is best-effort when the ledger is unavailable.
+            cascades.Add(new AdvanceWorkflowExecution { RootWorkItemId = rootWorkItemId });
         }
     }
 }

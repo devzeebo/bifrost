@@ -59,7 +59,8 @@ public static class ResumeTrackedWorkItemHandler
                     command.Id,
                     WorkItemLifecycleAction.Resume,
                     from,
-                    command.RunId
+                    command.RunId,
+                    item.HoldCount
                 ),
             },
             bus

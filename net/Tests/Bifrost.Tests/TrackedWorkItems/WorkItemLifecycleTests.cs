@@ -19,6 +19,7 @@ public class WorkItemLifecycleTests
     [InlineData(TrackedWorkItemStatuses.Executing, WorkItemLifecycleAction.Fail, TrackedWorkItemStatuses.Failed)]
     [InlineData(TrackedWorkItemStatuses.Running, WorkItemLifecycleAction.Hold, TrackedWorkItemStatuses.NeedsAttention)]
     [InlineData(TrackedWorkItemStatuses.NeedsAttention, WorkItemLifecycleAction.Resume, TrackedWorkItemStatuses.Running)]
+    [InlineData(TrackedWorkItemStatuses.NeedsAttention, WorkItemLifecycleAction.Release, TrackedWorkItemStatuses.Pending)]
     public void happy_path_edges(
         string from,
         WorkItemLifecycleAction action,

@@ -9,12 +9,14 @@ public class TrackedWorkItem
     public Guid Id { get; set; }
     public string Status { get; set; } = TrackedWorkItemStatuses.Pending;
     public Guid? HolderId { get; set; }
+    public int HoldCount { get; set; }
 
     public void Apply(TrackedWorkItemCreated e)
     {
         Id = e.Id;
         Status = TrackedWorkItemStatuses.Normalize(e.Status);
         HolderId = null;
+        HoldCount = 0;
     }
 
     public void Apply(TrackedWorkItemClaimed e)
@@ -31,8 +33,11 @@ public class TrackedWorkItem
         HolderId = null;
     }
 
-    public void Apply(TrackedWorkItemNeedsAttention _) =>
+    public void Apply(TrackedWorkItemNeedsAttention _)
+    {
         Status = TrackedWorkItemStatuses.NeedsAttention;
+        HoldCount++;
+    }
 
     public void Apply(TrackedWorkItemResumed _) => Status = TrackedWorkItemStatuses.Running;
 

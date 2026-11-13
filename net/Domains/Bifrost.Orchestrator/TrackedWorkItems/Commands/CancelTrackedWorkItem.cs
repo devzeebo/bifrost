@@ -1,11 +1,13 @@
 using System.Text.Json.Nodes;
 using Bifrost.MessageBus;
 using Bifrost.Orchestrator.Contracts;
+using Bifrost.Rpc;
 using Bifrost.TrackedWorkItems.Aggregate;
 using Bifrost.TrackedWorkItems.Events;
+using Bifrost.TrackedWorkItems.Projections;
 using Bifrost.TrackedWorkItems.Services;
-using Bifrost.Workflows.Contracts;
-using Bifrost.WorkItems.Contracts;
+using Bifrost.TrackedWorkItems.Workflow;
+using Marten;
 using Wolverine;
 using Wolverine.Marten;
 
@@ -13,7 +15,59 @@ namespace Bifrost.TrackedWorkItems.Commands;
 
 public static class CancelTrackedWorkItemHandler
 {
-    public static void Validate(CancelTrackedWorkItemApi.Command command, TrackedWorkItem item)
+    [WolverinePost("/cancel-tracked-work-item"), EmptyResponse]
+    public static async Task Handle(
+        CancelTrackedWorkItemApi.Command command,
+        IQuerySession session,
+        IMessageBus bus
+    )
+    {
+        var view =
+            await session.LoadAsync<TrackedWorkItemView.Model>(command.Id)
+            ?? throw new CommandValidationException($"Tracked work item {command.Id} not found.");
+
+        EnsureExpected(view, command.Expected);
+        WorkItemLifecycle.EnsureLegal(
+            DefaultWorkItemLifecycle.Definition,
+            view.Status,
+            WorkItemLifecycleAction.Cancel
+        );
+
+        var actor = WorkItemLifecycleActors.ForRequester(command.Actor);
+
+        if (view.Status == TrackedWorkItemStatuses.Executing)
+        {
+            // Sequential local queue with AdvanceWorkflowExecution — do not list children inline.
+            await bus.SendAsync(
+                    new CancelAttachedWorkflowRoot
+                    {
+                        RootWorkItemId = command.Id,
+                        Actor = actor,
+                        Reason = command.Reason,
+                    }
+                )
+                .ConfigureAwait(false);
+            return;
+        }
+
+        await bus.InvokeAsync(
+                new ApplyCancelTrackedWorkItem
+                {
+                    Id = command.Id,
+                    Actor = actor,
+                    Reason = command.Reason,
+                    Expected = command.Expected,
+                }
+            )
+            .ConfigureAwait(false);
+    }
+
+    [AggregateHandler]
+    public static async Task<(TrackedWorkItemCanceled Canceled, OutgoingMessages Cascades)> Handle(
+        ApplyCancelTrackedWorkItem command,
+        TrackedWorkItem item,
+        IBifrostBus bus
+    )
     {
         item.EnsureExpected(command.Expected);
         WorkItemLifecycle.EnsureLegal(
@@ -21,17 +75,8 @@ public static class CancelTrackedWorkItemHandler
             item.Status,
             WorkItemLifecycleAction.Cancel
         );
-    }
 
-    [WolverinePost("/cancel-tracked-work-item"), EmptyResponse]
-    [AggregateHandler]
-    public static async Task<(TrackedWorkItemCanceled Canceled, OutgoingMessages Cascades)> Handle(
-        CancelTrackedWorkItemApi.Command command,
-        TrackedWorkItem item,
-        IBifrostBus bus
-    )
-    {
-        var actor = WorkItemLifecycleActors.ForRequester(command.Actor);
+        var actor = command.Actor;
         var from = item.Status;
         var next = WorkItemLifecycle.Decide(
             DefaultWorkItemLifecycle.Definition,
@@ -40,11 +85,6 @@ public static class CancelTrackedWorkItemHandler
         );
 
         var cascades = new OutgoingMessages();
-        if (from == TrackedWorkItemStatuses.Executing)
-        {
-            await CancelInFlightNodeExecutions(bus, command.Id, actor, cascades)
-                .ConfigureAwait(false);
-        }
 
         await MirrorWorkItemStatusHandler.Handle(
             new MirrorWorkItemStatusHandler.Message
@@ -73,52 +113,26 @@ public static class CancelTrackedWorkItemHandler
         );
     }
 
-    static async Task CancelInFlightNodeExecutions(
-        IBifrostBus bus,
-        Guid rootWorkItemId,
-        string actor,
-        OutgoingMessages cascades
-    )
+    static void EnsureExpected(TrackedWorkItemView.Model view, JsonObject? expected)
     {
-        try
+        if (expected is null || expected.Count == 0)
         {
-            var listed = await bus.Request<ListWorkItemsApi.Query, ListWorkItemsApi.Response>(
-                new ListWorkItemsApi.Query
-                {
-                    Metadata = new JsonObject
-                    {
-                        [WorkItemInputDefaults.MetadataRootWorkItemIdKey] =
-                            rootWorkItemId.ToString("D"),
-                    },
-                }
-            );
-
-            foreach (
-                var item in listed.Items.Where(i =>
-                    !i.IsDeleted
-                    && i.Status
-                        is not (
-                            TrackedWorkItemStatuses.Succeeded
-                            or TrackedWorkItemStatuses.Failed
-                            or TrackedWorkItemStatuses.Canceled
-                        )
-                )
-            )
-            {
-                cascades.Add(
-                    new CancelTrackedWorkItemApi.Command
-                    {
-                        Id = item.Id,
-                        Actor = actor,
-                        Reason = "attached workflow canceled",
-                    }
-                );
-            }
+            return;
         }
-        catch (BusException)
+
+        var expectedStatus = expected["status"]?.GetValue<string>();
+        if (
+            expectedStatus is not null
+            && !string.Equals(
+                TrackedWorkItemStatuses.Normalize(expectedStatus),
+                TrackedWorkItemStatuses.Normalize(view.Status),
+                StringComparison.Ordinal
+            )
+        )
         {
-            // Best-effort: root cancel still proceeds.
+            throw new CommandValidationException(
+                $"Tracked work item no longer matches the expected state (expected status '{expectedStatus}', actual '{view.Status}')."
+            );
         }
     }
 }
-

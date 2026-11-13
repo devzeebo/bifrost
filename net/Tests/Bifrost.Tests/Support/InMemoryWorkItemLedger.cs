@@ -12,6 +12,15 @@ public sealed class InMemoryWorkItemLedger
 {
     readonly ConcurrentDictionary<Guid, Entry> _items = new();
     readonly ConcurrentDictionary<Guid, RelationshipType> _relationshipTypes = new();
+    readonly ConcurrentDictionary<Guid, byte> _getFailures = new();
+
+    /// <summary>Force <see cref="Get"/> to throw NotFound for the given id (classification failure tests).</summary>
+    public void FailNextGet(Guid id) => _getFailures[id] = 0;
+
+    public void ClearGetFailure(Guid id) => _getFailures.TryRemove(id, out _);
+
+    public IReadOnlyCollection<string> AppliedRequestKeysOf(Guid id) =>
+        _items.TryGetValue(id, out var entry) ? entry.AppliedRequestKeys : [];
 
     public void Seed(
         Guid id,
@@ -38,6 +47,17 @@ public sealed class InMemoryWorkItemLedger
 
     public GetWorkItemApi.Response Get(Guid id)
     {
+        if (_getFailures.TryRemove(id, out _))
+        {
+            throw new BusException(
+                new BusError
+                {
+                    Code = BusErrorCodes.Internal,
+                    Message = $"Simulated get failure for work item {id}.",
+                }
+            );
+        }
+
         if (!_items.TryGetValue(id, out var entry))
         {
             throw new BusException(

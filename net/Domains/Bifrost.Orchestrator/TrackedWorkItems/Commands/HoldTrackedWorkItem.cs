@@ -59,7 +59,8 @@ public static class HoldTrackedWorkItemHandler
                     command.Id,
                     WorkItemLifecycleAction.Hold,
                     from,
-                    command.RunId
+                    command.RunId,
+                    item.HoldCount + 1
                 ),
             },
             bus

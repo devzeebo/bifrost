@@ -193,6 +193,82 @@ public class WorkerDeathReleaseTests
     }
 
     [Fact]
+    public async Task silence_verdict_releases_needs_attention_item()
+    {
+        var client = _factory.CreateClient();
+        await BringWorkerOnline();
+        await BringWorkerOnline();
+        var id = Guid.NewGuid();
+        _factory.WorkItemLedger.Seed(id);
+        _factory.ExecuteClaimedWork.Clear();
+        _factory.KillHarnessProcesses.Clear();
+
+        (await Post(client, "/create-tracked-work-item", Body(id, "accept"))).StatusCode.ShouldBe(
+            HttpStatusCode.NoContent
+        );
+        await WaitFor(
+            async () => (await Get(client, id)).Status == TrackedWorkItemStatuses.Claimed,
+            "item claimed"
+        );
+        var holder = (await Get(client, id)).HolderId!.Value;
+        await WaitFor(async () => (await ListRuns(client, id)).Count == 1, "run born");
+        var deadRunId = (await ListRuns(client, id)).Single().Id;
+
+        (
+            await Post(
+                client,
+                "/start-tracked-work-item",
+                new
+                {
+                    id,
+                    runId = deadRunId,
+                    actor = WorkItemLifecycleActors.ForWorker(holder),
+                    reason = "start",
+                    expected = new JsonObject { ["status"] = TrackedWorkItemStatuses.Claimed },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        (
+            await Post(
+                client,
+                "/hold-tracked-work-item",
+                new
+                {
+                    id,
+                    runId = deadRunId,
+                    actor = WorkItemLifecycleActors.ForWorker(holder),
+                    reason = "need person",
+                    expected = new JsonObject { ["status"] = TrackedWorkItemStatuses.Running },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        (await Get(client, id)).Status.ShouldBe(TrackedWorkItemStatuses.NeedsAttention);
+
+        await DeclareOffline(holder);
+
+        await WaitFor(
+            async () => (await GetWorker(client, holder)).IsOnline == false,
+            "holder offline"
+        );
+        await WaitFor(
+            async () =>
+                (await ListRuns(client, id)).Single(r => r.Id == deadRunId).Outcome
+                == RunOutcome.Abandoned,
+            "run abandoned with worker-death"
+        );
+        await WaitFor(
+            async () =>
+            {
+                var item = await Get(client, id);
+                return item.Status
+                    is TrackedWorkItemStatuses.Pending
+                        or TrackedWorkItemStatuses.Claimed;
+            },
+            "needs-attention released to pending/claimed"
+        );
+    }
+
+    [Fact]
     public async Task report_first_skips_release_when_item_already_terminal()
     {
         var client = _factory.CreateClient();

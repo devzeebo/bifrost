@@ -69,20 +69,12 @@ public static class CreateTrackedWorkItemHandler
             }
         );
 
-        GetWorkItemApi.Response? ledger = null;
-        try
-        {
-            ledger = await bus.Request<GetWorkItemApi.Query, GetWorkItemApi.Response>(
-                new GetWorkItemApi.Query { Id = command.Id }
-            );
-        }
-        catch (BusException)
-        {
-            // Mirror already required a ledger row for status; if the get fails, fall through
-            // to ordinary dispatch so existing tests that only stub ChangeWorkItemStatus keep working.
-        }
+        // Propagate bus failures so outbox/retry can re-run create; classify only after a successful get.
+        var ledger = await bus.Request<GetWorkItemApi.Query, GetWorkItemApi.Response>(
+            new GetWorkItemApi.Query { Id = command.Id }
+        );
 
-        if (WorkItemInputDefaults.IsAttachedWorkflowRoot(ledger?.Metadata))
+        if (WorkItemInputDefaults.IsAttachedWorkflowRoot(ledger.Metadata))
         {
             return [new AdvanceWorkflowExecution { RootWorkItemId = command.Id }];
         }

@@ -6,6 +6,7 @@ using Bifrost.MessageBus;
 using Bifrost.Orchestrator.Contracts;
 using Bifrost.Rpc;
 using Bifrost.TrackedWorkItems;
+using Bifrost.TrackedWorkItems.Workflow;
 using Bifrost.WorkerNodes;
 using JasperFx;
 using JasperFx.CodeGeneration;
@@ -46,6 +47,12 @@ builder.Host.UseWolverine(opts =>
     // ProcessWorkItemDispatch / CreateRun / DeliverClaimedWork cascades are enlisted in
     // Marten's transactional outbox (IntegrateWithWolverine + OutboxedSessionFactory) with
     // the claim/create/release commit — a crash after commit still reloads and flushes them.
+
+    // Serialize advance drafting against attached-root cancel child discovery.
+    opts.LocalQueue("attached-workflow").Sequential();
+    opts.PublishMessage<AdvanceWorkflowExecution>().ToLocalQueue("attached-workflow");
+    opts.PublishMessage<CancelAttachedWorkflowRoot>().ToLocalQueue("attached-workflow");
+
     opts.UseBifrostBus()
         .ListenFor<WorkerNodeRegistered.Command>()
         .ListenFor<WolverineHeartbeat>()

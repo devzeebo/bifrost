@@ -26,8 +26,12 @@ public static class ReleaseHeldWorkForDeadWorkerHandler
         if (
             item is null
             || item.HolderId != message.WorkerId
-            || item.Status
-                is not (TrackedWorkItemStatuses.Claimed or TrackedWorkItemStatuses.Running)
+            ||             item.Status
+                is not (
+                    TrackedWorkItemStatuses.Claimed
+                    or TrackedWorkItemStatuses.Running
+                    or TrackedWorkItemStatuses.NeedsAttention
+                )
         )
         {
             // Race: finished, canceled, or released before the verdict landed.

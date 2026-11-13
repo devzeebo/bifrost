@@ -47,8 +47,16 @@ const WorkItemDetailPage = () => {
               }
             }}
           />
-          {detail.nodeExecutions.length > 0 || detail.workflowSnapshot !== null ? (
-            <NodeExecutionList rows={detail.nodeExecutions} />
+          {detail.nodeExecutions.length > 0 ||
+          detail.workflowSnapshot !== null ||
+          detail.nodeExecutionsError !== null ? (
+            <NodeExecutionList
+              rows={detail.nodeExecutions}
+              error={detail.nodeExecutionsError}
+              onRetry={() => {
+                void detail.retryNodeExecutions()
+              }}
+            />
           ) : null}
           <RunList runs={detail.runs} />
         </>

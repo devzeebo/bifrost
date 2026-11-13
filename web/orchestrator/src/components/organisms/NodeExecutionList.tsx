@@ -4,6 +4,8 @@ import { NodeId } from '../atoms/NodeId'
 
 type NodeExecutionListProps = {
   readonly rows: readonly NodeExecutionRow[]
+  readonly error?: string | null
+  readonly onRetry?: () => void
 }
 
 const toneForStatus = (status: NodeExecutionRow['status']) => {
@@ -37,7 +39,27 @@ const labelForStatus = (status: NodeExecutionRow['status']): string => {
   }
 }
 
-export const NodeExecutionList = ({ rows }: NodeExecutionListProps) => {
+export const NodeExecutionList = ({ rows, error = null, onRetry }: NodeExecutionListProps) => {
+  if (error !== null && rows.length === 0) {
+    return (
+      <section className="border border-line bg-surface px-5 py-5">
+        <h2 className="text-sm font-medium text-fg">Node executions</h2>
+        <p className="mt-2 text-sm text-muted">{error}</p>
+        {onRetry ? (
+          <button
+            type="button"
+            className="mt-3 text-sm text-fg underline"
+            onClick={() => {
+              onRetry()
+            }}
+          >
+            Retry
+          </button>
+        ) : null}
+      </section>
+    )
+  }
+
   if (rows.length === 0) {
     return (
       <section className="border border-line bg-surface px-5 py-5">
@@ -50,6 +72,25 @@ export const NodeExecutionList = ({ rows }: NodeExecutionListProps) => {
   return (
     <section className="border border-line bg-surface px-5 py-5">
       <h2 className="text-sm font-medium text-fg">Node executions</h2>
+      {error !== null ? (
+        <p className="mt-2 text-sm text-muted">
+          {error}
+          {onRetry ? (
+            <>
+              {' '}
+              <button
+                type="button"
+                className="underline text-fg"
+                onClick={() => {
+                  onRetry()
+                }}
+              >
+                Retry
+              </button>
+            </>
+          ) : null}
+        </p>
+      ) : null}
       <ul className="mt-4 flex flex-col gap-3">
         {rows.map((row) => (
           <li key={row.workItemId} className="border border-line px-4 py-3">
@@ -60,9 +101,17 @@ export const NodeExecutionList = ({ rows }: NodeExecutionListProps) => {
               </div>
               <StatusMark tone={toneForStatus(row.status)} label={labelForStatus(row.status)} />
             </div>
+            {row.failureReason !== null ? (
+              <p className="mt-2 text-sm text-muted">{row.failureReason}</p>
+            ) : null}
             {row.issuedInputs !== null ? (
               <pre className="mt-3 overflow-x-auto text-xs text-muted">
                 {JSON.stringify(row.issuedInputs, null, 2)}
+              </pre>
+            ) : null}
+            {row.producedOutputs !== null ? (
+              <pre className="mt-3 overflow-x-auto text-xs text-muted">
+                {JSON.stringify(row.producedOutputs, null, 2)}
               </pre>
             ) : null}
           </li>

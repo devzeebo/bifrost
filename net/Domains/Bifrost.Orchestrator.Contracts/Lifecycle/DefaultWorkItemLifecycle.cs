@@ -67,6 +67,11 @@ public static class DefaultWorkItemLifecycle
                     WorkItemLifecycleAction.Resume,
                     TrackedWorkItemStatuses.Running
                 ),
+                (
+                    TrackedWorkItemStatuses.NeedsAttention,
+                    WorkItemLifecycleAction.Release,
+                    TrackedWorkItemStatuses.Pending
+                ),
             ]
         );
 }
