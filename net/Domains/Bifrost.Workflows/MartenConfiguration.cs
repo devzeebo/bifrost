@@ -1,3 +1,4 @@
+using Bifrost.Configuration;
 using Bifrost.Workflows.Projections;
 using JasperFx.Events.Projections;
 using Marten;
@@ -9,6 +10,7 @@ public static class MartenConfiguration
     public static void Configure(StoreOptions opts)
     {
         opts.DatabaseSchemaName = "workflows";
+        opts.ApplyChangesLockId = MartenApplyChangesLock.ForSchema(opts.DatabaseSchemaName);
 
         opts.Projections.Add<WorkflowView>(ProjectionLifecycle.Inline);
         opts.Projections.Add<WorkflowIndex>(ProjectionLifecycle.Inline);

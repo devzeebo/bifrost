@@ -1,3 +1,4 @@
+using Bifrost.Configuration;
 using Bifrost.RelationshipTypes.Projections;
 using Bifrost.WorkItems.Projections;
 using JasperFx.Events.Projections;
@@ -10,6 +11,7 @@ public static class MartenConfiguration
     public static void Configure(StoreOptions opts)
     {
         opts.DatabaseSchemaName = "work_items";
+        opts.ApplyChangesLockId = MartenApplyChangesLock.ForSchema(opts.DatabaseSchemaName);
 
         opts.Projections.Add<RelationshipTypeView>(ProjectionLifecycle.Inline);
         opts.Projections.Add<RelationshipTypeByWord>(ProjectionLifecycle.Inline);

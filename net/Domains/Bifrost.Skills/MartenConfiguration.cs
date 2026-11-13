@@ -1,6 +1,7 @@
 using Bifrost.Capabilities.Chat;
 using Bifrost.Capabilities.Evals;
 using Bifrost.Capabilities.Projections;
+using Bifrost.Configuration;
 using JasperFx.Events.Projections;
 using Marten;
 using Marten.Schema;
@@ -12,6 +13,7 @@ public static class MartenConfiguration
     public static void Configure(StoreOptions opts)
     {
         opts.DatabaseSchemaName = "skills";
+        opts.ApplyChangesLockId = MartenApplyChangesLock.ForSchema(opts.DatabaseSchemaName);
 
         opts.Projections.Add<CapabilityView>(ProjectionLifecycle.Inline);
         opts.Projections.Add<CapabilityIndex>(ProjectionLifecycle.Inline);

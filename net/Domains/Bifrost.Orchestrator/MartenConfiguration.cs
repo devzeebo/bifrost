@@ -1,3 +1,4 @@
+using Bifrost.Configuration;
 using Bifrost.Runs.Projections;
 using Bifrost.TrackedWorkItems.Projections;
 using Bifrost.WorkerNodes.Projections;
@@ -11,6 +12,7 @@ public static class MartenConfiguration
     public static void Configure(StoreOptions opts)
     {
         opts.DatabaseSchemaName = "orchestrator";
+        opts.ApplyChangesLockId = MartenApplyChangesLock.ForSchema(opts.DatabaseSchemaName);
         opts.Projections.Add<WorkerNodeView>(ProjectionLifecycle.Inline);
         opts.Projections.Add<RunView>(ProjectionLifecycle.Inline);
         opts.Projections.Add<TrackedWorkItemView>(ProjectionLifecycle.Inline);

@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Bifrost.WorkItems.Contracts\Bifrost.WorkItems.Contracts.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Bifrost.Configuration\Bifrost.Configuration.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Bifrost.MessageBus.Abstractions\Bifrost.MessageBus.Abstractions.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Bifrost.Rpc\Bifrost.Rpc.csproj" />
   </ItemGroup>
