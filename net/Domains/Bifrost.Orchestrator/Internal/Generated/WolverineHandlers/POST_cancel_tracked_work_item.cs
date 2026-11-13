@@ -31,13 +31,13 @@ namespace Internal.Generated.WolverineHandlers
 
         public override async System.Threading.Tasks.Task Handle(Microsoft.AspNetCore.Http.HttpContext httpContext)
         {
+            var messageContext = new Wolverine.Runtime.MessageContext(_wolverineRuntime);
+            // Building the Marten session
+            await using var documentSession = _outboxedSessionFactory.OpenSession(messageContext);
             // Reading the request body via JSON deserialization
             var (command, jsonContinue) = await ReadJsonAsync<Bifrost.Orchestrator.Contracts.CancelTrackedWorkItemApi.Command>(httpContext);
             if (jsonContinue == Wolverine.HandlerContinuation.Stop) return;
             var trackedWorkItem_Id = command.Id;
-            var messageContext = new Wolverine.Runtime.MessageContext(_wolverineRuntime);
-            // Building the Marten session
-            await using var documentSession = _outboxedSessionFactory.OpenSession(messageContext);
             // Application-specific Open Telemetry auditing
             System.Diagnostics.Activity.Current?.SetTag("id", command.Id);
             System.Diagnostics.Activity.Current?.SetTag("handler.type", "Bifrost.TrackedWorkItems.Commands.CancelTrackedWorkItemHandler");
@@ -48,7 +48,7 @@ namespace Internal.Generated.WolverineHandlers
             Bifrost.TrackedWorkItems.Commands.CancelTrackedWorkItemHandler.Validate(command, eventStreamOfTrackedWorkItem.Aggregate);
             
             // The actual HTTP request handler execution
-            var trackedWorkItemCanceled = await Bifrost.TrackedWorkItems.Commands.CancelTrackedWorkItemHandler.Handle(command, eventStreamOfTrackedWorkItem.Aggregate, _bifrostBus).ConfigureAwait(false);
+            (var trackedWorkItemCanceled, var outgoingMessages) = await Bifrost.TrackedWorkItems.Commands.CancelTrackedWorkItemHandler.Handle(command, eventStreamOfTrackedWorkItem.Aggregate, _bifrostBus).ConfigureAwait(false);
 
             if (trackedWorkItemCanceled != null)
             {
@@ -56,15 +56,19 @@ namespace Internal.Generated.WolverineHandlers
             }
 
             
+            // Outgoing, cascaded message
+            await messageContext.EnqueueCascadingAsync(outgoingMessages).ConfigureAwait(false);
+
+            
             // Save all pending changes to this Marten session
             await documentSession.SaveChangesAsync(httpContext.RequestAborted).ConfigureAwait(false);
 
+            // Wolverine automatically sets the status code to 204 for empty responses
+            if (httpContext.Response is { HasStarted: false, StatusCode: 200 }) httpContext.Response.StatusCode = 204;
             
             // Have to flush outgoing messages just in case Marten did nothing because of https://github.com/JasperFx/wolverine/issues/536
             await messageContext.FlushOutgoingMessagesAsync().ConfigureAwait(false);
 
-            // Wolverine automatically sets the status code to 204 for empty responses
-            if (httpContext.Response is { HasStarted: false, StatusCode: 200 }) httpContext.Response.StatusCode = 204;
         }
 
     }

@@ -2,6 +2,12 @@ import { useEffect, useState } from 'react'
 import { getWorkflow, WorkflowNotFoundError } from '../workflows/api'
 import { cancelTrackedWorkItem } from './cancelTrackedWorkItem'
 import { fetchLedgerWorkItem } from './ledgerWorkItem'
+import {
+  fetchNodeExecutionsForRoot,
+  readWorkflowSnapshot,
+  type NodeExecutionRow,
+  type WorkflowSnapshotSummary,
+} from './nodeExecutions'
 import { releaseTrackedWorkItem } from './releaseTrackedWorkItem'
 import { fetchRunsForWorkItem } from './runs'
 import { fetchTrackedWorkItem } from './trackedWorkItem'
@@ -21,6 +27,8 @@ export type TrackedWorkItemDetailStatus =
       readonly item: TrackedWorkItem
       readonly runs: readonly WorkItemRun[]
       readonly attachedWorkflow: AttachedWorkflow
+      readonly workflowSnapshot: WorkflowSnapshotSummary | null
+      readonly nodeExecutions: readonly NodeExecutionRow[]
       readonly actionError: string | null
       readonly actionPending: boolean
     }
@@ -42,11 +50,18 @@ export const useTrackedWorkItemDetail = (workItemId: string): TrackedWorkItemDet
         fetchLedgerWorkItem(workItemId).catch(() => null),
       ])
       const attachedWorkflow = await resolveAttachedWorkflow(ledger?.attachedWorkflowId ?? null)
+      const workflowSnapshot = ledger ? readWorkflowSnapshot(ledger.metadata) : null
+      const nodeExecutions =
+        ledger?.attachedWorkflowId !== null && ledger?.attachedWorkflowId !== undefined
+          ? await fetchNodeExecutionsForRoot(workItemId).catch(() => [])
+          : []
       return {
         kind: 'ready',
         item,
         runs,
         attachedWorkflow,
+        workflowSnapshot,
+        nodeExecutions,
         actionError: null,
         actionPending: false,
       }

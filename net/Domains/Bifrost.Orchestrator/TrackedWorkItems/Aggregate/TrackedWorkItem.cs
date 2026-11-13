@@ -25,6 +25,17 @@ public class TrackedWorkItem
 
     public void Apply(TrackedWorkItemStarted _) => Status = TrackedWorkItemStatuses.Running;
 
+    public void Apply(TrackedWorkItemExecuting _)
+    {
+        Status = TrackedWorkItemStatuses.Executing;
+        HolderId = null;
+    }
+
+    public void Apply(TrackedWorkItemNeedsAttention _) =>
+        Status = TrackedWorkItemStatuses.NeedsAttention;
+
+    public void Apply(TrackedWorkItemResumed _) => Status = TrackedWorkItemStatuses.Running;
+
     public void Apply(TrackedWorkItemSucceeded _)
     {
         Status = TrackedWorkItemStatuses.Succeeded;

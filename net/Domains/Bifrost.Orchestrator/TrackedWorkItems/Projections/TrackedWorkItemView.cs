@@ -34,6 +34,25 @@ public class TrackedWorkItemView : SingleStreamProjection<TrackedWorkItemView.Mo
             Status = TrackedWorkItemStatuses.Running,
         };
 
+    public Model Apply(TrackedWorkItemExecuting _, Model view) =>
+        view with
+        {
+            Status = TrackedWorkItemStatuses.Executing,
+            HolderId = null,
+        };
+
+    public Model Apply(TrackedWorkItemNeedsAttention _, Model view) =>
+        view with
+        {
+            Status = TrackedWorkItemStatuses.NeedsAttention,
+        };
+
+    public Model Apply(TrackedWorkItemResumed _, Model view) =>
+        view with
+        {
+            Status = TrackedWorkItemStatuses.Running,
+        };
+
     public Model Apply(TrackedWorkItemSucceeded _, Model view) =>
         view with
         {

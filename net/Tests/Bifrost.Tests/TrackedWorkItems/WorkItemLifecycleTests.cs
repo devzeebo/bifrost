@@ -14,6 +14,11 @@ public class WorkItemLifecycleTests
     [InlineData(TrackedWorkItemStatuses.Running, WorkItemLifecycleAction.Fail, TrackedWorkItemStatuses.Failed)]
     [InlineData(TrackedWorkItemStatuses.Claimed, WorkItemLifecycleAction.Release, TrackedWorkItemStatuses.Pending)]
     [InlineData(TrackedWorkItemStatuses.Running, WorkItemLifecycleAction.Release, TrackedWorkItemStatuses.Pending)]
+    [InlineData(TrackedWorkItemStatuses.Pending, WorkItemLifecycleAction.BeginExecuting, TrackedWorkItemStatuses.Executing)]
+    [InlineData(TrackedWorkItemStatuses.Executing, WorkItemLifecycleAction.Succeed, TrackedWorkItemStatuses.Succeeded)]
+    [InlineData(TrackedWorkItemStatuses.Executing, WorkItemLifecycleAction.Fail, TrackedWorkItemStatuses.Failed)]
+    [InlineData(TrackedWorkItemStatuses.Running, WorkItemLifecycleAction.Hold, TrackedWorkItemStatuses.NeedsAttention)]
+    [InlineData(TrackedWorkItemStatuses.NeedsAttention, WorkItemLifecycleAction.Resume, TrackedWorkItemStatuses.Running)]
     public void happy_path_edges(
         string from,
         WorkItemLifecycleAction action,
@@ -24,6 +29,8 @@ public class WorkItemLifecycleTests
     [InlineData(TrackedWorkItemStatuses.Pending)]
     [InlineData(TrackedWorkItemStatuses.Claimed)]
     [InlineData(TrackedWorkItemStatuses.Running)]
+    [InlineData(TrackedWorkItemStatuses.Executing)]
+    [InlineData(TrackedWorkItemStatuses.NeedsAttention)]
     public void cancel_is_legal_from_every_non_terminal(string from) =>
         WorkItemLifecycle
             .Decide(_lifecycle, from, WorkItemLifecycleAction.Cancel)

@@ -39,12 +39,16 @@ namespace Internal.Generated.WolverineHandlers
             System.Diagnostics.Activity.Current?.SetTag("wolverine.stream.type", "Bifrost.TrackedWorkItems.Aggregate.TrackedWorkItem");
             
             // The actual message execution
-            var outgoing1 = await Bifrost.TrackedWorkItems.Commands.FailTrackedWorkItemHandler.Handle(command, eventStreamOfTrackedWorkItem.Aggregate, _bifrostBus).ConfigureAwait(false);
+            (var outgoing1, var outgoing2) = await Bifrost.TrackedWorkItems.Commands.FailTrackedWorkItemHandler.Handle(command, eventStreamOfTrackedWorkItem.Aggregate, _bifrostBus).ConfigureAwait(false);
 
             if (outgoing1 != null)
             {
                 eventStreamOfTrackedWorkItem.AppendOne(outgoing1);
             }
+
+            
+            // Outgoing, cascaded message
+            await context.EnqueueCascadingAsync(outgoing2).ConfigureAwait(false);
 
             
             // Save all pending changes to this Marten session

@@ -1,3 +1,4 @@
+import type { WorkflowSnapshotSummary } from '../../workItems/nodeExecutions'
 import type { AttachedWorkflow } from '../../workItems/useTrackedWorkItemDetail'
 import type { TrackedWorkItem } from '../../workItems/types'
 import { isActiveStatus, isHeldStatus } from '../../workItems/types'
@@ -8,6 +9,7 @@ import { Fact } from '../molecules/Fact'
 type WorkItemDetailProps = {
   readonly item: TrackedWorkItem
   readonly attachedWorkflow: AttachedWorkflow
+  readonly workflowSnapshot: WorkflowSnapshotSummary | null
   readonly actionPending: boolean
   readonly actionError: string | null
   readonly onCancel: () => void
@@ -18,8 +20,11 @@ const toneForStatus = (status: TrackedWorkItem['status']) => {
   switch (status) {
     case 'pending':
       return 'stale' as const
+    case 'needs-attention':
+      return 'quiet' as const
     case 'claimed':
     case 'running':
+    case 'executing':
     case 'succeeded':
       return 'live' as const
     case 'failed':
@@ -31,6 +36,7 @@ const toneForStatus = (status: TrackedWorkItem['status']) => {
 export const WorkItemDetail = ({
   item,
   attachedWorkflow,
+  workflowSnapshot,
   actionPending,
   actionError,
   onCancel,
@@ -49,6 +55,14 @@ export const WorkItemDetail = ({
         <Fact label="Status" value={item.status} />
         <Fact label="Holder" value={item.holderId === null ? '—' : item.holderId.slice(0, 8)} />
         <Fact label="Workflow" value={formatAttachedWorkflow(attachedWorkflow)} />
+        <Fact
+          label="Shape"
+          value={
+            workflowSnapshot === null
+              ? '—'
+              : `${workflowSnapshot.name} v${workflowSnapshot.version}`
+          }
+        />
       </div>
       {canCancel || canRelease ? (
         <div className="flex flex-wrap gap-3 border-t border-line pt-4">
