@@ -9,6 +9,13 @@ namespace Bifrost.Workflows.Contracts;
 public static class WorkItemInputDefaults
 {
     public const string MetadataWorkflowIdKey = "workflowId";
+    public const string MetadataWorkflowSnapshotKey = "workflowSnapshot";
+    public const string MetadataWorkflowVersionKey = "workflowVersion";
+    public const string MetadataRootWorkItemIdKey = "rootWorkItemId";
+    public const string MetadataNodeIdKey = "nodeId";
+    public const string MetadataNodeNameKey = "nodeName";
+    public const string MetadataIssuedInputsKey = "issuedInputs";
+    public const string MetadataProducedOutputsKey = "producedOutputs";
     public const string DefaultNodeName = "Work item";
     public const string OutputPortName = "work item";
 
@@ -85,4 +92,27 @@ public static class WorkItemInputDefaults
 
         return false;
     }
+
+    public static bool TryReadRootWorkItemId(JsonObject? metadata, out Guid rootWorkItemId)
+    {
+        rootWorkItemId = default;
+        if (
+            metadata is null
+            || !metadata.TryGetPropertyValue(MetadataRootWorkItemIdKey, out var node)
+            || node is null
+        )
+        {
+            return false;
+        }
+
+        if (node.GetValueKind() == System.Text.Json.JsonValueKind.String)
+        {
+            return Guid.TryParse(node.GetValue<string>(), out rootWorkItemId);
+        }
+
+        return false;
+    }
+
+    public static bool IsAttachedWorkflowRoot(JsonObject? metadata) =>
+        TryReadAttachedWorkflowId(metadata, out _) && !TryReadRootWorkItemId(metadata, out _);
 }

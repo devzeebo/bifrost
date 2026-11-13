@@ -4,6 +4,7 @@ using Bifrost.TrackedWorkItems.Aggregate;
 using Bifrost.TrackedWorkItems.Events;
 using Bifrost.TrackedWorkItems.Services;
 using Marten;
+using Wolverine;
 using Wolverine.Marten;
 
 namespace Bifrost.TrackedWorkItems.Commands;
@@ -33,7 +34,7 @@ public static class FailTrackedWorkItemHandler
 
     [WolverinePost("/fail-tracked-work-item"), EmptyResponse]
     [AggregateHandler]
-    public static async Task<TrackedWorkItemFailed> Handle(
+    public static async Task<(TrackedWorkItemFailed Failed, OutgoingMessages Cascades)> Handle(
         FailTrackedWorkItemApi.Command command,
         TrackedWorkItem item,
         IBifrostBus bus
@@ -65,6 +66,11 @@ public static class FailTrackedWorkItemHandler
             bus
         );
 
-        return new TrackedWorkItemFailed { Actor = actor, Reason = command.Reason };
+        var cascades = new OutgoingMessages();
+        await SucceedTrackedWorkItemHandler
+            .MaybeAdvanceParentWorkflow(bus, command.Id, cascades)
+            .ConfigureAwait(false);
+
+        return (new TrackedWorkItemFailed { Actor = actor, Reason = command.Reason }, cascades);
     }
 }

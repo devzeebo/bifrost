@@ -9,6 +9,8 @@ public static class TrackedWorkItemStatuses
     public const string Pending = "pending";
     public const string Claimed = "claimed";
     public const string Running = "running";
+    public const string Executing = "executing";
+    public const string NeedsAttention = "needs-attention";
     public const string Succeeded = "succeeded";
     public const string Failed = "failed";
     public const string Canceled = "canceled";

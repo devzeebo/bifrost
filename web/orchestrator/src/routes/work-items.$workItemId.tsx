@@ -1,4 +1,5 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
+import { NodeExecutionList } from '../components/organisms/NodeExecutionList'
 import { RunList } from '../components/organisms/RunList'
 import { WorkItemDetail } from '../components/organisms/WorkItemDetail'
 import { PageLayout } from '../components/templates/PageLayout'
@@ -32,6 +33,7 @@ const WorkItemDetailPage = () => {
           <WorkItemDetail
             item={detail.item}
             attachedWorkflow={detail.attachedWorkflow}
+            workflowSnapshot={detail.workflowSnapshot}
             actionPending={detail.actionPending}
             actionError={detail.actionError}
             onCancel={() => {
@@ -45,6 +47,17 @@ const WorkItemDetailPage = () => {
               }
             }}
           />
+          {detail.nodeExecutions.length > 0 ||
+          detail.workflowSnapshot !== null ||
+          detail.nodeExecutionsError !== null ? (
+            <NodeExecutionList
+              rows={detail.nodeExecutions}
+              error={detail.nodeExecutionsError}
+              onRetry={() => {
+                void detail.retryNodeExecutions()
+              }}
+            />
+          ) : null}
           <RunList runs={detail.runs} />
         </>
       ) : null}

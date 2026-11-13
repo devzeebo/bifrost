@@ -21,4 +21,13 @@ public static class MirrorRequestKeys
         Guid runId
     ) =>
         $"{id:D}:{action.ToString().ToLowerInvariant()}:{TrackedWorkItemStatuses.Normalize(fromStatus)}:{runId:D}";
+
+    public static string For(
+        Guid id,
+        WorkItemLifecycleAction action,
+        string fromStatus,
+        Guid runId,
+        int holdCycle
+    ) =>
+        $"{id:D}:{action.ToString().ToLowerInvariant()}:{TrackedWorkItemStatuses.Normalize(fromStatus)}:{runId:D}:hold-{holdCycle}";
 }

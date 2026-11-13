@@ -5,6 +5,9 @@ using Bifrost.TrackedWorkItems.Dispatch;
 using Bifrost.TrackedWorkItems.Events;
 using Bifrost.TrackedWorkItems.Projections;
 using Bifrost.TrackedWorkItems.Services;
+using Bifrost.TrackedWorkItems.Workflow;
+using Bifrost.Workflows.Contracts;
+using Bifrost.WorkItems.Contracts;
 using Marten;
 using Wolverine;
 
@@ -65,6 +68,16 @@ public static class CreateTrackedWorkItemHandler
                 Reason = command.Reason,
             }
         );
+
+        // Propagate bus failures so outbox/retry can re-run create; classify only after a successful get.
+        var ledger = await bus.Request<GetWorkItemApi.Query, GetWorkItemApi.Response>(
+            new GetWorkItemApi.Query { Id = command.Id }
+        );
+
+        if (WorkItemInputDefaults.IsAttachedWorkflowRoot(ledger.Metadata))
+        {
+            return [new AdvanceWorkflowExecution { RootWorkItemId = command.Id }];
+        }
 
         return [new ProcessWorkItemDispatch()];
     }

@@ -11,6 +11,8 @@ const statuses = new Set<TrackedWorkItemStatus>([
   'pending',
   'claimed',
   'running',
+  'executing',
+  'needs-attention',
   'succeeded',
   'failed',
   'canceled',
