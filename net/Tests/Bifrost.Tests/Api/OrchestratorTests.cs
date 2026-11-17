@@ -9,6 +9,7 @@ using Orchestrator::Bifrost.Gateway;
 using Bifrost.Orchestrator.Contracts;
 using Bifrost.Tests.Support;
 using Bifrost.WorkItems.Contracts;
+using Bifrost.Workflows.Contracts;
 using Marten;
 using Bifrost.Rpc;
 using Bifrost.Tests;
@@ -37,6 +38,7 @@ public sealed class OrchestratorApiFactory : WebApplicationFactory<Orchestrator:
     string _connectionString = string.Empty;
 
     public InMemoryWorkItemLedger WorkItemLedger { get; } = new();
+    public InMemoryWorkflowCatalog WorkflowCatalog { get; } = new();
     public StubVirtualKeyQuotaClient VirtualKeyQuota { get; } = new();
     public RecordingExecuteClaimedWork ExecuteClaimedWork { get; } = new();
     public RecordingKillHarnessProcesses KillHarnessProcesses { get; } = new();
@@ -76,6 +78,7 @@ public sealed class OrchestratorApiFactory : WebApplicationFactory<Orchestrator:
             }
 
             services.AddSingleton(WorkItemLedger);
+            services.AddSingleton(WorkflowCatalog);
             services.AddSingleton<IVirtualKeyQuotaClient>(VirtualKeyQuota);
             services.AddSingleton(ExecuteClaimedWork);
             services.AddSingleton(KillHarnessProcesses);
@@ -85,6 +88,47 @@ public sealed class OrchestratorApiFactory : WebApplicationFactory<Orchestrator:
                     WorkItemLedger.Apply(command);
                     return Task.CompletedTask;
                 }
+            );
+            services.AddMessageBusHandler<GetWorkItemApi.Query, GetWorkItemApi.Response>(
+                (_, query, _) => Task.FromResult(WorkItemLedger.Get(query.Id))
+            );
+            services.AddMessageBusHandler<CreateWorkItemApi.Command>(
+                (_, command, _) =>
+                {
+                    WorkItemLedger.Create(command);
+                    return Task.CompletedTask;
+                }
+            );
+            services.AddMessageBusHandler<ReplaceWorkItemMetadataApi.Command>(
+                (_, command, _) =>
+                {
+                    WorkItemLedger.ReplaceMetadata(command);
+                    return Task.CompletedTask;
+                }
+            );
+            services.AddMessageBusHandler<ListWorkItemsApi.Query, ListWorkItemsApi.Response>(
+                (_, query, _) => Task.FromResult(WorkItemLedger.List(query))
+            );
+            services.AddMessageBusHandler<
+                ListRelationshipTypesApi.Query,
+                ListRelationshipTypesApi.Response
+            >((_, _, _) => Task.FromResult(WorkItemLedger.ListRelationshipTypes()));
+            services.AddMessageBusHandler<DefineRelationshipTypeApi.Command>(
+                (_, command, _) =>
+                {
+                    WorkItemLedger.DefineRelationshipType(command);
+                    return Task.CompletedTask;
+                }
+            );
+            services.AddMessageBusHandler<AddRelationshipApi.Command>(
+                (_, command, _) =>
+                {
+                    WorkItemLedger.AddRelationship(command);
+                    return Task.CompletedTask;
+                }
+            );
+            services.AddMessageBusHandler<GetWorkflowApi.Query, GetWorkflowApi.Response>(
+                (sp, query, _) => Task.FromResult(sp.GetRequiredService<InMemoryWorkflowCatalog>().Get(query.Id))
             );
             services.AddMessageBusHandler<ExecuteClaimedWorkApi.Command>(
                 (sp, command, _) =>

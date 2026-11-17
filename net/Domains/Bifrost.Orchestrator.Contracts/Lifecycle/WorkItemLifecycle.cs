@@ -49,6 +49,9 @@ public static class WorkItemLifecycle
             WorkItemLifecycleAction.Fail => "fail",
             WorkItemLifecycleAction.Release => "release",
             WorkItemLifecycleAction.Cancel => "cancel",
+            WorkItemLifecycleAction.BeginExecuting => "begin executing",
+            WorkItemLifecycleAction.Hold => "hold",
+            WorkItemLifecycleAction.Resume => "resume",
             _ => action.ToString().ToLowerInvariant(),
         };
 }

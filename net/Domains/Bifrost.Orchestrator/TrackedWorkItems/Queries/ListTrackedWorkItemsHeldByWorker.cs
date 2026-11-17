@@ -28,6 +28,7 @@ public static class ListTrackedWorkItemsHeldByWorkerHandler
                 && (
                     i.Status == TrackedWorkItemStatuses.Claimed
                     || i.Status == TrackedWorkItemStatuses.Running
+                    || i.Status == TrackedWorkItemStatuses.NeedsAttention
                 )
             )
             .ToListAsync();

@@ -6,6 +6,7 @@ using Bifrost.MessageBus;
 using Bifrost.Orchestrator.Contracts;
 using Bifrost.Rpc;
 using Bifrost.TrackedWorkItems;
+using Bifrost.TrackedWorkItems.Workflow;
 using Bifrost.WorkerNodes;
 using JasperFx;
 using JasperFx.CodeGeneration;
@@ -46,6 +47,13 @@ builder.Host.UseWolverine(opts =>
     // ProcessWorkItemDispatch / CreateRun / DeliverClaimedWork cascades are enlisted in
     // Marten's transactional outbox (IntegrateWithWolverine + OutboxedSessionFactory) with
     // the claim/create/release commit — a crash after commit still reloads and flushes them.
+
+    // Serialize advance drafting against attached-root cancel child discovery.
+    // Durable inbox: crash after outbox flush must not drop advance/cancel.
+    opts.LocalQueue("attached-workflow").Sequential().UseDurableInbox();
+    opts.PublishMessage<AdvanceWorkflowExecution>().ToLocalQueue("attached-workflow");
+    opts.PublishMessage<CancelAttachedWorkflowRoot>().ToLocalQueue("attached-workflow");
+
     opts.UseBifrostBus()
         .ListenFor<WorkerNodeRegistered.Command>()
         .ListenFor<WolverineHeartbeat>()
@@ -184,6 +192,31 @@ app.Use(
                         _ => "Gateway unavailable",
                     },
                     Detail = ex.Message,
+                }
+            );
+        }
+        catch (BusException ex)
+        {
+            var status = ex.Error.Code switch
+            {
+                BusErrorCodes.Validation => StatusCodes.Status400BadRequest,
+                BusErrorCodes.NotFound => StatusCodes.Status404NotFound,
+                BusErrorCodes.Conflict => StatusCodes.Status409Conflict,
+                _ => StatusCodes.Status500InternalServerError,
+            };
+            context.Response.StatusCode = status;
+            await context.Response.WriteAsJsonAsync(
+                new ProblemDetails
+                {
+                    Status = status,
+                    Title = ex.Error.Code switch
+                    {
+                        BusErrorCodes.Validation => "Invalid command",
+                        BusErrorCodes.NotFound => "Not found",
+                        BusErrorCodes.Conflict => "Conflict",
+                        _ => "Upstream failure",
+                    },
+                    Detail = ex.Error.Message,
                 }
             );
         }

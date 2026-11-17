@@ -27,7 +27,11 @@ public static class ReleaseHeldWorkForDeadWorkerHandler
             item is null
             || item.HolderId != message.WorkerId
             || item.Status
-                is not (TrackedWorkItemStatuses.Claimed or TrackedWorkItemStatuses.Running)
+                is not (
+                    TrackedWorkItemStatuses.Claimed
+                    or TrackedWorkItemStatuses.Running
+                    or TrackedWorkItemStatuses.NeedsAttention
+                )
         )
         {
             // Race: finished, canceled, or released before the verdict landed.
@@ -80,7 +84,8 @@ public static class ReleaseHeldWorkForDeadWorkerHandler
                 RequestKey = MirrorRequestKeys.For(
                     message.WorkItemId,
                     WorkItemLifecycleAction.Release,
-                    from
+                    from,
+                    openRun.Id
                 ),
             },
             bus
@@ -136,7 +141,8 @@ public static class ReleaseHeldWorkForDeadWorkerHandler
                 RequestKey = MirrorRequestKeys.For(
                     workItemId,
                     WorkItemLifecycleAction.Release,
-                    from
+                    from,
+                    item.HoldCount
                 ),
             },
             bus

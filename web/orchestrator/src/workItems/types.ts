@@ -2,6 +2,8 @@ export type TrackedWorkItemStatus =
   | 'pending'
   | 'claimed'
   | 'running'
+  | 'executing'
+  | 'needs-attention'
   | 'succeeded'
   | 'failed'
   | 'canceled'
@@ -24,8 +26,12 @@ export type WorkItemRun = {
 
 export const isActiveStatus = (
   status: TrackedWorkItemStatus,
-): status is 'pending' | 'claimed' | 'running' =>
-  status === 'pending' || status === 'claimed' || status === 'running'
+): status is 'pending' | 'claimed' | 'running' | 'executing' | 'needs-attention' =>
+  status === 'pending' ||
+  status === 'claimed' ||
+  status === 'running' ||
+  status === 'executing' ||
+  status === 'needs-attention'
 
 export const isHeldStatus = (
   status: TrackedWorkItemStatus,

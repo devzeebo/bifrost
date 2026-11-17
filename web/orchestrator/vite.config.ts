@@ -193,6 +193,10 @@ export default defineConfig({
         target: 'http://127.0.0.1:8080',
         changeOrigin: true,
       },
+      '/list-work-items': {
+        target: 'http://127.0.0.1:8080',
+        changeOrigin: true,
+      },
       '/create-attached-work-item': {
         target: 'http://127.0.0.1:8083',
         changeOrigin: true,

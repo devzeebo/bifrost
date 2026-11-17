@@ -42,6 +42,36 @@ public static class DefaultWorkItemLifecycle
                     WorkItemLifecycleAction.Release,
                     TrackedWorkItemStatuses.Pending
                 ),
+                (
+                    TrackedWorkItemStatuses.Pending,
+                    WorkItemLifecycleAction.BeginExecuting,
+                    TrackedWorkItemStatuses.Executing
+                ),
+                (
+                    TrackedWorkItemStatuses.Executing,
+                    WorkItemLifecycleAction.Succeed,
+                    TrackedWorkItemStatuses.Succeeded
+                ),
+                (
+                    TrackedWorkItemStatuses.Executing,
+                    WorkItemLifecycleAction.Fail,
+                    TrackedWorkItemStatuses.Failed
+                ),
+                (
+                    TrackedWorkItemStatuses.Running,
+                    WorkItemLifecycleAction.Hold,
+                    TrackedWorkItemStatuses.NeedsAttention
+                ),
+                (
+                    TrackedWorkItemStatuses.NeedsAttention,
+                    WorkItemLifecycleAction.Resume,
+                    TrackedWorkItemStatuses.Running
+                ),
+                (
+                    TrackedWorkItemStatuses.NeedsAttention,
+                    WorkItemLifecycleAction.Release,
+                    TrackedWorkItemStatuses.Pending
+                ),
             ]
         );
 }

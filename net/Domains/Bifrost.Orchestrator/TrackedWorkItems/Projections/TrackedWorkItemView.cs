@@ -11,6 +11,7 @@ public class TrackedWorkItemView : SingleStreamProjection<TrackedWorkItemView.Mo
         public Guid Id { get; init; }
         public required string Status { get; init; }
         public Guid? HolderId { get; init; }
+        public int HoldCount { get; init; }
     }
 
     public Model Create(TrackedWorkItemCreated e) =>
@@ -19,6 +20,7 @@ public class TrackedWorkItemView : SingleStreamProjection<TrackedWorkItemView.Mo
             Id = e.Id,
             Status = TrackedWorkItemStatuses.Normalize(e.Status),
             HolderId = null,
+            HoldCount = 0,
         };
 
     public Model Apply(TrackedWorkItemClaimed e, Model view) =>
@@ -29,6 +31,26 @@ public class TrackedWorkItemView : SingleStreamProjection<TrackedWorkItemView.Mo
         };
 
     public Model Apply(TrackedWorkItemStarted _, Model view) =>
+        view with
+        {
+            Status = TrackedWorkItemStatuses.Running,
+        };
+
+    public Model Apply(TrackedWorkItemExecuting _, Model view) =>
+        view with
+        {
+            Status = TrackedWorkItemStatuses.Executing,
+            HolderId = null,
+        };
+
+    public Model Apply(TrackedWorkItemNeedsAttention _, Model view) =>
+        view with
+        {
+            Status = TrackedWorkItemStatuses.NeedsAttention,
+            HoldCount = view.HoldCount + 1,
+        };
+
+    public Model Apply(TrackedWorkItemResumed _, Model view) =>
         view with
         {
             Status = TrackedWorkItemStatuses.Running,

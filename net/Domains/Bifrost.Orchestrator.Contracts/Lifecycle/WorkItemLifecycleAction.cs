@@ -8,4 +8,7 @@ public enum WorkItemLifecycleAction
     Fail,
     Release,
     Cancel,
+    BeginExecuting,
+    Hold,
+    Resume,
 }
