@@ -32,6 +32,7 @@ builder.Services.AddSingleton<IHarnessAcceptStore>(_ => new HarnessAcceptStore(o
 builder.Services.AddSingleton<IHarnessRunGate, HarnessRunGate>();
 builder.Services.AddSingleton<HarnessExecutionSlot>();
 builder.Services.AddSingleton<IHarnessProcessRunner, HarnessProcessRunner>();
+builder.Services.AddSingleton<ISkillDocumentCache, SkillDocumentCache>();
 builder.Services.AddSingleton<IHarnessJobScheduler, WolverineHarnessJobScheduler>();
 
 builder.Services.AddRpcHost(options =>

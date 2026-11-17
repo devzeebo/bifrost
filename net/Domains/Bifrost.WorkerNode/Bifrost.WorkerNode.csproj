@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="JsonSchema.Net" Version="9.6.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
     <PackageReference Include="WolverineFx" Version="6.36.0" />
     <PackageReference Include="WolverineFx.Sqlite" Version="6.36.0" />
@@ -17,6 +18,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Bifrost.Orchestrator.Contracts\Bifrost.Orchestrator.Contracts.csproj" />
     <ProjectReference Include="..\Bifrost.WorkItems.Contracts\Bifrost.WorkItems.Contracts.csproj" />
+    <ProjectReference Include="..\Bifrost.Skills.Contracts\Bifrost.Skills.Contracts.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Bifrost.MessageBus.Abstractions\Bifrost.MessageBus.Abstractions.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Bifrost.MessageBus.Wolverine\Bifrost.MessageBus.Wolverine.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Bifrost.Rpc\Bifrost.Rpc.csproj" />

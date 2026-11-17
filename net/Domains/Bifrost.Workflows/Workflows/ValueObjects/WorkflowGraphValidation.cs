@@ -201,6 +201,11 @@ public static class WorkflowGraphValidation
             return NormalizeWorkItemInputSpec(node, spec);
         }
 
+        if (style.Value == DefinitionStyle.Harness)
+        {
+            return NormalizeHarnessOrScriptSkills(node, spec?.DeepClone());
+        }
+
         if (style.Value != DefinitionStyle.Script)
         {
             return spec?.DeepClone();
@@ -254,7 +259,84 @@ public static class WorkflowGraphValidation
         var normalized = scriptSpec.DeepClone()!.AsObject();
         normalized["image"] = BifrostNodeImage;
         normalized["body"] = body;
-        return normalized;
+        return NormalizeHarnessOrScriptSkills(node, normalized);
+    }
+
+    static JsonNode? NormalizeHarnessOrScriptSkills(WorkflowNode node, JsonNode? spec)
+    {
+        if (spec is null)
+        {
+            return null;
+        }
+
+        if (spec is not JsonObject specObject)
+        {
+            return spec;
+        }
+
+        if (
+            !specObject.TryGetPropertyValue("skills", out var skillsNode)
+            || skillsNode is null
+        )
+        {
+            return specObject;
+        }
+
+        if (skillsNode is not JsonArray skills)
+        {
+            throw new CommandValidationException(
+                $"Node '{Describe(node)}' skills must be an array of {{ capabilityId, skillVersionId? }}."
+            );
+        }
+
+        var normalizedSkills = new JsonArray();
+        for (var i = 0; i < skills.Count; i++)
+        {
+            if (skills[i] is not JsonObject skill)
+            {
+                throw new CommandValidationException(
+                    $"Node '{Describe(node)}' skills[{i}] must be an object with capabilityId."
+                );
+            }
+
+            if (
+                !skill.TryGetPropertyValue("capabilityId", out var capabilityNode)
+                || capabilityNode is null
+                || capabilityNode.GetValueKind() != JsonValueKind.String
+                || !Guid.TryParse(capabilityNode.GetValue<string>(), out var capabilityId)
+            )
+            {
+                throw new CommandValidationException(
+                    $"Node '{Describe(node)}' skills[{i}] requires a GUID capabilityId."
+                );
+            }
+
+            var entry = new JsonObject { ["capabilityId"] = capabilityId.ToString("D") };
+            if (
+                skill.TryGetPropertyValue("skillVersionId", out var versionNode)
+                && versionNode is not null
+                && versionNode.GetValueKind() != JsonValueKind.Null
+            )
+            {
+                if (
+                    versionNode.GetValueKind() != JsonValueKind.String
+                    || !Guid.TryParse(versionNode.GetValue<string>(), out var versionId)
+                )
+                {
+                    throw new CommandValidationException(
+                        $"Node '{Describe(node)}' skills[{i}] skillVersionId must be a GUID when present."
+                    );
+                }
+
+                entry["skillVersionId"] = versionId.ToString("D");
+            }
+
+            normalizedSkills.Add(entry);
+        }
+
+        var result = specObject.DeepClone()!.AsObject();
+        result["skills"] = normalizedSkills;
+        return result;
     }
 
     static JsonNode NormalizeWorkItemInputSpec(WorkflowNode node, JsonNode? spec)

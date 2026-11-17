@@ -107,6 +107,17 @@ services:
       Bifrost__OutboxPath: /var/lib/bifrost/worker-node.db
       Bifrost__NodeId: 11111111-1111-1111-1111-111111111111
       Bifrost__Harness__WorkingDirectory: /workspaces
+      Bifrost__Harness__Executable: node
+      Bifrost__Harness__Arguments__0: /opt/bifrost/run-harness.mjs
+      Bifrost__Harness__Identity: bifrost-harness
+      Bifrost__Harness__ExecutionTimeout: "01:00:00"
+      Bifrost__Harness__Environment__BIFROST_HARNESS_MODE: ${BIFROST_HARNESS_MODE:-passthrough}
+      Bifrost__Harness__Environment__BIFROST_AGENT_ROOT: /opt/bifrost/agent
+      Bifrost__Harness__Environment__OPENAI_API_KEY: ${BIFROST_AI_API_KEY:-}
+      Bifrost__Harness__Environment__BIFROST_AI_API_KEY: ${BIFROST_AI_API_KEY:-}
+      Bifrost__Harness__Environment__OPENAI_BASE_URL: ${BIFROST_AI_BASE_URL:-}
+      Bifrost__Harness__Environment__BIFROST_AI_BASE_URL: ${BIFROST_AI_BASE_URL:-}
+      Bifrost__Harness__Environment__BIFROST_HARNESS_MODEL: ${BIFROST_AI_MODEL:-}
       Bifrost__Docker__HostWorkspaceRoot: ${BIFROST_WORKSPACES_HOST_PATH:-}
     volumes:
       - worker_bus_sock:/run/bifrost

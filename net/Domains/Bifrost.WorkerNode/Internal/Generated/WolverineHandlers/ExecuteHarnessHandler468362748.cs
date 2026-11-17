@@ -15,17 +15,19 @@ namespace Internal.Generated.WolverineHandlers
         private readonly Bifrost.WorkerNode.IHarnessAcceptStore _harnessAcceptStore;
         private readonly Bifrost.WorkerNode.IHarnessProcessRunner _harnessProcessRunner;
         private readonly Bifrost.WorkerNode.IHarnessRunGate _harnessRunGate;
+        private readonly Bifrost.WorkerNode.ISkillDocumentCache _skillDocumentCache;
         private readonly Bifrost.WorkerNode.WorkerNodeIdentity _workerNodeIdentity;
         private readonly Microsoft.Extensions.Options.IOptions<Bifrost.WorkerNode.HarnessHostOptions> _optionsOfHarnessHostOptions;
         private readonly Microsoft.Extensions.Options.IOptions<Bifrost.WorkerNode.DockerHostOptions> _optionsOfDockerHostOptions;
 
-        public ExecuteHarnessHandler468362748(Bifrost.MessageBus.IBifrostBus bifrostBus, Bifrost.WorkerNode.HarnessExecutionSlot harnessExecutionSlot, Bifrost.WorkerNode.IHarnessAcceptStore harnessAcceptStore, Bifrost.WorkerNode.IHarnessProcessRunner harnessProcessRunner, Bifrost.WorkerNode.IHarnessRunGate harnessRunGate, Bifrost.WorkerNode.WorkerNodeIdentity workerNodeIdentity, Microsoft.Extensions.Options.IOptions<Bifrost.WorkerNode.HarnessHostOptions> optionsOfHarnessHostOptions, Microsoft.Extensions.Options.IOptions<Bifrost.WorkerNode.DockerHostOptions> optionsOfDockerHostOptions)
+        public ExecuteHarnessHandler468362748(Bifrost.MessageBus.IBifrostBus bifrostBus, Bifrost.WorkerNode.HarnessExecutionSlot harnessExecutionSlot, Bifrost.WorkerNode.IHarnessAcceptStore harnessAcceptStore, Bifrost.WorkerNode.IHarnessProcessRunner harnessProcessRunner, Bifrost.WorkerNode.IHarnessRunGate harnessRunGate, Bifrost.WorkerNode.ISkillDocumentCache skillDocumentCache, Bifrost.WorkerNode.WorkerNodeIdentity workerNodeIdentity, Microsoft.Extensions.Options.IOptions<Bifrost.WorkerNode.HarnessHostOptions> optionsOfHarnessHostOptions, Microsoft.Extensions.Options.IOptions<Bifrost.WorkerNode.DockerHostOptions> optionsOfDockerHostOptions)
         {
             _bifrostBus = bifrostBus;
             _harnessExecutionSlot = harnessExecutionSlot;
             _harnessAcceptStore = harnessAcceptStore;
             _harnessProcessRunner = harnessProcessRunner;
             _harnessRunGate = harnessRunGate;
+            _skillDocumentCache = skillDocumentCache;
             _workerNodeIdentity = workerNodeIdentity;
             _optionsOfHarnessHostOptions = optionsOfHarnessHostOptions;
             _optionsOfDockerHostOptions = optionsOfDockerHostOptions;
@@ -42,7 +44,7 @@ namespace Internal.Generated.WolverineHandlers
             System.Diagnostics.Activity.Current?.SetTag("handler.type", "Bifrost.WorkerNode.ExecuteHarnessHandler");
             
             // The actual message execution
-            await Bifrost.WorkerNode.ExecuteHarnessHandler.Handle(executeHarness, _bifrostBus, _workerNodeIdentity, _harnessAcceptStore, _harnessRunGate, _harnessExecutionSlot, _harnessProcessRunner, _optionsOfHarnessHostOptions, _optionsOfDockerHostOptions, cancellation).ConfigureAwait(false);
+            await Bifrost.WorkerNode.ExecuteHarnessHandler.Handle(executeHarness, _bifrostBus, _workerNodeIdentity, _harnessAcceptStore, _harnessRunGate, _harnessExecutionSlot, _harnessProcessRunner, _skillDocumentCache, _optionsOfHarnessHostOptions, _optionsOfDockerHostOptions, cancellation).ConfigureAwait(false);
 
         }
 
