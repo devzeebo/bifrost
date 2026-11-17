@@ -28,6 +28,7 @@ public static class ExecuteHarnessHandler
         IHarnessRunGate runs,
         HarnessExecutionSlot slot,
         IHarnessProcessRunner runner,
+        ISkillDocumentCache skills,
         IOptions<HarnessHostOptions> harnessOptions,
         IOptions<DockerHostOptions> dockerOptions,
         CancellationToken cancellationToken
@@ -70,7 +71,6 @@ public static class ExecuteHarnessHandler
                     accepts.MarkConcluded(command.WorkItemId, command.RunId);
                     return;
                 case RecoveryAction.ResumeAsFirstAttempt:
-                    // Start never landed; continue into the normal execution path.
                     break;
             }
         }
@@ -102,6 +102,30 @@ public static class ExecuteHarnessHandler
             var opts = harnessOptions.Value;
             var workspace = PrepareWorkspace(opts.WorkingDirectory, command.RunId);
             var script = TryReadScriptWorkload(workItem.Data);
+            var style = script is not null ? "script" : "harness";
+
+            var skillPlaceError = await PlaceSkills(
+                    bus,
+                    skills,
+                    workItem.Data,
+                    workspace,
+                    runToken
+                )
+                .ConfigureAwait(false);
+            if (skillPlaceError is not null)
+            {
+                await Fail(
+                        bus,
+                        command,
+                        actor,
+                        skillPlaceError,
+                        runToken,
+                        expectedItemStatus: TrackedWorkItemStatuses.Claimed
+                    )
+                    .ConfigureAwait(false);
+                accepts.MarkConcluded(command.WorkItemId, command.RunId);
+                return;
+            }
 
             var spec = new JsonObject
             {
@@ -136,7 +160,12 @@ public static class ExecuteHarnessHandler
                             bus,
                             command,
                             actor,
-                            "script failed to start: body is missing",
+                            CannotStartReason(
+                                style,
+                                asked: "image 'bifrost/node' with script body",
+                                found: "body is missing",
+                                runtime: null
+                            ),
                             runToken,
                             expectedItemStatus: TrackedWorkItemStatuses.Claimed
                         )
@@ -154,7 +183,12 @@ public static class ExecuteHarnessHandler
                             bus,
                             command,
                             actor,
-                            $"script failed to start: image '{image}' is not supported",
+                            CannotStartReason(
+                                style,
+                                asked: $"image '{image}' with script body",
+                                found: $"image '{image}' is not supported; expected '{BifrostNodeImage}'",
+                                runtime: null
+                            ),
                             runToken,
                             expectedItemStatus: TrackedWorkItemStatuses.Claimed
                         )
@@ -253,24 +287,32 @@ public static class ExecuteHarnessHandler
 
             if (!await RunStillOpen(bus, command).ConfigureAwait(false))
             {
-                // Attempt closed under us (death release) — do not report a late outcome.
                 accepts.MarkConcluded(command.WorkItemId, command.RunId);
                 return;
             }
 
-            await ReportOutcome(bus, command, actor, result, runToken).ConfigureAwait(false);
+            await ReportOutcome(
+                    bus,
+                    command,
+                    actor,
+                    result,
+                    style,
+                    script,
+                    opts,
+                    workspace,
+                    workItem.Data,
+                    runToken
+                )
+                .ConfigureAwait(false);
             accepts.MarkConcluded(command.WorkItemId, command.RunId);
         }
         catch (OperationCanceledException)
             when (runToken.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
-            // Kill directive canceled this run only — conclude so we do not report.
             accepts.MarkConcluded(command.WorkItemId, command.RunId);
         }
         catch
         {
-            // Host/parent cancellation or other failure: leave Accepted/Running so
-            // durable redelivery can resume or recover.
             throw;
         }
     }
@@ -375,6 +417,61 @@ public static class ExecuteHarnessHandler
         return new ScriptWorkload(image, body);
     }
 
+    static async Task<string?> PlaceSkills(
+        IBifrostBus bus,
+        ISkillDocumentCache skills,
+        JsonNode data,
+        string workspace,
+        CancellationToken cancellationToken
+    )
+    {
+        IReadOnlyList<SkillRef> refs;
+        try
+        {
+            refs = SkillRefReader.ReadFromNodeSpec(data);
+        }
+        catch (Exception ex)
+        {
+            return $"failed to place skill documents: {ex.Message}";
+        }
+
+        foreach (var skillRef in refs)
+        {
+            SkillDocument document;
+            try
+            {
+                document = await skills
+                    .Get(skillRef, bus, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                var versionPart = skillRef.SkillVersionId is { } v
+                    ? $" version '{v:D}'"
+                    : "";
+                return $"failed to place skill documents: capability '{skillRef.CapabilityId:D}'{versionPart}: {ex.Message}";
+            }
+
+            var dir = Path.Combine(workspace, "skills", document.CapabilityId.ToString("D"));
+            try
+            {
+                Directory.CreateDirectory(dir);
+                await File.WriteAllTextAsync(
+                        Path.Combine(dir, "SKILL.md"),
+                        document.Markdown,
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                return $"failed to place skill documents: could not write skill '{document.CapabilityId:D}': {ex.Message}";
+            }
+        }
+
+        return null;
+    }
+
     static string PrepareWorkspace(string baseDirectory, Guid runId)
     {
         var root = string.IsNullOrWhiteSpace(baseDirectory) ? "workspaces" : baseDirectory;
@@ -393,16 +490,44 @@ public static class ExecuteHarnessHandler
         ExecuteHarness command,
         string actor,
         HarnessProcessResult result,
+        string style,
+        ScriptWorkload? script,
+        HarnessHostOptions opts,
+        string workspace,
+        JsonNode issuedData,
         CancellationToken cancellationToken
     )
     {
-        if (!result.Started)
+        if (result.TimedOut)
         {
             await Fail(
                     bus,
                     command,
                     actor,
-                    result.StartError ?? "harness failed to start",
+                    result.StartError
+                        ?? "execution exceeded the configured ceiling",
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+            return;
+        }
+
+        if (!result.Started)
+        {
+            var asked =
+                style == "script"
+                    ? $"image '{script?.Image ?? BifrostNodeImage}' with script body"
+                    : $"harness '{opts.Identity}' command '{opts.Executable ?? "(none)"}'";
+            await Fail(
+                    bus,
+                    command,
+                    actor,
+                    CannotStartReason(
+                        style,
+                        asked,
+                        found: "process did not start",
+                        runtime: result.StartError
+                    ),
                     cancellationToken
                 )
                 .ConfigureAwait(false);
@@ -415,52 +540,140 @@ public static class ExecuteHarnessHandler
                     bus,
                     command,
                     actor,
-                    result.StartError ?? "harness ended without a clean exit",
+                    CannotStartReason(
+                        style,
+                        asked: style == "script"
+                            ? $"image '{script?.Image ?? BifrostNodeImage}'"
+                            : $"harness '{opts.Identity}'",
+                        found: "process ended without a clean exit",
+                        runtime: result.StartError
+                    ),
                     cancellationToken
                 )
                 .ConfigureAwait(false);
             return;
         }
 
-        if (result.ExitCode == 0)
+        if (result.ExitCode != 0)
         {
-            await bus.Publish(
-                    new SucceedRunApi.Command
-                    {
-                        Id = command.RunId,
-                        Actor = actor,
-                        Reason = "harness exited 0",
-                        Expected = new JsonObject { ["outcome"] = null },
-                    },
+            await Fail(
+                    bus,
+                    command,
+                    actor,
+                    $"{style} exited {result.ExitCode}",
                     cancellationToken
                 )
                 .ConfigureAwait(false);
-            await bus.Publish(
-                    new SucceedTrackedWorkItemApi.Command
+            return;
+        }
+
+        var ports = OutputPortValidation.ReadPortsFromIssuedData(issuedData);
+        var outputsPath = Path.Combine(workspace, OutputPortValidation.OutputsFileName);
+        JsonNode? returned = null;
+        if (File.Exists(outputsPath))
+        {
+            try
+            {
+                var text = await File.ReadAllTextAsync(outputsPath, cancellationToken)
+                    .ConfigureAwait(false);
+                returned = string.IsNullOrWhiteSpace(text) ? null : JsonNode.Parse(text);
+            }
+            catch (Exception ex)
+            {
+                await Fail(
+                        bus,
+                        command,
+                        actor,
+                        $"{style} exited 0 but outputs.json could not be read: {ex.Message}",
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
+                return;
+            }
+        }
+        else if (ports.Count > 0)
+        {
+            var first = ports[0].Name;
+            await Fail(
+                    bus,
+                    command,
+                    actor,
+                    $"output port '{first}' was not filled by the return",
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+            return;
+        }
+
+        if (
+            !OutputPortValidation.TryMapAndValidate(
+                returned,
+                ports,
+                out var mapped,
+                out var portFailure
+            )
+        )
+        {
+            await Fail(bus, command, actor, portFailure ?? "output ports were not satisfied", cancellationToken)
+                .ConfigureAwait(false);
+            return;
+        }
+
+        if (mapped.Count > 0 || returned is not null)
+        {
+            var succeededData = OutputPortValidation.BuildSucceededData(issuedData, mapped);
+            await bus.Request<ReplaceWorkItemDataApi.Command, Unit>(
+                    new ReplaceWorkItemDataApi.Command
                     {
                         Id = command.WorkItemId,
-                        RunId = command.RunId,
+                        Data = succeededData,
                         Actor = actor,
-                        Reason = "harness exited 0",
-                        Expected = new JsonObject
-                        {
-                            ["status"] = TrackedWorkItemStatuses.Running,
-                        },
+                        Reason = "record node execution return",
                     },
                     cancellationToken
                 )
                 .ConfigureAwait(false);
-            return;
         }
 
-        var reason = $"harness exited {result.ExitCode}";
-        var stderr = result.StandardError.Trim();
-        if (stderr.Length > 0)
+        await bus.Publish(
+                new SucceedRunApi.Command
+                {
+                    Id = command.RunId,
+                    Actor = actor,
+                    Reason = $"{style} exited 0",
+                    Expected = new JsonObject { ["outcome"] = null },
+                },
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        await bus.Publish(
+                new SucceedTrackedWorkItemApi.Command
+                {
+                    Id = command.WorkItemId,
+                    RunId = command.RunId,
+                    Actor = actor,
+                    Reason = $"{style} exited 0",
+                    Expected = new JsonObject { ["status"] = TrackedWorkItemStatuses.Running },
+                },
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+    }
+
+    static string CannotStartReason(
+        string style,
+        string asked,
+        string found,
+        string? runtime
+    )
+    {
+        var reason = $"{style} failed to start: asked {asked}; found {found}";
+        if (!string.IsNullOrWhiteSpace(runtime))
         {
-            reason = $"{reason}: {(stderr.Length > 500 ? stderr[..500] : stderr)}";
+            reason = $"{reason}; runtime: {runtime}";
         }
 
-        await Fail(bus, command, actor, reason, cancellationToken).ConfigureAwait(false);
+        return reason;
     }
 
     static async Task Fail(

@@ -80,6 +80,16 @@ docker compose -f bifrost-server/docker-compose.yml up -d worker-node
 
 It creates a pending work item, tracks it, polls until succeed/fail, and prints `outputs.json` from the workspace root.
 
+### Harness-node smoke
+
+The worker image bakes Node plus `/opt/bifrost/run-harness.mjs` and the agent harness packages. Compose defaults `BIFROST_HARNESS_MODE=passthrough` so a harness node can exit 0 and write `outputs.json` from inputs without an API key. Set `BIFROST_HARNESS_MODE=agent` and `BIFROST_AI_API_KEY` for a real model run.
+
+```bash
+./scripts/run-harness-node.mjs
+```
+
+Per-run workspaces under `BIFROST_WORKSPACES_HOST_PATH` (default `<repo>/.bifrost-workspaces`) retain `stdout.log`, `stderr.log`, skills, and `outputs.json` for review; a later sweep will clean them.
+
 ## Domain conventions (short)
 
 - **API contracts** live in `Bifrost.WorkItems.Contracts` as `static class {Operation}Api` with nested `Command` / `Query` / `Response`.

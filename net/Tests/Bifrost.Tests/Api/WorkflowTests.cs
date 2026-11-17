@@ -1055,6 +1055,103 @@ public class WorkflowTests
     }
 
     [Fact]
+    public async Task save_rejects_skill_ref_without_capability_id()
+    {
+        var client = _factory.CreateClient();
+        var workflowId = Guid.NewGuid();
+        var nodeId = Guid.NewGuid();
+
+        await CreateEmpty(client, workflowId);
+
+        var response = await Post(
+            client,
+            "/save-workflow",
+            new
+            {
+                id = workflowId,
+                name = "draft",
+                expectedVersion = 1L,
+                nodes = WithEntry(new
+                    {
+                        id = nodeId,
+                        name = "bad-skills",
+                        position = new { x = 0, y = 0 },
+                        inputs = Array.Empty<object>(),
+                        outputs = Array.Empty<object>(),
+                        definition = new
+                        {
+                            style = "harness",
+                            spec = new
+                            {
+                                skills = new[] { new { skillVersionId = Guid.NewGuid() } },
+                            },
+                        },
+                    }),
+            }
+        );
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        var body = await response.Content.ReadAsStringAsync();
+        body.ShouldContain("capabilityId");
+    }
+
+    [Fact]
+    public async Task save_accepts_harness_skill_refs()
+    {
+        var client = _factory.CreateClient();
+        var workflowId = Guid.NewGuid();
+        var nodeId = Guid.NewGuid();
+        var capabilityId = Guid.NewGuid();
+        var versionId = Guid.NewGuid();
+
+        await CreateEmpty(client, workflowId);
+
+        (
+            await Post(
+                client,
+                "/save-workflow",
+                new
+                {
+                    id = workflowId,
+                    name = "draft",
+                    expectedVersion = 1L,
+                    nodes = WithEntry(new
+                        {
+                            id = nodeId,
+                            name = "with-skills",
+                            position = new { x = 0, y = 0 },
+                            inputs = Array.Empty<object>(),
+                            outputs = Array.Empty<object>(),
+                            definition = new
+                            {
+                                style = "harness",
+                                spec = new
+                                {
+                                    skills = new[]
+                                    {
+                                        new
+                                        {
+                                            capabilityId,
+                                            skillVersionId = versionId,
+                                        },
+                                    },
+                                },
+                            },
+                        }),
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var got = await Query<GetWorkflowApi.Response>(client, $"/get-workflow/{workflowId}");
+        got.ShouldNotBeNull();
+        var node = got.Nodes.Single(n => n.Id == nodeId);
+        var skills = node.Definition!.Spec!.AsObject()["skills"]!.AsArray();
+        skills.Count.ShouldBe(1);
+        skills[0]!["capabilityId"]!.GetValue<string>().ShouldBe(capabilityId.ToString("D"));
+        skills[0]!["skillVersionId"]!.GetValue<string>().ShouldBe(versionId.ToString("D"));
+    }
+
+    [Fact]
     public async Task create_seeds_work_item_input_when_nodes_empty()
     {
         var client = _factory.CreateClient();

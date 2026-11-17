@@ -158,6 +158,19 @@ public static class WorkflowGraphNavigation
             inputsByName[portName] = entry["value"]?.DeepClone();
         }
 
+        var outputPorts = new JsonArray();
+        foreach (var port in node.Outputs)
+        {
+            outputPorts.Add(
+                new JsonObject
+                {
+                    ["id"] = port.Id.ToString("D"),
+                    ["name"] = port.Name,
+                    ["schema"] = port.Schema.DeepClone(),
+                }
+            );
+        }
+
         return new JsonObject
         {
             ["node"] = new JsonObject
@@ -166,6 +179,7 @@ public static class WorkflowGraphNavigation
                 ["name"] = node.Name,
                 ["style"] = definition.Style,
                 ["spec"] = definition.Spec?.DeepClone(),
+                ["outputs"] = outputPorts,
             },
             ["inputs"] = inputsByName,
         };
@@ -194,6 +208,7 @@ public static class WorkflowGraphNavigation
                 {
                     outputs[port.Id.ToString("D")] = byId.DeepClone();
                 }
+                // Missing names are refused on the worker before Succeed; leave unset here.
             }
 
             return outputs;

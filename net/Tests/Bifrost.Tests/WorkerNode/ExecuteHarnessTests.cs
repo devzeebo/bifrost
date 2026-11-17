@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using Bifrost.MessageBus;
 using Bifrost.Orchestrator.Contracts;
 using Bifrost.Rpc;
+using Bifrost.Skills.Contracts;
 using Bifrost.WorkerNode;
 using Bifrost.WorkItems.Contracts;
 using Microsoft.Extensions.Options;
@@ -24,6 +25,7 @@ public class ExecuteHarnessTests
             ctx.Runs,
             ctx.Slot,
             ctx.Runner,
+            ctx.Skills,
             ctx.Options,
             ctx.DockerOptions,
             CancellationToken.None
@@ -37,7 +39,7 @@ public class ExecuteHarnessTests
     }
 
     [Fact]
-    public async Task exit_nonzero_publishes_fail_with_exit_code()
+    public async Task exit_nonzero_publishes_fail_with_exit_code_without_log_blob()
     {
         var ctx = Create(
             new HarnessProcessResult
@@ -56,6 +58,7 @@ public class ExecuteHarnessTests
             ctx.Runs,
             ctx.Slot,
             ctx.Runner,
+            ctx.Skills,
             ctx.Options,
             ctx.DockerOptions,
             CancellationToken.None
@@ -63,11 +66,11 @@ public class ExecuteHarnessTests
 
         var fail = ctx.Bus.Published.OfType<FailTrackedWorkItemApi.Command>().ShouldHaveSingleItem();
         fail.Reason.ShouldContain("exited 3");
-        fail.Reason.ShouldContain("boom");
+        fail.Reason.ShouldNotContain("boom");
     }
 
     [Fact]
-    public async Task start_failure_publishes_fail_with_machinery_reason()
+    public async Task start_failure_publishes_fail_with_cannot_start_reason()
     {
         var ctx = Create(
             new HarnessProcessResult
@@ -85,14 +88,47 @@ public class ExecuteHarnessTests
             ctx.Runs,
             ctx.Slot,
             ctx.Runner,
+            ctx.Skills,
             ctx.Options,
             ctx.DockerOptions,
             CancellationToken.None
         );
 
-        ctx.Bus.Published.OfType<FailRunApi.Command>()
+        var reason = ctx.Bus.Published.OfType<FailRunApi.Command>().ShouldHaveSingleItem().Reason;
+        reason.ShouldContain("harness failed to start");
+        reason.ShouldContain("asked");
+        reason.ShouldContain("found");
+    }
+
+    [Fact]
+    public async Task timed_out_fails_naming_ceiling()
+    {
+        var ctx = Create(
+            new HarnessProcessResult
+            {
+                Started = true,
+                TimedOut = true,
+                StartError = "execution exceeded the configured ceiling of 1h",
+            }
+        );
+
+        await ExecuteHarnessHandler.Handle(
+            ctx.Command,
+            ctx.Bus,
+            ctx.Identity,
+            ctx.Accepts,
+            ctx.Runs,
+            ctx.Slot,
+            ctx.Runner,
+            ctx.Skills,
+            ctx.Options,
+            ctx.DockerOptions,
+            CancellationToken.None
+        );
+
+        ctx.Bus.Published.OfType<FailTrackedWorkItemApi.Command>()
             .ShouldHaveSingleItem()
-            .Reason.ShouldContain("harness failed to start");
+            .Reason.ShouldContain("ceiling");
     }
 
     [Fact]
@@ -134,6 +170,7 @@ public class ExecuteHarnessTests
             new HarnessRunGate(),
             slot,
             runner,
+            new FakeSkillCache(),
             options,
             Options.Create(new DockerHostOptions()),
             CancellationToken.None
@@ -148,6 +185,7 @@ public class ExecuteHarnessTests
             new HarnessRunGate(),
             slot,
             runner,
+            new FakeSkillCache(),
             options,
             Options.Create(new DockerHostOptions()),
             CancellationToken.None
@@ -193,6 +231,7 @@ public class ExecuteHarnessTests
             ctx.Runs,
             ctx.Slot,
             ctx.Runner,
+            ctx.Skills,
             ctx.Options,
             dockerOptions,
             CancellationToken.None
@@ -207,6 +246,221 @@ public class ExecuteHarnessTests
         var bodyPath = Path.Combine(ctx.Runner.LastWorkingDirectory!, "body.mjs");
         (await File.ReadAllTextAsync(bodyPath)).ShouldBe(body);
         ctx.Bus.Published.OfType<SucceedTrackedWorkItemApi.Command>().ShouldHaveSingleItem();
+    }
+
+    [Fact]
+    public async Task script_return_is_validated_and_written_to_work_item()
+    {
+        var portId = Guid.NewGuid();
+        var ctx = Create(
+            new HarnessProcessResult { Started = true, ExitCode = 0 },
+            writeOutputs: new JsonObject
+            {
+                ["outputs"] = new JsonObject { ["outVar"] = 4 },
+            }
+        );
+        ctx.Bus.SeedWorkItemData(
+            ctx.Command.WorkItemId,
+            new JsonObject
+            {
+                ["node"] = new JsonObject
+                {
+                    ["style"] = "script",
+                    ["spec"] = new JsonObject
+                    {
+                        ["image"] = "bifrost/node",
+                        ["body"] =
+                            "export const handler = () => ({ outputs: { outVar: 4 } });",
+                    },
+                    ["outputs"] = new JsonArray
+                    {
+                        new JsonObject
+                        {
+                            ["id"] = portId.ToString("D"),
+                            ["name"] = "outVar",
+                            ["schema"] = new JsonObject { ["type"] = "number" },
+                        },
+                    },
+                },
+                ["inputs"] = new JsonObject(),
+            }
+        );
+
+        await ExecuteHarnessHandler.Handle(
+            ctx.Command,
+            ctx.Bus,
+            ctx.Identity,
+            ctx.Accepts,
+            ctx.Runs,
+            ctx.Slot,
+            ctx.Runner,
+            ctx.Skills,
+            ctx.Options,
+            ctx.DockerOptions,
+            CancellationToken.None
+        );
+
+        var replace = ctx
+            .Bus.Requests.OfType<ReplaceWorkItemDataApi.Command>()
+            .ShouldHaveSingleItem();
+        replace.Data.ShouldNotBeNull();
+        replace.Data!["outputs"]!["outVar"]!.GetValue<int>().ShouldBe(4);
+        ctx.Bus.Published.OfType<SucceedTrackedWorkItemApi.Command>().ShouldHaveSingleItem();
+    }
+
+    [Fact]
+    public async Task missing_output_port_fails_naming_the_port()
+    {
+        var ctx = Create(
+            new HarnessProcessResult { Started = true, ExitCode = 0 },
+            writeOutputs: new JsonObject
+            {
+                ["outputs"] = new JsonObject { ["other"] = 1 },
+            }
+        );
+        ctx.Bus.SeedWorkItemData(
+            ctx.Command.WorkItemId,
+            new JsonObject
+            {
+                ["node"] = new JsonObject
+                {
+                    ["style"] = "script",
+                    ["spec"] = new JsonObject
+                    {
+                        ["image"] = "bifrost/node",
+                        ["body"] = "export const handler = () => ({ outputs: { other: 1 } });",
+                    },
+                    ["outputs"] = new JsonArray
+                    {
+                        new JsonObject
+                        {
+                            ["id"] = Guid.NewGuid().ToString("D"),
+                            ["name"] = "needed",
+                            ["schema"] = new JsonObject { ["type"] = "number" },
+                        },
+                    },
+                },
+            }
+        );
+
+        await ExecuteHarnessHandler.Handle(
+            ctx.Command,
+            ctx.Bus,
+            ctx.Identity,
+            ctx.Accepts,
+            ctx.Runs,
+            ctx.Slot,
+            ctx.Runner,
+            ctx.Skills,
+            ctx.Options,
+            ctx.DockerOptions,
+            CancellationToken.None
+        );
+
+        var fail = ctx.Bus.Published.OfType<FailTrackedWorkItemApi.Command>().ShouldHaveSingleItem();
+        fail.Reason.ShouldContain("needed");
+        ctx.Bus.Published.OfType<SucceedTrackedWorkItemApi.Command>().ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task skill_refs_are_materialized_into_workspace()
+    {
+        var capabilityId = Guid.NewGuid();
+        var versionId = Guid.NewGuid();
+        var ctx = Create(new HarnessProcessResult { Started = true, ExitCode = 0 });
+        ctx.Skills.Documents[(capabilityId, versionId)] = new SkillDocument(
+            capabilityId,
+            versionId,
+            "# Hello\n"
+        );
+        ctx.Bus.SeedWorkItemData(
+            ctx.Command.WorkItemId,
+            new JsonObject
+            {
+                ["node"] = new JsonObject
+                {
+                    ["style"] = "harness",
+                    ["spec"] = new JsonObject
+                    {
+                        ["skills"] = new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["capabilityId"] = capabilityId.ToString("D"),
+                                ["skillVersionId"] = versionId.ToString("D"),
+                            },
+                        },
+                    },
+                },
+            }
+        );
+
+        await ExecuteHarnessHandler.Handle(
+            ctx.Command,
+            ctx.Bus,
+            ctx.Identity,
+            ctx.Accepts,
+            ctx.Runs,
+            ctx.Slot,
+            ctx.Runner,
+            ctx.Skills,
+            ctx.Options,
+            ctx.DockerOptions,
+            CancellationToken.None
+        );
+
+        var skillPath = Path.Combine(
+            ctx.Runner.LastWorkingDirectory!,
+            "skills",
+            capabilityId.ToString("D"),
+            "SKILL.md"
+        );
+        (await File.ReadAllTextAsync(skillPath)).ShouldBe("# Hello\n");
+        ctx.Bus.Published.OfType<SucceedTrackedWorkItemApi.Command>().ShouldHaveSingleItem();
+    }
+
+    [Fact]
+    public async Task missing_skill_fails_before_start()
+    {
+        var capabilityId = Guid.NewGuid();
+        var ctx = Create(new HarnessProcessResult { Started = true, ExitCode = 0 });
+        ctx.Skills.ThrowOnGet = true;
+        ctx.Bus.SeedWorkItemData(
+            ctx.Command.WorkItemId,
+            new JsonObject
+            {
+                ["node"] = new JsonObject
+                {
+                    ["style"] = "harness",
+                    ["spec"] = new JsonObject
+                    {
+                        ["skills"] = new JsonArray
+                        {
+                            new JsonObject { ["capabilityId"] = capabilityId.ToString("D") },
+                        },
+                    },
+                },
+            }
+        );
+
+        await ExecuteHarnessHandler.Handle(
+            ctx.Command,
+            ctx.Bus,
+            ctx.Identity,
+            ctx.Accepts,
+            ctx.Runs,
+            ctx.Slot,
+            ctx.Runner,
+            ctx.Skills,
+            ctx.Options,
+            ctx.DockerOptions,
+            CancellationToken.None
+        );
+
+        ctx.Runner.Started.ShouldBeFalse();
+        var fail = ctx.Bus.Published.OfType<FailTrackedWorkItemApi.Command>().ShouldHaveSingleItem();
+        fail.Reason.ShouldContain("skill");
+        fail.Reason.ShouldContain(capabilityId.ToString("D"));
     }
 
     [Fact]
@@ -236,6 +490,7 @@ public class ExecuteHarnessTests
             new HarnessRunGate(),
             new HarnessExecutionSlot(),
             runner,
+            new FakeSkillCache(),
             Options.Create(
                 new HarnessHostOptions
                 {
@@ -280,6 +535,7 @@ public class ExecuteHarnessTests
             new HarnessRunGate(),
             new HarnessExecutionSlot(),
             runner,
+            new FakeSkillCache(),
             Options.Create(
                 new HarnessHostOptions
                 {
@@ -298,7 +554,7 @@ public class ExecuteHarnessTests
         accepts.GetState(command.WorkItemId, command.RunId).ShouldBe(HarnessAcceptState.Concluded);
     }
 
-    static TestContext Create(HarnessProcessResult result)
+    static TestContext Create(HarnessProcessResult result, JsonNode? writeOutputs = null)
     {
         var identity = new WorkerNodeIdentity { Id = Guid.NewGuid() };
         var db = Path.Combine(Path.GetTempPath(), $"harness-accept-{Guid.NewGuid():N}.db");
@@ -315,7 +571,8 @@ public class ExecuteHarnessTests
                 identity.Id,
                 new Dictionary<Guid, Guid> { [command.RunId] = command.WorkItemId }
             ),
-            new FixedRunner(result),
+            new FixedRunner(result, writeOutputs),
+            new FakeSkillCache(),
             Options.Create(
                 new HarnessHostOptions
                 {
@@ -351,19 +608,51 @@ public class ExecuteHarnessTests
         ExecuteHarness Command,
         RecordingBus Bus,
         FixedRunner Runner,
+        FakeSkillCache Skills,
         IOptions<HarnessHostOptions> Options,
         IOptions<DockerHostOptions> DockerOptions
     );
 
-    sealed class FixedRunner(HarnessProcessResult result) : IHarnessProcessRunner
+    sealed class FakeSkillCache : ISkillDocumentCache
+    {
+        public Dictionary<(Guid CapabilityId, Guid VersionId), SkillDocument> Documents { get; } =
+            new();
+        public bool ThrowOnGet { get; set; }
+
+        public Task<SkillDocument> Get(
+            SkillRef skillRef,
+            IBifrostBus bus,
+            CancellationToken cancellationToken
+        )
+        {
+            if (ThrowOnGet)
+            {
+                throw new InvalidOperationException("skill not found");
+            }
+
+            var version = skillRef.SkillVersionId ?? Guid.Empty;
+            if (Documents.TryGetValue((skillRef.CapabilityId, version), out var doc))
+            {
+                return Task.FromResult(doc);
+            }
+
+            throw new InvalidOperationException(
+                $"skill '{skillRef.CapabilityId:D}' was not seeded in the fake cache"
+            );
+        }
+    }
+
+    sealed class FixedRunner(HarnessProcessResult result, JsonNode? writeOutputs = null)
+        : IHarnessProcessRunner
     {
         public Action? OnRun { get; set; }
 
         public string? LastExecutable { get; private set; }
         public IReadOnlyList<string>? LastArguments { get; private set; }
         public string? LastWorkingDirectory { get; private set; }
+        public bool Started { get; private set; }
 
-        public Task<HarnessProcessResult> Run(
+        public async Task<HarnessProcessResult> Run(
             string workingDirectory,
             IReadOnlyDictionary<string, string> extraEnvironment,
             CancellationToken cancellationToken,
@@ -374,8 +663,17 @@ public class ExecuteHarnessTests
             LastWorkingDirectory = workingDirectory;
             LastExecutable = executable;
             LastArguments = arguments;
+            Started = true;
             OnRun?.Invoke();
-            return Task.FromResult(result);
+            if (writeOutputs is not null)
+            {
+                await File.WriteAllTextAsync(
+                    Path.Combine(workingDirectory, OutputPortValidation.OutputsFileName),
+                    writeOutputs.ToJsonString()
+                );
+            }
+
+            return result;
         }
     }
 
@@ -449,6 +747,13 @@ public class ExecuteHarnessTests
                     Relationships = [],
                 },
                 StartTrackedWorkItemApi.Command start => Start(start),
+                ReplaceWorkItemDataApi.Command replace => Replace(replace),
+                GetCapabilityApi.Query => throw new NotSupportedException(
+                    "use FakeSkillCache in unit tests"
+                ),
+                GetSkillVersionApi.Query => throw new NotSupportedException(
+                    "use FakeSkillCache in unit tests"
+                ),
                 _ => throw new NotSupportedException(request!.GetType().Name),
             };
 
@@ -475,6 +780,13 @@ public class ExecuteHarnessTests
             }
 
             _statusByItem[start.Id] = TrackedWorkItemStatuses.Running;
+            return Unit.Value;
+        }
+
+        Unit Replace(ReplaceWorkItemDataApi.Command replace)
+        {
+            _dataByItem[replace.Id] =
+                replace.Data as JsonObject ?? new JsonObject { ["value"] = replace.Data.DeepClone() };
             return Unit.Value;
         }
     }

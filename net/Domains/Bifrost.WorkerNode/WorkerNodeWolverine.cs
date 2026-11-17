@@ -1,5 +1,6 @@
 using Bifrost.MessageBus;
 using Bifrost.Orchestrator.Contracts;
+using Bifrost.WorkItems.Contracts;
 using JasperFx;
 using JasperFx.CodeGeneration;
 using Wolverine;
@@ -50,5 +51,6 @@ public static class WorkerNodeWolverine
         opts.PublishMessage<SucceedRunApi.Command>().To(BifrostBusEndpoint.Address);
         opts.PublishMessage<FailRunApi.Command>().To(BifrostBusEndpoint.Address);
         opts.PublishMessage<ReplaceRunMetadataApi.Command>().To(BifrostBusEndpoint.Address);
+        opts.PublishMessage<ReplaceWorkItemDataApi.Command>().To(BifrostBusEndpoint.Address);
     }
 }

@@ -11,6 +11,7 @@ public sealed class HarnessProcessResult
     public int? ExitCode { get; init; }
     public string StandardOutput { get; init; } = "";
     public string StandardError { get; init; } = "";
+    public bool TimedOut { get; init; }
 }
 
 public interface IHarnessProcessRunner
@@ -26,7 +27,8 @@ public interface IHarnessProcessRunner
 
 public sealed class HarnessProcessRunner(IOptions<HarnessHostOptions> options) : IHarnessProcessRunner
 {
-    const int MaxCapturedChars = 64 * 1024;
+    public const string StdoutLogFileName = "stdout.log";
+    public const string StderrLogFileName = "stderr.log";
 
     public async Task<HarnessProcessResult> Run(
         string workingDirectory,
@@ -90,16 +92,77 @@ public sealed class HarnessProcessRunner(IOptions<HarnessHostOptions> options) :
             };
         }
 
+        var stdoutPath = Path.Combine(workingDirectory, StdoutLogFileName);
+        var stderrPath = Path.Combine(workingDirectory, StderrLogFileName);
+        await using var stdoutLog = new StreamWriter(
+            new FileStream(stdoutPath, FileMode.Create, FileAccess.Write, FileShare.Read)
+        )
+        {
+            AutoFlush = true,
+        };
+        await using var stderrLog = new StreamWriter(
+            new FileStream(stderrPath, FileMode.Create, FileAccess.Write, FileShare.Read)
+        )
+        {
+            AutoFlush = true,
+        };
+
         var stdout = new StringBuilder();
         var stderr = new StringBuilder();
-        process.OutputDataReceived += (_, e) => AppendBounded(stdout, e.Data);
-        process.ErrorDataReceived += (_, e) => AppendBounded(stderr, e.Data);
+        var stdoutLock = new object();
+        var stderrLock = new object();
+
+        process.OutputDataReceived += (_, e) =>
+        {
+            if (e.Data is null)
+            {
+                return;
+            }
+
+            lock (stdoutLock)
+            {
+                stdoutLog.WriteLine(e.Data);
+                if (stdout.Length < 64 * 1024)
+                {
+                    stdout.AppendLine(e.Data);
+                }
+            }
+        };
+        process.ErrorDataReceived += (_, e) =>
+        {
+            if (e.Data is null)
+            {
+                return;
+            }
+
+            lock (stderrLock)
+            {
+                stderrLog.WriteLine(e.Data);
+                if (stderr.Length < 64 * 1024)
+                {
+                    stderr.AppendLine(e.Data);
+                }
+            }
+        };
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
+        using var timeoutCts = new CancellationTokenSource();
+        var timeout = opts.ExecutionTimeout;
+        var hasTimeout = timeout is { } t && t > TimeSpan.Zero;
+        if (hasTimeout)
+        {
+            timeoutCts.CancelAfter(timeout!.Value);
+        }
+
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            timeoutCts.Token
+        );
+
         try
         {
-            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            await process.WaitForExitAsync(linked.Token).ConfigureAwait(false);
             return new HarnessProcessResult
             {
                 Started = true,
@@ -110,6 +173,7 @@ public sealed class HarnessProcessRunner(IOptions<HarnessHostOptions> options) :
         }
         catch (OperationCanceledException)
         {
+            var timedOut = hasTimeout && timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested;
             try
             {
                 if (!process.HasExited)
@@ -131,15 +195,27 @@ public sealed class HarnessProcessRunner(IOptions<HarnessHostOptions> options) :
                 // ignored — best effort so the slot is not released over a live child
             }
 
+            if (timedOut)
+            {
+                return new HarnessProcessResult
+                {
+                    Started = true,
+                    ExitCode = process.HasExited ? process.ExitCode : null,
+                    StandardOutput = stdout.ToString(),
+                    StandardError = stderr.ToString(),
+                    TimedOut = true,
+                    StartError =
+                        $"execution exceeded the configured ceiling of {FormatTimeout(timeout!.Value)}",
+                };
+            }
+
             return new HarnessProcessResult
             {
                 Started = true,
                 ExitCode = process.HasExited ? process.ExitCode : null,
                 StandardOutput = stdout.ToString(),
                 StandardError = stderr.ToString(),
-                StartError = process.HasExited
-                    ? null
-                    : "harness ended without a clean exit",
+                StartError = process.HasExited ? null : "harness ended without a clean exit",
             };
         }
         finally
@@ -148,25 +224,8 @@ public sealed class HarnessProcessRunner(IOptions<HarnessHostOptions> options) :
         }
     }
 
-    static void AppendBounded(StringBuilder buffer, string? line)
-    {
-        if (line is null)
-        {
-            return;
-        }
-
-        if (buffer.Length >= MaxCapturedChars)
-        {
-            return;
-        }
-
-        var remaining = MaxCapturedChars - buffer.Length;
-        if (line.Length + 1 > remaining)
-        {
-            buffer.Append(line.AsSpan(0, Math.Max(0, remaining - 1)));
-            return;
-        }
-
-        buffer.AppendLine(line);
-    }
+    static string FormatTimeout(TimeSpan timeout) =>
+        timeout.TotalHours >= 1 && timeout.Minutes == 0 && timeout.Seconds == 0
+            ? $"{timeout.TotalHours:0}h"
+            : timeout.ToString();
 }
