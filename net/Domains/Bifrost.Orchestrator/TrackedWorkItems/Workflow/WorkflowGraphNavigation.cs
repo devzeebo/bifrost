@@ -197,16 +197,13 @@ public static class WorkflowGraphNavigation
         {
             foreach (var port in node.Outputs)
             {
-                if (named.TryGetPropertyValue(port.Name, out var byName) && byName is not null)
+                if (named.TryGetPropertyValue(port.Name, out var byName))
                 {
-                    outputs[port.Id.ToString("D")] = byName.DeepClone();
+                    outputs[port.Id.ToString("D")] = byName?.DeepClone();
                 }
-                else if (
-                    named.TryGetPropertyValue(port.Id.ToString("D"), out var byId)
-                    && byId is not null
-                )
+                else if (named.TryGetPropertyValue(port.Id.ToString("D"), out var byId))
                 {
-                    outputs[port.Id.ToString("D")] = byId.DeepClone();
+                    outputs[port.Id.ToString("D")] = byId?.DeepClone();
                 }
                 // Missing names are refused on the worker before Succeed; leave unset here.
             }

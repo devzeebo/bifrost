@@ -214,6 +214,8 @@ public static class ExecuteHarnessHandler
                 [
                     "run",
                     "--rm",
+                    "--name",
+                    DockerContainerName.ForRun(command.RunId),
                     "-v",
                     $"{hostWorkspace}:/workspace",
                     "-w",
@@ -435,14 +437,14 @@ public static class ExecuteHarnessHandler
             return $"failed to place skill documents: {ex.Message}";
         }
 
+        var documents = new List<SkillDocument>(refs.Count);
         foreach (var skillRef in refs)
         {
-            SkillDocument document;
             try
             {
-                document = await skills
-                    .Get(skillRef, bus, cancellationToken)
-                    .ConfigureAwait(false);
+                documents.Add(
+                    await skills.Get(skillRef, bus, cancellationToken).ConfigureAwait(false)
+                );
             }
             catch (Exception ex)
             {
@@ -451,7 +453,24 @@ public static class ExecuteHarnessHandler
                     : "";
                 return $"failed to place skill documents: capability '{skillRef.CapabilityId:D}'{versionPart}: {ex.Message}";
             }
+        }
 
+        var versionByCapability = new Dictionary<Guid, Guid>();
+        foreach (var document in documents)
+        {
+            if (
+                versionByCapability.TryGetValue(document.CapabilityId, out var existing)
+                && existing != document.VersionId
+            )
+            {
+                return $"failed to place skill documents: capability '{document.CapabilityId:D}' has conflicting skill versions '{existing:D}' and '{document.VersionId:D}'";
+            }
+
+            versionByCapability[document.CapabilityId] = document.VersionId;
+        }
+
+        foreach (var document in documents)
+        {
             var dir = Path.Combine(workspace, "skills", document.CapabilityId.ToString("D"));
             try
             {
@@ -619,20 +638,36 @@ public static class ExecuteHarnessHandler
             return;
         }
 
-        if (mapped.Count > 0 || returned is not null)
+        if (ports.Count > 0)
         {
             var succeededData = OutputPortValidation.BuildSucceededData(issuedData, mapped);
-            await bus.Request<ReplaceWorkItemDataApi.Command, Unit>(
-                    new ReplaceWorkItemDataApi.Command
-                    {
-                        Id = command.WorkItemId,
-                        Data = succeededData,
-                        Actor = actor,
-                        Reason = "record node execution return",
-                    },
-                    cancellationToken
-                )
-                .ConfigureAwait(false);
+            try
+            {
+                await bus.Request<ReplaceWorkItemDataApi.Command, Unit>(
+                        new ReplaceWorkItemDataApi.Command
+                        {
+                            Id = command.WorkItemId,
+                            Data = succeededData,
+                            Actor = actor,
+                            Reason = "record node execution return",
+                            Expected = new JsonObject { ["data"] = issuedData.DeepClone() },
+                        },
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                await Fail(
+                        bus,
+                        command,
+                        actor,
+                        $"failed to record node execution return: {ex.Message}",
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
+                return;
+            }
         }
 
         await bus.Publish(

@@ -11,6 +11,8 @@ const workspace = process.env.BIFROST_WORKSPACE?.trim() || process.cwd()
 const runSpecPath = path.join(workspace, 'run-spec.json')
 const outputsPath = path.join(workspace, 'outputs.json')
 const mode = (process.env.BIFROST_HARNESS_MODE || 'agent').trim().toLowerCase()
+const DEFAULT_FIREWORKS_MODEL = 'accounts/fireworks/models/llama-v3p1-70b-instruct'
+const DEFAULT_FIREWORKS_BASE_URL = 'https://api.fireworks.ai/inference/v1'
 
 let runSpec
 try {
@@ -50,13 +52,43 @@ async function loadSkillInstructions() {
 }
 
 function buildPrompt() {
-  if (typeof inputs.prompt === 'string' && inputs.prompt.trim()) {
-    return inputs.prompt
+  const selectedKey =
+    typeof inputs.prompt === 'string' && inputs.prompt.trim()
+      ? 'prompt'
+      : typeof inputs.goal === 'string' && inputs.goal.trim()
+        ? 'goal'
+        : null
+
+  if (selectedKey === null) {
+    return JSON.stringify(inputs, null, 2)
   }
-  if (typeof inputs.goal === 'string' && inputs.goal.trim()) {
-    return inputs.goal
+
+  const selected = inputs[selectedKey]
+  const others = Object.fromEntries(
+    Object.entries(inputs).filter(([key]) => key !== selectedKey),
+  )
+  if (Object.keys(others).length === 0) {
+    return selected
   }
-  return JSON.stringify(inputs, null, 2)
+
+  return `${selected}\n\n${JSON.stringify(others, null, 2)}`
+}
+
+function decodeModelReturn(text) {
+  if (typeof text !== 'string') {
+    return text ?? null
+  }
+
+  const trimmed = text.trim()
+  if (!trimmed) {
+    return { result: text }
+  }
+
+  try {
+    return JSON.parse(trimmed)
+  } catch {
+    return { result: text }
+  }
 }
 
 async function writeOutputs(value) {
@@ -93,10 +125,9 @@ const transcriptFolder = path.join(workspace, 'transcripts')
 await mkdir(transcriptFolder, { recursive: true })
 
 const instructions = await loadSkillInstructions()
-const model =
-  process.env.BIFROST_HARNESS_MODEL?.trim() ||
-  process.env.OPENAI_MODEL?.trim() ||
-  'accounts/fireworks/models/llama-v3p1-70b-instruct'
+const modelOverride =
+  process.env.BIFROST_HARNESS_MODEL?.trim() || process.env.OPENAI_MODEL?.trim() || ''
+const model = modelOverride || DEFAULT_FIREWORKS_MODEL
 const maxTurns = Number.parseInt(process.env.BIFROST_HARNESS_MAX_TURNS || '8', 10)
 
 let engines = []
@@ -127,6 +158,11 @@ if (process.env.BIFROST_AI_BASE_URL?.trim() && !process.env.OPENAI_BASE_URL?.tri
   process.env.OPENAI_BASE_URL = process.env.BIFROST_AI_BASE_URL.trim()
 }
 
+// Default model is Fireworks; pair it with the Fireworks endpoint unless overridden.
+if (!process.env.OPENAI_BASE_URL?.trim() && model === DEFAULT_FIREWORKS_MODEL) {
+  process.env.OPENAI_BASE_URL = DEFAULT_FIREWORKS_BASE_URL
+}
+
 let result
 try {
   const client = createOpenAIModelClient({
@@ -151,7 +187,7 @@ switch (result.status) {
   case 'completed':
   case 'refused':
     try {
-      await writeOutputs({ result: result.text })
+      await writeOutputs(decodeModelReturn(result.text))
       process.exit(result.status === 'completed' ? 0 : 1)
     } catch (error) {
       console.error(

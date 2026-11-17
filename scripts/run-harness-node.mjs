@@ -14,6 +14,7 @@ import { setTimeout as delay } from "node:timers/promises";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const COMPOSE_ENV = path.join(ROOT, "bifrost-server", ".env");
+const COMPOSE_DIR = path.dirname(COMPOSE_ENV);
 const DEFAULT_WORKSPACES_ROOT = path.join(ROOT, ".bifrost-workspaces");
 
 const requireFromOrchestrator = createRequire(
@@ -21,10 +22,17 @@ const requireFromOrchestrator = createRequire(
 );
 const { config: loadDotenv } = requireFromOrchestrator("dotenv");
 
+function resolveWorkspacePath(pathValue) {
+  return path.isAbsolute(pathValue)
+    ? pathValue
+    : path.resolve(COMPOSE_DIR, pathValue);
+}
+
 async function ensureWorkspacesEnv() {
   loadDotenv({ path: COMPOSE_ENV, quiet: true });
-  const pathValue =
+  const configured =
     process.env.BIFROST_WORKSPACES_HOST_PATH?.trim() || DEFAULT_WORKSPACES_ROOT;
+  const pathValue = resolveWorkspacePath(configured);
   await fs.mkdir(pathValue, { recursive: true });
 
   let existing = "";
@@ -55,22 +63,23 @@ async function ensureWorkspacesEnv() {
 }
 
 function envConfig() {
+  const configured =
+    process.env.BIFROST_WORKSPACES_HOST_PATH?.trim() || DEFAULT_WORKSPACES_ROOT;
   return {
     workItemsUrl: process.env.WORK_ITEMS_URL?.trim() || "http://localhost:8080",
     orchestratorUrl:
       process.env.ORCHESTRATOR_URL?.trim() || "http://localhost:8081",
     timeoutSecs: Number(process.env.TIMEOUT_SECS?.trim() || "60") || 60,
-    workspacesRoot:
-      process.env.BIFROST_WORKSPACES_HOST_PATH?.trim() ||
-      DEFAULT_WORKSPACES_ROOT,
+    workspacesRoot: resolveWorkspacePath(configured),
   };
 }
 
-async function httpJson(method, url, body) {
+async function httpJson(method, url, body, signal) {
   const response = await fetch(url, {
     method,
     headers: { "content-type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
+    signal,
   });
   const text = await response.text();
   let json = null;
@@ -107,7 +116,7 @@ function pick(obj, ...keys) {
   return undefined;
 }
 
-async function findOutputs(workspacesRoot, sinceMs) {
+async function findOutputs(workspacesRoot, workItemId) {
   let entries;
   try {
     entries = await fs.readdir(workspacesRoot, { withFileTypes: true });
@@ -115,34 +124,38 @@ async function findOutputs(workspacesRoot, sinceMs) {
     return null;
   }
 
-  const candidates = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) {
       continue;
     }
-    const outputsPath = path.join(workspacesRoot, entry.name, "outputs.json");
+
+    const dir = path.join(workspacesRoot, entry.name);
+    const runSpecPath = path.join(dir, "run-spec.json");
     try {
-      const stat = await fs.stat(outputsPath);
-      candidates.push({ mtime: stat.mtimeMs, outputsPath, dir: entry.name });
+      const spec = JSON.parse(await fs.readFile(runSpecPath, "utf8"));
+      if (String(spec.workItemId) !== String(workItemId)) {
+        continue;
+      }
     } catch {
-      // missing
+      continue;
+    }
+
+    const outputsPath = path.join(dir, "outputs.json");
+    try {
+      await fs.stat(outputsPath);
+      return { outputsPath, dir: entry.name };
+    } catch {
+      return null;
     }
   }
 
-  const recent = candidates.filter((c) => c.mtime + 1 >= sinceMs);
-  const pool = recent.length > 0 ? recent : candidates;
-  if (pool.length === 0) {
-    return null;
-  }
-  pool.sort((a, b) => b.mtime - a.mtime);
-  return pool[0];
+  return null;
 }
 
 async function main() {
   await ensureWorkspacesEnv();
   const cfg = envConfig();
   const workItemId = randomUUID();
-  const startedMs = Date.now();
 
   console.log(`work item: ${workItemId}`);
   console.log(`workspaces:${cfg.workspacesRoot}`);
@@ -150,48 +163,68 @@ async function main() {
   console.log(`orchestrator:${cfg.orchestratorUrl}`);
   console.log("style:     harness (passthrough unless BIFROST_HARNESS_MODE=agent)");
 
+  const deadline = Date.now() + cfg.timeoutSecs * 1000;
+
   requireOk(
     "create-work-item",
-    await httpJson("POST", `${cfg.workItemsUrl}/create-work-item`, {
-      id: workItemId,
-      actor: "smoke",
-      reason: "run-harness-node smoke",
-      status: "pending",
-      data: {
-        node: {
-          style: "harness",
-          spec: {},
-          outputs: [
-            {
-              id: randomUUID(),
-              name: "result",
-              schema: { type: "object" },
-            },
-          ],
+    await httpJson(
+      "POST",
+      `${cfg.workItemsUrl}/create-work-item`,
+      {
+        id: workItemId,
+        actor: "smoke",
+        reason: "run-harness-node smoke",
+        status: "pending",
+        data: {
+          node: {
+            style: "harness",
+            spec: {},
+            outputs: [
+              {
+                id: randomUUID(),
+                name: "result",
+                schema: { type: "object" },
+              },
+            ],
+          },
+          inputs: { prompt: "harness smoke", outVar: 1 },
         },
-        inputs: { prompt: "harness smoke", outVar: 1 },
       },
-    }),
+      AbortSignal.timeout(Math.max(1, deadline - Date.now())),
+    ),
   );
 
   requireOk(
     "create-tracked-work-item",
-    await httpJson("POST", `${cfg.orchestratorUrl}/create-tracked-work-item`, {
-      id: workItemId,
-      actor: "smoke",
-      reason: "accept",
-    }),
+    await httpJson(
+      "POST",
+      `${cfg.orchestratorUrl}/create-tracked-work-item`,
+      {
+        id: workItemId,
+        actor: "smoke",
+        reason: "accept",
+      },
+      AbortSignal.timeout(Math.max(1, deadline - Date.now())),
+    ),
   );
 
-  const deadline = Date.now() + cfg.timeoutSecs * 1000;
   let lastStatus = "";
 
   while (Date.now() < deadline) {
-    const tracked = await httpJson(
-      "QUERY",
-      `${cfg.orchestratorUrl}/get-tracked-work-item/${workItemId}`,
-      {},
-    );
+    let tracked;
+    try {
+      tracked = await httpJson(
+        "QUERY",
+        `${cfg.orchestratorUrl}/get-tracked-work-item/${workItemId}`,
+        {},
+        AbortSignal.timeout(Math.max(1, deadline - Date.now())),
+      );
+    } catch (error) {
+      if (error?.name === "TimeoutError" || error?.name === "AbortError") {
+        break;
+      }
+      throw error;
+    }
     if (tracked.status !== 200) {
       console.error(
         `get-tracked-work-item HTTP ${tracked.status}: ${tracked.text}`,
@@ -204,7 +237,7 @@ async function main() {
 
     if (lastStatus === "succeeded") {
       console.log("tracked item succeeded");
-      const found = await findOutputs(cfg.workspacesRoot, startedMs);
+      const found = await findOutputs(cfg.workspacesRoot, workItemId);
       if (found) {
         console.log(`outputs: ${found.outputsPath}`);
         console.log(await fs.readFile(found.outputsPath, "utf8"));

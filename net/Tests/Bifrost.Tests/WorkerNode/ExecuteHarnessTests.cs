@@ -241,10 +241,55 @@ public class ExecuteHarnessTests
         ctx.Runner.LastArguments.ShouldNotBeNull();
         ctx.Runner.LastArguments![0].ShouldBe("run");
         ctx.Runner.LastArguments.ShouldContain("bifrost/node");
+        ctx.Runner.LastArguments.ShouldContain("--name");
+        ctx.Runner.LastArguments.ShouldContain(DockerContainerName.ForRun(ctx.Command.RunId));
         ctx.Runner.LastArguments.ShouldContain($"{hostRoot}/{ctx.Command.RunId:D}:/workspace");
 
         var bodyPath = Path.Combine(ctx.Runner.LastWorkingDirectory!, "body.mjs");
         (await File.ReadAllTextAsync(bodyPath)).ShouldBe(body);
+        ctx.Bus.Published.OfType<SucceedTrackedWorkItemApi.Command>().ShouldHaveSingleItem();
+    }
+
+    [Fact]
+    public async Task script_with_no_output_ports_does_not_replace_work_item_data()
+    {
+        var ctx = Create(
+            new HarnessProcessResult { Started = true, ExitCode = 0 },
+            writeOutputs: new JsonObject
+            {
+                ["inputs"] = new JsonObject { ["passthrough"] = true },
+            }
+        );
+        var issued = new JsonObject
+        {
+            ["node"] = new JsonObject
+            {
+                ["style"] = "script",
+                ["spec"] = new JsonObject
+                {
+                    ["image"] = "bifrost/node",
+                    ["body"] = "export const handler = () => ({ inputs: { passthrough: true } });",
+                },
+            },
+            ["inputs"] = new JsonObject { ["passthrough"] = true },
+        };
+        ctx.Bus.SeedWorkItemData(ctx.Command.WorkItemId, issued);
+
+        await ExecuteHarnessHandler.Handle(
+            ctx.Command,
+            ctx.Bus,
+            ctx.Identity,
+            ctx.Accepts,
+            ctx.Runs,
+            ctx.Slot,
+            ctx.Runner,
+            ctx.Skills,
+            ctx.Options,
+            ctx.DockerOptions,
+            CancellationToken.None
+        );
+
+        ctx.Bus.Requests.OfType<ReplaceWorkItemDataApi.Command>().ShouldBeEmpty();
         ctx.Bus.Published.OfType<SucceedTrackedWorkItemApi.Command>().ShouldHaveSingleItem();
     }
 
@@ -304,7 +349,9 @@ public class ExecuteHarnessTests
             .Bus.Requests.OfType<ReplaceWorkItemDataApi.Command>()
             .ShouldHaveSingleItem();
         replace.Data.ShouldNotBeNull();
-        replace.Data!["outputs"]!["outVar"]!.GetValue<int>().ShouldBe(4);
+        replace.Data!["outputs"]![portId.ToString("D")]!.GetValue<int>().ShouldBe(4);
+        replace.Expected.ShouldNotBeNull();
+        replace.Expected!["data"].ShouldNotBeNull();
         ctx.Bus.Published.OfType<SucceedTrackedWorkItemApi.Command>().ShouldHaveSingleItem();
     }
 
@@ -417,6 +464,76 @@ public class ExecuteHarnessTests
         );
         (await File.ReadAllTextAsync(skillPath)).ShouldBe("# Hello\n");
         ctx.Bus.Published.OfType<SucceedTrackedWorkItemApi.Command>().ShouldHaveSingleItem();
+    }
+
+    [Fact]
+    public async Task conflicting_skill_versions_fail_before_write()
+    {
+        var capabilityId = Guid.NewGuid();
+        var firstVersion = Guid.NewGuid();
+        var secondVersion = Guid.NewGuid();
+        var ctx = Create(new HarnessProcessResult { Started = true, ExitCode = 0 });
+        ctx.Skills.Documents[(capabilityId, firstVersion)] = new SkillDocument(
+            capabilityId,
+            firstVersion,
+            "# One\n"
+        );
+        ctx.Skills.Documents[(capabilityId, secondVersion)] = new SkillDocument(
+            capabilityId,
+            secondVersion,
+            "# Two\n"
+        );
+        ctx.Bus.SeedWorkItemData(
+            ctx.Command.WorkItemId,
+            new JsonObject
+            {
+                ["node"] = new JsonObject
+                {
+                    ["style"] = "harness",
+                    ["spec"] = new JsonObject
+                    {
+                        ["skills"] = new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["capabilityId"] = capabilityId.ToString("D"),
+                                ["skillVersionId"] = firstVersion.ToString("D"),
+                            },
+                            new JsonObject
+                            {
+                                ["capabilityId"] = capabilityId.ToString("D"),
+                                ["skillVersionId"] = secondVersion.ToString("D"),
+                            },
+                        },
+                    },
+                },
+            }
+        );
+
+        await ExecuteHarnessHandler.Handle(
+            ctx.Command,
+            ctx.Bus,
+            ctx.Identity,
+            ctx.Accepts,
+            ctx.Runs,
+            ctx.Slot,
+            ctx.Runner,
+            ctx.Skills,
+            ctx.Options,
+            ctx.DockerOptions,
+            CancellationToken.None
+        );
+
+        var fail = ctx.Bus.Published.OfType<FailTrackedWorkItemApi.Command>().ShouldHaveSingleItem();
+        fail.Reason.ShouldContain("conflicting skill versions");
+        ctx.Runner.Started.ShouldBeFalse();
+        var skillDir = Path.Combine(
+            ctx.Options.Value.WorkingDirectory,
+            ctx.Command.RunId.ToString("D"),
+            "skills",
+            capabilityId.ToString("D")
+        );
+        Directory.Exists(skillDir).ShouldBeFalse();
     }
 
     [Fact]
@@ -785,6 +902,23 @@ public class ExecuteHarnessTests
 
         Unit Replace(ReplaceWorkItemDataApi.Command replace)
         {
+            if (
+                replace.Expected is not null
+                && replace.Expected.TryGetPropertyValue("data", out var expectedData)
+                && expectedData is not null
+            )
+            {
+                var current = _dataByItem.TryGetValue(replace.Id, out var data)
+                    ? data
+                    : new JsonObject();
+                if (!JsonNode.DeepEquals(expectedData, current))
+                {
+                    throw new InvalidOperationException(
+                        "Work item no longer matches the expected state."
+                    );
+                }
+            }
+
             _dataByItem[replace.Id] =
                 replace.Data as JsonObject ?? new JsonObject { ["value"] = replace.Data.DeepClone() };
             return Unit.Value;

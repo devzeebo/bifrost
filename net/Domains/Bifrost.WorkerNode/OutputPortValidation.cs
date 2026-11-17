@@ -84,7 +84,8 @@ public static class OutputPortValidation
         workItemOutputs = new JsonObject();
         failureReason = null;
 
-        if (ports.Count == 0 && returned is null)
+        // No declared ports: ignore any return and leave work-item data unchanged.
+        if (ports.Count == 0)
         {
             return true;
         }
@@ -127,7 +128,7 @@ public static class OutputPortValidation
                     return false;
                 }
 
-                mapped[port.Name] = value?.DeepClone();
+                mapped[port.Id.ToString("D")] = value?.DeepClone();
             }
 
             workItemOutputs["outputs"] = mapped;
@@ -146,7 +147,20 @@ public static class OutputPortValidation
             }
         }
 
-        workItemOutputs["bare"] = returned?.DeepClone() ?? JsonValue.Create((string?)null)!;
+        // Null bare return: explicit per-port nulls so Advance keeps nullable outputs.
+        if (returned is null)
+        {
+            var nullOutputs = new JsonObject();
+            foreach (var port in ports)
+            {
+                nullOutputs[port.Id.ToString("D")] = null;
+            }
+
+            workItemOutputs["outputs"] = nullOutputs;
+            return true;
+        }
+
+        workItemOutputs["bare"] = returned.DeepClone()!;
         return true;
     }
 
@@ -206,9 +220,10 @@ public static class OutputPortValidation
             return data;
         }
 
-        if (mapped.TryGetPropertyValue("bare", out var bare) && bare is not null)
+        if (mapped.ContainsKey("bare"))
         {
-            return bare.DeepClone()!;
+            var bare = mapped["bare"];
+            return bare is null ? JsonValue.Create((string?)null)! : bare.DeepClone()!;
         }
 
         return issuedData.DeepClone()!;
