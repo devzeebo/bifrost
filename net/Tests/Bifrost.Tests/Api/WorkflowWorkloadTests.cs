@@ -9,6 +9,7 @@ using Bifrost.Orchestrator.Contracts;
 using Bifrost.Tests.Support;
 using Bifrost.WorkItems.Contracts;
 using Bifrost.Workflows.Contracts;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using NodeExecutionRelationship = Orchestrator::Bifrost.TrackedWorkItems.Workflow.NodeExecutionRelationship;
@@ -94,10 +95,17 @@ public class WorkflowWorkloadTests
         _factory.WorkItemLedger.FailNextGet(id);
 
         var response = await Post(client, "/create-tracked-work-item", Body(id, "accept"));
-        response.StatusCode.ShouldNotBe(HttpStatusCode.NoContent);
+        response.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        problem.ShouldNotBeNull();
+        problem.Title.ShouldBe("Upstream failure");
+        problem.Detail.ShouldNotBeNull().ShouldContain("Simulated get failure");
 
         _factory.WorkItemLedger.ClearGetFailure(id);
         (await GetOrNull(client, id)).ShouldBeNull();
+        // Classification failed before mirror — ledger status stays at the seeded value.
+        _factory.WorkItemLedger.StatusOf(id).ShouldBe("pending");
+        _factory.WorkItemLedger.AppliedRequestKeysOf(id).ShouldBeEmpty();
     }
 
     [Fact]
@@ -704,11 +712,17 @@ public class WorkflowWorkloadTests
             return null;
         }
 
-        if (!response.IsSuccessStatusCode)
+        // Missing items throw CommandValidationException → 400 with a not-found detail.
+        if (response.StatusCode == HttpStatusCode.BadRequest)
         {
-            return null;
+            var body = await response.Content.ReadAsStringAsync();
+            if (body.Contains("not found", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
         }
 
+        response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<GetTrackedWorkItemApi.Response>(JsonOptions);
     }
 

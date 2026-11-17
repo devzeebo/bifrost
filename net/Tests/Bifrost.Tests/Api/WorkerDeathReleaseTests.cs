@@ -266,6 +266,13 @@ public class WorkerDeathReleaseTests
             },
             "needs-attention released to pending/claimed"
         );
+
+        _factory
+            .WorkItemLedger.AppliedRequestKeysOf(id)
+            .ShouldContain(k =>
+                k.Contains(deadRunId.ToString("D"), StringComparison.Ordinal)
+                && k.Contains("release", StringComparison.Ordinal)
+            );
     }
 
     [Fact]

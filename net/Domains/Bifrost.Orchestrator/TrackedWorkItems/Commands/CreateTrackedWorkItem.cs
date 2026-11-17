@@ -42,6 +42,11 @@ public static class CreateTrackedWorkItemHandler
             return null;
         }
 
+        // Classify before mirror/stream so a ledger get failure leaves no partial create.
+        var ledger = await bus.Request<GetWorkItemApi.Query, GetWorkItemApi.Response>(
+            new GetWorkItemApi.Query { Id = command.Id }
+        );
+
         var actor = WorkItemLifecycleActors.ForSystem();
         var status = DefaultWorkItemLifecycle.Definition.InitialStatus;
 
@@ -67,11 +72,6 @@ public static class CreateTrackedWorkItemHandler
                 Actor = actor,
                 Reason = command.Reason,
             }
-        );
-
-        // Propagate bus failures so outbox/retry can re-run create; classify only after a successful get.
-        var ledger = await bus.Request<GetWorkItemApi.Query, GetWorkItemApi.Response>(
-            new GetWorkItemApi.Query { Id = command.Id }
         );
 
         if (WorkItemInputDefaults.IsAttachedWorkflowRoot(ledger.Metadata))

@@ -51,6 +51,11 @@ public static class SucceedTrackedWorkItemHandler
             WorkItemLifecycleAction.Succeed
         );
 
+        // Resolve parent advance before mirroring so a ledger get failure cannot leave
+        // the work-item status succeeded while the aggregate/outbox roll back.
+        var cascades = new OutgoingMessages();
+        await MaybeAdvanceParentWorkflow(bus, command.Id, cascades).ConfigureAwait(false);
+
         await MirrorWorkItemStatusHandler.Handle(
             new MirrorWorkItemStatusHandler.Message
             {
@@ -68,9 +73,6 @@ public static class SucceedTrackedWorkItemHandler
             },
             bus
         );
-
-        var cascades = new OutgoingMessages();
-        await MaybeAdvanceParentWorkflow(bus, command.Id, cascades).ConfigureAwait(false);
 
         return (
             new TrackedWorkItemSucceeded { Actor = actor, Reason = command.Reason },

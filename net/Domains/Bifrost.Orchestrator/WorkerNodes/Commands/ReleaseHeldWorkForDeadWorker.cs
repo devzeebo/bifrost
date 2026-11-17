@@ -26,7 +26,7 @@ public static class ReleaseHeldWorkForDeadWorkerHandler
         if (
             item is null
             || item.HolderId != message.WorkerId
-            ||             item.Status
+            || item.Status
                 is not (
                     TrackedWorkItemStatuses.Claimed
                     or TrackedWorkItemStatuses.Running
@@ -84,7 +84,8 @@ public static class ReleaseHeldWorkForDeadWorkerHandler
                 RequestKey = MirrorRequestKeys.For(
                     message.WorkItemId,
                     WorkItemLifecycleAction.Release,
-                    from
+                    from,
+                    openRun.Id
                 ),
             },
             bus
@@ -140,7 +141,8 @@ public static class ReleaseHeldWorkForDeadWorkerHandler
                 RequestKey = MirrorRequestKeys.For(
                     workItemId,
                     WorkItemLifecycleAction.Release,
-                    from
+                    from,
+                    item.HoldCount
                 ),
             },
             bus

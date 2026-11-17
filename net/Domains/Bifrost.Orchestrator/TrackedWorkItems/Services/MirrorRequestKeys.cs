@@ -30,4 +30,12 @@ public static class MirrorRequestKeys
         int holdCycle
     ) =>
         $"{id:D}:{action.ToString().ToLowerInvariant()}:{TrackedWorkItemStatuses.Normalize(fromStatus)}:{runId:D}:hold-{holdCycle}";
+
+    public static string For(
+        Guid id,
+        WorkItemLifecycleAction action,
+        string fromStatus,
+        int holdCycle
+    ) =>
+        $"{id:D}:{action.ToString().ToLowerInvariant()}:{TrackedWorkItemStatuses.Normalize(fromStatus)}:hold-{holdCycle}";
 }

@@ -94,7 +94,7 @@ export const useTrackedWorkItemDetail = (workItemId: string): TrackedWorkItemDet
         return
       }
       setStatus((prev) => preserveActionState(prev, next))
-      if (next.kind === 'ready' && shouldPoll(next)) {
+      if (next.kind === 'error' || (next.kind === 'ready' && shouldPoll(next))) {
         timer = setTimeout(() => {
           void tick()
         }, POLL_MS)
@@ -119,20 +119,23 @@ export const useTrackedWorkItemDetail = (workItemId: string): TrackedWorkItemDet
     if (status.kind !== 'ready') {
       return
     }
-    const current = status
     try {
       const nodeExecutions = await fetchNodeExecutionsForRoot(workItemId)
-      setStatus({
-        ...current,
-        nodeExecutions,
-        nodeExecutionsError: null,
-      })
+      setStatus((prev) =>
+        prev.kind === 'ready'
+          ? { ...prev, nodeExecutions, nodeExecutionsError: null }
+          : prev,
+      )
     } catch (error) {
-      setStatus({
-        ...current,
-        nodeExecutionsError:
-          error instanceof Error ? error.message : 'Failed to load node executions',
-      })
+      setStatus((prev) =>
+        prev.kind === 'ready'
+          ? {
+              ...prev,
+              nodeExecutionsError:
+                error instanceof Error ? error.message : 'Failed to load node executions',
+            }
+          : prev,
+      )
     }
   }
 

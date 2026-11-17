@@ -120,10 +120,15 @@ const fetchLatestStatusReason = async (id: string): Promise<string | null> => {
     const body = (await response.json()) as {
       changes?: readonly { reason?: string; status?: string | null }[]
     }
-    const withReason = [...(body.changes ?? [])]
+    const terminal = [...(body.changes ?? [])]
       .reverse()
-      .find((change) => typeof change.reason === 'string' && change.reason.length > 0)
-    return withReason?.reason ?? null
+      .find(
+        (change) =>
+          (change.status === 'failed' || change.status === 'canceled') &&
+          typeof change.reason === 'string' &&
+          change.reason.length > 0,
+      )
+    return terminal?.reason ?? null
   } catch {
     return null
   }
