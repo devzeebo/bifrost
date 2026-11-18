@@ -17,6 +17,7 @@ const toneForFace = (face: NodeExecutionRow['face']) => {
       return 'quiet' as const
     case 'claimed':
     case 'running':
+    case 'executing':
     case 'succeeded':
       return 'live' as const
     case 'failed':
@@ -31,6 +32,7 @@ const labelForFace = (face: NodeExecutionRow['face']): string => {
       return 'waiting for a worker'
     case 'claimed':
     case 'running':
+    case 'executing':
       return face
     case 'needs-attention':
       return 'answer owed'
@@ -50,6 +52,7 @@ const describeWait = (wait: WaitingConnection): string => {
       return `${feeder} is waiting for a worker`
     case 'claimed':
     case 'running':
+    case 'executing':
       return `${feeder} is under way`
     case 'needs-attention':
       return `answer owed on ${feeder}`

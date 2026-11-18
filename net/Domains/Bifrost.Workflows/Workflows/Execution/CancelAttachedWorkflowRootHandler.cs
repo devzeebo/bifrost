@@ -60,8 +60,30 @@ public static class CancelAttachedWorkflowRootHandler
             )
             .ConfigureAwait(false);
 
-        await bus.Request<CancelTrackedWorkItemApi.Command, Unit>(
-                new CancelTrackedWorkItemApi.Command
+        // Child terminals may already have advanced and canceled the root.
+        try
+        {
+            root = await bus.Request<GetTrackedWorkItemApi.Query, GetTrackedWorkItemApi.Response>(
+                new GetTrackedWorkItemApi.Query { Id = message.RootWorkItemId }
+            );
+        }
+        catch (BusException ex) when (ex.Error.Code == BusErrorCodes.NotFound)
+        {
+            return;
+        }
+
+        if (root.Status == TrackedWorkItemStatuses.Canceled)
+        {
+            return;
+        }
+
+        if (root.Status != TrackedWorkItemStatuses.Executing)
+        {
+            return;
+        }
+
+        await bus.Request<ApplyCancelTrackedWorkItemApi.Command, Unit>(
+                new ApplyCancelTrackedWorkItemApi.Command
                 {
                     Id = message.RootWorkItemId,
                     Actor = message.Actor,

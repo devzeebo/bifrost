@@ -12,6 +12,7 @@ public class TrackedWorkItemView : SingleStreamProjection<TrackedWorkItemView.Mo
         public required string Status { get; init; }
         public Guid? HolderId { get; init; }
         public int HoldCount { get; init; }
+        public bool ScheduleDispatch { get; init; } = true;
     }
 
     public Model Create(TrackedWorkItemCreated e) =>
@@ -21,6 +22,7 @@ public class TrackedWorkItemView : SingleStreamProjection<TrackedWorkItemView.Mo
             Status = TrackedWorkItemStatuses.Normalize(e.Status),
             HolderId = null,
             HoldCount = 0,
+            ScheduleDispatch = e.ScheduleDispatch,
         };
 
     public Model Apply(TrackedWorkItemClaimed e, Model view) =>

@@ -29,6 +29,36 @@ public class WorkItemDispatchOnlineTests
     }
 
     [Fact]
+    public async Task create_with_schedule_dispatch_false_stays_pending_unclaimed()
+    {
+        var client = _factory.CreateClient();
+        await BringWorkerOnline();
+        var id = Guid.NewGuid();
+        _factory.WorkItemLedger.Seed(id);
+        _factory.ExecuteClaimedWork.Clear();
+
+        (
+            await Post(
+                client,
+                "/create-tracked-work-item",
+                new
+                {
+                    id,
+                    actor = WorkItemLifecycleActors.Orchestrator,
+                    reason = "attached root",
+                    scheduleDispatch = false,
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        await Task.Delay(500);
+        var item = await Get(client, id);
+        item.Status.ShouldBe(TrackedWorkItemStatuses.Pending);
+        item.HolderId.ShouldBeNull();
+        _factory.ExecuteClaimedWork.Received.Any(r => r.WorkItemId == id).ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task create_with_online_worker_claims_holder_births_run_and_handoffs()
     {
         var client = _factory.CreateClient();

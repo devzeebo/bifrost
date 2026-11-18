@@ -183,11 +183,11 @@ public static class AdvanceWorkflowExecutionHandler
         var executions = await LoadNodeExecutions(bus, message.RootWorkItemId)
             .ConfigureAwait(false);
 
-        var failed = executions.FirstOrDefault(e =>
-            e.Tracked.Status
-                is TrackedWorkItemStatuses.Failed
-                    or TrackedWorkItemStatuses.Canceled
-        );
+        var failed =
+            executions.FirstOrDefault(e => e.Tracked.Status == TrackedWorkItemStatuses.Failed)
+            ?? executions.FirstOrDefault(e =>
+                e.Tracked.Status == TrackedWorkItemStatuses.Canceled
+            );
         if (failed is not null)
         {
             var nodeLabel =
@@ -218,17 +218,10 @@ public static class AdvanceWorkflowExecutionHandler
             }
             else
             {
-                await bus.Request<CancelTrackedWorkItemApi.Command, Unit>(
-                        new CancelTrackedWorkItemApi.Command
-                        {
-                            Id = message.RootWorkItemId,
-                            Actor = WorkItemLifecycleActors.Orchestrator,
-                            Reason = $"Node '{nodeLabel}' ended in {ending}.",
-                            Expected = new JsonObject
-                            {
-                                ["status"] = TrackedWorkItemStatuses.Executing,
-                            },
-                        }
+                await CancelRootIfExecuting(
+                        bus,
+                        message.RootWorkItemId,
+                        $"Node '{nodeLabel}' ended in {ending}."
                     )
                     .ConfigureAwait(false);
             }
@@ -356,6 +349,41 @@ public static class AdvanceWorkflowExecutionHandler
         );
     }
 
+    static async Task CancelRootIfExecuting(IBifrostBus bus, Guid rootId, string reason)
+    {
+        GetTrackedWorkItemApi.Response tracked;
+        try
+        {
+            tracked = await bus.Request<GetTrackedWorkItemApi.Query, GetTrackedWorkItemApi.Response>(
+                new GetTrackedWorkItemApi.Query { Id = rootId }
+            );
+        }
+        catch (BusException ex) when (ex.Error.Code == BusErrorCodes.NotFound)
+        {
+            return;
+        }
+
+        if (tracked.Status is TrackedWorkItemStatuses.Canceled)
+        {
+            return;
+        }
+
+        if (tracked.Status != TrackedWorkItemStatuses.Executing)
+        {
+            return;
+        }
+
+        await bus.Request<ApplyCancelTrackedWorkItemApi.Command, Unit>(
+            new ApplyCancelTrackedWorkItemApi.Command
+            {
+                Id = rootId,
+                Actor = WorkItemLifecycleActors.Orchestrator,
+                Reason = reason,
+                Expected = new JsonObject { ["status"] = TrackedWorkItemStatuses.Executing },
+            }
+        );
+    }
+
     static async Task DraftAndScheduleNode(
         IBifrostBus bus,
         Guid rootWorkItemId,
@@ -402,12 +430,18 @@ public static class AdvanceWorkflowExecutionHandler
             )
             .ConfigureAwait(false);
 
+        await EnsureTracked(bus, nodeWorkItemId, $"schedule node execution '{node.Name}'")
+            .ConfigureAwait(false);
+    }
+
+    static async Task EnsureTracked(IBifrostBus bus, Guid workItemId, string reason)
+    {
         await bus.Request<CreateTrackedWorkItemApi.Command, Unit>(
                 new CreateTrackedWorkItemApi.Command
                 {
-                    Id = nodeWorkItemId,
+                    Id = workItemId,
                     Actor = WorkItemLifecycleActors.Orchestrator,
-                    Reason = $"schedule node execution '{node.Name}'",
+                    Reason = reason,
                 }
             )
             .ConfigureAwait(false);
@@ -461,10 +495,7 @@ public static class AdvanceWorkflowExecutionHandler
         var results = new List<NodeExecution>();
         foreach (var item in listed.Items.Where(i => !i.IsDeleted))
         {
-            var ledger = await bus.Request<GetWorkItemApi.Query, GetWorkItemApi.Response>(
-                new GetWorkItemApi.Query { Id = item.Id }
-            );
-            GetTrackedWorkItemApi.Response tracked;
+            GetTrackedWorkItemApi.Response? tracked = null;
             try
             {
                 tracked = await bus.Request<
@@ -474,7 +505,48 @@ public static class AdvanceWorkflowExecutionHandler
             }
             catch (BusException ex) when (ex.Error.Code == BusErrorCodes.NotFound)
             {
+                // Incomplete draft: ledger exists, track missing — resume below.
+            }
+
+            var ledger = await bus.Request<GetWorkItemApi.Query, GetWorkItemApi.Response>(
+                new GetWorkItemApi.Query { Id = item.Id }
+            );
+
+            var nodeIdRaw = ledger.Metadata[WorkItemInputDefaults.MetadataNodeIdKey]
+                ?.GetValue<string>();
+            if (!Guid.TryParse(nodeIdRaw, out _))
+            {
+                if (tracked is null)
+                {
+                    continue;
+                }
+
+                results.Add(new NodeExecution(ledger, tracked));
                 continue;
+            }
+
+            if (tracked is null)
+            {
+                var nodeName =
+                    ledger.Metadata[WorkItemInputDefaults.MetadataNodeNameKey]?.GetValue<string>()
+                    ?? item.Id.ToString("D");
+                await EnsureTracked(
+                        bus,
+                        item.Id,
+                        $"resume schedule for incomplete draft '{nodeName}'"
+                    )
+                    .ConfigureAwait(false);
+                tracked = await bus.Request<
+                    GetTrackedWorkItemApi.Query,
+                    GetTrackedWorkItemApi.Response
+                >(new GetTrackedWorkItemApi.Query { Id = item.Id });
+            }
+            else if (tracked.Status == TrackedWorkItemStatuses.Succeeded)
+            {
+                // Re-read after status so BuildConcludedOutputs sees post-success data.
+                ledger = await bus.Request<GetWorkItemApi.Query, GetWorkItemApi.Response>(
+                    new GetWorkItemApi.Query { Id = item.Id }
+                );
             }
 
             results.Add(new NodeExecution(ledger, tracked));

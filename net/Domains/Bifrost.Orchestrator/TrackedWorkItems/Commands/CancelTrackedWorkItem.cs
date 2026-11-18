@@ -1,10 +1,12 @@
 using System.Text.Json.Nodes;
 using Bifrost.MessageBus;
 using Bifrost.Orchestrator.Contracts;
+using Bifrost.Rpc;
 using Bifrost.TrackedWorkItems.Aggregate;
 using Bifrost.TrackedWorkItems.Events;
 using Bifrost.TrackedWorkItems.Projections;
 using Bifrost.TrackedWorkItems.Services;
+using Bifrost.Workflows.Contracts;
 using Marten;
 using Wolverine;
 using Wolverine.Marten;
@@ -17,7 +19,8 @@ public static class CancelTrackedWorkItemHandler
     public static async Task Handle(
         CancelTrackedWorkItemApi.Command command,
         IQuerySession session,
-        IMessageBus bus
+        IMessageBus bus,
+        IBifrostBus bifrostBus
     )
     {
         var view =
@@ -33,6 +36,50 @@ public static class CancelTrackedWorkItemHandler
 
         var actor = WorkItemLifecycleActors.ForRequester(command.Actor);
 
+        if (view.Status == TrackedWorkItemStatuses.Executing)
+        {
+            try
+            {
+                await bifrostBus
+                    .Request<CancelAttachedWorkflowRootApi.Command, Unit>(
+                        new CancelAttachedWorkflowRootApi.Command
+                        {
+                            RootWorkItemId = command.Id,
+                            Actor = actor,
+                            Reason = command.Reason,
+                        }
+                    )
+                    .ConfigureAwait(false);
+            }
+            catch (BusException ex)
+            {
+                throw new CommandValidationException(
+                    $"Cannot cancel executing work item {command.Id} through attached workflow cancel: {ex.Error.Message}"
+                );
+            }
+
+            return;
+        }
+
+        await bus.InvokeAsync(
+                new ApplyCancelTrackedWorkItem
+                {
+                    Id = command.Id,
+                    Actor = actor,
+                    Reason = command.Reason,
+                    Expected = command.Expected,
+                }
+            )
+            .ConfigureAwait(false);
+    }
+
+    [WolverinePost("/apply-cancel-tracked-work-item"), EmptyResponse]
+    public static async Task Handle(
+        ApplyCancelTrackedWorkItemApi.Command command,
+        IMessageBus bus
+    )
+    {
+        var actor = WorkItemLifecycleActors.ForRequester(command.Actor);
         await bus.InvokeAsync(
                 new ApplyCancelTrackedWorkItem
                 {

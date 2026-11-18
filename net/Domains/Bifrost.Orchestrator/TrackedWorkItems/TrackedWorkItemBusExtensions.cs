@@ -29,6 +29,7 @@ public static class TrackedWorkItemBusExtensions
             services.Command<SucceedExecutingTrackedWorkItemApi.Command>();
             services.Command<FailExecutingTrackedWorkItemApi.Command>();
             services.Command<CancelTrackedWorkItemApi.Command>();
+            services.Command<ApplyCancelTrackedWorkItemApi.Command>();
             return services;
         }
 

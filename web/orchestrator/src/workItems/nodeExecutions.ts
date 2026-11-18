@@ -14,6 +14,7 @@ export type NodeExecutionFace =
   | 'pending'
   | 'claimed'
   | 'running'
+  | 'executing'
   | 'needs-attention'
   | 'succeeded'
   | 'failed'
@@ -174,8 +175,8 @@ export const fetchNodeExecutionsForRoot = async (
     .map((item) => item.id)
     .filter((id): id is string => typeof id === 'string')
 
-  const settled = await Promise.all(
-    ids.map(async (id) => {
+  const settled: PromiseSettledResult<NodeExecutionRow | null>[] = await Promise.allSettled(
+    ids.map(async (id): Promise<NodeExecutionRow | null> => {
       try {
         const [ledger, tracked]: [LedgerWorkItem, TrackedWorkItem] = await Promise.all([
           fetchLedgerWorkItem(id),
@@ -205,8 +206,10 @@ export const fetchNodeExecutionsForRoot = async (
     }),
   )
 
-  const issued = settled.filter((row): row is NodeExecutionRow => row !== null)
-  if (ids.length > 0 && issued.length === 0) {
+  const issued = settled
+    .map((result) => (result.status === 'fulfilled' ? result.value : null))
+    .filter((row): row is NodeExecutionRow => row !== null)
+  if (issued.length < ids.length) {
     throw new Error('Failed to load node executions')
   }
 
