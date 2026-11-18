@@ -8,20 +8,20 @@ const workItemId = '11111111-1111-1111-1111-111111111111'
 describe('submitWorkflowWorkItem', () => {
   withAspect(reset_fetch, reset_fetch)
 
-  test('attaches then tracks with the same work item id', {
+  test('attaches through workflows which tracks and advances', {
     given: {
-      attach_and_track_succeed,
+      attach_succeeds,
     },
     when: {
       submitting_a_workflow_work_item,
     },
     then: {
-      both_posts_share_the_work_item_id,
+      attach_was_called_with_ids,
       the_result_returns_that_id,
     },
   })
 
-  test('surfaces an attach failure without tracking', {
+  test('surfaces an attach failure', {
     given: {
       attach_fails,
     },
@@ -30,20 +30,6 @@ describe('submitWorkflowWorkItem', () => {
     },
     then: {
       the_error_is_from_attach,
-      track_was_not_called,
-    },
-  })
-
-  test('surfaces a track failure after a successful attach', {
-    given: {
-      track_fails,
-    },
-    when: {
-      submitting_and_catching,
-    },
-    then: {
-      the_error_is_from_track,
-      attach_was_called,
     },
   })
 })
@@ -65,15 +51,11 @@ function reset_fetch(this: Context) {
   vi.stubGlobal('fetch', this.fetchMock)
 }
 
-function attach_and_track_succeed(this: Context) {
+function attach_succeeds(this: Context) {
   this.fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
     const url = String(input)
     if (url.includes('/create-attached-work-item')) {
       this.posts.push('attach')
-      return new Response(null, { status: 204 })
-    }
-    if (url.includes('/create-tracked-work-item')) {
-      this.posts.push('track')
       return new Response(null, { status: 204 })
     }
     throw new Error(`unexpected fetch ${url}`)
@@ -86,25 +68,6 @@ function attach_fails(this: Context) {
     if (url.includes('/create-attached-work-item')) {
       this.posts.push('attach')
       return jsonProblem(400, 'Workflow is not startable')
-    }
-    if (url.includes('/create-tracked-work-item')) {
-      this.posts.push('track')
-      return new Response(null, { status: 204 })
-    }
-    throw new Error(`unexpected fetch ${url}`)
-  })
-}
-
-function track_fails(this: Context) {
-  this.fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
-    const url = String(input)
-    if (url.includes('/create-attached-work-item')) {
-      this.posts.push('attach')
-      return new Response(null, { status: 204 })
-    }
-    if (url.includes('/create-tracked-work-item')) {
-      this.posts.push('track')
-      return jsonProblem(400, 'Track refused')
     }
     throw new Error(`unexpected fetch ${url}`)
   })
@@ -130,18 +93,14 @@ async function submitting_and_catching(this: Context) {
   }
 }
 
-function both_posts_share_the_work_item_id(this: Context) {
-  expect(this.posts).toEqual(['attach', 'track'])
+function attach_was_called_with_ids(this: Context) {
+  expect(this.posts).toEqual(['attach'])
   const attachBody = JSON.parse(String(this.fetchMock.mock.calls[0]?.[1]?.body)) as {
     workItemId: string
     workflowId: string
   }
-  const trackBody = JSON.parse(String(this.fetchMock.mock.calls[1]?.[1]?.body)) as {
-    id: string
-  }
   expect(attachBody.workItemId).toBe(workItemId)
   expect(attachBody.workflowId).toBe(workflowId)
-  expect(trackBody.id).toBe(workItemId)
 }
 
 function the_result_returns_that_id(this: Context) {
@@ -151,19 +110,6 @@ function the_result_returns_that_id(this: Context) {
 function the_error_is_from_attach(this: Context) {
   expect(this.error).toBeInstanceOf(Error)
   expect((this.error as Error).message).toContain('Workflow is not startable')
-}
-
-function track_was_not_called(this: Context) {
-  expect(this.posts).toEqual(['attach'])
-}
-
-function the_error_is_from_track(this: Context) {
-  expect(this.error).toBeInstanceOf(Error)
-  expect((this.error as Error).message).toContain('Track refused')
-}
-
-function attach_was_called(this: Context) {
-  expect(this.posts).toContain('attach')
 }
 
 function jsonProblem(status: number, detail: string): Response {

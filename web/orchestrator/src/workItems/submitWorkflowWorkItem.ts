@@ -1,5 +1,4 @@
 import { createAttachedWorkItem } from '../workflows/createAttachedWorkItem'
-import { createTrackedWorkItem } from './createTrackedWorkItem'
 
 export type SubmitWorkflowWorkItemInput = {
   readonly workflowId: string
@@ -20,6 +19,5 @@ export const submitWorkflowWorkItem = async (
     workflowId: input.workflowId,
     data: input.data,
   })
-  await createTrackedWorkItem({ id: workItemId })
   return { workItemId }
 }

@@ -1,4 +1,4 @@
-namespace Bifrost.TrackedWorkItems.Workflow;
+namespace Bifrost.Workflows.Execution;
 
 /// <summary>
 /// Cancels an attached workflow root after discovering and canceling in-flight node executions.

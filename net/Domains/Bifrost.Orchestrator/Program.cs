@@ -6,7 +6,6 @@ using Bifrost.MessageBus;
 using Bifrost.Orchestrator.Contracts;
 using Bifrost.Rpc;
 using Bifrost.TrackedWorkItems;
-using Bifrost.TrackedWorkItems.Workflow;
 using Bifrost.WorkerNodes;
 using JasperFx;
 using JasperFx.CodeGeneration;
@@ -48,12 +47,6 @@ builder.Host.UseWolverine(opts =>
     // Marten's transactional outbox (IntegrateWithWolverine + OutboxedSessionFactory) with
     // the claim/create/release commit — a crash after commit still reloads and flushes them.
 
-    // Serialize advance drafting against attached-root cancel child discovery.
-    // Durable inbox: crash after outbox flush must not drop advance/cancel.
-    opts.LocalQueue("attached-workflow").Sequential().UseDurableInbox();
-    opts.PublishMessage<AdvanceWorkflowExecution>().ToLocalQueue("attached-workflow");
-    opts.PublishMessage<CancelAttachedWorkflowRoot>().ToLocalQueue("attached-workflow");
-
     opts.UseBifrostBus()
         .ListenFor<WorkerNodeRegistered.Command>()
         .ListenFor<WolverineHeartbeat>()
@@ -62,6 +55,8 @@ builder.Host.UseWolverine(opts =>
         .ListenFor<FailRunApi.Command>()
         .ListenFor<SucceedTrackedWorkItemApi.Command>()
         .ListenFor<FailTrackedWorkItemApi.Command>();
+
+    opts.PublishMessage<TrackedWorkItemTerminal>().To(BifrostBusEndpoint.Address);
 });
 
 builder.Services.AddRpcHost(options =>

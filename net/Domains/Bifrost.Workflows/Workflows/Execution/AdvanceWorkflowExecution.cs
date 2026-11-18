@@ -1,4 +1,4 @@
-namespace Bifrost.TrackedWorkItems.Workflow;
+namespace Bifrost.Workflows.Execution;
 
 public sealed record AdvanceWorkflowExecution
 {

@@ -201,6 +201,14 @@ export default defineConfig({
         target: 'http://127.0.0.1:8083',
         changeOrigin: true,
       },
+      '/start-attached-workflow': {
+        target: 'http://127.0.0.1:8083',
+        changeOrigin: true,
+      },
+      '/cancel-attached-workflow-root': {
+        target: 'http://127.0.0.1:8083',
+        changeOrigin: true,
+      },
       '/create-workflow': {
         target: 'http://127.0.0.1:8083',
         changeOrigin: true,

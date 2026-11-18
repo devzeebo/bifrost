@@ -103,6 +103,22 @@ public sealed class RecordingWorkItemBus : IBifrostBus
             return Task.FromResult((TResponse)(object)default(Unit)!);
         }
 
+        if (request is Bifrost.Orchestrator.Contracts.CreateTrackedWorkItemApi.Command)
+        {
+            return Task.FromResult((TResponse)(object)default(Unit)!);
+        }
+
+        if (request is Bifrost.Orchestrator.Contracts.GetTrackedWorkItemApi.Query getTracked)
+        {
+            object response = new Bifrost.Orchestrator.Contracts.GetTrackedWorkItemApi.Response
+            {
+                Id = getTracked.Id,
+                Status = Bifrost.Orchestrator.Contracts.TrackedWorkItemStatuses.Succeeded,
+                HolderId = null,
+            };
+            return Task.FromResult((TResponse)response);
+        }
+
         throw new NotSupportedException($"Unexpected bus request {typeof(TRequest).Name}.");
     }
 }

@@ -59,7 +59,7 @@ export const useTrackedWorkItemDetail = (workItemId: string): TrackedWorkItemDet
       let nodeExecutionsError: string | null = null
       if (ledger?.attachedWorkflowId !== null && ledger?.attachedWorkflowId !== undefined) {
         try {
-          nodeExecutions = await fetchNodeExecutionsForRoot(workItemId)
+          nodeExecutions = await fetchNodeExecutionsForRoot(workItemId, ledger.metadata)
         } catch (error) {
           nodeExecutionsError =
             error instanceof Error ? error.message : 'Failed to load node executions'
@@ -120,7 +120,11 @@ export const useTrackedWorkItemDetail = (workItemId: string): TrackedWorkItemDet
       return
     }
     try {
-      const nodeExecutions = await fetchNodeExecutionsForRoot(workItemId)
+      const ledger = await fetchLedgerWorkItem(workItemId).catch(() => null)
+      const nodeExecutions = await fetchNodeExecutionsForRoot(
+        workItemId,
+        ledger?.metadata,
+      )
       setStatus((prev) =>
         prev.kind === 'ready'
           ? { ...prev, nodeExecutions, nodeExecutionsError: null }
@@ -188,7 +192,9 @@ const shouldPoll = (ready: Extract<TrackedWorkItemDetailStatus, { kind: 'ready' 
   if (isActiveStatus(ready.item.status)) {
     return true
   }
-  return ready.nodeExecutions.some((row) => isActiveStatus(row.status))
+  return ready.nodeExecutions.some(
+    (row) => row.status !== 'waiting' && isActiveStatus(row.status),
+  )
 }
 
 const preserveActionState = (

@@ -2,8 +2,9 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Bifrost.Workflows.Contracts;
+using Bifrost.Workflows.Projections;
 
-namespace Bifrost.TrackedWorkItems.Workflow;
+namespace Bifrost.Workflows.Execution;
 
 public sealed record WorkflowSnapshot
 {
@@ -19,6 +20,16 @@ public sealed record WorkflowSnapshot
         PropertyNameCaseInsensitive = true,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
+
+    public static WorkflowSnapshot FromView(WorkflowView.Model workflow) =>
+        new()
+        {
+            Id = workflow.Id,
+            Name = workflow.Name,
+            Version = workflow.Version,
+            Nodes = workflow.Nodes,
+            Connections = workflow.Connections,
+        };
 
     public static WorkflowSnapshot FromResponse(GetWorkflowApi.Response workflow) =>
         new()

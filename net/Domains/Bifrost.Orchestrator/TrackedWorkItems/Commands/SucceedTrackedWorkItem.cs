@@ -3,9 +3,6 @@ using Bifrost.Orchestrator.Contracts;
 using Bifrost.TrackedWorkItems.Aggregate;
 using Bifrost.TrackedWorkItems.Events;
 using Bifrost.TrackedWorkItems.Services;
-using Bifrost.TrackedWorkItems.Workflow;
-using Bifrost.Workflows.Contracts;
-using Bifrost.WorkItems.Contracts;
 using Marten;
 using Wolverine;
 using Wolverine.Marten;
@@ -51,11 +48,6 @@ public static class SucceedTrackedWorkItemHandler
             WorkItemLifecycleAction.Succeed
         );
 
-        // Resolve parent advance before mirroring so a ledger get failure cannot leave
-        // the work-item status succeeded while the aggregate/outbox roll back.
-        var cascades = new OutgoingMessages();
-        await MaybeAdvanceParentWorkflow(bus, command.Id, cascades).ConfigureAwait(false);
-
         await MirrorWorkItemStatusHandler.Handle(
             new MirrorWorkItemStatusHandler.Message
             {
@@ -76,24 +68,14 @@ public static class SucceedTrackedWorkItemHandler
 
         return (
             new TrackedWorkItemSucceeded { Actor = actor, Reason = command.Reason },
-            cascades
+            [
+                new TrackedWorkItemTerminal
+                {
+                    WorkItemId = command.Id,
+                    Status = next,
+                    Reason = command.Reason,
+                },
+            ]
         );
-    }
-
-    internal static async Task MaybeAdvanceParentWorkflow(
-        IBifrostBus bus,
-        Guid workItemId,
-        OutgoingMessages cascades
-    )
-    {
-        var ledger = await bus.Request<GetWorkItemApi.Query, GetWorkItemApi.Response>(
-            new GetWorkItemApi.Query { Id = workItemId }
-        );
-        if (
-            WorkItemInputDefaults.TryReadRootWorkItemId(ledger.Metadata, out var rootWorkItemId)
-        )
-        {
-            cascades.Add(new AdvanceWorkflowExecution { RootWorkItemId = rootWorkItemId });
-        }
     }
 }

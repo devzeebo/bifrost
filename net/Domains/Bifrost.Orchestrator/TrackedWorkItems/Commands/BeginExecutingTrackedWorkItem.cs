@@ -17,7 +17,7 @@ public static class BeginExecutingTrackedWorkItemHandler
         if (command.Actor != WorkItemLifecycleActors.Orchestrator)
         {
             throw new CommandValidationException(
-                "Only the orchestrator may begin workflow execution on a tracked work item."
+                "Only the orchestrator actor may begin executing on a tracked work item."
             );
         }
 

@@ -12,7 +12,7 @@ using Bifrost.Workflows.Contracts;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
-using NodeExecutionRelationship = Orchestrator::Bifrost.TrackedWorkItems.Workflow.NodeExecutionRelationship;
+using Bifrost.Rpc;
 
 namespace Bifrost.Tests.Api;
 
@@ -54,8 +54,7 @@ public class WorkflowWorkloadTests
         var workerId = await RegisterWorker();
         var (rootId, firstNodeId, secondNodeId, _) = SeedLinearWorkflow();
 
-        (await Post(client, "/create-tracked-work-item", Body(rootId, "run workflow")))
-            .StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        await StartAttached(rootId);
 
         await WaitFor(
             async () => (await Get(client, rootId)).Status == TrackedWorkItemStatuses.Executing,
@@ -143,8 +142,7 @@ public class WorkflowWorkloadTests
             metadata: WorkItemInputDefaults.AttachmentMetadata(workflowId)
         );
 
-        (await Post(client, "/create-tracked-work-item", Body(rootId, "run")))
-            .StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        await StartAttached(rootId);
 
         var execution = await WaitForNodeExecution(rootId, reachable.Id);
         await ClaimStartSucceed(client, execution.Ledger.Id, workerId, "reachable done");
@@ -167,8 +165,7 @@ public class WorkflowWorkloadTests
         var workerId = await RegisterWorker();
         var (rootId, firstNodeId, _, _) = SeedLinearWorkflow();
 
-        (await Post(client, "/create-tracked-work-item", Body(rootId, "run")))
-            .StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        await StartAttached(rootId);
         var firstExecution = await WaitForNodeExecution(rootId, firstNodeId);
 
         await EnsureClaimed(client, firstExecution.Ledger.Id, workerId);
@@ -224,8 +221,7 @@ public class WorkflowWorkloadTests
         var workerId = await RegisterWorker();
         var (rootId, firstNodeId, secondNodeId, _) = SeedLinearWorkflow();
 
-        (await Post(client, "/create-tracked-work-item", Body(rootId, "run workflow")))
-            .StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        await StartAttached(rootId);
         var firstExecution = await WaitForNodeExecution(rootId, firstNodeId);
 
         await ClaimStartFail(client, firstExecution.Ledger.Id, workerId, "boom");
@@ -327,8 +323,7 @@ public class WorkflowWorkloadTests
             metadata: WorkItemInputDefaults.AttachmentMetadata(workflowId)
         );
 
-        (await Post(client, "/create-tracked-work-item", Body(rootId, "run")))
-            .StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        await StartAttached(rootId);
 
         await WaitFor(
             async () => (await Get(client, rootId)).Status == TrackedWorkItemStatuses.Failed,
@@ -362,8 +357,7 @@ public class WorkflowWorkloadTests
             metadata: WorkItemInputDefaults.AttachmentMetadata(missingWorkflow)
         );
 
-        (await Post(client, "/create-tracked-work-item", Body(rootId, "run")))
-            .StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        await StartAttached(rootId);
 
         await WaitFor(
             async () => (await Get(client, rootId)).Status == TrackedWorkItemStatuses.Failed,
@@ -376,6 +370,123 @@ public class WorkflowWorkloadTests
     }
 
     [Fact]
+    public async Task first_pass_with_no_runnable_names_undrafted_nodes()
+    {
+        var client = _factory.CreateClient();
+        var workflowId = Guid.NewGuid();
+        var input = WorkItemInputDefaults.CreateNode();
+        var stranded = Runnable("stranded", x: 200);
+        _factory.WorkflowCatalog.Seed(
+            new GetWorkflowApi.Response
+            {
+                Id = workflowId,
+                Name = "stranded-graph",
+                Version = 1,
+                Nodes = [input, stranded],
+                Connections = [],
+            }
+        );
+
+        var rootId = Guid.NewGuid();
+        _factory.WorkItemLedger.Seed(
+            rootId,
+            data: new JsonObject { ["title"] = "feature" },
+            metadata: WorkItemInputDefaults.AttachmentMetadata(workflowId)
+        );
+
+        await StartAttached(rootId);
+
+        await WaitFor(
+            async () => (await Get(client, rootId)).Status == TrackedWorkItemStatuses.Failed,
+            "root failed with no runnable"
+        );
+        var reason = _factory.WorkItemLedger.HistoryOf(rootId).Last().Reason;
+        reason.ShouldContain("no runnable node");
+        reason.ShouldContain("stranded");
+    }
+
+    [Fact]
+    public async Task hold_on_one_branch_does_not_block_sibling()
+    {
+        var client = _factory.CreateClient();
+        var workerId = await RegisterWorker();
+        var workflowId = Guid.NewGuid();
+        var input = WorkItemInputDefaults.CreateNode();
+        var left = Runnable("left", x: 200);
+        var right = Runnable("right", x: 200, y: 120);
+        _factory.WorkflowCatalog.Seed(
+            new GetWorkflowApi.Response
+            {
+                Id = workflowId,
+                Name = "hold-fan",
+                Version = 1,
+                Nodes = [input, left, right],
+                Connections =
+                [
+                    new WorkflowConnection
+                    {
+                        Id = Guid.NewGuid(),
+                        OutputPortId = input.Outputs[0].Id,
+                        InputPortId = left.Inputs[0].Id,
+                    },
+                    new WorkflowConnection
+                    {
+                        Id = Guid.NewGuid(),
+                        OutputPortId = input.Outputs[0].Id,
+                        InputPortId = right.Inputs[0].Id,
+                    },
+                ],
+            }
+        );
+
+        var rootId = Guid.NewGuid();
+        _factory.WorkItemLedger.Seed(
+            rootId,
+            data: new JsonObject { ["title"] = "hold-fan" },
+            metadata: WorkItemInputDefaults.AttachmentMetadata(workflowId)
+        );
+
+        await StartAttached(rootId);
+        var leftExecution = await WaitForNodeExecution(rootId, left.Id);
+        var rightExecution = await WaitForNodeExecution(rootId, right.Id);
+
+        await EnsureClaimed(client, leftExecution.Ledger.Id, workerId);
+        var held = await Get(client, leftExecution.Ledger.Id);
+        var holder = held.HolderId ?? workerId;
+        var runId = await LatestRunId(client, leftExecution.Ledger.Id);
+        if (held.Status == TrackedWorkItemStatuses.Claimed)
+        {
+            (
+                await Post(
+                    client,
+                    "/start-tracked-work-item",
+                    ReportBody(leftExecution.Ledger.Id, runId, holder, "start")
+                )
+            ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        }
+
+        (
+            await Post(
+                client,
+                "/hold-tracked-work-item",
+                ReportBody(leftExecution.Ledger.Id, runId, holder, "need person")
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        (await Get(client, leftExecution.Ledger.Id)).Status.ShouldBe(
+            TrackedWorkItemStatuses.NeedsAttention
+        );
+
+        await ClaimStartSucceed(client, rightExecution.Ledger.Id, workerId, "right done");
+        (await Get(client, rightExecution.Ledger.Id)).Status.ShouldBe(
+            TrackedWorkItemStatuses.Succeeded
+        );
+        (await Get(client, rootId)).Status.ShouldBe(TrackedWorkItemStatuses.Executing);
+        (await Get(client, leftExecution.Ledger.Id)).Status.ShouldBe(
+            TrackedWorkItemStatuses.NeedsAttention
+        );
+    }
+
+    [Fact]
     public async Task snapshot_survives_workflow_edit()
     {
         var client = _factory.CreateClient();
@@ -385,8 +496,7 @@ public class WorkflowWorkloadTests
             secondName: "beta"
         );
 
-        (await Post(client, "/create-tracked-work-item", Body(rootId, "run")))
-            .StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        await StartAttached(rootId);
         var firstExecution = await WaitForNodeExecution(rootId, firstNodeId);
 
         var editedSecond = new WorkflowNode
@@ -448,7 +558,7 @@ public class WorkflowWorkloadTests
     }
 
     [Fact]
-    public async Task fan_out_issues_successors_one_at_a_time_in_node_order()
+    public async Task fan_out_drafts_both_successors_at_once()
     {
         var client = _factory.CreateClient();
         var workerId = await RegisterWorker();
@@ -488,10 +598,12 @@ public class WorkflowWorkloadTests
             metadata: WorkItemInputDefaults.AttachmentMetadata(workflowId)
         );
 
-        (await Post(client, "/create-tracked-work-item", Body(rootId, "run")))
-            .StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        await StartAttached(rootId);
 
-        var first = await WaitForNodeExecution(rootId, left.Id);
+        var leftExecution = await WaitForNodeExecution(rootId, left.Id);
+        var rightExecution = await WaitForNodeExecution(rootId, right.Id);
+        leftExecution.Ledger.Id.ShouldNotBe(rightExecution.Ledger.Id);
+
         await WaitFor(
             async () =>
                 _factory
@@ -505,13 +617,194 @@ public class WorkflowWorkloadTests
                             },
                         }
                     )
-                    .Items.Count == 1,
-            "only left drafted"
+                    .Items.Count == 2,
+            "both fan-out nodes drafted"
         );
 
-        await ClaimStartSucceed(client, first.Ledger.Id, workerId, "left done");
-        var second = await WaitForNodeExecution(rootId, right.Id);
-        second.Ledger.Id.ShouldNotBe(first.Ledger.Id);
+        await ClaimStartSucceed(client, leftExecution.Ledger.Id, workerId, "left done");
+        await ClaimStartSucceed(client, rightExecution.Ledger.Id, workerId, "right done");
+        await WaitFor(
+            async () => (await Get(client, rootId)).Status == TrackedWorkItemStatuses.Succeeded,
+            "root succeeded"
+        );
+    }
+
+    [Fact]
+    public async Task join_waits_for_both_feeders_then_drafts_once()
+    {
+        var client = _factory.CreateClient();
+        var workerId = await RegisterWorker();
+        var workflowId = Guid.NewGuid();
+        var input = WorkItemInputDefaults.CreateNode();
+        var left = Runnable("left", x: 200);
+        var right = Runnable("right", x: 200, y: 120);
+        var join = new WorkflowNode
+        {
+            Id = Guid.NewGuid(),
+            Name = "join",
+            Position = new NodePosition { X = 400, Y = 80 },
+            Inputs =
+            [
+                new WorkflowPort
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "a",
+                    Schema = new JsonObject { ["type"] = "object" },
+                },
+                new WorkflowPort
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "b",
+                    Schema = new JsonObject { ["type"] = "object" },
+                },
+            ],
+            Outputs =
+            [
+                new WorkflowPort
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "out",
+                    Schema = new JsonObject { ["type"] = "object" },
+                },
+            ],
+            Definition = new NodeDefinition
+            {
+                Style = DefinitionStyle.Harness,
+                Spec = new JsonObject { ["identity"] = "agent" },
+            },
+        };
+        _factory.WorkflowCatalog.Seed(
+            new GetWorkflowApi.Response
+            {
+                Id = workflowId,
+                Name = "join-graph",
+                Version = 1,
+                Nodes = [input, left, right, join],
+                Connections =
+                [
+                    new WorkflowConnection
+                    {
+                        Id = Guid.NewGuid(),
+                        OutputPortId = input.Outputs[0].Id,
+                        InputPortId = left.Inputs[0].Id,
+                    },
+                    new WorkflowConnection
+                    {
+                        Id = Guid.NewGuid(),
+                        OutputPortId = input.Outputs[0].Id,
+                        InputPortId = right.Inputs[0].Id,
+                    },
+                    new WorkflowConnection
+                    {
+                        Id = Guid.NewGuid(),
+                        OutputPortId = left.Outputs[0].Id,
+                        InputPortId = join.Inputs[0].Id,
+                    },
+                    new WorkflowConnection
+                    {
+                        Id = Guid.NewGuid(),
+                        OutputPortId = right.Outputs[0].Id,
+                        InputPortId = join.Inputs[1].Id,
+                    },
+                ],
+            }
+        );
+
+        var rootId = Guid.NewGuid();
+        _factory.WorkItemLedger.Seed(
+            rootId,
+            data: new JsonObject { ["title"] = "join" },
+            metadata: WorkItemInputDefaults.AttachmentMetadata(workflowId)
+        );
+
+        await StartAttached(rootId);
+        var leftExecution = await WaitForNodeExecution(rootId, left.Id);
+        var rightExecution = await WaitForNodeExecution(rootId, right.Id);
+
+        await ClaimStartSucceed(client, leftExecution.Ledger.Id, workerId, "left done");
+        await WaitFor(
+            async () =>
+                _factory
+                    .WorkItemLedger.List(
+                        new ListWorkItemsApi.Query
+                        {
+                            Metadata = new JsonObject
+                            {
+                                [WorkItemInputDefaults.MetadataRootWorkItemIdKey] =
+                                    rootId.ToString("D"),
+                            },
+                        }
+                    )
+                    .Items.Count == 2,
+            "join not drafted after one feeder"
+        );
+
+        await ClaimStartSucceed(client, rightExecution.Ledger.Id, workerId, "right done");
+        var joinExecution = await WaitForNodeExecution(rootId, join.Id);
+        await ClaimStartSucceed(client, joinExecution.Ledger.Id, workerId, "join done");
+        await WaitFor(
+            async () => (await Get(client, rootId)).Status == TrackedWorkItemStatuses.Succeeded,
+            "root succeeded"
+        );
+    }
+
+    [Fact]
+    public async Task sibling_failure_cancels_in_flight_and_ends_root()
+    {
+        var client = _factory.CreateClient();
+        var workerId = await RegisterWorker();
+        var workflowId = Guid.NewGuid();
+        var input = WorkItemInputDefaults.CreateNode();
+        var left = Runnable("left", x: 200);
+        var right = Runnable("right", x: 200, y: 120);
+        _factory.WorkflowCatalog.Seed(
+            new GetWorkflowApi.Response
+            {
+                Id = workflowId,
+                Name = "fan-fail",
+                Version = 1,
+                Nodes = [input, left, right],
+                Connections =
+                [
+                    new WorkflowConnection
+                    {
+                        Id = Guid.NewGuid(),
+                        OutputPortId = input.Outputs[0].Id,
+                        InputPortId = left.Inputs[0].Id,
+                    },
+                    new WorkflowConnection
+                    {
+                        Id = Guid.NewGuid(),
+                        OutputPortId = input.Outputs[0].Id,
+                        InputPortId = right.Inputs[0].Id,
+                    },
+                ],
+            }
+        );
+
+        var rootId = Guid.NewGuid();
+        _factory.WorkItemLedger.Seed(
+            rootId,
+            data: new JsonObject { ["title"] = "fan-fail" },
+            metadata: WorkItemInputDefaults.AttachmentMetadata(workflowId)
+        );
+
+        await StartAttached(rootId);
+        var leftExecution = await WaitForNodeExecution(rootId, left.Id);
+        var rightExecution = await WaitForNodeExecution(rootId, right.Id);
+
+        await ClaimStartFail(client, leftExecution.Ledger.Id, workerId, "left blew up");
+        await WaitFor(
+            async () => (await Get(client, rootId)).Status == TrackedWorkItemStatuses.Failed,
+            "root failed"
+        );
+        await WaitFor(
+            async () =>
+                (await Get(client, rightExecution.Ledger.Id)).Status
+                == TrackedWorkItemStatuses.Canceled,
+            "sibling canceled"
+        );
+        _factory.WorkItemLedger.HistoryOf(rootId).Last().Reason.ShouldContain("left");
     }
 
     [Fact]
@@ -521,8 +814,7 @@ public class WorkflowWorkloadTests
         var workerId = await RegisterWorker();
         var (rootId, firstNodeId, _, _) = SeedLinearWorkflow();
 
-        (await Post(client, "/create-tracked-work-item", Body(rootId, "run")))
-            .StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        await StartAttached(rootId);
         var firstExecution = await WaitForNodeExecution(rootId, firstNodeId);
 
         await EnsureClaimed(client, firstExecution.Ledger.Id, workerId);
@@ -802,6 +1094,19 @@ public class WorkflowWorkloadTests
         (
             await Post(client, "/fail-tracked-work-item", ReportBody(id, runId, holder, reason))
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+    }
+
+    async Task StartAttached(Guid rootId)
+    {
+        var bus = _factory.Services.GetRequiredService<IBifrostBus>();
+        await bus.Request<StartAttachedWorkflowApi.Command, Unit>(
+            new StartAttachedWorkflowApi.Command
+            {
+                WorkItemId = rootId,
+                Actor = WorkItemLifecycleActors.Orchestrator,
+                Reason = "start attached workflow",
+            }
+        );
     }
 
     async Task<Guid> RegisterWorker()

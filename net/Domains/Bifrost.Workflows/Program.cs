@@ -1,7 +1,9 @@
 using Bifrost;
 using Bifrost.MessageBus;
+using Bifrost.Orchestrator.Contracts;
 using Bifrost.Rpc;
 using Bifrost.Workflows.Contracts;
+using Bifrost.Workflows.Execution;
 using JasperFx;
 using JasperFx.CodeGeneration;
 using Marten;
@@ -35,6 +37,13 @@ builder.Host.UseWolverine(opts =>
     );
     opts.Discovery.IncludeAssembly(typeof(MartenConfiguration).Assembly);
     opts.Policies.AutoApplyTransactions();
+
+    // Serialize advance drafting against attached-root cancel child discovery.
+    opts.LocalQueue("attached-workflow").Sequential().UseDurableInbox();
+    opts.PublishMessage<AdvanceWorkflowExecution>().ToLocalQueue("attached-workflow");
+    opts.PublishMessage<CancelAttachedWorkflowRoot>().ToLocalQueue("attached-workflow");
+
+    opts.UseBifrostBus().ListenFor<TrackedWorkItemTerminal>();
 });
 
 builder.Services.AddRpcHost(options =>
@@ -70,7 +79,7 @@ app.Use(
                 }
             );
         }
-        catch (ContractValidationException ex)
+        catch (Bifrost.Workflows.Contracts.ContractValidationException ex)
         {
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
             await context.Response.WriteAsJsonAsync(

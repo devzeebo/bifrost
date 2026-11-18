@@ -32,7 +32,7 @@ namespace Internal.Generated.WolverineHandlers
             System.Diagnostics.Activity.Current?.SetTag("handler.type", "Bifrost.Workflows.Commands.CreateAttachedWorkItemHandler");
             
             // The actual message execution
-            await Bifrost.Workflows.Commands.CreateAttachedWorkItemHandler.Handle(command, _bifrostBus).ConfigureAwait(false);
+            await Bifrost.Workflows.Commands.CreateAttachedWorkItemHandler.Handle(command, _bifrostBus, context).ConfigureAwait(false);
 
         }
 

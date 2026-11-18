@@ -10,8 +10,8 @@ public static class TrackedWorkItemBusExtensions
     extension(IServiceCollection services)
     {
         /// <summary>
-        /// Exposes holder/status/run reads and start command on the bus so workers can
-        /// re-check and transition items during harness execution.
+        /// Exposes holder/status/run reads and lifecycle commands on the bus so workers and
+        /// other domains (e.g. Workflows) can re-check and transition items.
         /// </summary>
         public IServiceCollection AddTrackedWorkItemBusQueries()
         {
@@ -24,6 +24,11 @@ public static class TrackedWorkItemBusExtensions
             >();
             services.Query<GetRunApi.Query, GetRunApi.Response>();
             services.Command<StartTrackedWorkItemApi.Command>();
+            services.Command<CreateTrackedWorkItemApi.Command>();
+            services.Command<BeginExecutingTrackedWorkItemApi.Command>();
+            services.Command<SucceedExecutingTrackedWorkItemApi.Command>();
+            services.Command<FailExecutingTrackedWorkItemApi.Command>();
+            services.Command<CancelTrackedWorkItemApi.Command>();
             return services;
         }
 

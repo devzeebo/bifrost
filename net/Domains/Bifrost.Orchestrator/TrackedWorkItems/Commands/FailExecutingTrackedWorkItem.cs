@@ -3,6 +3,7 @@ using Bifrost.Orchestrator.Contracts;
 using Bifrost.TrackedWorkItems.Aggregate;
 using Bifrost.TrackedWorkItems.Events;
 using Bifrost.TrackedWorkItems.Services;
+using Wolverine;
 using Wolverine.Marten;
 
 namespace Bifrost.TrackedWorkItems.Commands;
@@ -17,7 +18,7 @@ public static class FailExecutingTrackedWorkItemHandler
         if (command.Actor != WorkItemLifecycleActors.Orchestrator)
         {
             throw new CommandValidationException(
-                "Only the orchestrator may fail an executing workflow work item."
+                "Only the orchestrator actor may fail an executing work item."
             );
         }
 
@@ -38,7 +39,7 @@ public static class FailExecutingTrackedWorkItemHandler
 
     [WolverinePost("/fail-executing-tracked-work-item"), EmptyResponse]
     [AggregateHandler]
-    public static async Task<TrackedWorkItemFailed> Handle(
+    public static async Task<(TrackedWorkItemFailed Failed, OutgoingMessages Cascades)> Handle(
         FailExecutingTrackedWorkItemApi.Command command,
         TrackedWorkItem item,
         IBifrostBus bus
@@ -69,6 +70,16 @@ public static class FailExecutingTrackedWorkItemHandler
             bus
         );
 
-        return new TrackedWorkItemFailed { Actor = actor, Reason = command.Reason };
+        return (
+            new TrackedWorkItemFailed { Actor = actor, Reason = command.Reason },
+            [
+                new TrackedWorkItemTerminal
+                {
+                    WorkItemId = command.Id,
+                    Status = next,
+                    Reason = command.Reason,
+                },
+            ]
+        );
     }
 }
