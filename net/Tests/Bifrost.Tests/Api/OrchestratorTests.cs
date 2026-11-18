@@ -1,4 +1,5 @@
 extern alias Orchestrator;
+extern alias Workflows;
 
 using System.Net;
 using System.Net.Http.Json;
@@ -142,6 +143,90 @@ public sealed class OrchestratorApiFactory : WebApplicationFactory<Orchestrator:
                 {
                     sp.GetRequiredService<RecordingKillHarnessProcesses>().Record(command);
                     return Task.CompletedTask;
+                }
+            );
+            // In-process Workflows execution bridge: production hosts these on the workflows
+            // process; tests share one host and invoke handlers over the loopback bus.
+            services.AddMessageBusSubscriber<TrackedWorkItemTerminal>(
+                async (sp, message, ct) =>
+                {
+                    await using var scope = sp.CreateAsyncScope();
+                    var bus = scope.ServiceProvider.GetRequiredService<IBifrostBus>();
+                    var session = scope.ServiceProvider.GetRequiredService<Marten.IQuerySession>();
+                    GetWorkItemApi.Response ledger;
+                    try
+                    {
+                        ledger = await bus.Request<GetWorkItemApi.Query, GetWorkItemApi.Response>(
+                            new GetWorkItemApi.Query { Id = message.WorkItemId },
+                            ct
+                        );
+                    }
+                    catch (BusException ex) when (ex.Error.Code == BusErrorCodes.NotFound)
+                    {
+                        return;
+                    }
+
+                    if (
+                        !WorkItemInputDefaults.TryReadRootWorkItemId(
+                            ledger.Metadata,
+                            out var rootWorkItemId
+                        )
+                    )
+                    {
+                        return;
+                    }
+
+                    await Workflows::Bifrost.Workflows.Execution.AdvanceWorkflowExecutionHandler.Handle(
+                        new Workflows::Bifrost.Workflows.Execution.AdvanceWorkflowExecution
+                        {
+                            RootWorkItemId = rootWorkItemId,
+                        },
+                        session,
+                        bus
+                    );
+                }
+            );
+            services.AddMessageBusHandler<StartAttachedWorkflowApi.Command>(
+                async (sp, command, ct) =>
+                {
+                    await using var scope = sp.CreateAsyncScope();
+                    var bus = scope.ServiceProvider.GetRequiredService<IBifrostBus>();
+                    var session = scope.ServiceProvider.GetRequiredService<Marten.IQuerySession>();
+                    var local = scope.ServiceProvider.GetRequiredService<Wolverine.IMessageBus>();
+                    await local.InvokeAsync(
+                        new CreateTrackedWorkItemApi.Command
+                        {
+                            Id = command.WorkItemId,
+                            Actor = WorkItemLifecycleActors.Orchestrator,
+                            Reason = command.Reason,
+                            ScheduleDispatch = false,
+                        },
+                        ct
+                    );
+                    await Workflows::Bifrost.Workflows.Execution.AdvanceWorkflowExecutionHandler.Handle(
+                        new Workflows::Bifrost.Workflows.Execution.AdvanceWorkflowExecution
+                        {
+                            RootWorkItemId = command.WorkItemId,
+                        },
+                        session,
+                        bus
+                    );
+                }
+            );
+            services.AddMessageBusHandler<CancelAttachedWorkflowRootApi.Command>(
+                async (sp, command, ct) =>
+                {
+                    await using var scope = sp.CreateAsyncScope();
+                    var bus = scope.ServiceProvider.GetRequiredService<IBifrostBus>();
+                    await Workflows::Bifrost.Workflows.Execution.CancelAttachedWorkflowRootHandler.Handle(
+                        new Workflows::Bifrost.Workflows.Execution.CancelAttachedWorkflowRoot
+                        {
+                            RootWorkItemId = command.RootWorkItemId,
+                            Actor = command.Actor,
+                            Reason = command.Reason,
+                        },
+                        bus
+                    );
                 }
             );
             services.AddLoopbackBifrostBus();

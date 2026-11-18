@@ -2,28 +2,35 @@ using System.Text.Json.Nodes;
 using Bifrost.MessageBus;
 using Bifrost.Orchestrator.Contracts;
 using Bifrost.Rpc;
-using Bifrost.TrackedWorkItems.Projections;
 using Bifrost.Workflows.Contracts;
+using Bifrost.Workflows.Projections;
 using Bifrost.WorkItems.Contracts;
 using Marten;
 using Wolverine;
 
-namespace Bifrost.TrackedWorkItems.Workflow;
+namespace Bifrost.Workflows.Execution;
 
 public static class AdvanceWorkflowExecutionHandler
 {
     public static async Task Handle(
         AdvanceWorkflowExecution message,
         IQuerySession session,
-        IBifrostBus bus,
-        IMessageBus local
+        IBifrostBus bus
     )
     {
-        var root =
-            await session.LoadAsync<TrackedWorkItemView.Model>(message.RootWorkItemId)
-            ?? throw new CommandValidationException(
+        GetTrackedWorkItemApi.Response root;
+        try
+        {
+            root = await bus.Request<GetTrackedWorkItemApi.Query, GetTrackedWorkItemApi.Response>(
+                new GetTrackedWorkItemApi.Query { Id = message.RootWorkItemId }
+            );
+        }
+        catch (BusException ex) when (ex.Error.Code == BusErrorCodes.NotFound)
+        {
+            throw new CommandValidationException(
                 $"Tracked work item {message.RootWorkItemId} was not found."
             );
+        }
 
         if (
             root.Status
@@ -46,8 +53,7 @@ public static class AdvanceWorkflowExecutionHandler
         catch (BusException ex) when (ex.Error.Code == BusErrorCodes.NotFound)
         {
             await FailRoot(
-                    local,
-                    session,
+                    bus,
                     message.RootWorkItemId,
                     $"Attached work item {message.RootWorkItemId} was not found on the ledger."
                 )
@@ -68,43 +74,41 @@ public static class AdvanceWorkflowExecutionHandler
                 return;
             }
 
-            GetWorkflowApi.Response workflow;
-            try
+            var workflow = await session.LoadAsync<WorkflowView.Model>(workflowId);
+            if (workflow is not null && !workflow.IsDeleted)
             {
-                workflow = await bus.Request<GetWorkflowApi.Query, GetWorkflowApi.Response>(
-                    new GetWorkflowApi.Query { Id = workflowId }
-                );
+                snapshot = WorkflowSnapshot.FromView(workflow);
             }
-            catch (BusException ex)
-                when (ex.Error.Code is BusErrorCodes.NotFound or BusErrorCodes.Validation)
+            else
             {
-                await FailRoot(
-                        local,
-                        session,
-                        message.RootWorkItemId,
-                        $"Workflow {workflowId} no longer resolves; cannot start the attached work item."
-                    )
-                    .ConfigureAwait(false);
-                return;
+                try
+                {
+                    var response = await bus.Request<GetWorkflowApi.Query, GetWorkflowApi.Response>(
+                        new GetWorkflowApi.Query { Id = workflowId }
+                    );
+                    snapshot = WorkflowSnapshot.FromResponse(response);
+                }
+                catch (BusException ex)
+                    when (ex.Error.Code is BusErrorCodes.NotFound or BusErrorCodes.Validation)
+                {
+                    await FailRoot(
+                            bus,
+                            message.RootWorkItemId,
+                            $"Workflow {workflowId} no longer resolves; cannot start the attached work item."
+                        )
+                        .ConfigureAwait(false);
+                    return;
+                }
             }
-
-            snapshot = WorkflowSnapshot.FromResponse(workflow);
             var workItemInput = WorkflowGraphNavigation.RequireWorkItemInput(snapshot);
             var inputSchema = WorkflowGraphNavigation.RequireInputSchema(workItemInput);
-            if (
-                !WorkflowInputSchema.TryEvaluate(
-                    ledger.Data,
-                    inputSchema,
-                    out var schemaDetail
-                )
-            )
+            if (!WorkflowInputSchema.TryEvaluate(ledger.Data, inputSchema, out var schemaDetail))
             {
                 var detail = string.IsNullOrWhiteSpace(schemaDetail)
                     ? "instance does not satisfy schema"
                     : schemaDetail;
                 await FailRoot(
-                        local,
-                        session,
+                        bus,
                         message.RootWorkItemId,
                         $"Work item data does not satisfy workflow '{snapshot.Name}' input schema: {detail}"
                     )
@@ -129,8 +133,7 @@ public static class AdvanceWorkflowExecutionHandler
 
             if (root.Status == TrackedWorkItemStatuses.Pending)
             {
-                await local
-                    .InvokeAsync(
+                await bus.Request<BeginExecutingTrackedWorkItemApi.Command, Unit>(
                         new BeginExecutingTrackedWorkItemApi.Command
                         {
                             Id = message.RootWorkItemId,
@@ -153,8 +156,7 @@ public static class AdvanceWorkflowExecutionHandler
         }
         else if (root.Status == TrackedWorkItemStatuses.Pending)
         {
-            await local
-                .InvokeAsync(
+            await bus.Request<BeginExecutingTrackedWorkItemApi.Command, Unit>(
                     new BeginExecutingTrackedWorkItemApi.Command
                     {
                         Id = message.RootWorkItemId,
@@ -169,20 +171,17 @@ public static class AdvanceWorkflowExecutionHandler
 
         if (!beganExecuting)
         {
-            root =
-                await session.LoadAsync<TrackedWorkItemView.Model>(message.RootWorkItemId) ?? root;
+            root = await bus.Request<GetTrackedWorkItemApi.Query, GetTrackedWorkItemApi.Response>(
+                new GetTrackedWorkItemApi.Query { Id = message.RootWorkItemId }
+            );
             if (root.Status != TrackedWorkItemStatuses.Executing)
             {
                 return;
             }
         }
 
-        var executions = await LoadNodeExecutions(bus, session, message.RootWorkItemId)
+        var executions = await LoadNodeExecutions(bus, message.RootWorkItemId)
             .ConfigureAwait(false);
-        if (HasInFlight(executions))
-        {
-            return;
-        }
 
         var failed = executions.FirstOrDefault(e =>
             e.Tracked.Status
@@ -198,11 +197,20 @@ public static class AdvanceWorkflowExecutionHandler
                     ?.GetValue<string>()
                 ?? failed.Ledger.Id.ToString("D");
             var ending = failed.Tracked.Status;
+            await AttachedWorkflowChildren
+                .CancelNonTerminal(
+                    bus,
+                    message.RootWorkItemId,
+                    WorkItemLifecycleActors.Orchestrator,
+                    $"sibling node '{nodeLabel}' ended in {ending}",
+                    exceptWorkItemId: failed.Ledger.Id
+                )
+                .ConfigureAwait(false);
+
             if (ending == TrackedWorkItemStatuses.Failed)
             {
                 await FailRoot(
-                        local,
-                        session,
+                        bus,
                         message.RootWorkItemId,
                         $"Node '{nodeLabel}' ended in {ending}."
                     )
@@ -210,8 +218,7 @@ public static class AdvanceWorkflowExecutionHandler
             }
             else
             {
-                await local
-                    .InvokeAsync(
+                await bus.Request<CancelTrackedWorkItemApi.Command, Unit>(
                         new CancelTrackedWorkItemApi.Command
                         {
                             Id = message.RootWorkItemId,
@@ -242,83 +249,88 @@ public static class AdvanceWorkflowExecutionHandler
             .ToHashSet();
 
         var ready = WorkflowGraphNavigation.ReadyNodes(snapshot, issuedNodeIds, concludedOutputs);
-        if (ready.Count == 0)
+        if (ready.Count > 0)
         {
-            if (issuedNodeIds.Count == 0)
+            foreach (var next in ready)
             {
-                await FailRoot(
-                        local,
-                        session,
+                await DraftAndScheduleNode(
+                        bus,
                         message.RootWorkItemId,
-                        $"Workflow '{snapshot.Name}' has no runnable node after the work-item input."
+                        snapshot,
+                        next,
+                        WorkflowGraphNavigation.BuildIssuedInputs(next, snapshot, concludedOutputs)
                     )
                     .ConfigureAwait(false);
-                return;
             }
 
-            var unissued = snapshot
-                .Nodes.Where(n =>
-                    !WorkItemInputDefaults.IsWorkItemInput(n) && !issuedNodeIds.Contains(n.Id)
-                )
+            return;
+        }
+
+        if (HasInFlight(executions))
+        {
+            return;
+        }
+
+        if (issuedNodeIds.Count == 0)
+        {
+            var unnamed = snapshot
+                .Nodes.Where(n => !WorkItemInputDefaults.IsWorkItemInput(n))
                 .Select(n => string.IsNullOrWhiteSpace(n.Name) ? n.Id.ToString("D") : n.Name)
                 .ToArray();
-            if (unissued.Length > 0)
-            {
-                await FailRoot(
-                        local,
-                        session,
-                        message.RootWorkItemId,
-                        $"Workflow '{snapshot.Name}' finished with unreachable nodes: {string.Join(", ", unissued)}."
-                    )
-                    .ConfigureAwait(false);
-                return;
-            }
+            var named =
+                unnamed.Length == 0
+                    ? $"Workflow '{snapshot.Name}' has no runnable node after the work-item input."
+                    : $"Workflow '{snapshot.Name}' has no runnable node after the work-item input: {string.Join(", ", unnamed)}.";
+            await FailRoot(bus, message.RootWorkItemId, named).ConfigureAwait(false);
+            return;
+        }
 
-            await local
-                .InvokeAsync(
-                    new SucceedExecutingTrackedWorkItemApi.Command
-                    {
-                        Id = message.RootWorkItemId,
-                        Actor = WorkItemLifecycleActors.Orchestrator,
-                        Reason = "workflow nodes concluded",
-                        Expected = new JsonObject
-                        {
-                            ["status"] = TrackedWorkItemStatuses.Executing,
-                        },
-                    }
+        var unissued = snapshot
+            .Nodes.Where(n =>
+                !WorkItemInputDefaults.IsWorkItemInput(n) && !issuedNodeIds.Contains(n.Id)
+            )
+            .Select(n => string.IsNullOrWhiteSpace(n.Name) ? n.Id.ToString("D") : n.Name)
+            .ToArray();
+        if (unissued.Length > 0)
+        {
+            await FailRoot(
+                    bus,
+                    message.RootWorkItemId,
+                    $"Workflow '{snapshot.Name}' finished with unreachable nodes: {string.Join(", ", unissued)}."
                 )
                 .ConfigureAwait(false);
             return;
         }
 
-        var next = ready[0];
-        await DraftAndScheduleNode(
-                bus,
-                local,
-                message.RootWorkItemId,
-                snapshot,
-                next,
-                WorkflowGraphNavigation.BuildIssuedInputs(next, snapshot, concludedOutputs)
+        await bus.Request<SucceedExecutingTrackedWorkItemApi.Command, Unit>(
+                new SucceedExecutingTrackedWorkItemApi.Command
+                {
+                    Id = message.RootWorkItemId,
+                    Actor = WorkItemLifecycleActors.Orchestrator,
+                    Reason = "workflow nodes concluded",
+                    Expected = new JsonObject { ["status"] = TrackedWorkItemStatuses.Executing },
+                }
             )
             .ConfigureAwait(false);
     }
 
-    static async Task FailRoot(
-        IMessageBus local,
-        IQuerySession session,
-        Guid rootId,
-        string reason
-    )
+    static async Task FailRoot(IBifrostBus bus, Guid rootId, string reason)
     {
-        var tracked = await session.LoadAsync<TrackedWorkItemView.Model>(rootId);
-        if (tracked is null)
+        GetTrackedWorkItemApi.Response tracked;
+        try
+        {
+            tracked = await bus.Request<GetTrackedWorkItemApi.Query, GetTrackedWorkItemApi.Response>(
+                new GetTrackedWorkItemApi.Query { Id = rootId }
+            );
+        }
+        catch (BusException ex) when (ex.Error.Code == BusErrorCodes.NotFound)
         {
             return;
         }
 
         if (tracked.Status == TrackedWorkItemStatuses.Pending)
         {
-            await local.InvokeAsync(
+            await bus.Request<BeginExecutingTrackedWorkItemApi.Command, Unit>(
                 new BeginExecutingTrackedWorkItemApi.Command
                 {
                     Id = rootId,
@@ -333,9 +345,7 @@ public static class AdvanceWorkflowExecutionHandler
             return;
         }
 
-        // Aggregate handlers reload from the event stream, so BeginExecuting is visible here
-        // even if this query session's projection row is still stale.
-        await local.InvokeAsync(
+        await bus.Request<FailExecutingTrackedWorkItemApi.Command, Unit>(
             new FailExecutingTrackedWorkItemApi.Command
             {
                 Id = rootId,
@@ -348,7 +358,6 @@ public static class AdvanceWorkflowExecutionHandler
 
     static async Task DraftAndScheduleNode(
         IBifrostBus bus,
-        IMessageBus local,
         Guid rootWorkItemId,
         WorkflowSnapshot snapshot,
         WorkflowNode node,
@@ -393,8 +402,7 @@ public static class AdvanceWorkflowExecutionHandler
             )
             .ConfigureAwait(false);
 
-        await local
-            .InvokeAsync(
+        await bus.Request<CreateTrackedWorkItemApi.Command, Unit>(
                 new CreateTrackedWorkItemApi.Command
                 {
                     Id = nodeWorkItemId,
@@ -445,20 +453,10 @@ public static class AdvanceWorkflowExecutionHandler
 
     static async Task<IReadOnlyList<NodeExecution>> LoadNodeExecutions(
         IBifrostBus bus,
-        IQuerySession session,
         Guid rootWorkItemId
     )
     {
-        var listed = await bus.Request<ListWorkItemsApi.Query, ListWorkItemsApi.Response>(
-            new ListWorkItemsApi.Query
-            {
-                Metadata = new JsonObject
-                {
-                    [WorkItemInputDefaults.MetadataRootWorkItemIdKey] =
-                        rootWorkItemId.ToString("D"),
-                },
-            }
-        );
+        var listed = await AttachedWorkflowChildren.List(bus, rootWorkItemId).ConfigureAwait(false);
 
         var results = new List<NodeExecution>();
         foreach (var item in listed.Items.Where(i => !i.IsDeleted))
@@ -466,23 +464,20 @@ public static class AdvanceWorkflowExecutionHandler
             var ledger = await bus.Request<GetWorkItemApi.Query, GetWorkItemApi.Response>(
                 new GetWorkItemApi.Query { Id = item.Id }
             );
-            var tracked = await session.LoadAsync<TrackedWorkItemView.Model>(item.Id);
-            if (tracked is null)
+            GetTrackedWorkItemApi.Response tracked;
+            try
+            {
+                tracked = await bus.Request<
+                    GetTrackedWorkItemApi.Query,
+                    GetTrackedWorkItemApi.Response
+                >(new GetTrackedWorkItemApi.Query { Id = item.Id });
+            }
+            catch (BusException ex) when (ex.Error.Code == BusErrorCodes.NotFound)
             {
                 continue;
             }
 
-            results.Add(
-                new NodeExecution(
-                    ledger,
-                    new GetTrackedWorkItemApi.Response
-                    {
-                        Id = tracked.Id,
-                        Status = tracked.Status,
-                        HolderId = tracked.HolderId,
-                    }
-                )
-            );
+            results.Add(new NodeExecution(ledger, tracked));
         }
 
         return results

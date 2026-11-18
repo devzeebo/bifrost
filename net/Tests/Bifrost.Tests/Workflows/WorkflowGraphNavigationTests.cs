@@ -1,11 +1,11 @@
-extern alias Orchestrator;
+extern alias Workflows;
 
 using System.Text.Json.Nodes;
 using Bifrost.Workflows.Contracts;
 using Shouldly;
-using WorkflowGraphNavigation = Orchestrator::Bifrost.TrackedWorkItems.Workflow.WorkflowGraphNavigation;
+using WorkflowGraphNavigation = Workflows::Bifrost.Workflows.Execution.WorkflowGraphNavigation;
 
-namespace Bifrost.Tests.Orchestrator;
+namespace Bifrost.Tests.Workflows;
 
 public class WorkflowGraphNavigationTests
 {
@@ -62,10 +62,7 @@ public class WorkflowGraphNavigationTests
 
         var recorded = WorkflowGraphNavigation.RecordProducedOutputs(
             node,
-            new JsonObject
-            {
-                ["outputs"] = new JsonObject { [portId.ToString("D")] = 7 },
-            }
+            new JsonObject { ["outputs"] = new JsonObject { [portId.ToString("D")] = 7 } }
         );
 
         recorded[portId.ToString("D")]!.GetValue<int>().ShouldBe(7);

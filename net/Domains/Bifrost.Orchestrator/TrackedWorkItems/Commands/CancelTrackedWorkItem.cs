@@ -1,12 +1,10 @@
 using System.Text.Json.Nodes;
 using Bifrost.MessageBus;
 using Bifrost.Orchestrator.Contracts;
-using Bifrost.Rpc;
 using Bifrost.TrackedWorkItems.Aggregate;
 using Bifrost.TrackedWorkItems.Events;
 using Bifrost.TrackedWorkItems.Projections;
 using Bifrost.TrackedWorkItems.Services;
-using Bifrost.TrackedWorkItems.Workflow;
 using Marten;
 using Wolverine;
 using Wolverine.Marten;
@@ -34,21 +32,6 @@ public static class CancelTrackedWorkItemHandler
         );
 
         var actor = WorkItemLifecycleActors.ForRequester(command.Actor);
-
-        if (view.Status == TrackedWorkItemStatuses.Executing)
-        {
-            // Sequential local queue with AdvanceWorkflowExecution — do not list children inline.
-            await bus.SendAsync(
-                    new CancelAttachedWorkflowRoot
-                    {
-                        RootWorkItemId = command.Id,
-                        Actor = actor,
-                        Reason = command.Reason,
-                    }
-                )
-                .ConfigureAwait(false);
-            return;
-        }
 
         await bus.InvokeAsync(
                 new ApplyCancelTrackedWorkItem
@@ -84,11 +67,6 @@ public static class CancelTrackedWorkItemHandler
             WorkItemLifecycleAction.Cancel
         );
 
-        var cascades = new OutgoingMessages();
-        await SucceedTrackedWorkItemHandler
-            .MaybeAdvanceParentWorkflow(bus, command.Id, cascades)
-            .ConfigureAwait(false);
-
         await MirrorWorkItemStatusHandler.Handle(
             new MirrorWorkItemStatusHandler.Message
             {
@@ -108,7 +86,14 @@ public static class CancelTrackedWorkItemHandler
 
         return (
             new TrackedWorkItemCanceled { Actor = actor, Reason = command.Reason },
-            cascades
+            [
+                new TrackedWorkItemTerminal
+                {
+                    WorkItemId = command.Id,
+                    Status = next,
+                    Reason = command.Reason,
+                },
+            ]
         );
     }
 

@@ -35,16 +35,21 @@ namespace Internal.Generated.WolverineHandlers
             // Building the Marten session
             await using var documentSession = _outboxedSessionFactory.OpenSession(messageContext);
             System.Diagnostics.Activity.Current?.SetTag("handler.type", "Bifrost.Workflows.Commands.CreateAttachedWorkItemHandler");
+            Wolverine.Http.Runtime.RequestIdMiddleware.Apply(httpContext, messageContext);
             // Reading the request body via JSON deserialization
             var (command, jsonContinue) = await ReadJsonAsync<Bifrost.Workflows.Contracts.CreateAttachedWorkItemApi.Command>(httpContext);
             if (jsonContinue == Wolverine.HandlerContinuation.Stop) return;
             await Bifrost.Workflows.Commands.CreateAttachedWorkItemHandler.Validate(command, ((Marten.IQuerySession)documentSession)).ConfigureAwait(false);
             
             // The actual HTTP request handler execution
-            await Bifrost.Workflows.Commands.CreateAttachedWorkItemHandler.Handle(command, _bifrostBus).ConfigureAwait(false);
+            await Bifrost.Workflows.Commands.CreateAttachedWorkItemHandler.Handle(command, _bifrostBus, messageContext).ConfigureAwait(false);
 
             // Wolverine automatically sets the status code to 204 for empty responses
             if (httpContext.Response is { HasStarted: false, StatusCode: 200 }) httpContext.Response.StatusCode = 204;
+            
+            // Have to flush outgoing messages just in case Marten did nothing because of https://github.com/JasperFx/wolverine/issues/536
+            await messageContext.FlushOutgoingMessagesAsync().ConfigureAwait(false);
+
         }
 
     }

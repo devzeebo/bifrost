@@ -1,7 +1,7 @@
 using System.Text.Json.Nodes;
 using Bifrost.Workflows.Contracts;
 
-namespace Bifrost.TrackedWorkItems.Workflow;
+namespace Bifrost.Workflows.Execution;
 
 public static class WorkflowGraphNavigation
 {
@@ -72,7 +72,7 @@ public static class WorkflowGraphNavigation
 
     /// <summary>
     /// Ready runnable nodes (not work-item-input) whose every inbound connection is satisfied,
-    /// excluding nodes already issued. Ordered by snapshot node order for serial fan-out.
+    /// excluding nodes already issued. Ordered by snapshot node order.
     /// </summary>
     public static IReadOnlyList<WorkflowNode> ReadyNodes(
         WorkflowSnapshot snapshot,

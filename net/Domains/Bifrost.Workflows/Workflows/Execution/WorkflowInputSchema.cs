@@ -2,18 +2,14 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Json.Schema;
 
-namespace Bifrost.TrackedWorkItems.Workflow;
+namespace Bifrost.Workflows.Execution;
 
 public static class WorkflowInputSchema
 {
     public static bool Satisfies(JsonNode? instance, JsonNode schema) =>
         TryEvaluate(instance, schema, out _);
 
-    public static bool TryEvaluate(
-        JsonNode? instance,
-        JsonNode schema,
-        out string? detail
-    )
+    public static bool TryEvaluate(JsonNode? instance, JsonNode schema, out string? detail)
     {
         ArgumentNullException.ThrowIfNull(schema);
 
@@ -27,7 +23,9 @@ public static class WorkflowInputSchema
         // Strip only top-level $id/$anchor (same as PortSchemaCompatibility.WithoutRegistryIds).
         var text = WithoutRegistryIds(schema).ToJsonString();
         var jsonSchema = JsonSchema.FromText(text);
-        var element = JsonSerializer.SerializeToElement(instance ?? JsonValue.Create((string?)null)!);
+        var element = JsonSerializer.SerializeToElement(
+            instance ?? JsonValue.Create((string?)null)!
+        );
         var result = jsonSchema.Evaluate(
             element,
             new EvaluationOptions { OutputFormat = OutputFormat.List }

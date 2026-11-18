@@ -10,6 +10,25 @@ export type CancelTrackedWorkItemInput = {
 export const cancelTrackedWorkItem = async (
   input: CancelTrackedWorkItemInput,
 ): Promise<void> => {
+  if (input.status === 'executing') {
+    const response = await fetch('/cancel-attached-workflow-root', {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        rootWorkItemId: input.id,
+        actor: 'orchestrator-ui',
+        reason: input.reason ?? 'Canceled from orchestrator UI',
+      }),
+    })
+    if (!response.ok) {
+      throw new TrackedWorkItemError(`Workflows returned ${response.status}`)
+    }
+    return
+  }
+
   const response = await fetch('/cancel-tracked-work-item', {
     method: 'POST',
     headers: {

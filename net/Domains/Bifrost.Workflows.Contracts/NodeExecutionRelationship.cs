@@ -1,4 +1,4 @@
-namespace Bifrost.TrackedWorkItems.Workflow;
+namespace Bifrost.Workflows.Contracts;
 
 /// <summary>
 /// Well-known relationship linking a node-execution work item to its attached root.

@@ -48,11 +48,6 @@ public static class FailTrackedWorkItemHandler
             WorkItemLifecycleAction.Fail
         );
 
-        var cascades = new OutgoingMessages();
-        await SucceedTrackedWorkItemHandler
-            .MaybeAdvanceParentWorkflow(bus, command.Id, cascades)
-            .ConfigureAwait(false);
-
         await MirrorWorkItemStatusHandler.Handle(
             new MirrorWorkItemStatusHandler.Message
             {
@@ -71,6 +66,16 @@ public static class FailTrackedWorkItemHandler
             bus
         );
 
-        return (new TrackedWorkItemFailed { Actor = actor, Reason = command.Reason }, cascades);
+        return (
+            new TrackedWorkItemFailed { Actor = actor, Reason = command.Reason },
+            [
+                new TrackedWorkItemTerminal
+                {
+                    WorkItemId = command.Id,
+                    Status = next,
+                    Reason = command.Reason,
+                },
+            ]
+        );
     }
 }
