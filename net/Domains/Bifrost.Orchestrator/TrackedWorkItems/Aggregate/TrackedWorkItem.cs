@@ -10,6 +10,7 @@ public class TrackedWorkItem
     public string Status { get; set; } = TrackedWorkItemStatuses.Pending;
     public Guid? HolderId { get; set; }
     public int HoldCount { get; set; }
+    public bool ScheduleDispatch { get; set; } = true;
 
     public void Apply(TrackedWorkItemCreated e)
     {
@@ -17,6 +18,7 @@ public class TrackedWorkItem
         Status = TrackedWorkItemStatuses.Normalize(e.Status);
         HolderId = null;
         HoldCount = 0;
+        ScheduleDispatch = e.ScheduleDispatch;
     }
 
     public void Apply(TrackedWorkItemClaimed e)

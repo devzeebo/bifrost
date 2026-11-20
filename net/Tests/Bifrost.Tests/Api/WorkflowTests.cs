@@ -72,16 +72,35 @@ public sealed class WorkflowApiFactory : WebApplicationFactory<Workflows::Progra
 public sealed class RecordingWorkItemBus : IBifrostBus
 {
     readonly ConcurrentQueue<CreateWorkItemApi.Command> _created = new();
+    readonly ConcurrentDictionary<Guid, CreateWorkItemApi.Command> _ledger = new();
+    readonly ConcurrentQueue<object> _trackedCreates = new();
+    readonly ConcurrentDictionary<Guid, byte> _trackedIds = new();
 
     public IReadOnlyList<CreateWorkItemApi.Command> Created => [.. _created];
 
+    public IReadOnlyList<object> TrackedCreates => [.. _trackedCreates];
+
     public Func<CreateWorkItemApi.Command, Exception?>? OnCreate { get; set; }
+
+    public Func<
+        Bifrost.Orchestrator.Contracts.CreateTrackedWorkItemApi.Command,
+        Exception?
+    >? OnCreateTracked { get; set; }
 
     public void Clear()
     {
         while (_created.TryDequeue(out _)) { }
+        while (_trackedCreates.TryDequeue(out _)) { }
+        _ledger.Clear();
+        _trackedIds.Clear();
         OnCreate = null;
+        OnCreateTracked = null;
     }
+
+    public void SeedLedger(CreateWorkItemApi.Command command) => _ledger[command.Id] = command;
+
+    public GetWorkItemApi.Response? GetWorkItem(Guid id) =>
+        _ledger.TryGetValue(id, out var command) ? ToResponse(command) : null;
 
     public Task Publish<TEvent>(TEvent @event, CancellationToken cancellationToken = default) =>
         Task.CompletedTask;
@@ -91,6 +110,22 @@ public sealed class RecordingWorkItemBus : IBifrostBus
         CancellationToken cancellationToken = default
     )
     {
+        if (request is GetWorkItemApi.Query get)
+        {
+            if (!_ledger.TryGetValue(get.Id, out var existing))
+            {
+                throw new BusException(
+                    new BusError
+                    {
+                        Code = BusErrorCodes.NotFound,
+                        Message = $"Work item {get.Id} not found.",
+                    }
+                );
+            }
+
+            return Task.FromResult((TResponse)(object)ToResponse(existing));
+        }
+
         if (request is CreateWorkItemApi.Command create)
         {
             var fault = OnCreate?.Invoke(create);
@@ -100,16 +135,39 @@ public sealed class RecordingWorkItemBus : IBifrostBus
             }
 
             _created.Enqueue(create);
+            _ledger[create.Id] = create;
             return Task.FromResult((TResponse)(object)default(Unit)!);
         }
 
-        if (request is Bifrost.Orchestrator.Contracts.CreateTrackedWorkItemApi.Command)
+        if (
+            request
+            is Bifrost.Orchestrator.Contracts.CreateTrackedWorkItemApi.Command createTracked
+        )
         {
+            var fault = OnCreateTracked?.Invoke(createTracked);
+            if (fault is not null)
+            {
+                throw fault;
+            }
+
+            _trackedCreates.Enqueue(createTracked);
+            _trackedIds[createTracked.Id] = 0;
             return Task.FromResult((TResponse)(object)default(Unit)!);
         }
 
         if (request is Bifrost.Orchestrator.Contracts.GetTrackedWorkItemApi.Query getTracked)
         {
+            if (!_trackedIds.ContainsKey(getTracked.Id))
+            {
+                throw new BusException(
+                    new BusError
+                    {
+                        Code = BusErrorCodes.NotFound,
+                        Message = $"Tracked work item {getTracked.Id} not found.",
+                    }
+                );
+            }
+
             object response = new Bifrost.Orchestrator.Contracts.GetTrackedWorkItemApi.Response
             {
                 Id = getTracked.Id,
@@ -121,6 +179,17 @@ public sealed class RecordingWorkItemBus : IBifrostBus
 
         throw new NotSupportedException($"Unexpected bus request {typeof(TRequest).Name}.");
     }
+
+    static GetWorkItemApi.Response ToResponse(CreateWorkItemApi.Command command) =>
+        new()
+        {
+            Id = command.Id,
+            Data = command.Data,
+            Status = command.Status,
+            Metadata = command.Metadata ?? new JsonObject(),
+            Relationships = [],
+            IsDeleted = false,
+        };
 }
 
 [CollectionDefinition("workflows-api")]
@@ -1342,6 +1411,128 @@ public class WorkflowTests
             .TryReadAttachedWorkflowId(created.Metadata, out var attached)
             .ShouldBeTrue();
         attached.ShouldBe(workflowId);
+        _factory.WorkItemBus.TrackedCreates.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task create_attached_work_item_retry_skips_ledger_and_retracks()
+    {
+        var client = _factory.CreateClient();
+        _factory.WorkItemBus.Clear();
+        var workflowId = Guid.NewGuid();
+        var workItemId = Guid.NewGuid();
+        var entryOut = Guid.NewGuid();
+        var nodeIn = Guid.NewGuid();
+
+        (
+            await Post(
+                client,
+                "/create-workflow",
+                new
+                {
+                    id = workflowId,
+                    name = "attach-retry",
+                    nodes = new object[]
+                    {
+                        EntryNode(outputId: entryOut),
+                        Node(
+                            Guid.NewGuid(),
+                            "script",
+                            inputs: [Port(nodeIn, "in", new { type = "object" })],
+                            outputs: []
+                        ),
+                    },
+                    connections = new[]
+                    {
+                        new
+                        {
+                            id = Guid.NewGuid(),
+                            outputPortId = entryOut,
+                            inputPortId = nodeIn,
+                        },
+                    },
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        _factory.WorkItemBus.SeedLedger(
+            new CreateWorkItemApi.Command
+            {
+                Id = workItemId,
+                Data = new JsonObject { ["feature"] = "x" },
+                Status = "pending",
+                Metadata = WorkItemInputDefaults.AttachmentMetadata(workflowId),
+                Actor = "tester",
+                Reason = "prior create",
+            }
+        );
+
+        (
+            await Post(
+                client,
+                "/create-attached-work-item",
+                new
+                {
+                    workItemId,
+                    workflowId,
+                    data = new { feature = "x" },
+                    status = "pending",
+                    actor = "tester",
+                    reason = "retry attach",
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        _factory.WorkItemBus.Created.ShouldBeEmpty();
+        _factory.WorkItemBus.TrackedCreates.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task start_attached_workflow_tracks_and_is_retry_safe()
+    {
+        var client = _factory.CreateClient();
+        _factory.WorkItemBus.Clear();
+        var workItemId = Guid.NewGuid();
+        var workflowId = Guid.NewGuid();
+        _factory.WorkItemBus.SeedLedger(
+            new CreateWorkItemApi.Command
+            {
+                Id = workItemId,
+                Data = new JsonObject(),
+                Status = "pending",
+                Metadata = WorkItemInputDefaults.AttachmentMetadata(workflowId),
+                Actor = "tester",
+                Reason = "seed",
+            }
+        );
+
+        (
+            await Post(
+                client,
+                "/start-attached-workflow",
+                new
+                {
+                    workItemId,
+                    actor = "tester",
+                    reason = "start",
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        _factory.WorkItemBus.TrackedCreates.Count.ShouldBe(1);
+
+        (
+            await Post(
+                client,
+                "/start-attached-workflow",
+                new
+                {
+                    workItemId,
+                    actor = "tester",
+                    reason = "retry start",
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        _factory.WorkItemBus.TrackedCreates.Count.ShouldBe(2);
     }
 
     [Fact]

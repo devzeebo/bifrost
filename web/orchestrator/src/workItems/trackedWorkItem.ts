@@ -11,7 +11,7 @@ export const fetchTrackedWorkItem = async (id: string): Promise<TrackedWorkItem>
     body: '{}',
   })
   if (!response.ok) {
-    throw new TrackedWorkItemError(`Orchestrator returned ${response.status}`)
+    throw new TrackedWorkItemError(`Orchestrator returned ${response.status}`, response.status)
   }
   return parseTrackedWorkItem(await response.json())
 }

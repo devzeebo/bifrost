@@ -793,6 +793,25 @@ public class WorkflowWorkloadTests
         var leftExecution = await WaitForNodeExecution(rootId, left.Id);
         var rightExecution = await WaitForNodeExecution(rootId, right.Id);
 
+        await EnsureClaimed(client, rightExecution.Ledger.Id, workerId);
+        var rightHeld = await Get(client, rightExecution.Ledger.Id);
+        var rightHolder = rightHeld.HolderId ?? workerId;
+        var rightRunId = await LatestRunId(client, rightExecution.Ledger.Id);
+        if (rightHeld.Status == TrackedWorkItemStatuses.Claimed)
+        {
+            (
+                await Post(
+                    client,
+                    "/start-tracked-work-item",
+                    ReportBody(rightExecution.Ledger.Id, rightRunId, rightHolder, "start")
+                )
+            ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        }
+
+        (await Get(client, rightExecution.Ledger.Id)).Status.ShouldBe(
+            TrackedWorkItemStatuses.Running
+        );
+
         await ClaimStartFail(client, leftExecution.Ledger.Id, workerId, "left blew up");
         await WaitFor(
             async () => (await Get(client, rootId)).Status == TrackedWorkItemStatuses.Failed,
@@ -805,6 +824,73 @@ public class WorkflowWorkloadTests
             "sibling canceled"
         );
         _factory.WorkItemLedger.HistoryOf(rootId).Last().Reason.ShouldContain("left");
+    }
+
+    [Fact]
+    public async Task cancel_tracked_executing_root_cancels_children_then_root()
+    {
+        var client = _factory.CreateClient();
+        var workflowId = Guid.NewGuid();
+        var input = WorkItemInputDefaults.CreateNode();
+        var left = Runnable("left", x: 200);
+        var right = Runnable("right", x: 200, y: 120);
+        _factory.WorkflowCatalog.Seed(
+            new GetWorkflowApi.Response
+            {
+                Id = workflowId,
+                Name = "cancel-fan",
+                Version = 1,
+                Nodes = [input, left, right],
+                Connections =
+                [
+                    new WorkflowConnection
+                    {
+                        Id = Guid.NewGuid(),
+                        OutputPortId = input.Outputs[0].Id,
+                        InputPortId = left.Inputs[0].Id,
+                    },
+                    new WorkflowConnection
+                    {
+                        Id = Guid.NewGuid(),
+                        OutputPortId = input.Outputs[0].Id,
+                        InputPortId = right.Inputs[0].Id,
+                    },
+                ],
+            }
+        );
+
+        var rootId = Guid.NewGuid();
+        _factory.WorkItemLedger.Seed(
+            rootId,
+            data: new JsonObject { ["title"] = "cancel-fan" },
+            metadata: WorkItemInputDefaults.AttachmentMetadata(workflowId)
+        );
+
+        await StartAttached(rootId);
+        var leftExecution = await WaitForNodeExecution(rootId, left.Id);
+        var rightExecution = await WaitForNodeExecution(rootId, right.Id);
+        (await Get(client, rootId)).Status.ShouldBe(TrackedWorkItemStatuses.Executing);
+
+        (
+            await Post(
+                client,
+                "/cancel-tracked-work-item",
+                Body(rootId, "user canceled root")
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        await WaitFor(
+            async () => (await Get(client, rootId)).Status == TrackedWorkItemStatuses.Canceled,
+            "root canceled"
+        );
+        await WaitFor(
+            async () =>
+                (await Get(client, leftExecution.Ledger.Id)).Status
+                    == TrackedWorkItemStatuses.Canceled
+                && (await Get(client, rightExecution.Ledger.Id)).Status
+                    == TrackedWorkItemStatuses.Canceled,
+            "children canceled"
+        );
     }
 
     [Fact]
@@ -1004,7 +1090,7 @@ public class WorkflowWorkloadTests
             return null;
         }
 
-        // Missing items throw CommandValidationException → 400 with a not-found detail.
+        // Legacy: some adapters still mapped missing items to Validation → 400.
         if (response.StatusCode == HttpStatusCode.BadRequest)
         {
             var body = await response.Content.ReadAsStringAsync();

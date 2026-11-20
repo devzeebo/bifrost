@@ -29,6 +29,52 @@ public class WorkItemDispatchOnlineTests
     }
 
     [Fact]
+    public async Task create_with_schedule_dispatch_false_stays_pending_unclaimed()
+    {
+        var client = _factory.CreateClient();
+        await BringWorkerOnline();
+        var disabledId = Guid.NewGuid();
+        var controlId = Guid.NewGuid();
+        _factory.WorkItemLedger.Seed(disabledId);
+        _factory.WorkItemLedger.Seed(controlId);
+        _factory.ExecuteClaimedWork.Clear();
+
+        (
+            await Post(
+                client,
+                "/create-tracked-work-item",
+                new
+                {
+                    id = disabledId,
+                    actor = WorkItemLifecycleActors.Orchestrator,
+                    reason = "attached root",
+                    scheduleDispatch = false,
+                }
+            )
+        ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (await Post(client, "/create-tracked-work-item", Body(controlId, "control"))).StatusCode.ShouldBe(
+            HttpStatusCode.NoContent
+        );
+
+        await WaitFor(
+            async () => (await Get(client, controlId)).Status == TrackedWorkItemStatuses.Claimed,
+            "control item claimed by dispatch"
+        );
+
+        await WaitFor(
+            async () =>
+            {
+                var item = await Get(client, disabledId);
+                return item.Status == TrackedWorkItemStatuses.Pending
+                    && item.HolderId is null
+                    && !_factory.ExecuteClaimedWork.Received.Any(r => r.WorkItemId == disabledId);
+            },
+            "disabled item still pending unclaimed"
+        );
+    }
+
+    [Fact]
     public async Task create_with_online_worker_claims_holder_births_run_and_handoffs()
     {
         var client = _factory.CreateClient();

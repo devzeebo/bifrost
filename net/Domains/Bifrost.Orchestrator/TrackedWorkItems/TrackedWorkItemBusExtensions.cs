@@ -29,6 +29,7 @@ public static class TrackedWorkItemBusExtensions
             services.Command<SucceedExecutingTrackedWorkItemApi.Command>();
             services.Command<FailExecutingTrackedWorkItemApi.Command>();
             services.Command<CancelTrackedWorkItemApi.Command>();
+            services.Command<ApplyCancelTrackedWorkItemApi.Command>();
             return services;
         }
 
@@ -51,6 +52,16 @@ public static class TrackedWorkItemBusExtensions
                             new BusError
                             {
                                 Code = BusErrorCodes.Validation,
+                                Message = ex.Message,
+                            }
+                        );
+                    }
+                    catch (NotFoundException ex)
+                    {
+                        throw new BusException(
+                            new BusError
+                            {
+                                Code = BusErrorCodes.NotFound,
                                 Message = ex.Message,
                             }
                         );
@@ -78,6 +89,16 @@ public static class TrackedWorkItemBusExtensions
                             new BusError
                             {
                                 Code = BusErrorCodes.Validation,
+                                Message = ex.Message,
+                            }
+                        );
+                    }
+                    catch (NotFoundException ex)
+                    {
+                        throw new BusException(
+                            new BusError
+                            {
+                                Code = BusErrorCodes.NotFound,
                                 Message = ex.Message,
                             }
                         );

@@ -27,7 +27,9 @@ public static class ProcessWorkItemDispatchHandler
 
         var pending = await session
             .Query<TrackedWorkItemView.Model>()
-            .Where(i => i.Status == TrackedWorkItemStatuses.Pending)
+            .Where(i =>
+                i.Status == TrackedWorkItemStatuses.Pending && i.ScheduleDispatch != false
+            )
             .ToListAsync();
         if (pending.Count == 0)
         {

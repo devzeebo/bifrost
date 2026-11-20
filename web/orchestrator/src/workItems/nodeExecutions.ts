@@ -1,4 +1,5 @@
 import { fetchLedgerWorkItem, type LedgerWorkItem } from './ledgerWorkItem'
+import { TrackedWorkItemError } from './parse'
 import { fetchTrackedWorkItem } from './trackedWorkItem'
 import type { TrackedWorkItem, TrackedWorkItemStatus } from './types'
 
@@ -14,6 +15,7 @@ export type NodeExecutionFace =
   | 'pending'
   | 'claimed'
   | 'running'
+  | 'executing'
   | 'needs-attention'
   | 'succeeded'
   | 'failed'
@@ -174,39 +176,53 @@ export const fetchNodeExecutionsForRoot = async (
     .map((item) => item.id)
     .filter((id): id is string => typeof id === 'string')
 
-  const settled = await Promise.all(
-    ids.map(async (id) => {
+  const settled: PromiseSettledResult<NodeExecutionRow | null>[] = await Promise.allSettled(
+    ids.map(async (id): Promise<NodeExecutionRow | null> => {
+      let ledger: LedgerWorkItem
       try {
-        const [ledger, tracked]: [LedgerWorkItem, TrackedWorkItem] = await Promise.all([
-          fetchLedgerWorkItem(id),
-          fetchTrackedWorkItem(id),
-        ])
-        const nodeId = ledger.metadata[WORK_ITEM_METADATA_NODE_ID_KEY]
-        const nodeName = ledger.metadata[WORK_ITEM_METADATA_NODE_NAME_KEY]
-        const failureReason =
-          tracked.status === 'failed' || tracked.status === 'canceled'
-            ? await fetchLatestStatusReason(id)
-            : null
-        return {
-          workItemId: id,
-          nodeId: typeof nodeId === 'string' ? nodeId : null,
-          nodeName: typeof nodeName === 'string' ? nodeName : null,
-          face: tracked.status,
-          status: tracked.status,
-          issuedInputs: ledger.metadata[WORK_ITEM_METADATA_ISSUED_INPUTS_KEY] ?? null,
-          producedOutputs: ledger.metadata[WORK_ITEM_METADATA_PRODUCED_OUTPUTS_KEY] ?? null,
-          failureReason,
-          holderId: tracked.holderId,
-          waitingOn: [],
-        } satisfies NodeExecutionRow
+        ledger = await fetchLedgerWorkItem(id)
       } catch {
         return null
       }
+
+      // Incomplete draft: ledger exists before tracking is created.
+      let tracked: TrackedWorkItem | null = null
+      try {
+        tracked = await fetchTrackedWorkItem(id)
+      } catch (error) {
+        if (error instanceof TrackedWorkItemError && error.status === 404) {
+          tracked = null
+        } else {
+          return null
+        }
+      }
+
+      const status = tracked?.status ?? 'pending'
+      const nodeId = ledger.metadata[WORK_ITEM_METADATA_NODE_ID_KEY]
+      const nodeName = ledger.metadata[WORK_ITEM_METADATA_NODE_NAME_KEY]
+      const failureReason =
+        status === 'failed' || status === 'canceled'
+          ? await fetchLatestStatusReason(id)
+          : null
+      return {
+        workItemId: id,
+        nodeId: typeof nodeId === 'string' ? nodeId : null,
+        nodeName: typeof nodeName === 'string' ? nodeName : null,
+        face: status,
+        status,
+        issuedInputs: ledger.metadata[WORK_ITEM_METADATA_ISSUED_INPUTS_KEY] ?? null,
+        producedOutputs: ledger.metadata[WORK_ITEM_METADATA_PRODUCED_OUTPUTS_KEY] ?? null,
+        failureReason,
+        holderId: tracked?.holderId ?? null,
+        waitingOn: [],
+      } satisfies NodeExecutionRow
     }),
   )
 
-  const issued = settled.filter((row): row is NodeExecutionRow => row !== null)
-  if (ids.length > 0 && issued.length === 0) {
+  const issued = settled
+    .map((result) => (result.status === 'fulfilled' ? result.value : null))
+    .filter((row): row is NodeExecutionRow => row !== null)
+  if (issued.length < ids.length) {
     throw new Error('Failed to load node executions')
   }
 

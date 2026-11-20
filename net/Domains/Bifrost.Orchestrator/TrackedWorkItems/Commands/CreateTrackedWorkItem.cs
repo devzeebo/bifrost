@@ -69,6 +69,7 @@ public static class CreateTrackedWorkItemHandler
                 Status = status,
                 Actor = actor,
                 Reason = command.Reason,
+                ScheduleDispatch = command.ScheduleDispatch,
             }
         );
 

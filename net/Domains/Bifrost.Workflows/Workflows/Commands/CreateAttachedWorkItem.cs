@@ -37,6 +37,69 @@ public static class CreateAttachedWorkItemHandler
         IMessageBus local
     )
     {
+        await EnsureLedger(command, bus).ConfigureAwait(false);
+
+        try
+        {
+            await bus.Request<CreateTrackedWorkItemApi.Command, Unit>(
+                new CreateTrackedWorkItemApi.Command
+                {
+                    Id = command.WorkItemId,
+                    Actor = WorkItemLifecycleActors.Orchestrator,
+                    Reason = "track attached workflow root",
+                    ScheduleDispatch = false,
+                }
+            );
+        }
+        catch (BusException ex) when (ex.Error.Code == BusErrorCodes.Validation)
+        {
+            throw new CommandValidationException(ex.Error.Message);
+        }
+
+        await local
+            .PublishAsync(new AdvanceWorkflowExecution { RootWorkItemId = command.WorkItemId })
+            .ConfigureAwait(false);
+    }
+
+    static async Task EnsureLedger(CreateAttachedWorkItemApi.Command command, IBifrostBus bus)
+    {
+        GetWorkItemApi.Response? existing = null;
+        try
+        {
+            existing = await bus.Request<GetWorkItemApi.Query, GetWorkItemApi.Response>(
+                new GetWorkItemApi.Query { Id = command.WorkItemId }
+            );
+        }
+        catch (BusException ex) when (ex.Error.Code == BusErrorCodes.NotFound)
+        {
+            // create below
+        }
+
+        if (existing is not null)
+        {
+            if (!WorkItemInputDefaults.IsAttachedWorkflowRoot(existing.Metadata))
+            {
+                throw new CommandValidationException(
+                    $"Work item {command.WorkItemId} exists but is not an attached workflow root."
+                );
+            }
+
+            if (
+                !WorkItemInputDefaults.TryReadAttachedWorkflowId(
+                    existing.Metadata,
+                    out var workflowId
+                )
+                || workflowId != command.WorkflowId
+            )
+            {
+                throw new CommandValidationException(
+                    $"Work item {command.WorkItemId} is attached to a different workflow."
+                );
+            }
+
+            return;
+        }
+
         try
         {
             await bus.Request<CreateWorkItemApi.Command, Unit>(
@@ -59,26 +122,5 @@ public static class CreateAttachedWorkItemHandler
         {
             throw new NotFoundException(ex.Error.Message);
         }
-
-        try
-        {
-            await bus.Request<CreateTrackedWorkItemApi.Command, Unit>(
-                new CreateTrackedWorkItemApi.Command
-                {
-                    Id = command.WorkItemId,
-                    Actor = WorkItemLifecycleActors.Orchestrator,
-                    Reason = "track attached workflow root",
-                    ScheduleDispatch = false,
-                }
-            );
-        }
-        catch (BusException ex) when (ex.Error.Code == BusErrorCodes.Validation)
-        {
-            throw new CommandValidationException(ex.Error.Message);
-        }
-
-        await local
-            .PublishAsync(new AdvanceWorkflowExecution { RootWorkItemId = command.WorkItemId })
-            .ConfigureAwait(false);
     }
 }
