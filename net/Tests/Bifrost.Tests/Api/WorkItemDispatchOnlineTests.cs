@@ -33,8 +33,10 @@ public class WorkItemDispatchOnlineTests
     {
         var client = _factory.CreateClient();
         await BringWorkerOnline();
-        var id = Guid.NewGuid();
-        _factory.WorkItemLedger.Seed(id);
+        var disabledId = Guid.NewGuid();
+        var controlId = Guid.NewGuid();
+        _factory.WorkItemLedger.Seed(disabledId);
+        _factory.WorkItemLedger.Seed(controlId);
         _factory.ExecuteClaimedWork.Clear();
 
         (
@@ -43,7 +45,7 @@ public class WorkItemDispatchOnlineTests
                 "/create-tracked-work-item",
                 new
                 {
-                    id,
+                    id = disabledId,
                     actor = WorkItemLifecycleActors.Orchestrator,
                     reason = "attached root",
                     scheduleDispatch = false,
@@ -51,11 +53,25 @@ public class WorkItemDispatchOnlineTests
             )
         ).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
-        await Task.Delay(500);
-        var item = await Get(client, id);
-        item.Status.ShouldBe(TrackedWorkItemStatuses.Pending);
-        item.HolderId.ShouldBeNull();
-        _factory.ExecuteClaimedWork.Received.Any(r => r.WorkItemId == id).ShouldBeFalse();
+        (await Post(client, "/create-tracked-work-item", Body(controlId, "control"))).StatusCode.ShouldBe(
+            HttpStatusCode.NoContent
+        );
+
+        await WaitFor(
+            async () => (await Get(client, controlId)).Status == TrackedWorkItemStatuses.Claimed,
+            "control item claimed by dispatch"
+        );
+
+        await WaitFor(
+            async () =>
+            {
+                var item = await Get(client, disabledId);
+                return item.Status == TrackedWorkItemStatuses.Pending
+                    && item.HolderId is null
+                    && !_factory.ExecuteClaimedWork.Received.Any(r => r.WorkItemId == disabledId);
+            },
+            "disabled item still pending unclaimed"
+        );
     }
 
     [Fact]

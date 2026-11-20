@@ -177,32 +177,40 @@ export const fetchNodeExecutionsForRoot = async (
 
   const settled: PromiseSettledResult<NodeExecutionRow | null>[] = await Promise.allSettled(
     ids.map(async (id): Promise<NodeExecutionRow | null> => {
+      let ledger: LedgerWorkItem
       try {
-        const [ledger, tracked]: [LedgerWorkItem, TrackedWorkItem] = await Promise.all([
-          fetchLedgerWorkItem(id),
-          fetchTrackedWorkItem(id),
-        ])
-        const nodeId = ledger.metadata[WORK_ITEM_METADATA_NODE_ID_KEY]
-        const nodeName = ledger.metadata[WORK_ITEM_METADATA_NODE_NAME_KEY]
-        const failureReason =
-          tracked.status === 'failed' || tracked.status === 'canceled'
-            ? await fetchLatestStatusReason(id)
-            : null
-        return {
-          workItemId: id,
-          nodeId: typeof nodeId === 'string' ? nodeId : null,
-          nodeName: typeof nodeName === 'string' ? nodeName : null,
-          face: tracked.status,
-          status: tracked.status,
-          issuedInputs: ledger.metadata[WORK_ITEM_METADATA_ISSUED_INPUTS_KEY] ?? null,
-          producedOutputs: ledger.metadata[WORK_ITEM_METADATA_PRODUCED_OUTPUTS_KEY] ?? null,
-          failureReason,
-          holderId: tracked.holderId,
-          waitingOn: [],
-        } satisfies NodeExecutionRow
+        ledger = await fetchLedgerWorkItem(id)
       } catch {
         return null
       }
+
+      // Incomplete draft: ledger exists before tracking is created.
+      let tracked: TrackedWorkItem | null = null
+      try {
+        tracked = await fetchTrackedWorkItem(id)
+      } catch {
+        tracked = null
+      }
+
+      const status = tracked?.status ?? 'pending'
+      const nodeId = ledger.metadata[WORK_ITEM_METADATA_NODE_ID_KEY]
+      const nodeName = ledger.metadata[WORK_ITEM_METADATA_NODE_NAME_KEY]
+      const failureReason =
+        status === 'failed' || status === 'canceled'
+          ? await fetchLatestStatusReason(id)
+          : null
+      return {
+        workItemId: id,
+        nodeId: typeof nodeId === 'string' ? nodeId : null,
+        nodeName: typeof nodeName === 'string' ? nodeName : null,
+        face: status,
+        status,
+        issuedInputs: ledger.metadata[WORK_ITEM_METADATA_ISSUED_INPUTS_KEY] ?? null,
+        producedOutputs: ledger.metadata[WORK_ITEM_METADATA_PRODUCED_OUTPUTS_KEY] ?? null,
+        failureReason,
+        holderId: tracked?.holderId ?? null,
+        waitingOn: [],
+      } satisfies NodeExecutionRow
     }),
   )
 

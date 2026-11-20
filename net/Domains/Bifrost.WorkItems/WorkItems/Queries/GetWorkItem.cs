@@ -16,7 +16,7 @@ public static class GetWorkItemHandler
     {
         var item =
             await session.LoadAsync<WorkItemView.Model>(query.Id)
-            ?? throw new CommandValidationException($"Work item {query.Id} not found.");
+            ?? throw new NotFoundException($"Work item {query.Id} not found.");
 
         return new GetWorkItemApi.Response
         {

@@ -1090,7 +1090,7 @@ public class WorkflowWorkloadTests
             return null;
         }
 
-        // Missing items throw CommandValidationException → 400 with a not-found detail.
+        // Legacy: some adapters still mapped missing items to Validation → 400.
         if (response.StatusCode == HttpStatusCode.BadRequest)
         {
             var body = await response.Content.ReadAsStringAsync();

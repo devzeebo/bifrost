@@ -12,7 +12,8 @@ public class TrackedWorkItemView : SingleStreamProjection<TrackedWorkItemView.Mo
         public required string Status { get; init; }
         public Guid? HolderId { get; init; }
         public int HoldCount { get; init; }
-        public bool ScheduleDispatch { get; init; } = true;
+        // Null = pre-upgrade doc (dispatch); false = attached root (skip).
+        public bool? ScheduleDispatch { get; init; }
     }
 
     public Model Create(TrackedWorkItemCreated e) =>

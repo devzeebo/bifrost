@@ -74,6 +74,7 @@ public sealed class RecordingWorkItemBus : IBifrostBus
     readonly ConcurrentQueue<CreateWorkItemApi.Command> _created = new();
     readonly ConcurrentDictionary<Guid, CreateWorkItemApi.Command> _ledger = new();
     readonly ConcurrentQueue<object> _trackedCreates = new();
+    readonly ConcurrentDictionary<Guid, byte> _trackedIds = new();
 
     public IReadOnlyList<CreateWorkItemApi.Command> Created => [.. _created];
 
@@ -91,6 +92,7 @@ public sealed class RecordingWorkItemBus : IBifrostBus
         while (_created.TryDequeue(out _)) { }
         while (_trackedCreates.TryDequeue(out _)) { }
         _ledger.Clear();
+        _trackedIds.Clear();
         OnCreate = null;
         OnCreateTracked = null;
     }
@@ -149,11 +151,23 @@ public sealed class RecordingWorkItemBus : IBifrostBus
             }
 
             _trackedCreates.Enqueue(createTracked);
+            _trackedIds[createTracked.Id] = 0;
             return Task.FromResult((TResponse)(object)default(Unit)!);
         }
 
         if (request is Bifrost.Orchestrator.Contracts.GetTrackedWorkItemApi.Query getTracked)
         {
+            if (!_trackedIds.ContainsKey(getTracked.Id))
+            {
+                throw new BusException(
+                    new BusError
+                    {
+                        Code = BusErrorCodes.NotFound,
+                        Message = $"Tracked work item {getTracked.Id} not found.",
+                    }
+                );
+            }
+
             object response = new Bifrost.Orchestrator.Contracts.GetTrackedWorkItemApi.Response
             {
                 Id = getTracked.Id,

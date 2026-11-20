@@ -56,6 +56,16 @@ public static class TrackedWorkItemBusExtensions
                             }
                         );
                     }
+                    catch (NotFoundException ex)
+                    {
+                        throw new BusException(
+                            new BusError
+                            {
+                                Code = BusErrorCodes.NotFound,
+                                Message = ex.Message,
+                            }
+                        );
+                    }
                 }
             );
         }
@@ -79,6 +89,16 @@ public static class TrackedWorkItemBusExtensions
                             new BusError
                             {
                                 Code = BusErrorCodes.Validation,
+                                Message = ex.Message,
+                            }
+                        );
+                    }
+                    catch (NotFoundException ex)
+                    {
+                        throw new BusException(
+                            new BusError
+                            {
+                                Code = BusErrorCodes.NotFound,
                                 Message = ex.Message,
                             }
                         );
