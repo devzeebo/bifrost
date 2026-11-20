@@ -1,9 +1,12 @@
 import type { TrackedWorkItem, TrackedWorkItemStatus, WorkItemRun, RunOutcome } from './types'
 
 export class TrackedWorkItemError extends Error {
-  constructor(message: string) {
+  readonly status: number | undefined
+
+  constructor(message: string, status?: number) {
     super(message)
     this.name = 'TrackedWorkItemError'
+    this.status = status
   }
 }
 

@@ -1,4 +1,5 @@
 import { fetchLedgerWorkItem, type LedgerWorkItem } from './ledgerWorkItem'
+import { TrackedWorkItemError } from './parse'
 import { fetchTrackedWorkItem } from './trackedWorkItem'
 import type { TrackedWorkItem, TrackedWorkItemStatus } from './types'
 
@@ -188,8 +189,12 @@ export const fetchNodeExecutionsForRoot = async (
       let tracked: TrackedWorkItem | null = null
       try {
         tracked = await fetchTrackedWorkItem(id)
-      } catch {
-        tracked = null
+      } catch (error) {
+        if (error instanceof TrackedWorkItemError && error.status === 404) {
+          tracked = null
+        } else {
+          return null
+        }
       }
 
       const status = tracked?.status ?? 'pending'

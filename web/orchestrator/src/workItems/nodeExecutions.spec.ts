@@ -47,6 +47,18 @@ describe('fetchNodeExecutionsForRoot', () => {
       the_error_is_failed_to_load,
     },
   })
+
+  test('fails when tracking returns a non-missing error', {
+    given: {
+      listed_child_with_tracking_server_error,
+    },
+    when: {
+      fetching_and_catching,
+    },
+    then: {
+      the_error_is_failed_to_load,
+    },
+  })
 })
 
 type Context = {
@@ -183,6 +195,29 @@ function listed_child_with_missing_ledger(this: Context) {
     }
     if (url.includes(`/get-work-item/${childId}`)) {
       return new Response(null, { status: 404 })
+    }
+    throw new Error(`unexpected fetch ${url}`)
+  })
+}
+
+function listed_child_with_tracking_server_error(this: Context) {
+  this.fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url.includes('/list-work-items')) {
+      return jsonOk({ items: [{ id: childId }] })
+    }
+    if (url.includes(`/get-work-item/${childId}`)) {
+      return jsonOk({
+        id: childId,
+        status: 'pending',
+        metadata: {
+          nodeId,
+          nodeName: 'draft-node',
+        },
+      })
+    }
+    if (url.includes(`/get-tracked-work-item/${childId}`)) {
+      return new Response(null, { status: 500 })
     }
     throw new Error(`unexpected fetch ${url}`)
   })
